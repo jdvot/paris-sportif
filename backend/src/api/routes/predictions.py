@@ -7,7 +7,7 @@ from typing import Literal
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
 
-from src.data.sources.football_data import football_data_client, MatchData, COMPETITIONS
+from src.data.sources.football_data import get_football_data_client, MatchData, COMPETITIONS
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 
 router = APIRouter()
@@ -329,7 +329,8 @@ async def get_daily_picks(
         target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
 
         # Fetch matches for that date from real API
-        api_matches = await football_data_client.get_matches(
+        client = get_football_data_client()
+        api_matches = await client.get_matches(
             date_from=target_date,
             date_to=target_date,
             status="SCHEDULED",
@@ -468,7 +469,8 @@ async def get_prediction(
     """Get detailed prediction for a specific match."""
     try:
         # Fetch real match from API
-        api_match = await football_data_client.get_match(match_id)
+        client = get_football_data_client()
+        api_match = await client.get_match(match_id)
         return _generate_prediction_from_api_match(api_match, include_model_details=include_model_details)
 
     except RateLimitError:
@@ -488,7 +490,8 @@ async def refresh_prediction(match_id: int) -> dict[str, str]:
     """Force refresh a prediction (admin only)."""
     try:
         # Verify match exists
-        await football_data_client.get_match(match_id)
+        client = get_football_data_client()
+        await client.get_match(match_id)
         return {"status": "queued", "match_id": str(match_id)}
 
     except RateLimitError:

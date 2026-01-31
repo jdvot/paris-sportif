@@ -7,7 +7,7 @@ import logging
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
 
-from src.data.sources.football_data import football_data_client, MatchData, COMPETITIONS
+from src.data.sources.football_data import get_football_data_client, MatchData, COMPETITIONS
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 
 router = APIRouter()
@@ -230,7 +230,8 @@ async def get_matches(
             date_to = date.today() + timedelta(days=14)
 
         # Fetch matches from API
-        api_matches = await football_data_client.get_matches(
+        client = get_football_data_client()
+        api_matches = await client.get_matches(
             competition=competition,
             date_from=date_from,
             date_to=date_to,
@@ -295,7 +296,8 @@ async def get_upcoming_matches(
 ) -> MatchListResponse:
     """Get upcoming matches for the next N days."""
     try:
-        api_matches = await football_data_client.get_upcoming_matches(
+        client = get_football_data_client()
+        api_matches = await client.get_upcoming_matches(
             days=days,
             competition=competition,
         )
@@ -325,7 +327,8 @@ async def get_upcoming_matches(
 async def get_match(match_id: int) -> MatchResponse:
     """Get details for a specific match."""
     try:
-        api_match = await football_data_client.get_match(match_id)
+        client = get_football_data_client()
+        api_match = await client.get_match(match_id)
         return _convert_api_match(api_match)
 
     except (RateLimitError, FootballDataAPIError, Exception) as e:
@@ -349,7 +352,8 @@ async def get_head_to_head(
 ) -> HeadToHeadResponse:
     """Get head-to-head history for teams in a match."""
     try:
-        api_matches = await football_data_client.get_head_to_head(match_id, limit=limit)
+        client = get_football_data_client()
+        api_matches = await client.get_head_to_head(match_id, limit=limit)
 
         matches = []
         home_wins = 0
@@ -418,11 +422,12 @@ async def get_team_form(
     """Get recent form for a team."""
     try:
         # Get team info
-        team_data = await football_data_client.get_team(team_id)
+        client = get_football_data_client()
+        team_data = await client.get_team(team_id)
         team_name = team_data.get("name", "Unknown")
 
         # Get recent finished matches
-        api_matches = await football_data_client.get_team_matches(
+        api_matches = await client.get_team_matches(
             team_id=team_id,
             status="FINISHED",
             limit=matches_count,

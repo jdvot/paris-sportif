@@ -252,5 +252,16 @@ class FootballDataClient:
         )
 
 
-# Singleton instance
-football_data_client = FootballDataClient()
+def get_football_data_client() -> FootballDataClient:
+    """
+    Get FootballDataClient instance with current settings.
+
+    Creates a fresh instance each call to ensure the API key is always
+    loaded from current environment variables. This solves the issue where
+    a module-level singleton would be initialized before environment
+    variables are properly loaded during application startup.
+
+    Returns:
+        FootballDataClient: New client instance with current API key
+    """
+    return FootballDataClient()

@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.api.routes import matches, predictions, health
+from src.api.routes import matches, predictions, health, debug
 from src.core.config import settings
 from src.core.exceptions import ParisportifError
 
@@ -74,6 +74,11 @@ app.include_router(
     predictions.router,
     prefix=f"{settings.api_v1_prefix}/predictions",
     tags=["Predictions"],
+)
+app.include_router(
+    debug.router,
+    prefix=f"{settings.api_v1_prefix}/debug",
+    tags=["Debug"],
 )
 
 
