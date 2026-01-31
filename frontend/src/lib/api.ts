@@ -28,6 +28,43 @@ if (typeof window !== "undefined") {
   console.log("[API Config] URL:", API_BASE_URL, "| Mock mode:", USE_MOCK_DATA);
 }
 
+// API response types (snake_case from backend)
+interface ApiMatch {
+  id: number;
+  external_id?: string;
+  home_team: { id: number; name: string; short_name?: string } | string;
+  away_team: { id: number; name: string; short_name?: string } | string;
+  competition: string;
+  competition_code: string;
+  match_date: string;
+  status: string;
+  home_score?: number | null;
+  away_score?: number | null;
+  matchday?: number;
+}
+
+/**
+ * Transform API match response to frontend Match type
+ */
+function transformMatch(apiMatch: ApiMatch): Match {
+  return {
+    id: apiMatch.id,
+    homeTeam: typeof apiMatch.home_team === 'string'
+      ? apiMatch.home_team
+      : apiMatch.home_team.name,
+    awayTeam: typeof apiMatch.away_team === 'string'
+      ? apiMatch.away_team
+      : apiMatch.away_team.name,
+    competition: apiMatch.competition,
+    competitionCode: apiMatch.competition_code,
+    matchDate: apiMatch.match_date,
+    status: apiMatch.status as Match['status'],
+    homeScore: apiMatch.home_score ?? undefined,
+    awayScore: apiMatch.away_score ?? undefined,
+    matchday: apiMatch.matchday,
+  };
+}
+
 /**
  * Generic fetch wrapper with error handling
  */
@@ -76,10 +113,10 @@ export async function fetchUpcomingMatches(
   const params = new URLSearchParams({ days: days.toString() });
   if (competition) params.append("competition", competition);
 
-  const response = await fetchApi<{ matches: Match[] }>(
+  const response = await fetchApi<{ matches: ApiMatch[] }>(
     `/api/v1/matches/upcoming?${params}`
   );
-  return response.matches;
+  return response.matches.map(transformMatch);
 }
 
 /**
@@ -101,7 +138,11 @@ export async function fetchMatches(options?: {
   if (options?.page) params.append("page", options.page.toString());
   if (options?.perPage) params.append("per_page", options.perPage.toString());
 
-  return fetchApi(`/api/v1/matches?${params}`);
+  const response = await fetchApi<{ matches: ApiMatch[]; total: number }>(`/api/v1/matches?${params}`);
+  return {
+    matches: response.matches.map(transformMatch),
+    total: response.total,
+  };
 }
 
 /**
@@ -113,7 +154,8 @@ export async function fetchMatch(matchId: number): Promise<Match> {
       setTimeout(() => resolve(getMockMatchById(matchId)), 300)
     );
   }
-  return fetchApi(`/api/v1/matches/${matchId}`);
+  const response = await fetchApi<ApiMatch>(`/api/v1/matches/${matchId}`);
+  return transformMatch(response);
 }
 
 /**
