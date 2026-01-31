@@ -37,10 +37,11 @@ export default function MatchDetailPage() {
     enabled: !!matchId,
   });
 
-  const { data: prediction, isLoading: predictionLoading } = useQuery({
+  const { data: prediction, isLoading: predictionLoading, error: predictionError } = useQuery({
     queryKey: ["prediction", matchId],
     queryFn: () => fetchPrediction(matchId, true),
     enabled: !!matchId,
+    retry: false, // Don't retry on 500 errors
   });
 
   const { data: headToHead } = useQuery({
@@ -95,6 +96,27 @@ export default function MatchDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Prediction */}
         <div className="lg:col-span-2 space-y-6">
+          {predictionLoading && (
+            <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6">
+              <div className="animate-pulse space-y-4">
+                <div className="h-6 bg-dark-700 rounded w-1/3"></div>
+                <div className="h-20 bg-dark-700 rounded"></div>
+              </div>
+            </div>
+          )}
+
+          {!predictionLoading && !prediction && (
+            <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6">
+              <div className="flex items-center gap-3 text-dark-400">
+                <Target className="w-6 h-6" />
+                <div>
+                  <h3 className="font-semibold text-white">Predictions non disponibles</h3>
+                  <p className="text-sm">Les predictions pour ce match seront bientot disponibles.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {prediction && <PredictionSection prediction={prediction} />}
 
           {prediction && <KeyFactorsSection prediction={prediction} />}
