@@ -258,10 +258,11 @@ function PredictionSection({
     away: "text-accent-400",
   };
 
+  const confidence = prediction.confidence ?? 0;
   const confidenceColor =
-    prediction.confidence >= 0.7
+    confidence >= 0.7
       ? "text-primary-400"
-      : prediction.confidence >= 0.6
+      : confidence >= 0.6
         ? "text-yellow-400"
         : "text-orange-400";
 
@@ -274,7 +275,7 @@ function PredictionSection({
         </h2>
         <div className={cn("text-right", confidenceColor)}>
           <p className="font-bold text-lg">
-            {Math.round(prediction.confidence * 100)}%
+            {Math.round(confidence * 100)}%
           </p>
           <p className="text-xs text-dark-300">Confiance</p>
         </div>
@@ -310,26 +311,28 @@ function PredictionSection({
             {betLabels[prediction.recommendedBet]}
           </p>
           <p className="text-sm text-primary-300">
-            Cote Value: +{Math.round(prediction.valueScore * 100)}%
+            Cote Value: +{Math.round((prediction.valueScore ?? 0) * 100)}%
           </p>
         </div>
       </div>
 
       {/* Expected Goals */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-dark-700/50 rounded-lg p-4">
-          <p className="text-dark-400 text-sm mb-1">Buts attendus (Domicile)</p>
-          <p className="text-3xl font-bold text-primary-400">
-            {prediction.expectedHomeGoals.toFixed(2)}
-          </p>
+      {(prediction.expectedHomeGoals !== undefined || prediction.expectedAwayGoals !== undefined) && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-dark-700/50 rounded-lg p-4">
+            <p className="text-dark-400 text-sm mb-1">Buts attendus (Domicile)</p>
+            <p className="text-3xl font-bold text-primary-400">
+              {prediction.expectedHomeGoals?.toFixed(2) ?? "-"}
+            </p>
+          </div>
+          <div className="bg-dark-700/50 rounded-lg p-4">
+            <p className="text-dark-400 text-sm mb-1">Buts attendus (Exterieur)</p>
+            <p className="text-3xl font-bold text-accent-400">
+              {prediction.expectedAwayGoals?.toFixed(2) ?? "-"}
+            </p>
+          </div>
         </div>
-        <div className="bg-dark-700/50 rounded-lg p-4">
-          <p className="text-dark-400 text-sm mb-1">Buts attendus (Exterieur)</p>
-          <p className="text-3xl font-bold text-accent-400">
-            {prediction.expectedAwayGoals.toFixed(2)}
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Explanation */}
       {prediction.explanation && (
@@ -457,42 +460,42 @@ function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
         <div>
           <p className="text-dark-400">Points (5 derniers)</p>
           <p className="text-lg font-bold text-white">
-            {form.pointsLast5}
+            {form.pointsLast5 ?? "-"}
           </p>
         </div>
         <div>
           <p className="text-dark-400">Buts marques/match</p>
           <p className="text-lg font-bold text-primary-400">
-            {form.goalsScoredAvg.toFixed(1)}
+            {form.goalsScoredAvg?.toFixed(1) ?? "-"}
           </p>
         </div>
         <div>
           <p className="text-dark-400">Buts encaisses/match</p>
           <p className="text-lg font-bold text-orange-400">
-            {form.goalsConcededAvg.toFixed(1)}
+            {form.goalsConcededAvg?.toFixed(1) ?? "-"}
           </p>
         </div>
         <div>
           <p className="text-dark-400">Matchs sans encaisser</p>
           <p className="text-lg font-bold text-accent-400">
-            {form.cleanSheets}
+            {form.cleanSheets ?? "-"}
           </p>
         </div>
       </div>
 
       {/* xG Stats if available */}
-      {form.xgForAvg !== undefined && form.xgAgainstAvg !== undefined && (
+      {(form.xgForAvg !== undefined || form.xgAgainstAvg !== undefined) && (
         <div className="grid grid-cols-2 gap-2 text-sm border-t border-dark-600 pt-2">
           <div>
             <p className="text-dark-400">xG pour/match</p>
             <p className="text-lg font-bold text-primary-300">
-              {form.xgForAvg.toFixed(2)}
+              {form.xgForAvg?.toFixed(2) ?? "-"}
             </p>
           </div>
           <div>
             <p className="text-dark-400">xG contre/match</p>
             <p className="text-lg font-bold text-orange-300">
-              {form.xgAgainstAvg.toFixed(2)}
+              {form.xgAgainstAvg?.toFixed(2) ?? "-"}
             </p>
           </div>
         </div>
@@ -753,11 +756,15 @@ function AdjustmentCard({
     blue: "bg-blue-500/10 border-blue-500/20",
   };
 
+  const displayValue = value !== undefined && value !== null
+    ? `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`
+    : "-";
+
   return (
     <div className={cn("p-4 rounded-lg border", bgColorClasses[color])}>
       <p className="text-dark-400 text-sm mb-2">{label}</p>
       <p className={cn("text-2xl font-bold", colorClasses[color])}>
-        {value >= 0 ? "+" : ""}{(value * 100).toFixed(1)}%
+        {displayValue}
       </p>
     </div>
   );
@@ -789,6 +796,8 @@ function ProbabilityBar({
     yellow: "text-yellow-400",
   };
 
+  const prob = probability ?? 0;
+
   return (
     <div>
       <div className="flex justify-between items-center mb-2">
@@ -806,7 +815,7 @@ function ProbabilityBar({
             isRecommended ? textColorClasses[color] : "text-dark-400"
           )}
         >
-          {Math.round(probability * 100)}%
+          {Math.round(prob * 100)}%
         </span>
       </div>
       <div className="h-3 bg-dark-700 rounded-full overflow-hidden">
@@ -816,7 +825,7 @@ function ProbabilityBar({
             colorClasses[color],
             !isRecommended && "opacity-60"
           )}
-          style={{ width: `${probability * 100}%` }}
+          style={{ width: `${prob * 100}%` }}
         />
       </div>
     </div>
