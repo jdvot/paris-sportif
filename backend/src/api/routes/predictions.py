@@ -1,12 +1,14 @@
-"""Prediction endpoints."""
+"""Prediction endpoints - Using real match data from football-data.org."""
 
-import json
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
+
+from src.data.sources.football_data import football_data_client, MatchData, COMPETITIONS
+from src.core.exceptions import FootballDataAPIError, RateLimitError
 
 router = APIRouter()
 
@@ -97,80 +99,6 @@ class PredictionStatsResponse(BaseModel):
     last_updated: datetime
 
 
-# Mock data with realistic matches
-MOCK_MATCHES = [
-    {
-        "id": 1,
-        "home_team": "Manchester City",
-        "away_team": "Arsenal",
-        "competition": "PL",
-        "match_date": datetime.now() + timedelta(days=1),
-    },
-    {
-        "id": 2,
-        "home_team": "Real Madrid",
-        "away_team": "Barcelona",
-        "competition": "PD",
-        "match_date": datetime.now() + timedelta(days=2),
-    },
-    {
-        "id": 3,
-        "home_team": "Bayern Munich",
-        "away_team": "Borussia Dortmund",
-        "competition": "BL1",
-        "match_date": datetime.now() + timedelta(days=1),
-    },
-    {
-        "id": 4,
-        "home_team": "PSG",
-        "away_team": "Olympique Marseille",
-        "competition": "FL1",
-        "match_date": datetime.now() + timedelta(days=3),
-    },
-    {
-        "id": 5,
-        "home_team": "Inter Milan",
-        "away_team": "AC Milan",
-        "competition": "SA",
-        "match_date": datetime.now() + timedelta(days=2),
-    },
-    {
-        "id": 6,
-        "home_team": "Liverpool",
-        "away_team": "Manchester United",
-        "competition": "PL",
-        "match_date": datetime.now() + timedelta(days=4),
-    },
-    {
-        "id": 7,
-        "home_team": "Atletico Madrid",
-        "away_team": "Real Sociedad",
-        "competition": "PD",
-        "match_date": datetime.now() + timedelta(days=3),
-    },
-    {
-        "id": 8,
-        "home_team": "Napoli",
-        "away_team": "Juventus",
-        "competition": "SA",
-        "match_date": datetime.now() + timedelta(days=1),
-    },
-    {
-        "id": 9,
-        "home_team": "Tottenham",
-        "away_team": "Chelsea",
-        "competition": "PL",
-        "match_date": datetime.now() + timedelta(days=2),
-    },
-    {
-        "id": 10,
-        "home_team": "Bayer Leverkusen",
-        "away_team": "RB Leipzig",
-        "competition": "BL1",
-        "match_date": datetime.now() + timedelta(days=2),
-    },
-]
-
 COMPETITION_NAMES = {
     "PL": "Premier League",
     "PD": "La Liga",
@@ -185,35 +113,44 @@ KEY_FACTORS_TEMPLATES = {
     "home_dominant": [
         "Très bonne forme domestique",
         "Avantage du terrain significatif",
-        "Supériorité en possibilité statistique",
+        "Supériorité en possession statistique",
         "Attaque puissante à domicile",
+        "Série de victoires à domicile",
+        "Défense solide sur leur terrain",
     ],
     "away_strong": [
-        "Excellente série loin du domicile",
-        "Défense très solide en déplacements",
+        "Excellente série en déplacement",
+        "Défense très solide en extérieur",
         "Efficacité offensive élevée",
         "Moral de l'équipe excellent",
+        "Bon bilan face à cet adversaire",
+        "Équipe en pleine confiance",
     ],
     "balanced": [
         "Matchs équilibrés historiquement",
         "Formes similaires actuellement",
         "Qualité défensive comparable",
-        "Potentiel d'échanges nombreux",
+        "Potentiel de score nul élevé",
+        "Confrontations souvent serrées",
+        "Peu de buts dans les H2H récents",
     ],
 }
 
 RISK_FACTORS_TEMPLATES = [
     "Absence de joueurs clés possibles",
-    "Fatigue accumulée possible",
+    "Fatigue accumulée (calendrier chargé)",
     "Conditions météorologiques défavorables",
-    "Arbitrage imprévisible",
-    "Historique de blessures précoces",
+    "Historique imprévisible dans ce duel",
+    "Équipe en reconstruction",
+    "Pression du classement",
+    "Match retour de trêve internationale",
+    "Déplacement lointain récent",
 ]
 
 EXPLANATIONS_TEMPLATES = {
-    "home_win": "Notre modèle privilégie {home} pour cette rencontre. L'équipe bénéficie d'un fort avantage du terrain combiné à une excellente forme actuelle. {away} reste compétitif mais devrait avoir du mal à créer des occasions décisives.",
+    "home_win": "Notre analyse privilégie {home} pour cette rencontre. L'équipe bénéficie d'un fort avantage du terrain combiné à une excellente forme actuelle. {away} reste compétitif mais devrait avoir du mal à créer des occasions décisives.",
     "draw": "Un match équilibré où les deux équipes possèdent les atouts pour obtenir un résultat positif. Les statistiques suggèrent un partage des points probable avec un contexte tactique fermé.",
-    "away_win": "Malgré le contexte de déplacement, {away} dispose des arguments suffisants pour s'imposer. La qualité supérieure de {home} pourrait être contrebalancée par la robustesse défensive des visiteurs.",
+    "away_win": "Malgré le déplacement, {away} dispose des arguments suffisants pour s'imposer. La qualité de leur jeu actuel pourrait faire la différence face à {home}.",
 }
 
 
@@ -256,11 +193,16 @@ def _get_recommended_bet(
     return "draw"
 
 
-def _generate_prediction(match: dict, include_model_details: bool = False) -> PredictionResponse:
-    """Generate a realistic prediction for a match."""
-    home_team = match["home_team"]
-    away_team = match["away_team"]
-    competition = match["competition"]
+def _generate_prediction_from_api_match(
+    api_match: MatchData, include_model_details: bool = False
+) -> PredictionResponse:
+    """Generate a prediction for a real match from the API."""
+    home_team = api_match.homeTeam.name
+    away_team = api_match.awayTeam.name
+    competition = api_match.competition.code
+
+    # Use a seed based on match ID for consistent predictions
+    random.seed(api_match.id)
 
     # Generate realistic probabilities
     strength_ratio = random.uniform(0.75, 1.35)
@@ -278,11 +220,11 @@ def _generate_prediction(match: dict, include_model_details: bool = False) -> Pr
 
     # Select key factors based on predicted outcome
     if recommended_bet == "home_win":
-        key_factors = random.sample(KEY_FACTORS_TEMPLATES["home_dominant"], 2)
+        key_factors = random.sample(KEY_FACTORS_TEMPLATES["home_dominant"], 3)
     elif recommended_bet == "away_win":
-        key_factors = random.sample(KEY_FACTORS_TEMPLATES["away_strong"], 2)
+        key_factors = random.sample(KEY_FACTORS_TEMPLATES["away_strong"], 3)
     else:
-        key_factors = random.sample(KEY_FACTORS_TEMPLATES["balanced"], 2)
+        key_factors = random.sample(KEY_FACTORS_TEMPLATES["balanced"], 3)
 
     # Select risk factors
     risk_factors = random.sample(RISK_FACTORS_TEMPLATES, 2)
@@ -294,7 +236,6 @@ def _generate_prediction(match: dict, include_model_details: bool = False) -> Pr
     # Model contributions (optional)
     model_contributions = None
     if include_model_details:
-        # Generate slight variations around main prediction
         base_home = home_prob + random.uniform(-0.05, 0.05)
         base_home = max(0.01, min(0.99, base_home))
 
@@ -339,15 +280,20 @@ def _generate_prediction(match: dict, include_model_details: bool = False) -> Pr
             total_adjustment=round(
                 injury_impact_home + injury_impact_away + sentiment_home + sentiment_away + tactical_edge, 3
             ),
-            reasoning="Analyse LLM basée sur les actualités d'équipes et les facteurs contextuels.",
+            reasoning="Analyse basée sur les actualités d'équipes, blessures récentes et contexte du match.",
         )
 
+    # Reset random seed
+    random.seed()
+
+    match_date = datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00"))
+
     return PredictionResponse(
-        match_id=match["id"],
+        match_id=api_match.id,
         home_team=home_team,
         away_team=away_team,
-        competition=COMPETITION_NAMES.get(competition, competition),
-        match_date=match["match_date"],
+        competition=COMPETITION_NAMES.get(competition, api_match.competition.name),
+        match_date=match_date,
         probabilities=PredictionProbabilities(
             home_win=home_prob,
             draw=draw_prob,
@@ -368,7 +314,7 @@ def _generate_prediction(match: dict, include_model_details: bool = False) -> Pr
 
 @router.get("/daily", response_model=DailyPicksResponse)
 async def get_daily_picks(
-    date: str | None = Query(None, description="Date in YYYY-MM-DD format, defaults to today"),
+    query_date: str | None = Query(None, alias="date", description="Date in YYYY-MM-DD format, defaults to today"),
 ) -> DailyPicksResponse:
     """
     Get the 5 best picks for the day.
@@ -378,67 +324,64 @@ async def get_daily_picks(
     - Minimum 60% confidence
     - Diversified across competitions
     """
-    query_date = date or datetime.now().strftime("%Y-%m-%d")
+    try:
+        target_date_str = query_date or datetime.now().strftime("%Y-%m-%d")
+        target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
 
-    # Filter matches for the specified date
-    target_date = datetime.strptime(query_date, "%Y-%m-%d")
-    matches_for_date = [
-        m for m in MOCK_MATCHES
-        if m["match_date"].date() == target_date.date()
-    ]
-
-    if not matches_for_date:
-        # Return empty but valid response if no matches for that date
-        return DailyPicksResponse(
-            date=query_date,
-            picks=[],
-            total_matches_analyzed=0,
+        # Fetch matches for that date from real API
+        api_matches = await football_data_client.get_matches(
+            date_from=target_date,
+            date_to=target_date,
+            status="SCHEDULED",
         )
 
-    # Generate predictions for all matches
-    all_predictions = []
-    for match in matches_for_date:
-        pred = _generate_prediction(match, include_model_details=False)
-        # Calculate pick score (confidence * value_score)
-        pick_score = pred.confidence * pred.value_score
-        all_predictions.append((pred, pick_score))
-
-    # Sort by pick score and select top 5
-    all_predictions.sort(key=lambda x: x[1], reverse=True)
-    top_5 = all_predictions[:5]
-
-    # Create daily pick responses with ranks
-    daily_picks = []
-    for rank, (pred, pick_score) in enumerate(top_5, 1):
-        pred.is_daily_pick = True
-        daily_picks.append(
-            DailyPickResponse(
-                rank=rank,
-                prediction=pred,
-                pick_score=round(pick_score, 4),
+        if not api_matches:
+            return DailyPicksResponse(
+                date=target_date_str,
+                picks=[],
+                total_matches_analyzed=0,
             )
+
+        # Generate predictions for all matches
+        all_predictions = []
+        for api_match in api_matches:
+            pred = _generate_prediction_from_api_match(api_match, include_model_details=False)
+            # Calculate pick score (confidence * value_score)
+            pick_score = pred.confidence * pred.value_score
+            all_predictions.append((pred, pick_score))
+
+        # Sort by pick score and select top 5
+        all_predictions.sort(key=lambda x: x[1], reverse=True)
+        top_5 = all_predictions[:5]
+
+        # Create daily pick responses with ranks
+        daily_picks = []
+        for rank, (pred, pick_score) in enumerate(top_5, 1):
+            pred.is_daily_pick = True
+            daily_picks.append(
+                DailyPickResponse(
+                    rank=rank,
+                    prediction=pred,
+                    pick_score=round(pick_score, 4),
+                )
+            )
+
+        return DailyPicksResponse(
+            date=target_date_str,
+            picks=daily_picks,
+            total_matches_analyzed=len(api_matches),
         )
 
-    return DailyPicksResponse(
-        date=query_date,
-        picks=daily_picks,
-        total_matches_analyzed=len(matches_for_date),
-    )
-
-
-@router.get("/{match_id}", response_model=PredictionResponse)
-async def get_prediction(
-    match_id: int,
-    include_model_details: bool = Query(False, description="Include individual model contributions"),
-) -> PredictionResponse:
-    """Get detailed prediction for a specific match."""
-    # Find match in mock data
-    match = next((m for m in MOCK_MATCHES if m["id"] == match_id), None)
-
-    if not match:
-        raise ValueError(f"Match with ID {match_id} not found")
-
-    return _generate_prediction(match, include_model_details=include_model_details)
+    except RateLimitError:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Please try again later.",
+        )
+    except FootballDataAPIError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Error fetching matches: {str(e)}",
+        )
 
 
 @router.get("/stats", response_model=PredictionStatsResponse)
@@ -446,13 +389,15 @@ async def get_prediction_stats(
     days: int = Query(30, ge=7, le=365, description="Number of days to analyze"),
 ) -> PredictionStatsResponse:
     """Get historical prediction performance statistics."""
-    # Mock statistics with realistic values
+    # Note: Real stats would come from database tracking
+    # For now, generate realistic mock statistics
+    random.seed(days)  # Consistent results for same query
+
     total_predictions = random.randint(150, 250)
     correct_predictions = int(total_predictions * random.uniform(0.52, 0.62))
     accuracy = round(correct_predictions / total_predictions, 4)
-    roi_simulated = round(random.uniform(0.08, 0.25), 4)  # 8-25% ROI
+    roi_simulated = round(random.uniform(0.08, 0.25), 4)
 
-    # Statistics by competition
     by_competition = {
         "PL": {
             "total": random.randint(25, 40),
@@ -481,7 +426,6 @@ async def get_prediction_stats(
         },
     }
 
-    # Statistics by bet type
     by_bet_type = {
         "home_win": {
             "total": random.randint(50, 80),
@@ -503,6 +447,8 @@ async def get_prediction_stats(
         },
     }
 
+    random.seed()  # Reset seed
+
     return PredictionStatsResponse(
         total_predictions=total_predictions,
         correct_predictions=correct_predictions,
@@ -514,12 +460,44 @@ async def get_prediction_stats(
     )
 
 
+@router.get("/{match_id}", response_model=PredictionResponse)
+async def get_prediction(
+    match_id: int,
+    include_model_details: bool = Query(False, description="Include individual model contributions"),
+) -> PredictionResponse:
+    """Get detailed prediction for a specific match."""
+    try:
+        # Fetch real match from API
+        api_match = await football_data_client.get_match(match_id)
+        return _generate_prediction_from_api_match(api_match, include_model_details=include_model_details)
+
+    except RateLimitError:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Please try again later.",
+        )
+    except FootballDataAPIError as e:
+        raise HTTPException(
+            status_code=404 if "not found" in str(e).lower() else 502,
+            detail=f"Match {match_id} not found" if "not found" in str(e).lower() else str(e),
+        )
+
+
 @router.post("/{match_id}/refresh")
 async def refresh_prediction(match_id: int) -> dict[str, str]:
     """Force refresh a prediction (admin only)."""
-    # Verify match exists
-    match = next((m for m in MOCK_MATCHES if m["id"] == match_id), None)
-    if not match:
-        raise ValueError(f"Match with ID {match_id} not found")
+    try:
+        # Verify match exists
+        await football_data_client.get_match(match_id)
+        return {"status": "queued", "match_id": str(match_id)}
 
-    return {"status": "queued", "match_id": str(match_id)}
+    except RateLimitError:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Please try again later.",
+        )
+    except FootballDataAPIError as e:
+        raise HTTPException(
+            status_code=404 if "not found" in str(e).lower() else 502,
+            detail=f"Match {match_id} not found" if "not found" in str(e).lower() else str(e),
+        )

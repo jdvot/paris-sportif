@@ -1,10 +1,13 @@
-"""Match endpoints."""
+"""Match endpoints - Real data from football-data.org API."""
 
 from datetime import date, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
+
+from src.data.sources.football_data import football_data_client, MatchData, COMPETITIONS
+from src.core.exceptions import FootballDataAPIError, RateLimitError
 
 router = APIRouter()
 
@@ -44,12 +47,22 @@ class MatchListResponse(BaseModel):
     per_page: int
 
 
+class TeamFormMatch(BaseModel):
+    """A match in team form history."""
+
+    opponent: str
+    result: Literal["W", "D", "L"]
+    score: str
+    home_away: Literal["H", "A"]
+    date: datetime
+
+
 class TeamFormResponse(BaseModel):
     """Team recent form response."""
 
     team_id: int
     team_name: str
-    last_matches: list[dict]
+    last_matches: list[TeamFormMatch]
     form_string: str  # e.g., "WWDLW"
     points_last_5: int
     goals_scored_avg: float
@@ -59,119 +72,77 @@ class TeamFormResponse(BaseModel):
     xg_against_avg: float | None = None
 
 
-# Mock data for teams
-TEAMS = {
-    # Premier League
-    1: TeamInfo(id=1, name="Manchester City", short_name="MCI", elo_rating=2180),
-    2: TeamInfo(id=2, name="Liverpool", short_name="LIV", elo_rating=2150),
-    3: TeamInfo(id=3, name="Arsenal", short_name="ARS", elo_rating=2120),
-    4: TeamInfo(id=4, name="Manchester United", short_name="MNU", elo_rating=2080),
-    5: TeamInfo(id=5, name="Tottenham Hotspur", short_name="TOT", elo_rating=2050),
-    6: TeamInfo(id=6, name="Chelsea", short_name="CHE", elo_rating=2000),
-    7: TeamInfo(id=7, name="Aston Villa", short_name="AVL", elo_rating=1950),
-    8: TeamInfo(id=8, name="Newcastle United", short_name="NEW", elo_rating=1920),
-    # La Liga
-    10: TeamInfo(id=10, name="Real Madrid", short_name="RMA", elo_rating=2200),
-    11: TeamInfo(id=11, name="Barcelona", short_name="BAR", elo_rating=2100),
-    12: TeamInfo(id=12, name="Atlético Madrid", short_name="ATM", elo_rating=2050),
-    13: TeamInfo(id=13, name="Sevilla", short_name="SEV", elo_rating=1950),
-    14: TeamInfo(id=14, name="Real Sociedad", short_name="RSO", elo_rating=1900),
-    # Serie A
-    20: TeamInfo(id=20, name="Napoli", short_name="NAP", elo_rating=2100),
-    21: TeamInfo(id=21, name="Inter Milano", short_name="INT", elo_rating=2080),
-    22: TeamInfo(id=22, name="AC Milan", short_name="MIL", elo_rating=2050),
-    23: TeamInfo(id=23, name="Juventus", short_name="JUV", elo_rating=2000),
-    24: TeamInfo(id=24, name="Lazio", short_name="LAZ", elo_rating=1900),
-    # Bundesliga
-    30: TeamInfo(id=30, name="Bayern Munich", short_name="BAY", elo_rating=2150),
-    31: TeamInfo(id=31, name="Borussia Dortmund", short_name="BVB", elo_rating=2000),
-    32: TeamInfo(id=32, name="RB Leipzig", short_name="RBL", elo_rating=1950),
-    33: TeamInfo(id=33, name="Bayer Leverkusen", short_name="B04", elo_rating=1900),
-    # Ligue 1
-    40: TeamInfo(id=40, name="Paris Saint-Germain", short_name="PSG", elo_rating=2150),
-    41: TeamInfo(id=41, name="Marseille", short_name="OM", elo_rating=1950),
-    42: TeamInfo(id=42, name="Lens", short_name="RCL", elo_rating=1900),
-    43: TeamInfo(id=43, name="Monaco", short_name="ASM", elo_rating=1900),
-}
+class HeadToHeadMatch(BaseModel):
+    """A match in head-to-head history."""
+
+    date: datetime
+    home_team: str
+    away_team: str
+    home_score: int
+    away_score: int
+    competition: str
 
 
-def generate_mock_matches() -> list[MatchResponse]:
-    """Generate realistic mock matches for the next 7 days."""
-    matches = []
-    match_id = 1000
-    now = datetime.now()
+class HeadToHeadResponse(BaseModel):
+    """Head-to-head response."""
 
-    # Premier League matches
-    pl_matchups = [
-        (1, 6, "Manchester City vs Chelsea"),  # MCI vs CHE
-        (2, 3, "Liverpool vs Arsenal"),  # LIV vs ARS
-        (4, 5, "Manchester United vs Tottenham"),  # MNU vs TOT
-        (7, 8, "Aston Villa vs Newcastle"),  # AVL vs NEW
-    ]
-
-    # La Liga matches
-    la_liga_matchups = [
-        (10, 11, "Real Madrid vs Barcelona"),  # RMA vs BAR
-        (12, 13, "Atlético Madrid vs Sevilla"),  # ATM vs SEV
-        (14, 10, "Real Sociedad vs Real Madrid"),  # RSO vs RMA
-    ]
-
-    # Serie A matches
-    serie_a_matchups = [
-        (20, 21, "Napoli vs Inter Milano"),  # NAP vs INT
-        (22, 23, "AC Milan vs Juventus"),  # MIL vs JUV
-        (24, 20, "Lazio vs Napoli"),  # LAZ vs NAP
-    ]
-
-    # Bundesliga matches
-    bundesliga_matchups = [
-        (30, 31, "Bayern Munich vs Borussia Dortmund"),  # BAY vs BVB
-        (32, 33, "RB Leipzig vs Bayer Leverkusen"),  # RBL vs B04
-    ]
-
-    # Ligue 1 matches
-    ligue1_matchups = [
-        (40, 41, "PSG vs Marseille"),  # PSG vs OM
-        (42, 43, "Lens vs Monaco"),  # RCL vs ASM
-    ]
-
-    all_matchups = [
-        (pl_matchups, "Premier League", "PL", 1),
-        (la_liga_matchups, "La Liga", "PD", 2),
-        (serie_a_matchups, "Serie A", "SA", 3),
-        (bundesliga_matchups, "Bundesliga", "BL1", 4),
-        (ligue1_matchups, "Ligue 1", "FL1", 5),
-    ]
-
-    matchday = 1
-    for day_offset in range(7):
-        match_date = now + timedelta(days=day_offset, hours=15)
-
-        for league_matchups, league_name, league_code, league_id in all_matchups:
-            for idx, (home_id, away_id, _) in enumerate(league_matchups):
-                if (day_offset + idx) % 3 == 0:  # Spread matches across days
-                    matches.append(
-                        MatchResponse(
-                            id=match_id,
-                            external_id=f"{league_code}_{match_id}",
-                            home_team=TEAMS[home_id],
-                            away_team=TEAMS[away_id],
-                            competition=league_name,
-                            competition_code=league_code,
-                            match_date=match_date + timedelta(hours=idx),
-                            status="scheduled",
-                            matchday=matchday,
-                        )
-                    )
-                    match_id += 1
-
-        matchday += 1
-
-    return matches
+    matches: list[HeadToHeadMatch]
+    home_wins: int
+    draws: int
+    away_wins: int
+    avg_goals: float
+    total_matches: int
 
 
-# Store mock matches in memory
-_mock_matches = generate_mock_matches()
+def _convert_api_match(api_match: MatchData) -> MatchResponse:
+    """Convert football-data.org match to our response format."""
+    # Map API status to our status
+    status_map = {
+        "SCHEDULED": "scheduled",
+        "TIMED": "scheduled",
+        "LIVE": "live",
+        "IN_PLAY": "live",
+        "PAUSED": "live",
+        "FINISHED": "finished",
+        "POSTPONED": "postponed",
+        "CANCELLED": "postponed",
+        "SUSPENDED": "postponed",
+    }
+
+    status = status_map.get(api_match.status, "scheduled")
+
+    # Extract scores
+    home_score = None
+    away_score = None
+    if api_match.score:
+        full_time = api_match.score.get("fullTime")
+        if full_time:
+            home_score = full_time.home
+            away_score = full_time.away
+
+    return MatchResponse(
+        id=api_match.id,
+        external_id=f"{api_match.competition.code}_{api_match.id}",
+        home_team=TeamInfo(
+            id=api_match.homeTeam.id,
+            name=api_match.homeTeam.name,
+            short_name=api_match.homeTeam.tla or api_match.homeTeam.shortName or api_match.homeTeam.name[:3].upper(),
+            logo_url=api_match.homeTeam.crest,
+        ),
+        away_team=TeamInfo(
+            id=api_match.awayTeam.id,
+            name=api_match.awayTeam.name,
+            short_name=api_match.awayTeam.tla or api_match.awayTeam.shortName or api_match.awayTeam.name[:3].upper(),
+            logo_url=api_match.awayTeam.crest,
+        ),
+        competition=api_match.competition.name,
+        competition_code=api_match.competition.code,
+        match_date=datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00")),
+        status=status,
+        home_score=home_score,
+        away_score=away_score,
+        matchday=api_match.matchday,
+    )
 
 
 @router.get("", response_model=MatchListResponse)
@@ -195,36 +166,59 @@ async def get_matches(
     - CL: Champions League
     - EL: Europa League
     """
-    # Filter matches based on criteria
-    filtered_matches = _mock_matches
+    try:
+        # Map our status to API status
+        api_status = None
+        if status:
+            status_map = {
+                "scheduled": "SCHEDULED",
+                "live": "LIVE",
+                "finished": "FINISHED",
+            }
+            api_status = status_map.get(status)
 
-    if competition:
-        filtered_matches = [m for m in filtered_matches if m.competition_code == competition]
+        # Default date range if not specified: next 14 days
+        if not date_from and not date_to:
+            date_from = date.today()
+            date_to = date.today() + timedelta(days=14)
 
-    if date_from:
-        filtered_matches = [m for m in filtered_matches if m.match_date.date() >= date_from]
+        # Fetch matches from API
+        api_matches = await football_data_client.get_matches(
+            competition=competition,
+            date_from=date_from,
+            date_to=date_to,
+            status=api_status,
+        )
 
-    if date_to:
-        filtered_matches = [m for m in filtered_matches if m.match_date.date() <= date_to]
+        # Convert to our format
+        matches = [_convert_api_match(m) for m in api_matches]
 
-    if status:
-        filtered_matches = [m for m in filtered_matches if m.status == status]
+        # Sort by match date
+        matches = sorted(matches, key=lambda m: m.match_date)
 
-    # Sort by match date
-    filtered_matches = sorted(filtered_matches, key=lambda m: m.match_date)
+        # Pagination
+        total = len(matches)
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paginated_matches = matches[start_idx:end_idx]
 
-    # Pagination
-    total = len(filtered_matches)
-    start_idx = (page - 1) * per_page
-    end_idx = start_idx + per_page
-    paginated_matches = filtered_matches[start_idx:end_idx]
+        return MatchListResponse(
+            matches=paginated_matches,
+            total=total,
+            page=page,
+            per_page=per_page,
+        )
 
-    return MatchListResponse(
-        matches=paginated_matches,
-        total=total,
-        page=page,
-        per_page=per_page,
-    )
+    except RateLimitError as e:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Please try again later.",
+        )
+    except FootballDataAPIError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Error fetching data from football API: {str(e)}",
+        )
 
 
 @router.get("/upcoming")
@@ -233,52 +227,118 @@ async def get_upcoming_matches(
     competition: str | None = Query(None),
 ) -> MatchListResponse:
     """Get upcoming matches for the next N days."""
-    now = datetime.now()
-    cutoff_date = now + timedelta(days=days)
+    try:
+        api_matches = await football_data_client.get_upcoming_matches(
+            days=days,
+            competition=competition,
+        )
 
-    # Filter for scheduled matches within the next N days
-    filtered_matches = [
-        m for m in _mock_matches
-        if m.status == "scheduled" and now <= m.match_date <= cutoff_date
-    ]
+        matches = [_convert_api_match(m) for m in api_matches]
+        matches = sorted(matches, key=lambda m: m.match_date)
 
-    if competition:
-        filtered_matches = [m for m in filtered_matches if m.competition_code == competition]
+        return MatchListResponse(
+            matches=matches,
+            total=len(matches),
+            page=1,
+            per_page=len(matches),
+        )
 
-    # Sort by match date
-    filtered_matches = sorted(filtered_matches, key=lambda m: m.match_date)
-
-    return MatchListResponse(
-        matches=filtered_matches,
-        total=len(filtered_matches),
-        page=1,
-        per_page=len(filtered_matches),
-    )
+    except RateLimitError:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Please try again later.",
+        )
+    except FootballDataAPIError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Error fetching data from football API: {str(e)}",
+        )
 
 
 @router.get("/{match_id}", response_model=MatchResponse)
 async def get_match(match_id: int) -> MatchResponse:
     """Get details for a specific match."""
-    match = next((m for m in _mock_matches if m.id == match_id), None)
-    if not match:
-        raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
-    return match
+    try:
+        api_match = await football_data_client.get_match(match_id)
+        return _convert_api_match(api_match)
+
+    except RateLimitError:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Please try again later.",
+        )
+    except FootballDataAPIError as e:
+        raise HTTPException(
+            status_code=404 if "not found" in str(e).lower() else 502,
+            detail=f"Match {match_id} not found" if "not found" in str(e).lower() else str(e),
+        )
 
 
-@router.get("/{match_id}/head-to-head")
+@router.get("/{match_id}/head-to-head", response_model=HeadToHeadResponse)
 async def get_head_to_head(
     match_id: int,
     limit: int = Query(10, ge=1, le=20),
-) -> dict:
+) -> HeadToHeadResponse:
     """Get head-to-head history for teams in a match."""
-    # TODO: Implement
-    return {
-        "matches": [],
-        "home_wins": 0,
-        "draws": 0,
-        "away_wins": 0,
-        "avg_goals": 0.0,
-    }
+    try:
+        api_matches = await football_data_client.get_head_to_head(match_id, limit=limit)
+
+        matches = []
+        home_wins = 0
+        draws = 0
+        away_wins = 0
+        total_goals = 0
+
+        for api_match in api_matches:
+            home_score = 0
+            away_score = 0
+
+            if api_match.score:
+                full_time = api_match.score.get("fullTime")
+                if full_time:
+                    home_score = full_time.home or 0
+                    away_score = full_time.away or 0
+
+            total_goals += home_score + away_score
+
+            if home_score > away_score:
+                home_wins += 1
+            elif away_score > home_score:
+                away_wins += 1
+            else:
+                draws += 1
+
+            matches.append(HeadToHeadMatch(
+                date=datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00")),
+                home_team=api_match.homeTeam.name,
+                away_team=api_match.awayTeam.name,
+                home_score=home_score,
+                away_score=away_score,
+                competition=api_match.competition.name,
+            ))
+
+        total_matches = len(matches)
+        avg_goals = total_goals / total_matches if total_matches > 0 else 0.0
+
+        return HeadToHeadResponse(
+            matches=matches,
+            home_wins=home_wins,
+            draws=draws,
+            away_wins=away_wins,
+            avg_goals=round(avg_goals, 2),
+            total_matches=total_matches,
+        )
+
+    except RateLimitError:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Please try again later.",
+        )
+    except FootballDataAPIError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Error fetching head-to-head data: {str(e)}",
+        )
 
 
 @router.get("/teams/{team_id}/form", response_model=TeamFormResponse)
@@ -287,14 +347,87 @@ async def get_team_form(
     matches_count: int = Query(5, ge=3, le=10),
 ) -> TeamFormResponse:
     """Get recent form for a team."""
-    # TODO: Implement
-    return TeamFormResponse(
-        team_id=team_id,
-        team_name="Unknown",
-        last_matches=[],
-        form_string="",
-        points_last_5=0,
-        goals_scored_avg=0.0,
-        goals_conceded_avg=0.0,
-        clean_sheets=0,
-    )
+    try:
+        # Get team info
+        team_data = await football_data_client.get_team(team_id)
+        team_name = team_data.get("name", "Unknown")
+
+        # Get recent finished matches
+        api_matches = await football_data_client.get_team_matches(
+            team_id=team_id,
+            status="FINISHED",
+            limit=matches_count,
+        )
+
+        last_matches = []
+        form_string = ""
+        total_points = 0
+        goals_scored = 0
+        goals_conceded = 0
+        clean_sheets = 0
+
+        for api_match in api_matches:
+            is_home = api_match.homeTeam.id == team_id
+            opponent = api_match.awayTeam.name if is_home else api_match.homeTeam.name
+
+            home_score = 0
+            away_score = 0
+
+            if api_match.score:
+                full_time = api_match.score.get("fullTime")
+                if full_time:
+                    home_score = full_time.home or 0
+                    away_score = full_time.away or 0
+
+            team_score = home_score if is_home else away_score
+            opp_score = away_score if is_home else home_score
+
+            goals_scored += team_score
+            goals_conceded += opp_score
+
+            if opp_score == 0:
+                clean_sheets += 1
+
+            # Determine result
+            if team_score > opp_score:
+                result = "W"
+                total_points += 3
+            elif team_score < opp_score:
+                result = "L"
+            else:
+                result = "D"
+                total_points += 1
+
+            form_string += result
+
+            last_matches.append(TeamFormMatch(
+                opponent=opponent,
+                result=result,
+                score=f"{team_score}-{opp_score}",
+                home_away="H" if is_home else "A",
+                date=datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00")),
+            ))
+
+        num_matches = len(last_matches)
+
+        return TeamFormResponse(
+            team_id=team_id,
+            team_name=team_name,
+            last_matches=last_matches,
+            form_string=form_string,
+            points_last_5=total_points,
+            goals_scored_avg=round(goals_scored / num_matches, 2) if num_matches > 0 else 0.0,
+            goals_conceded_avg=round(goals_conceded / num_matches, 2) if num_matches > 0 else 0.0,
+            clean_sheets=clean_sheets,
+        )
+
+    except RateLimitError:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Please try again later.",
+        )
+    except FootballDataAPIError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Error fetching team form: {str(e)}",
+        )
