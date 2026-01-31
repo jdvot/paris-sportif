@@ -6,9 +6,6 @@
   "installCommand": "npm install",
   "devCommand": "npm run dev",
   "regions": ["cdg1"],
-  "env": {
-    "NEXT_PUBLIC_API_URL": "@api_url"
-  },
   "headers": [
     {
       "source": "/(.*)",
