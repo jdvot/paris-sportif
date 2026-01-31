@@ -23,6 +23,11 @@ import {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
 
+// Debug log for API configuration (will be removed in production later)
+if (typeof window !== "undefined") {
+  console.log("[API Config] URL:", API_BASE_URL, "| Mock mode:", USE_MOCK_DATA);
+}
+
 /**
  * Generic fetch wrapper with error handling
  */

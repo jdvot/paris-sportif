@@ -170,7 +170,8 @@ export default function MatchesPage() {
       }
     },
     enabled: true,
-    initialData: mockMatches,
+    placeholderData: mockMatches, // Use placeholder instead of initialData to force fetch
+    staleTime: 0, // Always refetch from API
   });
 
   // Filter matches by selected competitions
