@@ -71,7 +71,7 @@ export function UpcomingMatches() {
   const { data: matches = mockMatches } = useQuery({
     queryKey: ["upcomingMatches"],
     queryFn: () => fetchUpcomingMatches(),
-    enabled: false,
+    enabled: true,
     initialData: mockMatches,
   });
 

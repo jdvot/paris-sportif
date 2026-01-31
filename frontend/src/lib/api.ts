@@ -10,8 +10,18 @@ import type {
   PredictionStats,
   TeamForm,
 } from "./types";
+import {
+  mockMatch,
+  mockPrediction,
+  mockHomeTeamForm,
+  mockAwayTeamForm,
+  mockHeadToHead,
+  mockUpcomingMatches,
+  getMockMatchById,
+} from "./mockData";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
 
 /**
  * Generic fetch wrapper with error handling
@@ -53,6 +63,11 @@ export async function fetchUpcomingMatches(
   days: number = 2,
   competition?: string
 ): Promise<Match[]> {
+  if (USE_MOCK_DATA) {
+    return new Promise((resolve) =>
+      setTimeout(() => resolve(mockUpcomingMatches), 300)
+    );
+  }
   const params = new URLSearchParams({ days: days.toString() });
   if (competition) params.append("competition", competition);
 
@@ -88,6 +103,11 @@ export async function fetchMatches(options?: {
  * Fetch single match details
  */
 export async function fetchMatch(matchId: number): Promise<Match> {
+  if (USE_MOCK_DATA) {
+    return new Promise((resolve) =>
+      setTimeout(() => resolve(getMockMatchById(matchId)), 300)
+    );
+  }
   return fetchApi(`/api/v1/matches/${matchId}`);
 }
 
@@ -98,6 +118,11 @@ export async function fetchPrediction(
   matchId: number,
   includeModelDetails: boolean = false
 ): Promise<DetailedPrediction> {
+  if (USE_MOCK_DATA) {
+    return new Promise((resolve) =>
+      setTimeout(() => resolve(mockPrediction), 300)
+    );
+  }
   const params = includeModelDetails ? "?include_model_details=true" : "";
   return fetchApi(`/api/v1/predictions/${matchId}${params}`);
 }
@@ -109,6 +134,14 @@ export async function fetchTeamForm(
   teamId: number,
   matchesCount: number = 5
 ): Promise<TeamForm> {
+  if (USE_MOCK_DATA) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const mockData = teamId % 2 === 0 ? mockAwayTeamForm : mockHomeTeamForm;
+        resolve(mockData);
+      }, 300);
+    });
+  }
   return fetchApi(`/api/v1/matches/teams/${teamId}/form?matches_count=${matchesCount}`);
 }
 
@@ -119,6 +152,11 @@ export async function fetchHeadToHead(
   matchId: number,
   limit: number = 10
 ): Promise<{ matches: Match[]; homeWins: number; draws: number; awayWins: number }> {
+  if (USE_MOCK_DATA) {
+    return new Promise((resolve) =>
+      setTimeout(() => resolve(mockHeadToHead), 300)
+    );
+  }
   return fetchApi(`/api/v1/matches/${matchId}/head-to-head?limit=${limit}`);
 }
 

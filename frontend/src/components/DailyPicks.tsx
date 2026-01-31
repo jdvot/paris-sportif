@@ -130,12 +130,12 @@ const mockPicks: DailyPick[] = [
 ];
 
 export function DailyPicks() {
-  // In production, this would fetch from the API
+  // Fetch from the API with mock data as fallback
   const { data: picks = mockPicks, isLoading } = useQuery({
     queryKey: ["dailyPicks"],
     queryFn: () => fetchDailyPicks(),
-    // Use mock data in development
-    enabled: false,
+    // Use mock data as fallback while fetching from the API
+    enabled: true,
     initialData: mockPicks,
   });
 
