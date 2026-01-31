@@ -1,0 +1,195 @@
+"""LLM Client using Groq (Free tier with Llama 3.3 70B).
+
+Groq provides free access to Llama models with very fast inference.
+API is OpenAI-compatible.
+
+Free tier limits:
+- 30 requests/minute
+- 14,400 requests/day
+- 1M tokens/hour
+
+Get API key at: https://console.groq.com/
+"""
+
+import json
+from typing import Any, Optional
+
+import httpx
+from pydantic import BaseModel
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+from src.core.config import settings
+from src.core.exceptions import LLMError, RateLimitError
+
+
+class LLMResponse(BaseModel):
+    """LLM response model."""
+
+    content: str
+    model: str
+    usage: dict[str, int]
+
+
+class GroqClient:
+    """
+    Client for Groq API (OpenAI-compatible).
+
+    Uses Llama 3.3 70B for analysis tasks.
+    Falls back to Llama 3.1 8B for simpler tasks.
+    """
+
+    BASE_URL = "https://api.groq.com/openai/v1"
+
+    # Model options
+    MODEL_LARGE = "llama-3.3-70b-versatile"  # For complex analysis
+    MODEL_SMALL = "llama-3.1-8b-instant"  # For simple extraction
+
+    def __init__(self, api_key: Optional[str] = None):
+        """
+        Initialize Groq client.
+
+        Args:
+            api_key: Groq API key. Get one free at https://console.groq.com/
+        """
+        self.api_key = api_key or settings.groq_api_key
+        self.headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+    )
+    async def _request(
+        self,
+        messages: list[dict[str, str]],
+        model: str = MODEL_LARGE,
+        temperature: float = 0.3,
+        max_tokens: int = 1024,
+        response_format: Optional[dict] = None,
+    ) -> LLMResponse:
+        """Make API request to Groq."""
+        payload: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+
+        if response_format:
+            payload["response_format"] = response_format
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.BASE_URL}/chat/completions",
+                headers=self.headers,
+                json=payload,
+                timeout=60.0,
+            )
+
+            if response.status_code == 429:
+                raise RateLimitError(
+                    "Groq rate limit exceeded",
+                    details={"retry_after": response.headers.get("Retry-After")},
+                )
+
+            if response.status_code != 200:
+                raise LLMError(
+                    f"Groq API error: {response.status_code}",
+                    details={"response": response.text},
+                )
+
+            data = response.json()
+
+            return LLMResponse(
+                content=data["choices"][0]["message"]["content"],
+                model=data["model"],
+                usage=data.get("usage", {}),
+            )
+
+    async def complete(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        model: Optional[str] = None,
+        temperature: float = 0.3,
+        max_tokens: int = 1024,
+        json_mode: bool = False,
+    ) -> str:
+        """
+        Simple completion.
+
+        Args:
+            prompt: User prompt
+            system_prompt: System instructions
+            model: Model to use (default: large model)
+            temperature: Creativity (0-1)
+            max_tokens: Max response length
+            json_mode: Return JSON response
+
+        Returns:
+            LLM response content
+        """
+        messages = []
+
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+
+        messages.append({"role": "user", "content": prompt})
+
+        response_format = {"type": "json_object"} if json_mode else None
+
+        response = await self._request(
+            messages=messages,
+            model=model or self.MODEL_LARGE,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format=response_format,
+        )
+
+        return response.content
+
+    async def analyze_json(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """
+        Get structured JSON response.
+
+        Args:
+            prompt: User prompt (should ask for JSON)
+            system_prompt: System instructions
+            model: Model to use
+
+        Returns:
+            Parsed JSON dict
+        """
+        content = await self.complete(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            model=model,
+            json_mode=True,
+        )
+
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError as e:
+            raise LLMError(
+                "Failed to parse JSON response",
+                details={"content": content, "error": str(e)},
+            )
+
+
+# Will be initialized with API key from settings
+groq_client: Optional[GroqClient] = None
+
+
+def get_llm_client() -> GroqClient:
+    """Get or create LLM client."""
+    global groq_client
+    if groq_client is None:
+        groq_client = GroqClient()
+    return groq_client
