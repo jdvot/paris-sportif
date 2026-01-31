@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState, useCallback } from "react";
-import { format, subDays, parseISO } from "date-fns";
+import { format, subDays, addDays, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { TrendingUp, AlertTriangle, CheckCircle, Calendar, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -192,7 +192,7 @@ export default function PicksPage() {
   };
 
   const handleNextDay = () => {
-    const nextDay = format(parseISO(selectedDate) + 86400000, "yyyy-MM-dd");
+    const nextDay = format(addDays(parseISO(selectedDate), 1), "yyyy-MM-dd");
     if (nextDay <= format(new Date(), "yyyy-MM-dd")) {
       setSelectedDate(nextDay);
     }
