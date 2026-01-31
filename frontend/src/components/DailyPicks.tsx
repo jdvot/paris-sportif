@@ -133,7 +133,7 @@ export function DailyPicks() {
   // In production, this would fetch from the API
   const { data: picks = mockPicks, isLoading } = useQuery({
     queryKey: ["dailyPicks"],
-    queryFn: fetchDailyPicks,
+    queryFn: () => fetchDailyPicks(),
     // Use mock data in development
     enabled: false,
     initialData: mockPicks,

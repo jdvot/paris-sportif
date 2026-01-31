@@ -70,7 +70,7 @@ const competitionColors: Record<string, string> = {
 export function UpcomingMatches() {
   const { data: matches = mockMatches } = useQuery({
     queryKey: ["upcomingMatches"],
-    queryFn: fetchUpcomingMatches,
+    queryFn: () => fetchUpcomingMatches(),
     enabled: false,
     initialData: mockMatches,
   });
