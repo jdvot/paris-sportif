@@ -1,9 +1,22 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { DailyPicks } from "@/components/DailyPicks";
 import { UpcomingMatches } from "@/components/UpcomingMatches";
 import { StatsOverview } from "@/components/StatsOverview";
-import { TrendingUp, Calendar, Trophy } from "lucide-react";
+import { TrendingUp, Calendar, Trophy, Loader2 } from "lucide-react";
+import { fetchPredictionStats } from "@/lib/api";
 
 export default function Home() {
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["predictionStats"],
+    queryFn: () => fetchPredictionStats(30),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const successRate = stats ? ((stats.accuracy || 0) * 100).toFixed(1) : "--";
+  const totalPredictions = stats?.totalPredictions || "--";
+
   return (
     <div className="space-y-8">
       {/* Hero Section */}
@@ -26,7 +39,11 @@ export default function Home() {
           </div>
           <div>
             <p className="text-dark-400 text-sm">Taux de reussite</p>
-            <p className="text-2xl font-bold text-white">62.5%</p>
+            {statsLoading ? (
+              <Loader2 className="w-6 h-6 text-primary-400 animate-spin mt-1" />
+            ) : (
+              <p className="text-2xl font-bold text-white">{successRate}%</p>
+            )}
           </div>
         </div>
         <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 flex items-center gap-4">
@@ -34,8 +51,12 @@ export default function Home() {
             <Calendar className="w-6 h-6 text-accent-400" />
           </div>
           <div>
-            <p className="text-dark-400 text-sm">Matchs analyses/jour</p>
-            <p className="text-2xl font-bold text-white">45+</p>
+            <p className="text-dark-400 text-sm">Predictions analysees</p>
+            {statsLoading ? (
+              <Loader2 className="w-6 h-6 text-accent-400 animate-spin mt-1" />
+            ) : (
+              <p className="text-2xl font-bold text-white">{totalPredictions}</p>
+            )}
           </div>
         </div>
         <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 flex items-center gap-4">

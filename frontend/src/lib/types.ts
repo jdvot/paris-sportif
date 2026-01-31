@@ -15,11 +15,20 @@ export interface Match {
   matchday?: number;
 }
 
+export interface Probabilities {
+  homeWin: number;
+  draw: number;
+  awayWin: number;
+}
+
 export interface Prediction {
-  homeProb: number;
-  drawProb: number;
-  awayProb: number;
-  recommendedBet: "home" | "draw" | "away";
+  // Legacy format (frontend mock data)
+  homeProb?: number;
+  drawProb?: number;
+  awayProb?: number;
+  // New format (backend API)
+  probabilities?: Probabilities;
+  recommendedBet: "home" | "draw" | "away" | "home_win" | "away_win";
   confidence: number;
   valueScore: number;
 }
@@ -31,6 +40,7 @@ export interface DailyPick {
   explanation: string;
   keyFactors: string[];
   riskFactors?: string[];
+  pickScore?: number;
 }
 
 export interface DailyPicksResponse {
@@ -39,10 +49,18 @@ export interface DailyPicksResponse {
   totalMatchesAnalyzed: number;
 }
 
+export interface TeamFormMatch {
+  opponent: string;
+  result: "W" | "D" | "L";
+  score: string;
+  homeAway: "H" | "A";
+  date: string;
+}
+
 export interface TeamForm {
   teamId: number;
   teamName: string;
-  lastMatches: Match[];
+  lastMatches: TeamFormMatch[];
   formString: string;
   pointsLast5: number;
   goalsScoredAvg: number;
@@ -53,10 +71,13 @@ export interface TeamForm {
 }
 
 export interface ModelContribution {
-  homeProb: number;
-  drawProb: number;
-  awayProb: number;
-  weight: number;
+  homeProb?: number;
+  drawProb?: number;
+  awayProb?: number;
+  homeWin?: number;
+  draw?: number;
+  awayWin?: number;
+  weight?: number;
 }
 
 export interface LLMAdjustments {
@@ -70,19 +91,23 @@ export interface LLMAdjustments {
 }
 
 export interface DetailedPrediction extends Prediction {
+  matchId?: number;
+  homeTeam?: string;
+  awayTeam?: string;
+  matchDate?: string;
   explanation: string;
   keyFactors: string[];
   riskFactors: string[];
   modelContributions?: {
     poisson: ModelContribution;
     elo: ModelContribution;
-    xg?: ModelContribution;
+    xgModel?: ModelContribution;
     xgboost?: ModelContribution;
   };
   llmAdjustments?: LLMAdjustments;
-  expectedHomeGoals: number;
-  expectedAwayGoals: number;
-  createdAt: string;
+  expectedHomeGoals?: number;
+  expectedAwayGoals?: number;
+  createdAt?: string;
 }
 
 export interface PredictionStats {
@@ -91,16 +116,19 @@ export interface PredictionStats {
   accuracy: number;
   roiSimulated: number;
   byCompetition: Record<string, {
-    predictions: number;
+    total?: number;
+    predictions?: number;
     correct: number;
     accuracy: number;
   }>;
   byBetType: Record<string, {
-    predictions: number;
+    total?: number;
+    predictions?: number;
     correct: number;
     accuracy: number;
+    avgValue?: number;
   }>;
-  lastUpdated: string;
+  lastUpdated?: string;
 }
 
 export interface Competition {

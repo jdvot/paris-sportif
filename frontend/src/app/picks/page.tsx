@@ -359,11 +359,14 @@ export default function PicksPage() {
 function PickCard({ pick }: { pick: DailyPick }) {
   const { match, prediction, keyFactors, explanation, riskFactors } = pick;
 
-  const betLabel = {
+  const betLabels: Record<string, string> = {
     home: `Victoire ${match.homeTeam}`,
+    home_win: `Victoire ${match.homeTeam}`,
     draw: "Match nul",
     away: `Victoire ${match.awayTeam}`,
-  }[prediction.recommendedBet];
+    away_win: `Victoire ${match.awayTeam}`,
+  };
+  const betLabel = betLabels[prediction.recommendedBet] || prediction.recommendedBet;
 
   const confidenceColor =
     prediction.confidence >= 0.7
@@ -418,18 +421,18 @@ function PickCard({ pick }: { pick: DailyPick }) {
         <div className="flex gap-2 mb-4">
           <ProbBar
             label={match.homeTeam}
-            prob={prediction.homeProb}
-            isRecommended={prediction.recommendedBet === "home"}
+            prob={prediction.homeProb ?? prediction.probabilities?.homeWin ?? 0}
+            isRecommended={prediction.recommendedBet === "home" || prediction.recommendedBet === "home_win"}
           />
           <ProbBar
             label="Nul"
-            prob={prediction.drawProb}
+            prob={prediction.drawProb ?? prediction.probabilities?.draw ?? 0}
             isRecommended={prediction.recommendedBet === "draw"}
           />
           <ProbBar
             label={match.awayTeam}
-            prob={prediction.awayProb}
-            isRecommended={prediction.recommendedBet === "away"}
+            prob={prediction.awayProb ?? prediction.probabilities?.awayWin ?? 0}
+            isRecommended={prediction.recommendedBet === "away" || prediction.recommendedBet === "away_win"}
           />
         </div>
 

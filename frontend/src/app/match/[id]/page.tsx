@@ -248,14 +248,18 @@ function PredictionSection({
 }) {
   const betLabels: Record<string, string> = {
     home: "Victoire domicile",
+    home_win: "Victoire domicile",
     draw: "Match nul",
     away: "Victoire exterieur",
+    away_win: "Victoire exterieur",
   };
 
   const betColors: Record<string, string> = {
     home: "text-primary-400",
+    home_win: "text-primary-400",
     draw: "text-yellow-400",
     away: "text-accent-400",
+    away_win: "text-accent-400",
   };
 
   const confidence = prediction.confidence ?? 0;
@@ -265,6 +269,13 @@ function PredictionSection({
       : confidence >= 0.6
         ? "text-yellow-400"
         : "text-orange-400";
+
+  // Support both API formats
+  const homeProb = prediction.homeProb ?? prediction.probabilities?.homeWin ?? 0;
+  const drawProb = prediction.drawProb ?? prediction.probabilities?.draw ?? 0;
+  const awayProb = prediction.awayProb ?? prediction.probabilities?.awayWin ?? 0;
+  const isHomeRecommended = prediction.recommendedBet === "home" || prediction.recommendedBet === "home_win";
+  const isAwayRecommended = prediction.recommendedBet === "away" || prediction.recommendedBet === "away_win";
 
   return (
     <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 space-y-6">
@@ -285,20 +296,20 @@ function PredictionSection({
       <div className="space-y-4">
         <ProbabilityBar
           label="Victoire Domicile"
-          probability={prediction.homeProb}
-          isRecommended={prediction.recommendedBet === "home"}
+          probability={homeProb}
+          isRecommended={isHomeRecommended}
           color="primary"
         />
         <ProbabilityBar
           label="Match Nul"
-          probability={prediction.drawProb}
+          probability={drawProb}
           isRecommended={prediction.recommendedBet === "draw"}
           color="yellow"
         />
         <ProbabilityBar
           label="Victoire Exterieur"
-          probability={prediction.awayProb}
-          isRecommended={prediction.recommendedBet === "away"}
+          probability={awayProb}
+          isRecommended={isAwayRecommended}
           color="accent"
         />
       </div>
@@ -621,18 +632,28 @@ function ModelContributionCard({
 }: {
   modelName: string;
   contribution: {
-    homeProb: number;
-    drawProb: number;
-    awayProb: number;
-    weight: number;
+    homeProb?: number;
+    drawProb?: number;
+    awayProb?: number;
+    homeWin?: number;
+    draw?: number;
+    awayWin?: number;
+    weight?: number;
   };
 }) {
   const displayName: Record<string, string> = {
     poisson: "Poisson",
     elo: "ELO",
     xg: "xG",
+    xgModel: "xG Model",
     xgboost: "XGBoost",
   };
+
+  // Support both formats
+  const homeProb = contribution.homeProb ?? contribution.homeWin ?? 0;
+  const drawProb = contribution.drawProb ?? contribution.draw ?? 0;
+  const awayProb = contribution.awayProb ?? contribution.awayWin ?? 0;
+  const weight = contribution.weight ?? 0.25;
 
   return (
     <div className="bg-dark-700/50 rounded-lg p-4 space-y-2">
@@ -641,7 +662,7 @@ function ModelContributionCard({
           {displayName[modelName] || modelName}
         </p>
         <p className="text-xs text-dark-400">
-          Poids: {Math.round(contribution.weight * 100)}%
+          Poids: {Math.round(weight * 100)}%
         </p>
       </div>
 
@@ -649,19 +670,19 @@ function ModelContributionCard({
         <div className="flex justify-between">
           <span className="text-dark-400">Domicile:</span>
           <span className="text-primary-400 font-semibold">
-            {Math.round(contribution.homeProb * 100)}%
+            {Math.round(homeProb * 100)}%
           </span>
         </div>
         <div className="flex justify-between">
           <span className="text-dark-400">Nul:</span>
           <span className="text-yellow-400 font-semibold">
-            {Math.round(contribution.drawProb * 100)}%
+            {Math.round(drawProb * 100)}%
           </span>
         </div>
         <div className="flex justify-between">
           <span className="text-dark-400">Exterieur:</span>
           <span className="text-accent-400 font-semibold">
-            {Math.round(contribution.awayProb * 100)}%
+            {Math.round(awayProb * 100)}%
           </span>
         </div>
       </div>

@@ -1,61 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, ChevronRight } from "lucide-react";
+import { ChevronRight, Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { fetchUpcomingMatches } from "@/lib/api";
 import type { Match } from "@/lib/types";
-
-// Mock data
-const mockMatches: Match[] = [
-  {
-    id: 1,
-    homeTeam: "Liverpool",
-    awayTeam: "Chelsea",
-    competition: "Premier League",
-    competitionCode: "PL",
-    matchDate: new Date(Date.now() + 86400000).toISOString(),
-    status: "scheduled",
-  },
-  {
-    id: 2,
-    homeTeam: "Atletico Madrid",
-    awayTeam: "Sevilla",
-    competition: "La Liga",
-    competitionCode: "PD",
-    matchDate: new Date(Date.now() + 86400000 * 1.5).toISOString(),
-    status: "scheduled",
-  },
-  {
-    id: 3,
-    homeTeam: "Leipzig",
-    awayTeam: "Leverkusen",
-    competition: "Bundesliga",
-    competitionCode: "BL1",
-    matchDate: new Date(Date.now() + 86400000 * 2).toISOString(),
-    status: "scheduled",
-  },
-  {
-    id: 4,
-    homeTeam: "AC Milan",
-    awayTeam: "Napoli",
-    competition: "Serie A",
-    competitionCode: "SA",
-    matchDate: new Date(Date.now() + 86400000 * 2.5).toISOString(),
-    status: "scheduled",
-  },
-  {
-    id: 5,
-    homeTeam: "Lyon",
-    awayTeam: "Monaco",
-    competition: "Ligue 1",
-    competitionCode: "FL1",
-    matchDate: new Date(Date.now() + 86400000 * 3).toISOString(),
-    status: "scheduled",
-  },
-];
 
 const competitionColors: Record<string, string> = {
   PL: "bg-purple-500",
@@ -68,17 +19,43 @@ const competitionColors: Record<string, string> = {
 };
 
 export function UpcomingMatches() {
-  const { data: matches = mockMatches } = useQuery({
+  const { data: matches, isLoading, error } = useQuery({
     queryKey: ["upcomingMatches"],
-    queryFn: () => fetchUpcomingMatches(),
-    enabled: true,
-    initialData: mockMatches,
+    queryFn: () => fetchUpcomingMatches(3),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  if (isLoading) {
+    return (
+      <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-8">
+        <div className="flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-primary-400 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-dark-800/50 border border-red-500/30 rounded-xl p-8 text-center">
+        <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
+        <p className="text-dark-400">Impossible de charger les matchs</p>
+      </div>
+    );
+  }
+
+  if (!matches || matches.length === 0) {
+    return (
+      <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-8 text-center">
+        <p className="text-dark-400">Aucun match a venir</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-dark-800/50 border border-dark-700 rounded-xl overflow-hidden">
       <div className="divide-y divide-dark-700">
-        {matches.map((match) => (
+        {matches.slice(0, 5).map((match) => (
           <MatchRow key={match.id} match={match} />
         ))}
       </div>
@@ -96,6 +73,8 @@ export function UpcomingMatches() {
 
 function MatchRow({ match }: { match: Match }) {
   const matchDate = new Date(match.matchDate);
+  const homeTeam = typeof match.homeTeam === 'string' ? match.homeTeam : match.homeTeam;
+  const awayTeam = typeof match.awayTeam === 'string' ? match.awayTeam : match.awayTeam;
 
   return (
     <Link
@@ -110,7 +89,7 @@ function MatchRow({ match }: { match: Match }) {
         />
         <div>
           <h4 className="font-medium text-white">
-            {match.homeTeam} vs {match.awayTeam}
+            {homeTeam} vs {awayTeam}
           </h4>
           <p className="text-sm text-dark-400">{match.competition}</p>
         </div>

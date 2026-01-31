@@ -1,142 +1,17 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
+import { CheckCircle, Loader2, AlertCircle } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { fetchDailyPicks } from "@/lib/api";
 import type { DailyPick } from "@/lib/types";
 
-// Mock data for development
-const mockPicks: DailyPick[] = [
-  {
-    rank: 1,
-    match: {
-      id: 1,
-      homeTeam: "Manchester City",
-      awayTeam: "Arsenal",
-      competition: "Premier League",
-      matchDate: new Date().toISOString(),
-    },
-    prediction: {
-      homeProb: 0.52,
-      drawProb: 0.26,
-      awayProb: 0.22,
-      recommendedBet: "home",
-      confidence: 0.72,
-      valueScore: 0.08,
-    },
-    explanation:
-      "City en excellente forme a domicile avec 8 victoires consecutives. Arsenal fatigue apres le match de Ligue des Champions.",
-    keyFactors: [
-      "8 victoires consecutives a domicile",
-      "Arsenal en deplacement difficile",
-      "Avantage xG significatif",
-    ],
-  },
-  {
-    rank: 2,
-    match: {
-      id: 2,
-      homeTeam: "Real Madrid",
-      awayTeam: "Barcelona",
-      competition: "La Liga",
-      matchDate: new Date().toISOString(),
-    },
-    prediction: {
-      homeProb: 0.41,
-      drawProb: 0.29,
-      awayProb: 0.30,
-      recommendedBet: "home",
-      confidence: 0.65,
-      valueScore: 0.12,
-    },
-    explanation:
-      "El Clasico au Bernabeu. Real favori leger avec l'avantage du terrain.",
-    keyFactors: [
-      "Bernabeu en feu",
-      "Vinicius Jr en forme",
-      "Barcelona sans Pedri",
-    ],
-  },
-  {
-    rank: 3,
-    match: {
-      id: 3,
-      homeTeam: "Bayern Munich",
-      awayTeam: "Dortmund",
-      competition: "Bundesliga",
-      matchDate: new Date().toISOString(),
-    },
-    prediction: {
-      homeProb: 0.58,
-      drawProb: 0.24,
-      awayProb: 0.18,
-      recommendedBet: "home",
-      confidence: 0.78,
-      valueScore: 0.06,
-    },
-    explanation: "Der Klassiker avec Bayern dominant a domicile cette saison.",
-    keyFactors: [
-      "Bayern invaincu a domicile",
-      "Dortmund instable",
-      "Historique favorable",
-    ],
-  },
-  {
-    rank: 4,
-    match: {
-      id: 4,
-      homeTeam: "PSG",
-      awayTeam: "Marseille",
-      competition: "Ligue 1",
-      matchDate: new Date().toISOString(),
-    },
-    prediction: {
-      homeProb: 0.62,
-      drawProb: 0.22,
-      awayProb: 0.16,
-      recommendedBet: "home",
-      confidence: 0.75,
-      valueScore: 0.09,
-    },
-    explanation:
-      "Le Classique au Parc des Princes. PSG ultra-favori malgre absence de Mbappe.",
-    keyFactors: ["Parc des Princes", "Domination historique", "OM en crise"],
-  },
-  {
-    rank: 5,
-    match: {
-      id: 5,
-      homeTeam: "Inter Milan",
-      awayTeam: "Juventus",
-      competition: "Serie A",
-      matchDate: new Date().toISOString(),
-    },
-    prediction: {
-      homeProb: 0.45,
-      drawProb: 0.30,
-      awayProb: 0.25,
-      recommendedBet: "home",
-      confidence: 0.62,
-      valueScore: 0.07,
-    },
-    explanation: "Derby d'Italie. Match serre attendu avec leger avantage Inter.",
-    keyFactors: [
-      "San Siro plein",
-      "Inter en tete",
-      "Juventus defensive solide",
-    ],
-  },
-];
-
 export function DailyPicks() {
-  // Fetch from the API with mock data as fallback
-  const { data: picks = mockPicks, isLoading } = useQuery({
+  const { data: picks, isLoading, error } = useQuery({
     queryKey: ["dailyPicks"],
     queryFn: () => fetchDailyPicks(),
-    // Use mock data as fallback while fetching from the API
-    enabled: true,
-    initialData: mockPicks,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   if (isLoading) {
@@ -155,6 +30,25 @@ export function DailyPicks() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="bg-dark-800/50 border border-red-500/30 rounded-xl p-8 text-center">
+        <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+        <p className="text-dark-300">Impossible de charger les picks du jour</p>
+        <p className="text-dark-500 text-sm mt-2">Verifiez que le backend est en cours d'execution</p>
+      </div>
+    );
+  }
+
+  if (!picks || picks.length === 0) {
+    return (
+      <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-8 text-center">
+        <p className="text-dark-400">Aucun pick disponible pour aujourd'hui</p>
+        <p className="text-dark-500 text-sm mt-2">Les picks seront disponibles quand des matchs sont programmes</p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-4">
       {picks.map((pick) => (
@@ -167,21 +61,34 @@ export function DailyPicks() {
 function PickCard({ pick }: { pick: DailyPick }) {
   const { match, prediction, keyFactors, explanation } = pick;
 
-  const betLabel = {
-    home: `Victoire ${match.homeTeam}`,
-    draw: "Match nul",
-    away: `Victoire ${match.awayTeam}`,
-  }[prediction.recommendedBet];
+  const homeTeam = typeof match.homeTeam === 'string' ? match.homeTeam : match.homeTeam;
+  const awayTeam = typeof match.awayTeam === 'string' ? match.awayTeam : match.awayTeam;
 
+  const betLabel = {
+    home: `Victoire ${homeTeam}`,
+    home_win: `Victoire ${homeTeam}`,
+    draw: "Match nul",
+    away: `Victoire ${awayTeam}`,
+    away_win: `Victoire ${awayTeam}`,
+  }[prediction.recommendedBet] || prediction.recommendedBet;
+
+  const confidence = prediction.confidence || 0;
   const confidenceColor =
-    prediction.confidence >= 0.7
+    confidence >= 0.7
       ? "text-primary-400"
-      : prediction.confidence >= 0.6
+      : confidence >= 0.6
       ? "text-yellow-400"
       : "text-orange-400";
 
+  const homeProb = prediction.homeProb || prediction.probabilities?.homeWin || 0;
+  const drawProb = prediction.drawProb || prediction.probabilities?.draw || 0;
+  const awayProb = prediction.awayProb || prediction.probabilities?.awayWin || 0;
+
   return (
-    <div className="bg-dark-800/50 border border-dark-700 rounded-xl overflow-hidden hover:border-dark-600 transition-colors">
+    <Link
+      href={`/match/${match.id}`}
+      className="block bg-dark-800/50 border border-dark-700 rounded-xl overflow-hidden hover:border-primary-500/50 transition-colors"
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-dark-700">
         <div className="flex items-center gap-4">
@@ -190,17 +97,17 @@ function PickCard({ pick }: { pick: DailyPick }) {
           </span>
           <div>
             <h3 className="font-semibold text-white">
-              {match.homeTeam} vs {match.awayTeam}
+              {homeTeam} vs {awayTeam}
             </h3>
             <p className="text-sm text-dark-400">{match.competition}</p>
           </div>
         </div>
         <div className="text-right">
           <p className={cn("font-semibold", confidenceColor)}>
-            {Math.round(prediction.confidence * 100)}% confiance
+            {Math.round(confidence * 100)}% confiance
           </p>
           <p className="text-sm text-dark-400">
-            Value: +{Math.round(prediction.valueScore * 100)}%
+            Value: +{Math.round((prediction.valueScore || 0) * 100)}%
           </p>
         </div>
       </div>
@@ -210,19 +117,19 @@ function PickCard({ pick }: { pick: DailyPick }) {
         {/* Probabilities */}
         <div className="flex gap-2 mb-4">
           <ProbBar
-            label={match.homeTeam}
-            prob={prediction.homeProb}
-            isRecommended={prediction.recommendedBet === "home"}
+            label={homeTeam}
+            prob={homeProb}
+            isRecommended={prediction.recommendedBet === "home" || prediction.recommendedBet === "home_win"}
           />
           <ProbBar
             label="Nul"
-            prob={prediction.drawProb}
+            prob={drawProb}
             isRecommended={prediction.recommendedBet === "draw"}
           />
           <ProbBar
-            label={match.awayTeam}
-            prob={prediction.awayProb}
-            isRecommended={prediction.recommendedBet === "away"}
+            label={awayTeam}
+            prob={awayProb}
+            isRecommended={prediction.recommendedBet === "away" || prediction.recommendedBet === "away_win"}
           />
         </div>
 
@@ -233,21 +140,25 @@ function PickCard({ pick }: { pick: DailyPick }) {
         </div>
 
         {/* Explanation */}
-        <p className="text-dark-300 text-sm mb-4">{explanation}</p>
+        {explanation && (
+          <p className="text-dark-300 text-sm mb-4">{explanation}</p>
+        )}
 
         {/* Key Factors */}
-        <div className="flex flex-wrap gap-2">
-          {keyFactors.map((factor, i) => (
-            <span
-              key={i}
-              className="px-2 py-1 bg-dark-700 rounded text-xs text-dark-300"
-            >
-              {factor}
-            </span>
-          ))}
-        </div>
+        {keyFactors && keyFactors.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {keyFactors.slice(0, 3).map((factor, i) => (
+              <span
+                key={i}
+                className="px-2 py-1 bg-dark-700 rounded text-xs text-dark-300"
+              >
+                {factor}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -260,14 +171,17 @@ function ProbBar({
   prob: number;
   isRecommended: boolean;
 }) {
+  const displayLabel = label.length > 12 ? label.slice(0, 12) + "..." : label;
+  const percentage = Math.round(prob * 100);
+
   return (
     <div className="flex-1">
       <div className="flex justify-between text-xs mb-1">
         <span className={isRecommended ? "text-primary-400" : "text-dark-400"}>
-          {label.length > 12 ? label.slice(0, 12) + "..." : label}
+          {displayLabel}
         </span>
         <span className={isRecommended ? "text-primary-400" : "text-dark-400"}>
-          {Math.round(prob * 100)}%
+          {percentage}%
         </span>
       </div>
       <div className="h-2 bg-dark-700 rounded-full overflow-hidden">
@@ -276,7 +190,7 @@ function ProbBar({
             "h-full rounded-full transition-all",
             isRecommended ? "bg-primary-500" : "bg-dark-500"
           )}
-          style={{ width: `${prob * 100}%` }}
+          style={{ width: `${percentage}%` }}
         />
       </div>
     </div>
