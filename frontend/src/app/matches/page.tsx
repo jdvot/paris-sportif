@@ -9,7 +9,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
-import { format, startOfDay, addDays, isSameDay } from "date-fns";
+import { format, startOfDay, addDays, isSameDay, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useGetMatches } from "@/lib/api/endpoints/matches/matches";
 import type { MatchResponse, MatchListResponse } from "@/lib/api/models";
@@ -65,7 +65,9 @@ export default function MatchesPage() {
         dateTo = addDays(today, 1);
         break;
       case "week":
-        dateTo = addDays(today, 6);
+        // Cette Semaine = lundi → dimanche de la semaine actuelle
+        dateFrom = startOfWeek(today, { weekStartsOn: 1 }); // Lundi
+        dateTo = endOfWeek(today, { weekStartsOn: 1 }); // Dimanche
         break;
       case "next7days":
         dateTo = addDays(today, 7);
