@@ -530,12 +530,13 @@ async def get_daily_picks(
             )
 
         # No cached predictions, fetch from API
-        date_to = target_date
+        # Look for matches on target date AND next 7 days for upcoming picks
+        date_to = target_date + timedelta(days=7)
 
         # Try to get scheduled matches from DB first (fallback)
         db_matches = get_scheduled_matches_from_db(date_from=target_date, date_to=date_to)
 
-        # Fetch matches for that date from real API
+        # Fetch matches for date range from real API
         client = get_football_data_client()
         try:
             api_matches = await client.get_matches(
@@ -554,8 +555,7 @@ async def get_daily_picks(
         api_matches = [
             m for m in api_matches
             if m.status in ("SCHEDULED", "TIMED") and
-            datetime.fromisoformat(m.utcDate.replace("Z", "+00:00")).replace(tzinfo=None) > now and
-            datetime.fromisoformat(m.utcDate.replace("Z", "+00:00")).date() == target_date
+            datetime.fromisoformat(m.utcDate.replace("Z", "+00:00")).replace(tzinfo=None) > now
         ]
 
         if not api_matches:
