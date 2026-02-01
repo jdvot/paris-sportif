@@ -16,6 +16,8 @@ import numpy as np
 
 from src.prediction_engine.models.poisson import PoissonModel, PoissonPrediction
 from src.prediction_engine.models.elo import ELOSystem, ELOPrediction
+from src.prediction_engine.models.xgboost_model import XGBoostModel, XGBoostPrediction
+from src.prediction_engine.models.random_forest_model import RandomForestModel, RandomForestPrediction
 
 
 @dataclass
@@ -81,6 +83,7 @@ class EnsemblePrediction:
     elo_contribution: Optional[ModelContribution] = None
     xg_contribution: Optional[ModelContribution] = None
     xgboost_contribution: Optional[ModelContribution] = None
+    random_forest_contribution: Optional[ModelContribution] = None
 
     # LLM adjustments applied
     llm_adjustments: Optional[LLMAdjustments] = None
@@ -88,6 +91,9 @@ class EnsemblePrediction:
     # Expected goals
     expected_home_goals: float = 0.0
     expected_away_goals: float = 0.0
+
+    # Model diversity info
+    model_agreement: float = 0.0  # How much models agree (0-1)
 
 
 class EnsemblePredictor:
@@ -117,13 +123,14 @@ class EnsemblePredictor:
         self,
         poisson_model: Optional[PoissonModel] = None,
         elo_system: Optional[ELOSystem] = None,
+        xgboost_model: Optional[XGBoostModel] = None,
+        random_forest_model: Optional[RandomForestModel] = None,
     ):
         """Initialize ensemble with component models."""
         self.poisson = poisson_model or PoissonModel()
         self.elo = elo_system or ELOSystem()
-
-        # XGBoost model would be loaded here
-        self.xgboost_model = None
+        self.xgboost_model = xgboost_model or XGBoostModel()
+        self.random_forest_model = random_forest_model or RandomForestModel()
 
     def _normalize_probs(
         self,
@@ -208,6 +215,44 @@ class EnsemblePredictor:
 
         return value
 
+    def _calculate_model_agreement(
+        self,
+        contributions: list[tuple[float, float, float, float]],
+    ) -> float:
+        """
+        Calculate how much models agree on the prediction.
+
+        Higher values indicate strong consensus, lower values indicate disagreement.
+
+        Args:
+            contributions: List of (home_prob, draw_prob, away_prob, weight) tuples
+
+        Returns:
+            Agreement score from 0 to 1
+        """
+        if len(contributions) < 2:
+            return 0.5  # Not enough models to compare
+
+        try:
+            # Get predictions from each model (ignoring weights)
+            predictions = np.array([(c[0], c[1], c[2]) for c in contributions])
+
+            # Calculate standard deviation across models for each outcome
+            home_std = float(np.std(predictions[:, 0]))
+            draw_std = float(np.std(predictions[:, 1]))
+            away_std = float(np.std(predictions[:, 2]))
+
+            # Average deviation (lower = more agreement)
+            avg_std = (home_std + draw_std + away_std) / 3
+
+            # Convert to agreement score (0 std = 1.0 agreement, 0.3+ std = low agreement)
+            agreement = 1.0 - min(avg_std / 0.3, 1.0)
+
+            return float(np.clip(agreement, 0.0, 1.0))
+
+        except Exception:
+            return 0.5  # Default on error
+
     def _calculate_confidence(
         self,
         home_prob: float,
@@ -262,8 +307,12 @@ class EnsemblePredictor:
         home_xg_against: Optional[float] = None,
         away_xg_for: Optional[float] = None,
         away_xg_against: Optional[float] = None,
-        # Optional XGBoost features (would come from feature builder)
+        # Optional XGBoost/Random Forest features
         xgboost_probs: Optional[tuple[float, float, float]] = None,
+        random_forest_probs: Optional[tuple[float, float, float]] = None,
+        recent_form_home: Optional[float] = None,
+        recent_form_away: Optional[float] = None,
+        head_to_head_home: Optional[float] = None,
         # LLM adjustments
         llm_adjustments: Optional[LLMAdjustments] = None,
         # Bookmaker odds for value calculation
@@ -368,6 +417,68 @@ class EnsemblePredictor:
                 away_prob=xgboost_probs[2],
                 weight=self.WEIGHT_XGBOOST,
             )
+        elif self.xgboost_model and self.xgboost_model.is_trained:
+            # Use trained model if available
+            xgb_pred = self.xgboost_model.predict(
+                home_attack=home_attack,
+                home_defense=home_defense,
+                away_attack=away_attack,
+                away_defense=away_defense,
+                recent_form_home=recent_form_home or 50.0,
+                recent_form_away=recent_form_away or 50.0,
+                head_to_head_home=head_to_head_home or 0.0,
+            )
+            contributions.append((
+                xgb_pred.home_win_prob,
+                xgb_pred.draw_prob,
+                xgb_pred.away_win_prob,
+                self.WEIGHT_XGBOOST,
+            ))
+            xgboost_contrib = ModelContribution(
+                home_prob=xgb_pred.home_win_prob,
+                draw_prob=xgb_pred.draw_prob,
+                away_prob=xgb_pred.away_win_prob,
+                weight=self.WEIGHT_XGBOOST,
+            )
+
+        # 5. Random Forest model (if available)
+        random_forest_contrib = None
+        if random_forest_probs:
+            contributions.append((
+                random_forest_probs[0],
+                random_forest_probs[1],
+                random_forest_probs[2],
+                0.15,  # Lower weight for backup model
+            ))
+            random_forest_contrib = ModelContribution(
+                home_prob=random_forest_probs[0],
+                draw_prob=random_forest_probs[1],
+                away_prob=random_forest_probs[2],
+                weight=0.15,
+            )
+        elif self.random_forest_model and self.random_forest_model.is_trained:
+            # Use trained model if available
+            rf_pred = self.random_forest_model.predict(
+                home_attack=home_attack,
+                home_defense=home_defense,
+                away_attack=away_attack,
+                away_defense=away_defense,
+                recent_form_home=recent_form_home or 50.0,
+                recent_form_away=recent_form_away or 50.0,
+                head_to_head_home=head_to_head_home or 0.0,
+            )
+            contributions.append((
+                rf_pred.home_win_prob,
+                rf_pred.draw_prob,
+                rf_pred.away_win_prob,
+                0.15,
+            ))
+            random_forest_contrib = ModelContribution(
+                home_prob=rf_pred.home_win_prob,
+                draw_prob=rf_pred.draw_prob,
+                away_prob=rf_pred.away_win_prob,
+                weight=0.15,
+            )
 
         # Weighted average
         total_weight = sum(c[3] for c in contributions)
@@ -406,6 +517,9 @@ class EnsemblePredictor:
         exp_home = poisson_pred.expected_home_goals
         exp_away = poisson_pred.expected_away_goals
 
+        # Calculate model agreement (how unanimous are the models)
+        model_agreement = self._calculate_model_agreement(contributions)
+
         return EnsemblePrediction(
             home_win_prob=home_prob,
             draw_prob=draw_prob,
@@ -417,9 +531,11 @@ class EnsemblePredictor:
             elo_contribution=elo_contrib,
             xg_contribution=xg_contrib,
             xgboost_contribution=xgboost_contrib,
+            random_forest_contribution=random_forest_contrib,
             llm_adjustments=llm_adjustments,
             expected_home_goals=exp_home,
             expected_away_goals=exp_away,
+            model_agreement=model_agreement,
         )
 
 
