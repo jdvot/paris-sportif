@@ -530,8 +530,8 @@ async def get_daily_picks(
             )
 
         # No cached predictions, fetch from API
-        # Look for matches on target date AND next 7 days for upcoming picks
-        date_to = target_date + timedelta(days=7)
+        # Only fetch matches for the specific target date
+        date_to = target_date
 
         # Try to get scheduled matches from DB first (fallback)
         db_matches = get_scheduled_matches_from_db(date_from=target_date, date_to=date_to)
