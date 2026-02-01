@@ -27,9 +27,45 @@ export function UpcomingMatches() {
 
   if (isLoading) {
     return (
-      <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 sm:p-8">
-        <div className="flex items-center justify-center">
-          <Loader2 className="w-7 sm:w-8 h-7 sm:h-8 text-primary-400 animate-spin" />
+      <div className="bg-dark-800/50 border border-dark-700 rounded-xl overflow-hidden mx-4 sm:mx-0">
+        {/* Loading indicator */}
+        <div className="flex items-center justify-center gap-3 py-3 border-b border-dark-700 bg-dark-800/30">
+          <div className="relative">
+            <div className="w-5 h-5 rounded-full border-2 border-dark-600" />
+            <div className="absolute top-0 left-0 w-5 h-5 rounded-full border-2 border-transparent border-t-primary-500 animate-spin" />
+          </div>
+          <span className="text-dark-400 text-xs animate-pulse">Chargement des matchs...</span>
+        </div>
+        {/* Skeleton rows */}
+        <div className="divide-y divide-dark-700">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 py-3 sm:py-4 gap-2 sm:gap-4"
+            >
+              <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 w-full sm:w-auto">
+                <div
+                  className="w-2 h-7 sm:h-8 rounded-full bg-gradient-to-b from-dark-600 to-dark-700 animate-pulse flex-shrink-0"
+                  style={{ animationDelay: `${i * 100}ms` }}
+                />
+                <div className="space-y-2 flex-1">
+                  <div className="h-4 w-48 sm:w-64 bg-gradient-to-r from-dark-700 to-dark-600 rounded animate-pulse" style={{ animationDelay: `${i * 50}ms` }} />
+                  <div className="h-3 w-24 bg-dark-700/50 rounded animate-pulse" style={{ animationDelay: `${i * 75}ms` }} />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+                <div className="space-y-1 text-right">
+                  <div className="h-3 w-24 bg-dark-700 rounded animate-pulse ml-auto" />
+                  <div className="h-3 w-12 bg-dark-700/50 rounded animate-pulse ml-auto" />
+                </div>
+                <div className="w-4 sm:w-5 h-4 sm:h-5 bg-dark-700 rounded animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Footer skeleton */}
+        <div className="flex items-center justify-center py-3 sm:py-4 border-t border-dark-700">
+          <div className="h-4 w-32 bg-dark-700 rounded animate-pulse" />
         </div>
       </div>
     );

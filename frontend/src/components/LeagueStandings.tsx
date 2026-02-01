@@ -11,8 +11,78 @@ interface LeagueStandingsProps {
 export function LeagueStandings({ standings, isLoading = false }: LeagueStandingsProps) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-primary-400 animate-spin" />
+      <div className="bg-dark-800/50 border border-dark-700 rounded-xl overflow-hidden">
+        {/* Loading header */}
+        <div className="flex items-center justify-center gap-3 py-4 border-b border-dark-700 bg-dark-800/30">
+          <div className="relative">
+            <div className="w-6 h-6 rounded-full border-2 border-dark-600" />
+            <div className="absolute top-0 left-0 w-6 h-6 rounded-full border-2 border-transparent border-t-primary-500 animate-spin" />
+          </div>
+          <span className="text-dark-400 text-sm animate-pulse">Chargement du classement...</span>
+        </div>
+        {/* Table Header Skeleton */}
+        <div className="hidden md:grid grid-cols-12 gap-4 bg-dark-900/50 border-b border-dark-700 px-4 sm:px-6 py-3 sm:py-4">
+          <div className="col-span-1 h-4 w-6 bg-dark-700 rounded animate-pulse" />
+          <div className="col-span-4 h-4 w-20 bg-dark-700 rounded animate-pulse" />
+          <div className="col-span-1 h-4 w-6 bg-dark-700 rounded animate-pulse mx-auto" />
+          <div className="col-span-1 h-4 w-6 bg-dark-700 rounded animate-pulse mx-auto" />
+          <div className="col-span-1 h-4 w-6 bg-dark-700 rounded animate-pulse mx-auto" />
+          <div className="col-span-1 h-4 w-6 bg-dark-700 rounded animate-pulse mx-auto" />
+          <div className="col-span-1 h-4 w-8 bg-dark-700 rounded animate-pulse mx-auto" />
+          <div className="col-span-1 h-4 w-8 bg-dark-700 rounded animate-pulse ml-auto" />
+        </div>
+        {/* Skeleton Rows */}
+        <div className="divide-y divide-dark-700">
+          {Array.from({ length: 10 }).map((_, idx) => (
+            <div key={idx}>
+              {/* Desktop Skeleton */}
+              <div className="hidden md:grid grid-cols-12 gap-4 px-4 sm:px-6 py-3 sm:py-4 items-center">
+                <div className="col-span-1">
+                  <div className="h-5 w-6 bg-dark-700 rounded animate-pulse" style={{ animationDelay: `${idx * 50}ms` }} />
+                </div>
+                <div className="col-span-4 flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-r from-dark-700 to-dark-600 rounded animate-pulse" style={{ animationDelay: `${idx * 50}ms` }} />
+                  <div className="h-4 w-32 bg-gradient-to-r from-dark-700 to-dark-600 rounded animate-pulse" style={{ animationDelay: `${idx * 75}ms` }} />
+                </div>
+                {[1, 2, 3, 4, 5].map((col) => (
+                  <div key={col} className="col-span-1 flex justify-center">
+                    <div className="h-4 w-6 bg-dark-700/50 rounded animate-pulse" style={{ animationDelay: `${(idx * 5 + col) * 30}ms` }} />
+                  </div>
+                ))}
+                <div className="col-span-1 flex justify-end">
+                  <div className="h-5 w-8 bg-dark-700 rounded animate-pulse" style={{ animationDelay: `${idx * 50}ms` }} />
+                </div>
+              </div>
+              {/* Mobile Skeleton */}
+              <div className="md:hidden px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-6 bg-dark-700 rounded animate-pulse" />
+                    <div className="w-6 h-6 bg-dark-700 rounded animate-pulse" />
+                    <div className="h-4 w-28 bg-dark-700 rounded animate-pulse" />
+                  </div>
+                  <div className="h-4 w-8 bg-primary-500/20 rounded animate-pulse" />
+                </div>
+                <div className="flex gap-4 pl-8">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="h-3 w-8 bg-dark-700/50 rounded animate-pulse" />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Legend Skeleton */}
+        <div className="border-t border-dark-700 px-4 sm:px-6 py-3 sm:py-4 bg-dark-900/30">
+          <div className="flex gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-dark-700 rounded animate-pulse" />
+                <div className="h-3 w-24 bg-dark-700/50 rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

@@ -43,8 +43,91 @@ export function StatsOverview() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-primary-400 animate-spin" />
+      <div className="space-y-6 px-4 sm:px-0">
+        {/* Loading indicator */}
+        <div className="flex items-center justify-center gap-3 py-4">
+          <div className="relative">
+            <div className="w-6 h-6 rounded-full border-2 border-dark-600" />
+            <div className="absolute top-0 left-0 w-6 h-6 rounded-full border-2 border-transparent border-t-primary-500 animate-spin" />
+          </div>
+          <span className="text-dark-400 text-sm animate-pulse">Chargement des statistiques...</span>
+        </div>
+        {/* Key Metrics Cards Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {[
+            { from: "from-primary-500/10", border: "border-primary-500/20" },
+            { from: "from-accent-500/10", border: "border-accent-500/20" },
+            { from: "from-green-500/10", border: "border-green-500/20" },
+            { from: "from-yellow-500/10", border: "border-yellow-500/20" },
+          ].map((style, idx) => (
+            <div
+              key={idx}
+              className={`bg-gradient-to-br ${style.from} to-dark-800/50 border ${style.border} rounded-xl p-4 sm:p-6`}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="h-3 w-24 bg-dark-700/50 rounded animate-pulse" />
+                <div className="w-5 h-5 bg-dark-700/50 rounded animate-pulse" />
+              </div>
+              <div className="h-8 w-20 bg-dark-700 rounded animate-pulse mb-2" style={{ animationDelay: `${idx * 100}ms` }} />
+              <div className="h-3 w-28 bg-dark-700/30 rounded animate-pulse" style={{ animationDelay: `${idx * 150}ms` }} />
+            </div>
+          ))}
+        </div>
+        {/* Chart Section Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Main Chart Skeleton */}
+          <div className="lg:col-span-2 bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
+            <div className="h-5 w-48 bg-dark-700 rounded animate-pulse mb-4" />
+            <div className="h-72 sm:h-80 bg-dark-700/30 rounded-lg animate-pulse flex items-end justify-around p-4">
+              {[60, 75, 50, 85, 70].map((h, i) => (
+                <div
+                  key={i}
+                  className="w-12 bg-gradient-to-t from-dark-600 to-dark-500 rounded-t animate-pulse"
+                  style={{ height: `${h}%`, animationDelay: `${i * 100}ms` }}
+                />
+              ))}
+            </div>
+          </div>
+          {/* Trend Chart Skeleton */}
+          <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
+            <div className="h-5 w-40 bg-dark-700 rounded animate-pulse mb-4" />
+            <div className="h-72 sm:h-80 bg-dark-700/30 rounded-lg animate-pulse relative overflow-hidden">
+              <svg className="w-full h-full" preserveAspectRatio="none">
+                <path
+                  d="M0,150 Q50,100 100,120 T200,80 T300,110 T400,70"
+                  fill="none"
+                  stroke="#334155"
+                  strokeWidth="2"
+                  className="animate-pulse"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+        {/* Competition Details Skeleton */}
+        <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
+          <div className="h-5 w-44 bg-dark-700 rounded animate-pulse mb-4" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="p-3 sm:p-4 bg-dark-700/30 rounded-lg border border-dark-600/30">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-4 w-28 bg-dark-700 rounded animate-pulse" />
+                  <div className="w-3 h-3 bg-dark-600 rounded-full animate-pulse" />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <div className="h-3 w-16 bg-dark-700/50 rounded animate-pulse" />
+                    <div className="h-3 w-12 bg-dark-700 rounded animate-pulse" />
+                  </div>
+                  <div className="flex justify-between">
+                    <div className="h-3 w-20 bg-dark-700/50 rounded animate-pulse" />
+                    <div className="h-3 w-10 bg-primary-500/20 rounded animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
