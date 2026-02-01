@@ -134,7 +134,7 @@ export default function MatchDetailPage() {
             <KeyFactorsSection prediction={prediction} />
           )}
 
-          {homeForm && awayForm && (
+          {homeForm && awayForm && typeof homeForm === 'object' && typeof awayForm === 'object' && (
             <TeamFormSection homeForm={homeForm} awayForm={awayForm} />
           )}
         </div>
@@ -443,8 +443,17 @@ function TeamFormSection({
 }
 
 function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
-  const formString = form?.formString || "";
-  const formResults = formString ? formString.split("").slice(0, 5) : [];
+  // Safely handle undefined form or formString
+  if (!form) {
+    return (
+      <div className="bg-dark-700/50 rounded-lg p-4">
+        <p className="text-dark-400">Données non disponibles</p>
+      </div>
+    );
+  }
+
+  const formString = typeof form.formString === 'string' ? form.formString : "";
+  const formResults = formString.length > 0 ? formString.split("").slice(0, 5) : [];
   const color = isHome ? "primary" : "accent";
 
   return (
