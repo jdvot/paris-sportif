@@ -16,13 +16,14 @@ export default function Home() {
   const stats = statsResponse as { total_predictions?: number; accuracy?: number; by_competition?: Record<string, unknown> } | undefined;
 
   // Check if stats have actual data (total_predictions > 0 indicates real data)
-  const hasData = stats && (stats as { total_predictions?: number }).total_predictions && (stats as { total_predictions: number }).total_predictions > 0;
-  const successRate = hasData ? (((stats as { accuracy: number }).accuracy || 0) * 100).toFixed(1) : null;
-  const totalPredictions = hasData ? (stats as { total_predictions: number }).total_predictions : null;
+  const totalPreds = stats?.total_predictions ?? 0;
+  const hasData = totalPreds > 0;
+  const successRate = hasData ? ((stats?.accuracy || 0) * 100).toFixed(1) : null;
+  const totalPredictions = hasData ? totalPreds : null;
 
   // Count competitions with data
-  const competitionsWithData = hasData && (stats as { by_competition?: Record<string, unknown> }).by_competition
-    ? Object.keys((stats as { by_competition: Record<string, unknown> }).by_competition).length
+  const competitionsWithData = hasData && stats?.by_competition
+    ? Object.keys(stats.by_competition).length
     : null;
 
   return (
