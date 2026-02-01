@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -18,6 +19,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     print(f"Starting {settings.app_name} v{settings.app_version}")
     print(f"Environment: {settings.app_env}")
+
+    # Debug: Show which API key is loaded (masked for security)
+    groq_key = settings.groq_api_key
+    env_groq_key = os.environ.get("GROQ_API_KEY", "")
+
+    print(f"DEBUG ENV VARS: GROQ_API_KEY from os.environ = {'SET' if env_groq_key else 'NOT SET'}")
+    if env_groq_key:
+        print(f"DEBUG ENV: {env_groq_key[:8]}...{env_groq_key[-4:]} (len={len(env_groq_key)})")
+
+    if groq_key:
+        masked = f"{groq_key[:8]}...{groq_key[-4:]}" if len(groq_key) > 12 else "***"
+        print(f"GROQ_API_KEY from settings: {masked} (length: {len(groq_key)})")
+    else:
+        print("WARNING: GROQ_API_KEY from settings is NOT set or empty!")
+
     yield
     # Shutdown
     print("Shutting down...")
