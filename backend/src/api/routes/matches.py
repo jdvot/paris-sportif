@@ -161,11 +161,9 @@ def _convert_api_match(api_match: MatchData) -> MatchResponse:
     # Extract scores
     home_score = None
     away_score = None
-    if api_match.score:
-        full_time = api_match.score.get("fullTime")
-        if full_time:
-            home_score = full_time.home
-            away_score = full_time.away
+    if api_match.score and api_match.score.fullTime:
+        home_score = api_match.score.fullTime.home
+        away_score = api_match.score.fullTime.away
 
     return MatchResponse(
         id=api_match.id,
@@ -365,11 +363,9 @@ async def get_head_to_head(
             home_score = 0
             away_score = 0
 
-            if api_match.score:
-                full_time = api_match.score.get("fullTime")
-                if full_time:
-                    home_score = full_time.home or 0
-                    away_score = full_time.away or 0
+            if api_match.score and api_match.score.fullTime:
+                home_score = api_match.score.fullTime.home or 0
+                away_score = api_match.score.fullTime.away or 0
 
             total_goals += home_score + away_score
 
@@ -447,11 +443,9 @@ async def get_team_form(
             home_score = 0
             away_score = 0
 
-            if api_match.score:
-                full_time = api_match.score.get("fullTime")
-                if full_time:
-                    home_score = full_time.home or 0
-                    away_score = full_time.away or 0
+            if api_match.score and api_match.score.fullTime:
+                home_score = api_match.score.fullTime.home or 0
+                away_score = api_match.score.fullTime.away or 0
 
             team_score = home_score if is_home else away_score
             opp_score = away_score if is_home else home_score
