@@ -53,7 +53,7 @@ export default function MatchDetailPage() {
     queryKey: ["prediction", matchId],
     queryFn: () => fetchPrediction(matchId!, true),
     enabled: !!matchId && matchId > 0,
-    retry: false, // Don't retry on 500 errors
+    retry: 1, // Retry once on errors
   });
 
   const { data: headToHead } = useQuery({
@@ -113,7 +113,21 @@ export default function MatchDetailPage() {
             </div>
           )}
 
-          {!predictionLoading && !prediction && (
+          {!predictionLoading && predictionError && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 sm:p-6">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 sm:w-6 h-5 sm:h-6 text-red-400 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-white text-sm sm:text-base">Erreur de chargement</h3>
+                  <p className="text-xs sm:text-sm text-red-300">
+                    {predictionError instanceof Error ? predictionError.message : "Impossible de charger les prédictions"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!predictionLoading && !predictionError && !prediction && (
             <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
               <div className="flex items-center gap-3 text-dark-400">
                 <Target className="w-5 sm:w-6 h-5 sm:h-6 flex-shrink-0" />

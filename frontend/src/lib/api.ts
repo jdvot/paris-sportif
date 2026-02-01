@@ -88,11 +88,26 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `API error: ${response.status}`);
+    let error: Record<string, unknown> = {};
+    try {
+      error = await response.json();
+    } catch {
+      error = { message: `API error: ${response.status} ${response.statusText}` };
+    }
+    throw new Error((error.message as string) || `API error: ${response.status}`);
   }
 
-  return response.json();
+  // Handle empty responses
+  const text = await response.text();
+  if (!text) {
+    return {} as T;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Invalid JSON response from ${endpoint}`);
+  }
 }
 
 // API response type for daily picks (snake_case from backend)
@@ -419,23 +434,23 @@ function transformStandings(apiStandings: Record<string, unknown>): Standings {
   const standings = Array.isArray(apiStandings.standings)
     ? (apiStandings.standings as Record<string, unknown>[]).map((team) => ({
         position: (team.position as number) ?? 0,
-        team_id: (team.team_id ?? team.teamId) as number,
-        team_name: (team.team_name ?? team.teamName) as string,
-        team_logo_url: (team.team_logo_url ?? team.teamLogoUrl) as string | null | undefined,
-        played: (team.played ?? team.playedGames) as number,
-        won: team.won as number,
-        drawn: (team.drawn ?? team.draw) as number,
-        lost: team.lost as number,
-        goals_for: (team.goals_for ?? team.goalsFor) as number,
-        goals_against: (team.goals_against ?? team.goalsAgainst) as number,
-        goal_difference: (team.goal_difference ?? team.goalDifference) as number,
-        points: team.points as number,
+        team_id: (team.team_id ?? team.teamId ?? 0) as number,
+        team_name: (team.team_name ?? team.teamName ?? "") as string,
+        team_logo_url: (team.team_logo_url ?? team.teamLogoUrl ?? null) as string | null | undefined,
+        played: (team.played ?? team.playedGames ?? 0) as number,
+        won: (team.won ?? 0) as number,
+        drawn: (team.drawn ?? team.draw ?? 0) as number,
+        lost: (team.lost ?? 0) as number,
+        goals_for: (team.goals_for ?? team.goalsFor ?? 0) as number,
+        goals_against: (team.goals_against ?? team.goalsAgainst ?? 0) as number,
+        goal_difference: (team.goal_difference ?? team.goalDifference ?? 0) as number,
+        points: (team.points ?? 0) as number,
       }))
     : [];
 
   return {
-    competition_code: (apiStandings.competition_code ?? apiStandings.competitionCode) as string,
-    competition_name: (apiStandings.competition_name ?? apiStandings.competitionName) as string,
+    competition_code: (apiStandings.competition_code ?? apiStandings.competitionCode ?? "") as string,
+    competition_name: (apiStandings.competition_name ?? apiStandings.competitionName ?? "") as string,
     standings,
     last_updated: (apiStandings.last_updated ?? apiStandings.lastUpdated) as string | undefined,
   };
