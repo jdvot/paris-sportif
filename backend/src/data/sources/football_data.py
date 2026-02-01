@@ -44,6 +44,15 @@ class ScoreData(BaseModel):
     away: int | None = None
 
 
+class FullScoreData(BaseModel):
+    """Full score data from API including all periods."""
+
+    fullTime: ScoreData | None = None
+    halfTime: ScoreData | None = None
+    duration: str | None = None  # "REGULAR", "EXTRA_TIME", "PENALTY_SHOOTOUT"
+    winner: str | None = None  # "HOME_TEAM", "AWAY_TEAM", "DRAW"
+
+
 class MatchData(BaseModel):
     """Match data from API."""
 
@@ -54,7 +63,7 @@ class MatchData(BaseModel):
     utcDate: str
     status: str
     matchday: int | None = None
-    score: dict[str, ScoreData | None] = {}
+    score: FullScoreData | None = None
 
 
 class StandingTeam(BaseModel):
