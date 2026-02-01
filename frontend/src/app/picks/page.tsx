@@ -265,6 +265,16 @@ function PickCard({ pick }: { pick: DailyPick }) {
   };
   const betLabel = betLabels[prediction.recommendedBet] || prediction.recommendedBet;
 
+  // Shorter labels for mobile
+  const shortBetLabels: Record<string, string> = {
+    home: match.homeTeam.split(' ')[0],
+    home_win: match.homeTeam.split(' ')[0],
+    draw: "Nul",
+    away: match.awayTeam.split(' ')[0],
+    away_win: match.awayTeam.split(' ')[0],
+  };
+  const shortBetLabel = shortBetLabels[prediction.recommendedBet] || prediction.recommendedBet;
+
   const confidenceColor =
     prediction.confidence >= 0.7
       ? "text-primary-400"
@@ -281,41 +291,53 @@ function PickCard({ pick }: { pick: DailyPick }) {
 
   const matchDate = new Date(match.matchDate);
 
+  // Truncate team name for mobile
+  const truncateTeam = (name: string, maxLen: number = 10) => {
+    if (name.length <= maxLen) return name;
+    return name.slice(0, maxLen) + "…";
+  };
+
   return (
     <div className="bg-dark-800/50 border border-dark-700 rounded-xl overflow-hidden hover:border-dark-600 transition-colors">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-dark-700 gap-2 sm:gap-0">
-        <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
-          <span className="flex items-center justify-center w-7 sm:w-8 h-7 sm:h-8 bg-primary-500 rounded-full text-white font-bold text-xs sm:text-sm flex-shrink-0">
-            {pick.rank}
-          </span>
-          <div className="min-w-0">
-            <h3 className="font-semibold text-sm sm:text-base text-white truncate">
-              {match.homeTeam} vs {match.awayTeam}
-            </h3>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className="text-xs sm:text-sm text-dark-400">{match.competition}</span>
-              <span className="text-xs text-dark-500">•</span>
-              <span className="text-xs text-dark-400">
-                {format(matchDate, "d MMM, HH:mm", { locale: fr })}
-              </span>
+      {/* Header - Mobile optimized */}
+      <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-dark-700">
+        {/* Mobile: Stacked layout */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2 sm:gap-4 min-w-0 flex-1">
+            <span className="flex items-center justify-center w-6 sm:w-8 h-6 sm:h-8 bg-primary-500 rounded-full text-white font-bold text-[10px] sm:text-sm flex-shrink-0 mt-0.5">
+              {pick.rank}
+            </span>
+            <div className="min-w-0 flex-1">
+              {/* Mobile: Show abbreviated team names */}
+              <h3 className="font-semibold text-white leading-tight">
+                <span className="hidden sm:inline text-base">{match.homeTeam} vs {match.awayTeam}</span>
+                <span className="sm:hidden text-sm">{truncateTeam(match.homeTeam)} vs {truncateTeam(match.awayTeam)}</span>
+              </h3>
+              <div className="flex items-center gap-1.5 sm:gap-2 mt-1 flex-wrap text-[10px] sm:text-sm">
+                <span className="text-dark-400">{match.competition}</span>
+                <span className="text-dark-500">•</span>
+                <span className="text-dark-400">
+                  {format(matchDate, "d MMM, HH:mm", { locale: fr })}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="text-right flex-shrink-0">
-          <p className={cn("font-semibold text-sm sm:text-base", confidenceColor)}>
-            {Math.round(prediction.confidence * 100)}% confiance
-          </p>
-          <p className="text-xs sm:text-sm text-dark-400">
-            Value: +{Math.round(prediction.valueScore * 100)}%
-          </p>
+          {/* Confidence badge - compact on mobile */}
+          <div className="text-right flex-shrink-0">
+            <p className={cn("font-bold text-sm sm:text-base", confidenceColor)}>
+              {Math.round(prediction.confidence * 100)}%
+            </p>
+            <p className="text-[10px] sm:text-xs text-dark-400">
+              +{Math.round(prediction.valueScore * 100)}% value
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Body */}
-      <div className="px-4 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4">
-        {/* Probabilities */}
-        <div className="flex gap-2">
+      <div className="px-3 sm:px-6 py-3 sm:py-4 space-y-2.5 sm:space-y-4">
+        {/* Probabilities - optimized gap for mobile */}
+        <div className="flex gap-1.5 sm:gap-2">
           <ProbBar
             label={match.homeTeam}
             prob={prediction.homeProb ?? prediction.probabilities?.homeWin ?? 0}
@@ -333,29 +355,32 @@ function PickCard({ pick }: { pick: DailyPick }) {
           />
         </div>
 
-        {/* Recommendation */}
+        {/* Recommendation - compact on mobile */}
         <div className={cn(
-          "flex items-center gap-2 p-3 border rounded-lg",
+          "flex items-center gap-2 p-2 sm:p-3 border rounded-lg",
           confidenceBgColor
         )}>
-          <CheckCircle className={cn("w-5 h-5 flex-shrink-0", confidenceColor)} />
-          <span className={cn("font-medium text-sm", confidenceColor)}>{betLabel}</span>
+          <CheckCircle className={cn("w-4 sm:w-5 h-4 sm:h-5 flex-shrink-0", confidenceColor)} />
+          <span className={cn("font-medium text-xs sm:text-sm", confidenceColor)}>
+            <span className="hidden sm:inline">{betLabel}</span>
+            <span className="sm:hidden">{shortBetLabel}</span>
+          </span>
         </div>
 
-        {/* Explanation */}
-        <p className="text-dark-300 text-xs sm:text-sm">{explanation}</p>
+        {/* Explanation - slightly smaller on mobile */}
+        <p className="text-dark-300 text-[11px] sm:text-sm leading-relaxed">{explanation}</p>
 
-        {/* Key Factors */}
+        {/* Key Factors - compact tags on mobile */}
         {keyFactors.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-dark-300 mb-2">
+            <p className="text-[10px] sm:text-xs font-semibold text-dark-300 mb-1.5 sm:mb-2">
               Points positifs:
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1 sm:gap-2">
               {keyFactors.map((factor, i) => (
                 <span
                   key={i}
-                  className="px-2 py-1 bg-primary-500/20 border border-primary-500/30 rounded text-xs text-primary-300"
+                  className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-primary-500/20 border border-primary-500/30 rounded text-[10px] sm:text-xs text-primary-300"
                 >
                   +{factor}
                 </span>
@@ -364,17 +389,17 @@ function PickCard({ pick }: { pick: DailyPick }) {
           </div>
         )}
 
-        {/* Risk Factors */}
+        {/* Risk Factors - compact tags on mobile */}
         {riskFactors && riskFactors.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-dark-300 mb-2">
+            <p className="text-[10px] sm:text-xs font-semibold text-dark-300 mb-1.5 sm:mb-2">
               Risques:
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1 sm:gap-2">
               {riskFactors.map((factor, i) => (
                 <span
                   key={i}
-                  className="px-2 py-1 bg-orange-500/20 border border-orange-500/30 rounded text-xs text-orange-300"
+                  className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-orange-500/20 border border-orange-500/30 rounded text-[10px] sm:text-xs text-orange-300"
                 >
                   -{factor}
                 </span>
@@ -396,17 +421,34 @@ function ProbBar({
   prob: number;
   isRecommended: boolean;
 }) {
+  // Smart truncation - show first word or abbreviate
+  const getShortLabel = (name: string) => {
+    if (name === "Nul") return name;
+    if (name.length <= 8) return name;
+    // Try to get meaningful abbreviation
+    const firstWord = name.split(' ')[0];
+    if (firstWord.length <= 8) return firstWord;
+    return name.slice(0, 7) + "…";
+  };
+
   return (
-    <div className="flex-1">
-      <div className="flex justify-between text-xs mb-1">
-        <span className={isRecommended ? "text-primary-400" : "text-dark-400"}>
-          {label.length > 12 ? label.slice(0, 12) + "..." : label}
+    <div className="flex-1 min-w-0">
+      <div className="flex justify-between text-[10px] sm:text-xs mb-1 gap-1">
+        <span className={cn(
+          "truncate",
+          isRecommended ? "text-primary-400 font-medium" : "text-dark-400"
+        )}>
+          <span className="hidden sm:inline">{label.length > 12 ? label.slice(0, 12) + "…" : label}</span>
+          <span className="sm:hidden">{getShortLabel(label)}</span>
         </span>
-        <span className={isRecommended ? "text-primary-400" : "text-dark-400"}>
+        <span className={cn(
+          "flex-shrink-0 font-medium",
+          isRecommended ? "text-primary-400" : "text-dark-400"
+        )}>
           {Math.round(prob * 100)}%
         </span>
       </div>
-      <div className="h-2 bg-dark-700 rounded-full overflow-hidden">
+      <div className="h-1.5 sm:h-2 bg-dark-700 rounded-full overflow-hidden">
         <div
           className={cn(
             "h-full rounded-full transition-all",
