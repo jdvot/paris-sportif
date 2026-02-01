@@ -73,8 +73,8 @@ export function UpcomingMatches() {
 
 function MatchRow({ match }: { match: Match }) {
   const matchDate = new Date(match.matchDate);
-  const homeTeam = typeof match.homeTeam === 'string' ? match.homeTeam : match.homeTeam;
-  const awayTeam = typeof match.awayTeam === 'string' ? match.awayTeam : match.awayTeam;
+  const homeTeam = match.homeTeam;
+  const awayTeam = match.awayTeam;
 
   return (
     <Link

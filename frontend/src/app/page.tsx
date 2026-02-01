@@ -14,8 +14,15 @@ export default function Home() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const successRate = stats ? ((stats.accuracy || 0) * 100).toFixed(1) : "--";
-  const totalPredictions = stats?.totalPredictions || "--";
+  // Check if stats have actual data (totalPredictions > 0 indicates real data)
+  const hasData = stats && stats.totalPredictions > 0;
+  const successRate = hasData ? ((stats.accuracy || 0) * 100).toFixed(1) : null;
+  const totalPredictions = hasData ? stats.totalPredictions : null;
+
+  // Count competitions with data
+  const competitionsWithData = hasData && stats.byCompetition
+    ? Object.keys(stats.byCompetition).length
+    : null;
 
   return (
     <div className="space-y-8">
@@ -31,44 +38,46 @@ export default function Home() {
         </p>
       </section>
 
-      {/* Quick Stats */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 flex items-center gap-4">
-          <div className="p-3 bg-primary-500/20 rounded-lg">
-            <TrendingUp className="w-6 h-6 text-primary-400" />
+      {/* Quick Stats - Only show if data is available */}
+      {hasData && (
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 flex items-center gap-4">
+            <div className="p-3 bg-primary-500/20 rounded-lg">
+              <TrendingUp className="w-6 h-6 text-primary-400" />
+            </div>
+            <div>
+              <p className="text-dark-400 text-sm">Taux de reussite</p>
+              {statsLoading ? (
+                <Loader2 className="w-6 h-6 text-primary-400 animate-spin mt-1" />
+              ) : (
+                <p className="text-2xl font-bold text-white">{successRate}%</p>
+              )}
+            </div>
           </div>
-          <div>
-            <p className="text-dark-400 text-sm">Taux de reussite</p>
-            {statsLoading ? (
-              <Loader2 className="w-6 h-6 text-primary-400 animate-spin mt-1" />
-            ) : (
-              <p className="text-2xl font-bold text-white">{successRate}%</p>
-            )}
+          <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 flex items-center gap-4">
+            <div className="p-3 bg-accent-500/20 rounded-lg">
+              <Calendar className="w-6 h-6 text-accent-400" />
+            </div>
+            <div>
+              <p className="text-dark-400 text-sm">Predictions analysees</p>
+              {statsLoading ? (
+                <Loader2 className="w-6 h-6 text-accent-400 animate-spin mt-1" />
+              ) : (
+                <p className="text-2xl font-bold text-white">{totalPredictions}</p>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 flex items-center gap-4">
-          <div className="p-3 bg-accent-500/20 rounded-lg">
-            <Calendar className="w-6 h-6 text-accent-400" />
+          <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 flex items-center gap-4">
+            <div className="p-3 bg-yellow-500/20 rounded-lg">
+              <Trophy className="w-6 h-6 text-yellow-400" />
+            </div>
+            <div>
+              <p className="text-dark-400 text-sm">Championnats couverts</p>
+              <p className="text-2xl font-bold text-white">{competitionsWithData}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-dark-400 text-sm">Predictions analysees</p>
-            {statsLoading ? (
-              <Loader2 className="w-6 h-6 text-accent-400 animate-spin mt-1" />
-            ) : (
-              <p className="text-2xl font-bold text-white">{totalPredictions}</p>
-            )}
-          </div>
-        </div>
-        <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 flex items-center gap-4">
-          <div className="p-3 bg-yellow-500/20 rounded-lg">
-            <Trophy className="w-6 h-6 text-yellow-400" />
-          </div>
-          <div>
-            <p className="text-dark-400 text-sm">Championnats couverts</p>
-            <p className="text-2xl font-bold text-white">7</p>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Daily Picks */}
       <section>

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   fetchMatch,
   fetchPrediction,
@@ -29,25 +30,32 @@ import { fr } from "date-fns/locale";
 
 export default function MatchDetailPage() {
   const params = useParams();
-  const matchId = Number(params.id);
+  const [matchId, setMatchId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (params?.id) {
+      const id = typeof params.id === 'string' ? Number(params.id) : params.id;
+      setMatchId(id);
+    }
+  }, [params]);
 
   const { data: match, isLoading: matchLoading, error: matchError } = useQuery({
     queryKey: ["match", matchId],
-    queryFn: () => fetchMatch(matchId),
-    enabled: !!matchId,
+    queryFn: () => fetchMatch(matchId!),
+    enabled: !!matchId && matchId > 0,
   });
 
   const { data: prediction, isLoading: predictionLoading, error: predictionError } = useQuery({
     queryKey: ["prediction", matchId],
-    queryFn: () => fetchPrediction(matchId, true),
-    enabled: !!matchId,
+    queryFn: () => fetchPrediction(matchId!, true),
+    enabled: !!matchId && matchId > 0,
     retry: false, // Don't retry on 500 errors
   });
 
   const { data: headToHead } = useQuery({
     queryKey: ["headToHead", matchId],
-    queryFn: () => fetchHeadToHead(matchId, 10),
-    enabled: !!match,
+    queryFn: () => fetchHeadToHead(matchId!, 10),
+    enabled: !!matchId && matchId > 0,
   });
 
   // Fetch form for both teams
@@ -61,13 +69,13 @@ export default function MatchDetailPage() {
   const { data: homeForm } = useQuery({
     queryKey: ["teamForm", homeTeamId],
     queryFn: () => fetchTeamForm(homeTeamId!, 5),
-    enabled: !!homeTeamId,
+    enabled: !!homeTeamId && homeTeamId > 0,
   });
 
   const { data: awayForm } = useQuery({
     queryKey: ["teamForm", awayTeamId],
     queryFn: () => fetchTeamForm(awayTeamId!, 5),
-    enabled: !!awayTeamId,
+    enabled: !!awayTeamId && awayTeamId > 0,
   });
 
   if (matchLoading) {

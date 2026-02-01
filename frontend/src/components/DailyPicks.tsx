@@ -61,8 +61,8 @@ export function DailyPicks() {
 function PickCard({ pick }: { pick: DailyPick }) {
   const { match, prediction, keyFactors, explanation } = pick;
 
-  const homeTeam = typeof match.homeTeam === 'string' ? match.homeTeam : match.homeTeam;
-  const awayTeam = typeof match.awayTeam === 'string' ? match.awayTeam : match.awayTeam;
+  const homeTeam = match.homeTeam;
+  const awayTeam = match.awayTeam;
 
   const betLabel = {
     home: `Victoire ${homeTeam}`,

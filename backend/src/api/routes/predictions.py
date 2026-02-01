@@ -1,16 +1,30 @@
 """Prediction endpoints - Using real match data from football-data.org."""
 
 import random
+import json
+import logging
 from datetime import datetime, timedelta, date
 from typing import Literal
 
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
+from groq import Groq
 
 from src.data.sources.football_data import get_football_data_client, MatchData, COMPETITIONS
 from src.core.exceptions import FootballDataAPIError, RateLimitError
+from src.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# Groq client initialization
+def get_groq_client() -> Groq:
+    """Get Groq API client with configured API key."""
+    if not settings.groq_api_key:
+        raise ValueError("GROQ_API_KEY not configured in environment")
+    return Groq(api_key=settings.groq_api_key)
 
 
 class PredictionProbabilities(BaseModel):
@@ -154,6 +168,86 @@ EXPLANATIONS_TEMPLATES = {
 }
 
 
+def _get_groq_prediction(
+    home_team: str,
+    away_team: str,
+    competition: str,
+) -> dict | None:
+    """
+    Get match prediction from Groq API.
+
+    Returns a dict with home_win, draw, away_win probabilities, or None if API fails.
+    """
+    try:
+        if not settings.groq_api_key:
+            logger.warning("GROQ_API_KEY not configured, will use fallback predictions")
+            return None
+
+        client = get_groq_client()
+
+        prompt = f"""Analyse le match de football suivant et fournis des probabilités de résultat.
+
+Match: {home_team} vs {away_team}
+Compétition: {competition}
+
+Basé sur les données disponibles (historique, forme, effectif, etc.), estime les probabilités suivantes:
+- Probabilité de victoire du club à domicile ({home_team})
+- Probabilité de match nul
+- Probabilité de victoire de l'équipe en déplacement ({away_team})
+
+IMPORTANT: Tu dois répondre UNIQUEMENT avec un JSON valide (pas de texte avant ou après), dans ce format exact:
+{{
+    "home_win": 0.00,
+    "draw": 0.00,
+    "away_win": 0.00,
+    "reasoning": "Brève explication de l'analyse"
+}}
+
+Les trois probabilités doivent totaliser 1.0 exactement."""
+
+        message = client.chat.completions.create(
+            model="mixtral-8x7b-32768",
+            max_tokens=500,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+        )
+
+        response_text = message.choices[0].message.content.strip()
+
+        # Try to extract JSON from the response
+        try:
+            # Find JSON in the response
+            start_idx = response_text.find("{")
+            end_idx = response_text.rfind("}") + 1
+
+            if start_idx >= 0 and end_idx > start_idx:
+                json_str = response_text[start_idx:end_idx]
+                prediction_data = json.loads(json_str)
+
+                # Validate probabilities sum to approximately 1.0
+                total = prediction_data.get("home_win", 0) + prediction_data.get("draw", 0) + prediction_data.get("away_win", 0)
+                if abs(total - 1.0) < 0.01:  # Allow small floating point errors
+                    return {
+                        "home_win": round(prediction_data.get("home_win", 0.33), 4),
+                        "draw": round(prediction_data.get("draw", 0.34), 4),
+                        "away_win": round(prediction_data.get("away_win", 0.33), 4),
+                        "reasoning": prediction_data.get("reasoning", ""),
+                    }
+        except (json.JSONDecodeError, ValueError, AttributeError) as e:
+            logger.warning(f"Failed to parse Groq response as JSON: {e}")
+            return None
+
+        return None
+
+    except Exception as e:
+        logger.error(f"Error calling Groq API: {e}")
+        return None
+
+
 def _generate_realistic_probabilities(
     match_strength_ratio: float,
 ) -> tuple[float, float, float]:
@@ -196,22 +290,35 @@ def _get_recommended_bet(
 def _generate_prediction_from_api_match(
     api_match: MatchData, include_model_details: bool = False
 ) -> PredictionResponse:
-    """Generate a prediction for a real match from the API."""
+    """Generate a prediction for a real match from the API using Groq LLM."""
     home_team = api_match.homeTeam.name
     away_team = api_match.awayTeam.name
     competition = api_match.competition.code
 
-    # Use a seed based on match ID for consistent predictions
-    random.seed(api_match.id)
+    # Try to get prediction from Groq API first
+    groq_prediction = _get_groq_prediction(home_team, away_team, competition)
 
-    # Generate realistic probabilities
-    strength_ratio = random.uniform(0.75, 1.35)
-    home_prob, draw_prob, away_prob = _generate_realistic_probabilities(strength_ratio)
+    if groq_prediction:
+        # Use Groq prediction
+        logger.info(f"Using Groq prediction for {home_team} vs {away_team}")
+        home_prob = groq_prediction["home_win"]
+        draw_prob = groq_prediction["draw"]
+        away_prob = groq_prediction["away_win"]
+        groq_reasoning = groq_prediction.get("reasoning", "")
+    else:
+        # Fallback to random probabilities if Groq fails
+        logger.info(f"Using fallback random prediction for {home_team} vs {away_team}")
+        random.seed(api_match.id)
+        strength_ratio = random.uniform(0.75, 1.35)
+        home_prob, draw_prob, away_prob = _generate_realistic_probabilities(strength_ratio)
+        groq_reasoning = ""
+        random.seed()
 
     # Get recommended bet
     recommended_bet = _get_recommended_bet(home_prob, draw_prob, away_prob)
 
     # Generate confidence score (60-85%)
+    random.seed(api_match.id)
     base_confidence = random.uniform(0.60, 0.85)
     confidence = round(base_confidence, 3)
 
@@ -232,6 +339,10 @@ def _generate_prediction_from_api_match(
     # Generate explanation
     explanation_template = EXPLANATIONS_TEMPLATES[recommended_bet]
     explanation = explanation_template.format(home=home_team, away=away_team)
+
+    # Enhance explanation with Groq reasoning if available
+    if groq_reasoning:
+        explanation = f"{explanation}\n\n(Analyse Groq: {groq_reasoning})"
 
     # Model contributions (optional)
     model_contributions = None
@@ -280,7 +391,7 @@ def _generate_prediction_from_api_match(
             total_adjustment=round(
                 injury_impact_home + injury_impact_away + sentiment_home + sentiment_away + tactical_edge, 3
             ),
-            reasoning="Analyse basée sur les actualités d'équipes, blessures récentes et contexte du match.",
+            reasoning="Analyse basée sur l'IA Groq et données publiques disponibles.",
         )
 
     # Reset random seed
