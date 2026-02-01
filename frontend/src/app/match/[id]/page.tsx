@@ -34,8 +34,11 @@ export default function MatchDetailPage() {
 
   useEffect(() => {
     if (params?.id) {
-      const id = typeof params.id === 'string' ? Number(params.id) : params.id;
-      setMatchId(id);
+      const idValue = Array.isArray(params.id) ? params.id[0] : params.id;
+      const id = Number(idValue);
+      if (!isNaN(id)) {
+        setMatchId(id);
+      }
     }
   }, [params]);
 
