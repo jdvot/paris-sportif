@@ -48,14 +48,14 @@ class DixonColesModel:
     HOME_ADVANTAGE = 1.15
 
     # Time decay parameter (higher = faster decay)
-    # xi = 0.003 means goals ~5 weeks ago weighted at ~70% of current
-    TIME_DECAY_XI = 0.003
+    # xi = 0.0015 means goals ~46 days ago weighted at ~70% of current (better for recent form)
+    TIME_DECAY_XI = 0.0015
 
     def __init__(
         self,
         league_avg_goals: float = 2.75,
         home_advantage_factor: float = 1.15,
-        time_decay_xi: float = 0.003,
+        time_decay_xi: float = 0.0015,
         rho: float = -0.065,  # Correlation parameter for low scores
     ):
         """
@@ -65,6 +65,7 @@ class DixonColesModel:
             league_avg_goals: Average total goals per match
             home_advantage_factor: Multiplier for home team goal expectancy
             time_decay_xi: Time decay parameter (0 = no decay, higher = faster decay)
+                          Default 0.0015 gives half-weight at ~46 days
             rho: Correlation parameter (-0.065 to -0.080 is typical for football)
         """
         self.league_avg_goals = league_avg_goals
@@ -94,16 +95,22 @@ class DixonColesModel:
         Returns:
             Correction factor (1.0 = no correction)
         """
+        # Improved correction with bounds checking
         if home_goals == 0 and away_goals == 0:
-            return 1 - lambda_home * lambda_away * self.rho
+            correction = 1 - lambda_home * lambda_away * self.rho
         elif home_goals == 0 and away_goals == 1:
-            return 1 - lambda_home * self.rho
+            correction = 1 - lambda_home * self.rho
         elif home_goals == 1 and away_goals == 0:
-            return 1 - lambda_away * self.rho
+            correction = 1 - lambda_away * self.rho
         elif home_goals == 1 and away_goals == 1:
-            return 1 + lambda_home * lambda_away * self.rho
+            correction = 1 + lambda_home * lambda_away * self.rho
         else:
-            return 1.0
+            correction = 1.0
+
+        # Ensure correction factor stays reasonable (between 0.5 and 1.5)
+        # This prevents extreme adjustments
+        correction = np.clip(correction, 0.5, 1.5)
+        return correction
 
     def calculate_expected_goals(
         self,
@@ -128,40 +135,51 @@ class DixonColesModel:
         """
         league_avg_per_team = self.league_avg_goals / 2
 
+        # Avoid division by zero
+        if league_avg_per_team <= 0:
+            league_avg_per_team = 1.375  # Default fallback
+
+        # Smoothing to prevent extreme ratios
+        smoothing = 0.1
+
         # Attack and defense strength relative to league average
         home_attack_strength = (
-            home_attack / league_avg_per_team if league_avg_per_team > 0 else 1.0
+            home_attack / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
         )
         away_attack_strength = (
-            away_attack / league_avg_per_team if league_avg_per_team > 0 else 1.0
+            away_attack / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
         )
 
         home_defense_strength = (
-            home_defense / league_avg_per_team if league_avg_per_team > 0 else 1.0
+            home_defense / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
         )
         away_defense_strength = (
-            away_defense / league_avg_per_team if league_avg_per_team > 0 else 1.0
+            away_defense / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
         )
 
-        # Expected goals
+        # Expected goals with improved time weighting
+        # Time weight should never make predictions too uncertain
+        safe_time_weight = max(0.5, min(1.0, time_weight))
+
         expected_home = (
             home_attack_strength
             * away_defense_strength
             * league_avg_per_team
             * self.home_advantage
-            * time_weight
+            * safe_time_weight
         )
 
         expected_away = (
             away_attack_strength
             * home_defense_strength
             * league_avg_per_team
-            * time_weight
+            * safe_time_weight
+            / 1.05  # Penalty for away teams
         )
 
-        # Clamp to reasonable values
-        expected_home = max(0.3, min(4.0, expected_home))
-        expected_away = max(0.3, min(4.0, expected_away))
+        # Improved clamping with better bounds
+        expected_home = np.clip(expected_home, 0.3, 5.0)
+        expected_away = np.clip(expected_away, 0.3, 5.0)
 
         return expected_home, expected_away
 

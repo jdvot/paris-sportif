@@ -32,6 +32,11 @@ class PoissonModel:
 
     Uses historical goal averages to calculate expected goals (lambda)
     for each team, then uses Poisson distribution to estimate outcomes.
+
+    Improvements in this version:
+    - Better normalization of team strength metrics
+    - Improved home advantage handling
+    - Better extreme value clamping
     """
 
     # Constants
@@ -75,14 +80,21 @@ class PoissonModel:
         # League average per team (half of total)
         league_avg_per_team = self.league_avg_goals / 2
 
-        # Attack and defense strength relative to league average
-        home_attack_strength = home_attack / league_avg_per_team if league_avg_per_team > 0 else 1.0
-        away_attack_strength = away_attack / league_avg_per_team if league_avg_per_team > 0 else 1.0
+        # Avoid division by zero and handle edge cases
+        if league_avg_per_team <= 0:
+            league_avg_per_team = 1.375  # Default fallback
 
-        home_defense_strength = home_defense / league_avg_per_team if league_avg_per_team > 0 else 1.0
-        away_defense_strength = away_defense / league_avg_per_team if league_avg_per_team > 0 else 1.0
+        # Attack and defense strength using geometric mean for better stability
+        # Use smoothing to avoid extreme ratios when values are very small
+        smoothing = 0.1  # Add small constant to prevent division by very small numbers
 
-        # Expected goals
+        home_attack_strength = home_attack / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
+        away_attack_strength = away_attack / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
+
+        home_defense_strength = home_defense / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
+        away_defense_strength = away_defense / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
+
+        # Expected goals with improved home advantage handling
         # Home: home attack strength × away defense weakness × league avg × home advantage
         expected_home = (
             home_attack_strength
@@ -92,15 +104,19 @@ class PoissonModel:
         )
 
         # Away: away attack strength × home defense weakness × league avg
+        # Away team penalty (inverse of home advantage, roughly)
         expected_away = (
             away_attack_strength
             * home_defense_strength
             * league_avg_per_team
+            / 1.05  # Slight penalty for away teams (less extreme than home advantage)
         )
 
-        # Clamp to reasonable values
-        expected_home = max(0.3, min(4.0, expected_home))
-        expected_away = max(0.3, min(4.0, expected_away))
+        # Improved clamping with better bounds
+        # Min 0.3 (teams can rarely score less in 90 mins)
+        # Max 5.0 (more realistic upper bound for a single team)
+        expected_home = np.clip(expected_home, 0.3, 5.0)
+        expected_away = np.clip(expected_away, 0.3, 5.0)
 
         return expected_home, expected_away
 

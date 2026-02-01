@@ -454,7 +454,7 @@ async def get_daily_picks(
     query_date: str | None = Query(None, alias="date", description="Date in YYYY-MM-DD format, defaults to today"),
 ) -> DailyPicksResponse:
     """
-    Get the 5 best picks for the day.
+    Get the 5 best picks for the 7-day period starting from the specified date.
 
     Selection criteria:
     - Minimum 5% value vs bookmaker odds
@@ -465,11 +465,14 @@ async def get_daily_picks(
         target_date_str = query_date or datetime.now().strftime("%Y-%m-%d")
         target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
 
-        # Fetch matches for that date from real API (no status filter to get SCHEDULED and TIMED)
+        # Fetch matches for 7 days starting from target_date to ensure picks are always available
+        date_to = target_date + timedelta(days=6)
+
+        # Fetch matches for that date range from real API (no status filter to get SCHEDULED and TIMED)
         client = get_football_data_client()
         api_matches = await client.get_matches(
             date_from=target_date,
-            date_to=target_date,
+            date_to=date_to,
         )
 
         # Filter to only include matches that haven't started yet

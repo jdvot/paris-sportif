@@ -25,13 +25,13 @@ export default function Home() {
     : null;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Hero Section */}
-      <section className="text-center py-8">
-        <h1 className="text-4xl font-bold text-white mb-4">
+      <section className="text-center py-6 sm:py-8">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-3 sm:mb-4">
           Predictions Football IA
         </h1>
-        <p className="text-dark-300 text-lg max-w-2xl mx-auto">
+        <p className="text-dark-300 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto px-4">
           Analyse statistique avancee combinant modeles Poisson, ELO, xG et
           machine learning pour identifier les meilleures opportunites de paris
           sur le football europeen.
@@ -40,40 +40,40 @@ export default function Home() {
 
       {/* Quick Stats - Only show if data is available */}
       {hasData && (
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 flex items-center gap-4">
-            <div className="p-3 bg-primary-500/20 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-primary-400" />
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-primary-500/20 rounded-lg flex-shrink-0">
+              <TrendingUp className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400" />
             </div>
-            <div>
-              <p className="text-dark-400 text-sm">Taux de reussite</p>
+            <div className="text-center sm:text-left">
+              <p className="text-dark-400 text-xs sm:text-sm">Taux de reussite</p>
               {statsLoading ? (
-                <Loader2 className="w-6 h-6 text-primary-400 animate-spin mt-1" />
+                <Loader2 className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 animate-spin mt-1 mx-auto sm:mx-0" />
               ) : (
-                <p className="text-2xl font-bold text-white">{successRate}%</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{successRate}%</p>
               )}
             </div>
           </div>
-          <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 flex items-center gap-4">
-            <div className="p-3 bg-accent-500/20 rounded-lg">
-              <Calendar className="w-6 h-6 text-accent-400" />
+          <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-accent-500/20 rounded-lg flex-shrink-0">
+              <Calendar className="w-5 sm:w-6 h-5 sm:h-6 text-accent-400" />
             </div>
-            <div>
-              <p className="text-dark-400 text-sm">Predictions analysees</p>
+            <div className="text-center sm:text-left">
+              <p className="text-dark-400 text-xs sm:text-sm">Predictions analysees</p>
               {statsLoading ? (
-                <Loader2 className="w-6 h-6 text-accent-400 animate-spin mt-1" />
+                <Loader2 className="w-5 sm:w-6 h-5 sm:h-6 text-accent-400 animate-spin mt-1 mx-auto sm:mx-0" />
               ) : (
-                <p className="text-2xl font-bold text-white">{totalPredictions}</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{totalPredictions}</p>
               )}
             </div>
           </div>
-          <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 flex items-center gap-4">
-            <div className="p-3 bg-yellow-500/20 rounded-lg">
-              <Trophy className="w-6 h-6 text-yellow-400" />
+          <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4 sm:col-span-2 lg:col-span-1">
+            <div className="p-2 sm:p-3 bg-yellow-500/20 rounded-lg flex-shrink-0">
+              <Trophy className="w-5 sm:w-6 h-5 sm:h-6 text-yellow-400" />
             </div>
-            <div>
-              <p className="text-dark-400 text-sm">Championnats couverts</p>
-              <p className="text-2xl font-bold text-white">{competitionsWithData}</p>
+            <div className="text-center sm:text-left">
+              <p className="text-dark-400 text-xs sm:text-sm">Championnats couverts</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{competitionsWithData}</p>
             </div>
           </div>
         </section>
@@ -81,11 +81,11 @@ export default function Home() {
 
       {/* Daily Picks */}
       <section>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-white">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-0 px-4 sm:px-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-white">
             5 Picks du Jour
           </h2>
-          <span className="text-dark-400 text-sm">
+          <span className="text-dark-400 text-xs sm:text-sm">
             Mis a jour: {new Date().toLocaleDateString("fr-FR")}
           </span>
         </div>
@@ -94,7 +94,7 @@ export default function Home() {
 
       {/* Upcoming Matches */}
       <section>
-        <h2 className="text-2xl font-bold text-white mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6 px-4 sm:px-0">
           Matchs a Venir
         </h2>
         <UpcomingMatches />
@@ -102,7 +102,7 @@ export default function Home() {
 
       {/* Stats Overview */}
       <section>
-        <h2 className="text-2xl font-bold text-white mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6 px-4 sm:px-0">
           Performance des Predictions
         </h2>
         <StatsOverview />

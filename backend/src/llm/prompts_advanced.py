@@ -1,7 +1,8 @@
-"""Advanced LLM prompts for football match analysis.
+"""Advanced LLM prompts for professional football match analysis.
 
-These prompts leverage Groq's Mixtral 8x7B to provide sophisticated analysis
-that complements statistical models with contextual intelligence.
+These prompts leverage Groq's Llama 3.3 70B to provide sophisticated analysis
+with chain-of-thought reasoning that complements statistical models with
+contextual intelligence and expert judgment.
 """
 
 
@@ -14,317 +15,609 @@ def get_prediction_analysis_prompt(
     home_injuries: str = "",
     away_injuries: str = "",
     head_to_head: str = "",
+    weather_conditions: str = "",
+    match_importance: str = "regular",
 ) -> str:
     """
-    Generate a comprehensive match analysis prompt.
+    Generate a comprehensive match analysis prompt with chain-of-thought reasoning.
+
+    Uses step-by-step analysis to provide professional betting predictions.
 
     Args:
         home_team: Home team name
         away_team: Away team name
         competition: Competition name
-        home_current_form: Recent form summary
+        home_current_form: Recent form summary (e.g., "3 wins, 1 draw, 1 loss")
         away_current_form: Recent form summary
         home_injuries: Injury information
         away_injuries: Injury information
         head_to_head: Historical matchup information
+        weather_conditions: Weather/pitch conditions
+        match_importance: Match importance level (regular/important/critical)
 
     Returns:
-        Formatted prompt for LLM
+        Formatted prompt for LLM with chain-of-thought structure
     """
-    return f"""Tu es un expert en analyse de matchs de football avec 15 ans d'expérience.
-Analyse ce match en détail et fournis des insights professionnels.
+    return f"""You are a professional football analyst with 20+ years of experience in sports betting and match prediction.
 
-MATCH: {home_team} vs {away_team}
-Compétition: {competition}
+MATCH ANALYSIS: {home_team} vs {away_team}
+Competition: {competition}
+Match Importance: {match_importance}
 
-CONTEXTE ACTUEL:
-Forme de {home_team}: {home_current_form or "Non disponible"}
-Forme de {away_team}: {away_current_form or "Non disponible"}
+AVAILABLE DATA:
+Recent Form - {home_team}: {home_current_form or "Not available"}
+Recent Form - {away_team}: {away_current_form or "Not available"}
+Injuries - {home_team}: {home_injuries or "None reported"}
+Injuries - {away_team}: {away_injuries or "None reported"}
+Head-to-Head: {head_to_head or "No historical data"}
+Conditions: {weather_conditions or "Not specified"}
 
-SITUATION DES JOUEURS:
-Blessures {home_team}: {home_injuries or "Aucune connue"}
-Blessures {away_team}: {away_injuries or "Aucune connue"}
+ANALYSIS APPROACH - Use chain-of-thought reasoning:
+1. TEAM ASSESSMENT
+   - Evaluate current team strength (attack, defense, midfield)
+   - Compare recent form and momentum
+   - Consider injury impact on available squad depth
+   - Account for key player absences
 
-HISTORIQUE:
-{head_to_head or "Pas de données historiques"}
+2. CONTEXTUAL FACTORS
+   - Head-to-head patterns (historical matchups)
+   - Home/away advantage (historical record, travel fatigue)
+   - Tactical compatibility (formation and style)
+   - Motivation factors (title race, relegation fight, derby)
+   - External factors (weather, pitch condition, fixture congestion)
 
-ANALYSE REQUISE:
-1. Évalue la force relative des deux équipes actuellement
-2. Identifie les facteurs clés qui influenceront le résultat
-3. Estime l'impact des blessures et absences
-4. Analyse les tendances tactiques et les forces défensives
-5. Fournis une estimation des probabilités de résultat
+3. PROBABILISTIC REASONING
+   - Estimate base probabilities from form and strength
+   - Apply injury impact adjustments (-0.3 to 0.0 range)
+   - Apply contextual adjustments (head-to-head, motivation)
+   - Apply environmental adjustments (weather, crowd)
+   - Final probability normalization
 
-IMPORTANT - Tu dois répondre UNIQUEMENT avec un JSON valide (pas de texte avant ou après):
+4. CONFIDENCE ASSESSMENT
+   - Data quality and completeness
+   - Historical pattern reliability
+   - Recent anomalies or unexpected changes
+   - Overall model uncertainty
+
+RESPONSE FORMAT - MANDATORY JSON ONLY (no text before/after):
 {{
-    "home_win_probability": 0.00,
-    "draw_probability": 0.00,
-    "away_win_probability": 0.00,
-    "confidence_level": "low|medium|high",
+    "analysis_summary": {{
+        "home_team_strength": "weak|below_average|average|above_average|strong",
+        "away_team_strength": "weak|below_average|average|above_average|strong",
+        "relative_strength": "home_advantage|balanced|away_advantage"
+    }},
+    "probability_assessment": {{
+        "home_win_probability": 0.00,
+        "draw_probability": 0.00,
+        "away_win_probability": 0.00,
+        "confidence_level": "low|medium|high|very_high"
+    }},
+    "impact_factors": {{
+        "injury_impact_home": -0.30 to 0.00,
+        "injury_impact_away": -0.30 to 0.00,
+        "motivation_impact_home": -0.15 to 0.15,
+        "motivation_impact_away": -0.15 to 0.15,
+        "weather_impact": -0.10 to 0.10,
+        "tactical_edge": -0.05 to 0.05
+    }},
+    "match_dynamics": {{
+        "expected_goals_home": 0.5 to 3.5,
+        "expected_goals_away": 0.5 to 3.5,
+        "likely_score_range": "e.g., 1-1 to 2-1",
+        "match_type": "open_game|defensive_battle|one_sided"
+    }},
     "key_factors": [
-        "Facteur clé 1",
-        "Facteur clé 2",
-        "Facteur clé 3"
+        "Factor 1 with expected impact",
+        "Factor 2 with expected impact",
+        "Factor 3 with expected impact",
+        "Factor 4 with expected impact"
     ],
-    "injury_impact_home": -0.15,
-    "injury_impact_away": -0.10,
-    "tactical_insight": "Explication brève de l'analyse tactique",
-    "expected_goals_home": 1.5,
-    "expected_goals_away": 1.2,
-    "reasoning": "Explication détaillée de l'analyse"
+    "risk_assessment": {{
+        "main_risks": ["Risk 1", "Risk 2"],
+        "upset_probability": 0.0 to 0.5,
+        "data_quality": "high|medium|low"
+    }},
+    "recommendation": {{
+        "primary_prediction": "home_win|draw|away_win",
+        "confidence_percentage": 0 to 100,
+        "best_bet": "1|X|2|1X|X2|12|recommended_angle",
+        "reasoning": "Concise explanation of primary prediction"
+    }}
 }}
 
-Contraintes:
-- Les trois probabilités doivent totaliser 1.0 exactement
-- injury_impact doit être entre -0.3 et 0.0
-- confidence_level doit être l'une des trois options
-- Tous les champs doivent être présents"""
+CRITICAL CONSTRAINTS:
+- Probabilities must sum to exactly 1.0
+- confidence_level must be one of the 4 specified options
+- All numerical fields must be within specified ranges
+- Provide only JSON, no additional text
+- injury_impact values must be between -0.3 and 0.0
+- All required fields must be present"""
 
 
-def get_injury_impact_prompt(
+def get_injury_impact_analysis_prompt(
     team_name: str,
     absent_players: list[str],
     team_strength: str = "medium",
     competition_importance: str = "regular",
+    replacement_options: str = "",
 ) -> str:
     """
-    Generate prompt for analyzing injury impact.
+    Generate prompt for detailed injury impact analysis.
 
     Args:
         team_name: Team name
-        absent_players: List of absent player names
+        absent_players: List of absent player names with positions
         team_strength: Team strength level (weak/medium/strong)
         competition_importance: Match importance (regular/important/critical)
+        replacement_options: Available replacement players
 
     Returns:
-        Formatted prompt for LLM
+        Formatted prompt for chain-of-thought injury analysis
     """
-    players_str = ", ".join(absent_players) if absent_players else "Aucun"
+    players_str = ", ".join(absent_players) if absent_players else "None"
 
-    return f"""Analyse l'impact des absences sur la performance de {team_name}.
+    return f"""Analyze the competitive impact of player absences on {team_name}.
 
-ÉQUIPE: {team_name}
-Force générale: {team_strength}
-Importance du match: {competition_importance}
-Joueurs absents/blessés: {players_str}
+TEAM CONTEXT:
+Team: {team_name}
+Overall Strength: {team_strength}
+Match Importance: {competition_importance}
 
-Fournis une évaluation numérique de l'impact (de -0.3 à 0.0):
-- -0.3: Impact critique (équipe affaiblie considérablement)
-- -0.15: Impact modéré (quelques absents importants)
-- -0.05: Impact faible (absents mineurs)
-- 0.0: Aucun impact (équipe au complet ou absents très mineurs)
+ABSENT PLAYERS:
+{players_str}
 
-Réponds UNIQUEMENT avec un nombre entre -0.3 et 0.0."""
+REPLACEMENT OPTIONS:
+{replacement_options or "Standard squad rotation"}
+
+ANALYSIS FRAMEWORK:
+1. PLAYER IMPACT ASSESSMENT
+   - Evaluate each player's typical minutes and contribution
+   - Consider position-specific scarcity
+   - Assess replacement quality/depth
+
+2. TACTICAL IMPACT
+   - Formation flexibility with absences
+   - Defensive stability changes
+   - Attacking potency reduction
+   - Midfield control impact
+
+3. CUMULATIVE EFFECT
+   - Multiple absences compound effect
+   - Team chemistry disruption
+   - Confidence/momentum impact
+   - Training continuity effects
+
+4. COMPETITIVE DISADVANTAGE
+   - Quantify as adjustment factor
+   - Consider match importance (critical matches: larger impact)
+   - Account for team's squad depth
+
+IMPACT SCORING:
+- 0.0: No impact (minor players absent)
+- -0.05: Small impact (1-2 squad players)
+- -0.10: Moderate impact (key regular absent)
+- -0.15: Significant impact (multiple starters/one star)
+- -0.25: Major impact (several key players)
+- -0.30: Critical impact (star player + multiple starters)
+
+RESPONSE FORMAT - JSON ONLY:
+{{
+    "impact_assessment": {{
+        "injury_impact_factor": -0.30 to 0.00,
+        "severity_level": "minimal|light|moderate|significant|major|critical",
+        "primary_concern": "player_name or position impacted",
+        "replacement_quality": "weak|adequate|good|excellent"
+    }},
+    "player_analysis": [
+        {{
+            "player": "name",
+            "position": "position",
+            "importance": "backup|regular|key|star",
+            "expected_minutes_lost": 0 to 100,
+            "impact_rating": 0.0 to 1.0
+        }}
+    ],
+    "tactical_implications": {{
+        "formation_flexibility": "low|medium|high",
+        "defense_vulnerability": "low|medium|high",
+        "attack_reduction": 0.0 to 0.3,
+        "midfield_control_loss": 0.0 to 0.3
+    }},
+    "confidence": 0.0 to 1.0,
+    "reasoning": "Explanation of impact assessment"
+}}"""
 
 
-def get_form_sentiment_prompt(
+def get_form_analysis_prompt(
     team_name: str,
     recent_results: list[str],
     media_sentiment: str = "neutral",
     tactical_changes: str = "",
+    key_player_form: str = "",
 ) -> str:
     """
-    Generate prompt for analyzing team form and sentiment.
+    Generate prompt for team form and sentiment analysis with trends.
 
     Args:
         team_name: Team name
-        recent_results: List of recent match results
-        media_sentiment: Overall media sentiment
+        recent_results: List of recent match results (e.g., ['W', 'W', 'D', 'L'])
+        media_sentiment: Overall media sentiment (very_negative/negative/neutral/positive/very_positive)
         tactical_changes: Recent tactical changes
+        key_player_form: Form of key players
 
     Returns:
-        Formatted prompt for LLM
+        Formatted prompt for form analysis
     """
-    results_str = " -> ".join(recent_results) if recent_results else "Aucun résultat"
+    results_str = " → ".join(recent_results) if recent_results else "No data"
 
-    return f"""Analyse la forme et le moral de {team_name}.
+    return f"""Analyze team form, momentum, and psychological state for {team_name}.
 
-ÉQUIPE: {team_name}
-Résultats récents: {results_str}
-Sentiment médias: {media_sentiment}
-Changements tactiques: {tactical_changes or "Aucun"}
+TEAM: {team_name}
+Recent Results (last 5-10): {results_str}
+Media Sentiment: {media_sentiment}
+Tactical Changes: {tactical_changes or "None"}
+Key Players Form: {key_player_form or "Not specified"}
 
-Fournis un score de sentiment entre -0.1 et +0.1:
-- +0.1: Équipe en très bonne confiance, momentum positif
-- +0.05: Équipe en confiance, légèrement optimiste
-- 0.0: Équipe neutre, forme équilibrée
-- -0.05: Équipe en doute, quelques résultats négatifs
-- -0.1: Équipe en crise de confiance, fort pessimisme
+FORM ANALYSIS FRAMEWORK:
+1. PERFORMANCE TRENDS
+   - Win/draw/loss pattern analysis
+   - Goal scoring/conceding trends
+   - Performance consistency
+   - Recent trajectory (improving/declining/stable)
 
-Réponds UNIQUEMENT avec un nombre entre -0.1 et +0.1."""
+2. PSYCHOLOGICAL FACTORS
+   - Team confidence level
+   - Motivation indicators
+   - Pressure/stress signs
+   - Cohesion indicators
+
+3. MOMENTUM ASSESSMENT
+   - Winning streak or losing streak
+   - Clean sheet consistency
+   - High-pressure game responses
+   - Recent comeback ability
+
+4. EXTERNAL SIGNALS
+   - Media perception and criticism
+   - Coach comments and decisions
+   - Player interviews/statements
+   - Transfer/tactical changes
+
+SENTIMENT ADJUSTMENT SCALE:
+- +0.15: Exceptional form, very strong confidence, media very positive
+- +0.10: Good form, confident team, media positive
+- +0.05: Slight positive momentum, minor confidence boost
+- 0.00: Neutral, balanced form, realistic expectations
+- -0.05: Slight negative trend, minor doubt creeping in
+- -0.10: Poor form, confidence dented, media concerned
+- -0.15: Crisis mode, severe confidence loss, intense scrutiny
+
+RESPONSE FORMAT - JSON ONLY:
+{{
+    "form_assessment": {{
+        "recent_performance": "very_poor|poor|below_average|average|above_average|good|excellent",
+        "trend": "deteriorating|stable|improving",
+        "confidence_level": "very_low|low|medium|high|very_high"
+    }},
+    "momentum_analysis": {{
+        "momentum_indicator": -0.15 to 0.15,
+        "win_streak_status": "active|broken|none",
+        "defensive_solidity": "weak|average|strong",
+        "attack_effectiveness": "weak|average|strong"
+    }},
+    "sentiment_adjustment": -0.15 to 0.15,
+    "key_observations": [
+        "observation1",
+        "observation2",
+        "observation3"
+    ],
+    "confidence": 0.0 to 1.0,
+    "reasoning": "Summary of form assessment"
+}}"""
 
 
 def get_tactical_matchup_prompt(
     home_team: str,
     away_team: str,
+    home_formation: str = "",
+    away_formation: str = "",
     home_style: str = "",
     away_style: str = "",
+    head_to_head_tactics: str = "",
 ) -> str:
     """
-    Generate prompt for tactical analysis.
+    Generate prompt for detailed tactical analysis and matchup.
 
     Args:
         home_team: Home team name
         away_team: Away team name
-        home_style: Home team's typical style
-        away_style: Away team's typical style
+        home_formation: Home team formation (e.g., "4-2-3-1")
+        away_formation: Away team formation
+        home_style: Home team's typical playing style
+        away_style: Away team's typical playing style
+        head_to_head_tactics: Historical tactical patterns
 
     Returns:
-        Formatted prompt for LLM
+        Formatted prompt for tactical analysis
     """
-    return f"""Analyse le matchup tactique entre {home_team} et {away_team}.
+    return f"""Analyze the tactical matchup and formation compatibility for {home_team} vs {away_team}.
 
-MATCHUP TACTIQUE:
-Style de {home_team}: {home_style or "Non spécifié"}
-Style de {away_team}: {away_style or "Non spécifié"}
+FORMATIONS AND STYLES:
+{home_team}: {home_formation or "Not specified"} - {home_style or "Not specified"}
+{away_team}: {away_formation or "Not specified"} - {away_style or "Not specified"}
 
-Considère:
-1. Comment {home_team} joue-t-il généralement?
-2. Comment {away_team} s'adapte-t-il en déplacement?
-3. Quels sont les avantages/désavantages de chaque approche?
-4. Y a-t-il une équipe mieux adaptée tactiquement?
+HISTORICAL TACTICS:
+{head_to_head_tactics or "No specific patterns"}
 
-Fournis un avantage tactique entre -0.05 et +0.05:
-- +0.05: Avantage tactique clair pour {home_team}
-- +0.02: Léger avantage tactique pour {home_team}
-- 0.0: Équilibre tactique
-- -0.02: Léger avantage tactique pour {away_team}
-- -0.05: Avantage tactique clair pour {away_team}
+TACTICAL ANALYSIS FRAMEWORK:
+1. FORMATION MATCHUP
+   - Numerical advantage in key areas (midfield, defense)
+   - Line of symmetry advantages
+   - Defensive coverage and vulnerabilities
+   - Offensive width and penetration options
 
-Réponds UNIQUEMENT avec un nombre entre -0.05 et +0.05."""
+2. STYLE COMPATIBILITY
+   - How does {home_team}'s style suit their formation?
+   - How does {away_team} adapt away from home?
+   - What tactical adjustments might occur?
+   - Which team has tactical flexibility?
 
+3. KEY MATCHUPS
+   - Midfield battle (numerical/positional)
+   - Wing play and fullback battles
+   - Attacking structure vs defensive shape
+   - Set-piece advantages/disadvantages
 
-def get_expected_goals_prompt(
-    home_team: str,
-    away_team: str,
-    home_attack_quality: str = "medium",
-    away_attack_quality: str = "medium",
-    home_defense_quality: str = "medium",
-    away_defense_quality: str = "medium",
-) -> str:
-    """
-    Generate prompt for expected goals estimation.
+4. STRATEGIC IMPLICATIONS
+   - Expected game flow and tempo
+   - Which team controls the match?
+   - Likely game situations (open game vs defensive)
+   - Potential tactical pivots
 
-    Args:
-        home_team: Home team name
-        away_team: Away team name
-        home_attack_quality: Quality of home team's attack
-        away_attack_quality: Quality of away team's attack
-        home_defense_quality: Quality of home team's defense
-        away_defense_quality: Quality of away team's defense
+TACTICAL EDGE SCALE:
+- +0.05: Clear tactical advantage for {home_team}
+- +0.03: Slight tactical advantage for {home_team}
+- +0.01: Minor tactical advantage for {home_team}
+- 0.00: Tactical balance, equally matched
+- -0.01: Minor tactical advantage for {away_team}
+- -0.03: Slight tactical advantage for {away_team}
+- -0.05: Clear tactical advantage for {away_team}
 
-    Returns:
-        Formatted prompt for LLM
-    """
-    return f"""Estime les buts attendus (xG) pour ce match.
-
-ÉQUIPES:
-{home_team}: Attaque {home_attack_quality}, Défense {home_defense_quality}
-{away_team}: Attaque {away_attack_quality}, Défense {away_defense_quality}
-
-Basé sur la qualité des attaques et défenses:
-- Équipes avec très bonne attaque créent généralement 2.0-2.5 xG
-- Équipes avec bonne attaque créent 1.5-2.0 xG
-- Équipes avec attaque moyenne créent 1.2-1.5 xG
-- Équipes avec faible attaque créent 0.8-1.2 xG
-- Excellente défense réduit le xG concédé
-- Faible défense augmente le xG concédé
-
-Fournis les xG estimées en JSON:
+RESPONSE FORMAT - JSON ONLY:
 {{
-    "home_xg": 1.5,
-    "away_xg": 1.3
-}}
+    "formation_analysis": {{
+        "home_formation": "{home_formation or 'Not specified'}",
+        "away_formation": "{away_formation or 'Not specified'}",
+        "formation_compatibility": "home_advantage|balanced|away_advantage"
+    }},
+    "tactical_edge": -0.05 to 0.05,
+    "edge_reason": "Explanation of tactical advantage",
+    "key_matchups": [
+        "matchup1 with expected result",
+        "matchup2 with expected result",
+        "matchup3 with expected result"
+    ],
+    "vulnerable_areas": {{
+        "home_team_weakness": "specific tactical vulnerability",
+        "away_team_opportunity": "how away team can exploit"
+    }},
+    "game_dynamics": {{
+        "expected_tempo": "slow|moderate|fast",
+        "expected_intensity": "low|moderate|high",
+        "likely_game_type": "open|balanced|defensive|one_sided"
+    }},
+    "confidence": 0.0 to 1.0,
+    "reasoning": "Summary of tactical analysis"
+}}"""
 
-Les valeurs doivent être entre 0.5 et 3.5."""
 
-
-def get_motivation_prompt(
+def get_head_to_head_analysis_prompt(
     home_team: str,
     away_team: str,
-    league_position_home: str = "",
-    league_position_away: str = "",
-    stakes: str = "regular",
+    h2h_history: str,
+    recent_h2h: str = "",
 ) -> str:
     """
-    Generate prompt for motivation/pressure analysis.
+    Generate prompt for historical head-to-head analysis.
 
     Args:
         home_team: Home team name
         away_team: Away team name
-        league_position_home: Home team's league position
-        league_position_away: Away team's league position
-        stakes: Match stakes (regular/important/critical)
+        h2h_history: Overall head-to-head record
+        recent_h2h: Recent head-to-head results
 
     Returns:
-        Formatted prompt for LLM
+        Formatted prompt for H2H analysis
     """
-    return f"""Analyse la motivation et la pression pour ce match.
+    return f"""Analyze historical patterns in matches between {home_team} and {away_team}.
 
-CONTEXTE:
-{home_team}: Position au classement: {league_position_home or "Non spécifié"}
-{away_team}: Position au classement: {league_position_away or "Non spécifié"}
-Enjeux du match: {stakes}
+TEAMS: {home_team} vs {away_team}
+Overall H2H Record: {h2h_history}
+Recent H2H (last 5): {recent_h2h or "Not available"}
 
-Facteurs à considérer:
-- Équipe en lutte pour le titre (+0.10 à +0.15)
-- Équipe en lutte contre la relégation (-0.15 à -0.10)
-- Match de derby ou très important (+0.10)
-- Équipe en revanchard (+0.05)
-- Équipe ayant peu à perdre (-0.05)
+HEAD-TO-HEAD ANALYSIS:
+1. HISTORICAL DOMINANCE
+   - Overall win/loss/draw record
+   - Home/away splits
+   - Recent trend (who's winning now)
+   - Statistical probability adjustments
 
-Fournis un facteur de motivation entre -0.15 et +0.15:
-Positif = équipe fortement motivée
-Négatif = équipe peu motivée/sous pression negative
+2. PATTERN IDENTIFICATION
+   - Typical match outcomes
+   - Score ranges
+   - Defensive patterns
+   - Emotional/rivalry factors
 
-Réponds UNIQUEMENT avec un nombre entre -0.15 et +0.15."""
+3. RECENT FORM vs H2H
+   - Has dominance changed?
+   - Are patterns evolving?
+   - Tactical adjustments visible?
+   - Individual matchup changes
+
+RESPONSE FORMAT - JSON ONLY:
+{{
+    "h2h_dominance": {{
+        "overall_record": "X-Y-Z (wins-draws-losses for home)",
+        "home_advantage": -0.1 to 0.1,
+        "trend": "home_improving|balanced|away_improving",
+        "reliability": "strong|moderate|weak"
+    }},
+    "pattern_analysis": {{
+        "most_common_result": "1|X|2",
+        "average_goals": 0.0 to 5.0,
+        "pattern_strength": "strong|moderate|weak",
+        "pattern_description": "description of typical matchup"
+    }},
+    "h2h_adjustment": -0.05 to 0.05,
+    "confidence": 0.0 to 1.0,
+    "reasoning": "Summary of H2H insights"
+}}"""
 
 
-def get_probability_adjustment_prompt(
+def get_probability_refinement_prompt(
     home_win_prob: float,
     draw_prob: float,
     away_win_prob: float,
     model_confidence: float,
-    additional_context: str = "",
+    analysis_summary: str = "",
 ) -> str:
     """
-    Generate prompt for final probability adjustments.
+    Generate prompt for final probability refinement with expert adjustment.
 
     Args:
-        home_win_prob: Home win probability from models
-        draw_prob: Draw probability from models
-        away_win_prob: Away win probability from models
-        model_confidence: Overall model confidence
-        additional_context: Any additional context
+        home_win_prob: Initial home win probability
+        draw_prob: Initial draw probability
+        away_win_prob: Initial away win probability
+        model_confidence: Model's confidence level
+        analysis_summary: Summary of key findings
 
     Returns:
-        Formatted prompt for LLM
+        Formatted prompt for probability adjustment
     """
-    return f"""Révise ces probabilités de prédiction en fonction de contexte humain.
+    return f"""Refine these match probabilities using expert judgment and contextual factors.
 
-PROBABILITÉS MODÈLES:
-Victoire {home_win_prob:.1%} | Match nul {draw_prob:.1%} | Victoire adverse {away_win_prob:.1%}
-Confiance du modèle: {model_confidence:.0%}
+INITIAL MODEL PROBABILITIES:
+Home Win: {home_win_prob:.1%}
+Draw: {draw_prob:.1%}
+Away Win: {away_win_prob:.1%}
+Model Confidence: {model_confidence:.0%}
 
-CONTEXTE ADDITIONNEL:
-{additional_context or "Aucun contexte particulier"}
+KEY FINDINGS SUMMARY:
+{analysis_summary or "Use model probabilities as baseline"}
 
-Considère si ces probabilités semblent justes ou si des ajustements sont nécessaires
-basés sur des facteurs que les modèles statistiques ne capturent pas:
-- Dynamique de groupe et moral
-- Expérience en grandes compétitions
-- Facteurs psychologiques
-- Événements récents non quantifiables
+REFINEMENT FRAMEWORK:
+1. VALIDATE PROBABILITIES
+   - Do they align with expert assessment?
+   - Are there anomalies or surprises?
+   - Is model confidence justified?
 
-Les probabilités révisées doivent:
-1. Totaliser exactement 1.0
-2. Être raisonnablement proches des estimations du modèle
-3. Refléter le contexte humain
+2. CONSIDER HUMAN FACTORS
+   - Team dynamics and cohesion
+   - Psychological readiness
+   - Leadership and experience
+   - Recent unexpected performances
 
-Réponds UNIQUEMENT avec le JSON:
+3. MARKET INEFFICIENCY
+   - Are odds justified?
+   - Is there value (undervalued outcomes)?
+   - Does the market misjudge either team?
+
+4. FINAL ADJUSTMENT
+   - Adjustments should be conservative
+   - Probabilities must sum to 1.0
+   - Changes should be justified
+   - Confidence must be realistic
+
+RESPONSE FORMAT - JSON ONLY:
 {{
-    "home_win": 0.00,
-    "draw": 0.00,
-    "away_win": 0.00,
-    "adjustment_reason": "Explication brève"
+    "refined_probabilities": {{
+        "home_win": 0.00 to 1.00,
+        "draw": 0.00 to 1.00,
+        "away_win": 0.00 to 1.00,
+        "total": "must equal 1.00"
+    }},
+    "adjustment_justification": {{
+        "major_adjustments": ["adjustment1", "adjustment2"],
+        "reason": "Why probabilities changed from model",
+        "confidence_in_adjustment": 0.0 to 1.0
+    }},
+    "betting_implication": {{
+        "value_outcome": "1|X|2|none",
+        "expected_odds_alignment": "undervalued|fairly_valued|overvalued"
+    }},
+    "final_recommendation": {{
+        "primary_prediction": "1|X|2",
+        "confidence": 0 to 100,
+        "supporting_factors": ["factor1", "factor2"]
+    }},
+    "reasoning": "Concise summary of refinement"
+}}"""
+
+
+def get_weather_impact_prompt(
+    home_team: str,
+    away_team: str,
+    temperature: str = "",
+    wind: str = "",
+    rain: str = "",
+    pitch_condition: str = "",
+) -> str:
+    """
+    Generate prompt for weather and environmental impact analysis.
+
+    Args:
+        home_team: Home team name
+        away_team: Away team name
+        temperature: Temperature information
+        wind: Wind speed and direction
+        rain: Rain/precipitation forecast
+        pitch_condition: Pitch condition description
+
+    Returns:
+        Formatted prompt for weather analysis
+    """
+    return f"""Analyze how weather and pitch conditions affect {home_team} vs {away_team}.
+
+ENVIRONMENTAL CONDITIONS:
+Temperature: {temperature or "Not specified"}
+Wind: {wind or "Not specified"}
+Rain: {rain or "Not specified"}
+Pitch Condition: {pitch_condition or "Normal"}
+
+TEAM CHARACTERISTICS:
+{home_team}: Typical play style, adaptation history
+{away_team}: Typical play style, adaptation history
+
+WEATHER IMPACT ANALYSIS:
+1. DIRECT EFFECTS
+   - Movement and ball control
+   - Passing accuracy
+   - Shooting power and accuracy
+   - Defensive solidity
+
+2. STYLE ADAPTATION
+   - Which team plays better in conditions?
+   - Formation adjustments needed
+   - Tactical flexibility
+   - Set-piece vulnerability
+
+3. HOME ADVANTAGE
+   - Familiarity with pitch/conditions
+   - Mental advantage in adversity
+   - Playing style suitability
+
+RESPONSE FORMAT - JSON ONLY:
+{{
+    "weather_impact": {{
+        "home_team_impact": -0.10 to 0.10,
+        "away_team_impact": -0.10 to 0.10,
+        "overall_impact": "neutral|favors_home|favors_away"
+    }},
+    "tactical_implications": {{
+        "expected_style_change": "description of how game might change",
+        "set_piece_vulnerability": "increased|unchanged|decreased",
+        "possession_changes": "expected adjustment in possession patterns"
+    }},
+    "confidence": 0.0 to 1.0,
+    "reasoning": "Summary of weather impact"
 }}"""

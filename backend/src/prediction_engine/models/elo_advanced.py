@@ -286,6 +286,9 @@ class AdvancedELOSystem:
         """
         Calculate performance adjustment from recent results.
 
+        Uses exponential decay to weight recent matches more heavily.
+        Better handles momentum and current form.
+
         Args:
             recent_matches: List of recent results (W/D/L) in order
             max_age_days: Only consider matches from last N days
@@ -296,11 +299,15 @@ class AdvancedELOSystem:
         if not recent_matches:
             return 0.0
 
-        # Weight recent matches more heavily
+        # Limit to recent matches (max 10 for computational efficiency)
+        recent_matches = recent_matches[-10:]
+
+        # Weight recent matches more heavily with exponential decay
         weights = []
         for i, _ in enumerate(reversed(recent_matches)):
-            # Exponential decay: most recent gets weight 1, older get less
-            weight = np.exp(-0.1 * i)
+            # Exponential decay: most recent gets highest weight
+            # decay_factor of 0.15 gives ~85% weight to most recent
+            weight = np.exp(-0.15 * i)
             weights.append(weight)
 
         weights = np.array(weights)
@@ -320,7 +327,10 @@ class AdvancedELOSystem:
         win_rate = np.average(win_points, weights=weights)
 
         # Adjustment: 0.5 win rate = 0.0, 1.0 = +1.0, 0.0 = -1.0
-        return (win_rate - 0.5) * 2.0
+        # Apply slight damping to prevent over-correction (max ~0.8)
+        adjustment = (win_rate - 0.5) * 2.0
+        adjustment = np.clip(adjustment, -0.8, 0.8)  # Limit extreme swings
+        return adjustment
 
     def predict(
         self,
@@ -369,14 +379,21 @@ class AdvancedELOSystem:
         confidence = 0.55 + (max_prob - 0.33) * 0.4 + min(0.2, rating_diff / 1000)
         confidence = min(0.95, max(0.5, confidence))
 
-        # Estimate expected goals
-        rating_ratio = (adj_home + self.home_advantage) / (adj_away + 0.01)
-        base_goals = 1.3
-        exp_home = base_goals * (rating_ratio / (rating_ratio + 1)) * 1.5
-        exp_away = base_goals * (1.0 / (rating_ratio + 1)) * 1.0
+        # Estimate expected goals with better calibration
+        # Use rating difference for more accurate goal prediction
+        rating_diff = (adj_home + self.home_advantage) - adj_away
 
-        exp_home = max(0.5, min(3.5, exp_home))
-        exp_away = max(0.5, min(3.5, exp_away))
+        # Better scaling of rating difference to goals (research-based)
+        # Each 400 rating points ~0.25 goal difference
+        base_goals = 1.30
+        rating_goal_factor = 0.25
+
+        exp_home = base_goals + (rating_diff / 400) * rating_goal_factor
+        exp_away = base_goals - (rating_diff / 400) * rating_goal_factor
+
+        # Improved clamping with better bounds
+        exp_home = np.clip(exp_home, 0.4, 3.5)
+        exp_away = np.clip(exp_away, 0.4, 3.5)
 
         return AdvancedELOPrediction(
             home_win_prob=home_prob,

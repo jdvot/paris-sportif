@@ -95,30 +95,30 @@ export default function MatchDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Match Header */}
       <MatchHeader match={match} />
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left Column - Prediction */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           {predictionLoading && (
-            <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6">
-              <div className="animate-pulse space-y-4">
-                <div className="h-6 bg-dark-700 rounded w-1/3"></div>
-                <div className="h-20 bg-dark-700 rounded"></div>
+            <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
+              <div className="animate-pulse space-y-3 sm:space-y-4">
+                <div className="h-5 sm:h-6 bg-dark-700 rounded w-1/3"></div>
+                <div className="h-16 sm:h-20 bg-dark-700 rounded"></div>
               </div>
             </div>
           )}
 
           {!predictionLoading && !prediction && (
-            <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6">
+            <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
               <div className="flex items-center gap-3 text-dark-400">
-                <Target className="w-6 h-6" />
+                <Target className="w-5 sm:w-6 h-5 sm:h-6 flex-shrink-0" />
                 <div>
-                  <h3 className="font-semibold text-white">Predictions non disponibles</h3>
-                  <p className="text-sm">Les predictions pour ce match seront bientot disponibles.</p>
+                  <h3 className="font-semibold text-white text-sm sm:text-base">Predictions non disponibles</h3>
+                  <p className="text-xs sm:text-sm">Les predictions pour ce match seront bientot disponibles.</p>
                 </div>
               </div>
             </div>
@@ -193,23 +193,23 @@ function MatchHeader({ match }: { match: Match }) {
 
   return (
     <div className="bg-gradient-to-r from-dark-800/50 to-dark-900/50 border border-dark-700 rounded-xl overflow-hidden">
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         {/* Competition and Status */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-accent-400" />
-            <span className="text-accent-400 font-semibold">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Trophy className="w-4 sm:w-5 h-4 sm:h-5 text-accent-400" />
+            <span className="text-accent-400 font-semibold text-sm sm:text-base">
               {competition}
             </span>
             {typeof match?.matchday === 'number' && (
-              <span className="text-dark-400 text-sm">
+              <span className="text-dark-400 text-xs sm:text-sm">
                 • Journee {match.matchday}
               </span>
             )}
           </div>
           <div
             className={cn(
-              "px-3 py-1 rounded-lg border font-semibold text-sm",
+              "px-2 sm:px-3 py-1 rounded-lg border font-semibold text-xs sm:text-sm",
               statusColors[status] || statusColors.scheduled
             )}
           >
@@ -218,37 +218,39 @@ function MatchHeader({ match }: { match: Match }) {
         </div>
 
         {/* Teams and Score */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-4">
           {/* Home Team */}
-          <div className="flex-1 text-center">
-            <h2 className="text-3xl font-bold text-white mb-2">
+          <div className="flex-1 text-center order-1 sm:order-1">
+            <h2 className="text-lg sm:text-xl lg:text-3xl font-bold text-white mb-1 sm:mb-2 break-words">
               {typeof match?.homeTeam === 'string' ? match.homeTeam : "Équipe"}
             </h2>
             {status === "finished" && typeof match?.homeScore === 'number' && (
-              <p className="text-4xl font-bold text-primary-400">
+              <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary-400">
                 {match.homeScore}
               </p>
             )}
           </div>
 
           {/* VS and Date */}
-          <div className="flex flex-col items-center gap-2 px-6">
-            <p className="text-2xl font-bold text-dark-400">vs</p>
-            <div className="flex items-center gap-2 text-dark-400 text-sm whitespace-nowrap">
-              <Clock className="w-4 h-4" />
-              <span>
-                {format(matchDate, "dd MMM yyyy 'a' HH:mm", { locale: fr })}
+          <div className="flex flex-col items-center gap-1 sm:gap-2 px-2 sm:px-4 lg:px-6 order-2 sm:order-2">
+            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-dark-400">vs</p>
+            <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-dark-400 text-xs sm:text-sm">
+              <Clock className="w-3 sm:w-4 h-3 sm:h-4" />
+              <span className="text-center">
+                {format(matchDate, "dd MMM yyyy", { locale: fr })}
               </span>
+              <span className="hidden sm:inline">à</span>
+              <span>{format(matchDate, "HH:mm", { locale: fr })}</span>
             </div>
           </div>
 
           {/* Away Team */}
-          <div className="flex-1 text-center">
-            <h2 className="text-3xl font-bold text-white mb-2">
+          <div className="flex-1 text-center order-3 sm:order-3">
+            <h2 className="text-lg sm:text-xl lg:text-3xl font-bold text-white mb-1 sm:mb-2 break-words">
               {typeof match?.awayTeam === 'string' ? match.awayTeam : "Équipe"}
             </h2>
             {status === "finished" && typeof match?.awayScore === 'number' && (
-              <p className="text-4xl font-bold text-accent-400">
+              <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-accent-400">
                 {match.awayScore}
               </p>
             )}
@@ -327,14 +329,14 @@ function PredictionSection({
   const isAwayRecommended = recommendedBet === "away" || recommendedBet === "away_win";
 
   return (
-    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Target className="w-6 h-6 text-primary-400" />
+    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+        <h2 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2">
+          <Target className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 flex-shrink-0" />
           Prediction
         </h2>
         <div className={cn("text-right", confidenceColor)}>
-          <p className="font-bold text-lg">
+          <p className="font-bold text-base sm:text-lg">
             {Math.round(confidence * 100)}%
           </p>
           <p className="text-xs text-dark-300">Confiance</p>
@@ -342,7 +344,7 @@ function PredictionSection({
       </div>
 
       {/* Probabilities */}
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         <ProbabilityBar
           label="Victoire Domicile"
           probability={homeProb}
@@ -364,15 +366,15 @@ function PredictionSection({
       </div>
 
       {/* Recommended Bet */}
-      <div className="flex items-center gap-3 p-4 bg-primary-500/10 border border-primary-500/30 rounded-lg">
-        <CheckCircle className="w-6 h-6 text-primary-400 flex-shrink-0" />
-        <div>
-          <p className="text-primary-400 font-bold">
+      <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 bg-primary-500/10 border border-primary-500/30 rounded-lg">
+        <CheckCircle className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 flex-shrink-0 mt-0.5 sm:mt-0" />
+        <div className="min-w-0">
+          <p className="text-primary-400 font-bold text-sm sm:text-base">
             {typeof prediction?.recommendedBet === 'string' && betLabels[prediction.recommendedBet]
               ? betLabels[prediction.recommendedBet]
               : "Prédiction indisponible"}
           </p>
-          <p className="text-sm text-primary-300">
+          <p className="text-xs sm:text-sm text-primary-300">
             Cote Value: +{typeof prediction?.valueScore === 'number' && !isNaN(prediction.valueScore)
               ? Math.round(prediction.valueScore * 100)
               : 0}%
@@ -382,18 +384,18 @@ function PredictionSection({
 
       {/* Expected Goals */}
       {(typeof prediction?.expectedHomeGoals === 'number' || typeof prediction?.expectedAwayGoals === 'number') && (
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-dark-700/50 rounded-lg p-4">
-            <p className="text-dark-400 text-sm mb-1">Buts attendus (Domicile)</p>
-            <p className="text-3xl font-bold text-primary-400">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4">
+            <p className="text-dark-400 text-xs sm:text-sm mb-1">Buts attendus (Domicile)</p>
+            <p className="text-2xl sm:text-3xl font-bold text-primary-400">
               {typeof prediction?.expectedHomeGoals === 'number' && !isNaN(prediction.expectedHomeGoals)
                 ? prediction.expectedHomeGoals.toFixed(2)
                 : "-"}
             </p>
           </div>
-          <div className="bg-dark-700/50 rounded-lg p-4">
-            <p className="text-dark-400 text-sm mb-1">Buts attendus (Exterieur)</p>
-            <p className="text-3xl font-bold text-accent-400">
+          <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4">
+            <p className="text-dark-400 text-xs sm:text-sm mb-1">Buts attendus (Exterieur)</p>
+            <p className="text-2xl sm:text-3xl font-bold text-accent-400">
               {typeof prediction?.expectedAwayGoals === 'number' && !isNaN(prediction.expectedAwayGoals)
                 ? prediction.expectedAwayGoals.toFixed(2)
                 : "-"}
@@ -404,8 +406,8 @@ function PredictionSection({
 
       {/* Explanation */}
       {prediction.explanation && (
-        <div className="p-4 bg-dark-700/50 rounded-lg border border-dark-600">
-          <p className="text-dark-300 leading-relaxed">
+        <div className="p-3 sm:p-4 bg-dark-700/50 rounded-lg border border-dark-600">
+          <p className="text-dark-300 text-sm leading-relaxed">
             {prediction.explanation}
           </p>
         </div>
@@ -432,9 +434,9 @@ function KeyFactorsSection({
     : [];
 
   return (
-    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 space-y-4">
-      <h3 className="text-xl font-bold text-white flex items-center gap-2">
-        <BarChart3 className="w-5 h-5 text-accent-400" />
+    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-3 sm:space-y-4">
+      <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+        <BarChart3 className="w-5 h-5 text-accent-400 flex-shrink-0" />
         Facteurs Cles
       </h3>
 
@@ -445,16 +447,16 @@ function KeyFactorsSection({
               key={index}
               className="flex items-start gap-3 p-3 bg-dark-700/50 rounded-lg"
             >
-              <CheckCircle className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
-              <p className="text-dark-200">{factor}</p>
+              <CheckCircle className="w-4 sm:w-5 h-4 sm:h-5 text-primary-400 flex-shrink-0 mt-0.5" />
+              <p className="text-dark-200 text-sm">{factor}</p>
             </div>
           ))}
         </div>
       )}
 
       {riskFactors.length > 0 && (
-        <div className="space-y-2 pt-4 border-t border-dark-700">
-          <h4 className="text-sm font-semibold text-yellow-400">
+        <div className="space-y-2 pt-3 sm:pt-4 border-t border-dark-700">
+          <h4 className="text-xs sm:text-sm font-semibold text-yellow-400">
             Facteurs de Risque
           </h4>
           {riskFactors.map((factor, index) => (
@@ -462,8 +464,8 @@ function KeyFactorsSection({
               key={index}
               className="flex items-start gap-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20"
             >
-              <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-              <p className="text-yellow-200 text-sm">{factor}</p>
+              <AlertTriangle className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <p className="text-yellow-200 text-xs sm:text-sm">{factor}</p>
             </div>
           ))}
         </div>
@@ -483,13 +485,13 @@ function TeamFormSection({
   awayForm: TeamForm;
 }) {
   return (
-    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 space-y-6">
-      <h3 className="text-xl font-bold text-white flex items-center gap-2">
-        <TrendingUp className="w-5 h-5 text-primary-400" />
+    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+        <TrendingUp className="w-5 h-5 text-primary-400 flex-shrink-0" />
         Forme Recente
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         <TeamFormCard form={homeForm} isHome={true} />
         <TeamFormCard form={awayForm} isHome={false} />
       </div>
@@ -501,8 +503,8 @@ function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
   // Guard clause: safely handle undefined form
   if (!form || typeof form !== 'object') {
     return (
-      <div className="bg-dark-700/50 rounded-lg p-4">
-        <p className="text-dark-400">Données non disponibles</p>
+      <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4">
+        <p className="text-dark-400 text-sm">Données non disponibles</p>
       </div>
     );
   }
@@ -519,11 +521,11 @@ function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
   const teamName = typeof form.teamName === 'string' ? form.teamName : "Équipe";
 
   return (
-    <div className="bg-dark-700/50 rounded-lg p-4 space-y-4">
+    <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4 space-y-3 sm:space-y-4">
       <div>
-        <h4 className="font-bold text-white mb-1">{teamName}</h4>
+        <h4 className="font-bold text-white text-sm sm:text-base mb-1">{teamName}</h4>
         {formString && typeof formString === 'string' && (
-          <p className={cn("text-sm font-mono", color === "primary" ? "text-primary-400" : "text-accent-400")}>
+          <p className={cn("text-xs sm:text-sm font-mono", color === "primary" ? "text-primary-400" : "text-accent-400")}>
             {formString}
           </p>
         )}
@@ -547,7 +549,7 @@ function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
               <div
                 key={i}
                 className={cn(
-                  "flex-1 h-8 rounded flex items-center justify-center text-white font-semibold text-sm",
+                  "flex-1 h-7 sm:h-8 rounded flex items-center justify-center text-white font-semibold text-xs sm:text-sm",
                   bgColor
                 )}
               >
@@ -559,28 +561,28 @@ function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-2 text-sm">
+      <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm">
         <div>
           <p className="text-dark-400">Points (5 derniers)</p>
-          <p className="text-lg font-bold text-white">
+          <p className="text-base sm:text-lg font-bold text-white">
             {typeof form.pointsLast5 === 'number' ? form.pointsLast5 : "-"}
           </p>
         </div>
         <div>
           <p className="text-dark-400">Buts marques/match</p>
-          <p className="text-lg font-bold text-primary-400">
+          <p className="text-base sm:text-lg font-bold text-primary-400">
             {typeof form.goalsScoredAvg === 'number' ? form.goalsScoredAvg.toFixed(1) : "-"}
           </p>
         </div>
         <div>
           <p className="text-dark-400">Buts encaisses/match</p>
-          <p className="text-lg font-bold text-orange-400">
+          <p className="text-base sm:text-lg font-bold text-orange-400">
             {typeof form.goalsConcededAvg === 'number' ? form.goalsConcededAvg.toFixed(1) : "-"}
           </p>
         </div>
         <div>
           <p className="text-dark-400">Matchs sans encaisser</p>
-          <p className="text-lg font-bold text-accent-400">
+          <p className="text-base sm:text-lg font-bold text-accent-400">
             {typeof form.cleanSheets === 'number' ? form.cleanSheets : "-"}
           </p>
         </div>
@@ -588,16 +590,16 @@ function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
 
       {/* xG Stats if available */}
       {(typeof form.xgForAvg === 'number' || typeof form.xgAgainstAvg === 'number') && (
-        <div className="grid grid-cols-2 gap-2 text-sm border-t border-dark-600 pt-2">
+        <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm border-t border-dark-600 pt-2 sm:pt-3">
           <div>
             <p className="text-dark-400">xG pour/match</p>
-            <p className="text-lg font-bold text-primary-300">
+            <p className="text-base sm:text-lg font-bold text-primary-300">
               {typeof form.xgForAvg === 'number' ? form.xgForAvg.toFixed(2) : "-"}
             </p>
           </div>
           <div>
             <p className="text-dark-400">xG contre/match</p>
-            <p className="text-lg font-bold text-orange-300">
+            <p className="text-base sm:text-lg font-bold text-orange-300">
               {typeof form.xgAgainstAvg === 'number' ? form.xgAgainstAvg.toFixed(2) : "-"}
             </p>
           </div>
@@ -733,13 +735,13 @@ function ModelContributionsSection({
   }
 
   return (
-    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 space-y-4">
-      <h3 className="text-xl font-bold text-white flex items-center gap-2">
-        <BarChart3 className="w-5 h-5 text-accent-400" />
+    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-3 sm:space-y-4">
+      <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+        <BarChart3 className="w-5 h-5 text-accent-400 flex-shrink-0" />
         Contributions des Modeles
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {models.map(([modelName, contribution]) => {
           if (!modelName || typeof modelName !== 'string' || !contribution || typeof contribution !== 'object') {
             return null;
@@ -810,9 +812,9 @@ function ModelContributionCard({
   const displayModelName = typeof modelName === 'string' ? displayName[modelName] || modelName : "Modèle";
 
   return (
-    <div className="bg-dark-700/50 rounded-lg p-4 space-y-2">
+    <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4 space-y-2">
       <div>
-        <p className="text-dark-300 text-sm font-semibold">
+        <p className="text-dark-300 text-xs sm:text-sm font-semibold">
           {displayModelName}
         </p>
         <p className="text-xs text-dark-400">
@@ -860,13 +862,13 @@ function LLMAdjustmentsSection({
   const adjustments = prediction.llmAdjustments;
 
   return (
-    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 space-y-4">
-      <h3 className="text-xl font-bold text-white flex items-center gap-2">
-        <TrendingUp className="w-5 h-5 text-primary-400" />
+    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-3 sm:space-y-4">
+      <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+        <TrendingUp className="w-5 h-5 text-primary-400 flex-shrink-0" />
         Ajustements IA
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         <AdjustmentCard
           label="Impact Blessures (Domicile)"
           value={adjustments.injuryImpactHome}
@@ -901,8 +903,8 @@ function LLMAdjustmentsSection({
       </div>
 
       {adjustments.reasoning && (
-        <div className="p-4 bg-dark-700/50 rounded-lg border border-dark-600">
-          <p className="text-sm text-dark-300 leading-relaxed">
+        <div className="p-3 sm:p-4 bg-dark-700/50 rounded-lg border border-dark-600">
+          <p className="text-xs sm:text-sm text-dark-300 leading-relaxed">
             {adjustments.reasoning}
           </p>
         </div>
@@ -943,9 +945,9 @@ function AdjustmentCard({
   const safeColor = color && ['primary', 'orange', 'blue'].includes(color) ? color : 'primary';
 
   return (
-    <div className={cn("p-4 rounded-lg border", bgColorClasses[safeColor])}>
-      <p className="text-dark-400 text-sm mb-2">{label || "N/A"}</p>
-      <p className={cn("text-2xl font-bold", colorClasses[safeColor], isBold && "font-black")}>
+    <div className={cn("p-3 sm:p-4 rounded-lg border", bgColorClasses[safeColor])}>
+      <p className="text-dark-400 text-xs sm:text-sm mb-2">{label || "N/A"}</p>
+      <p className={cn("text-xl sm:text-2xl font-bold", colorClasses[safeColor], isBold && "font-black")}>
         {displayValue}
       </p>
     </div>

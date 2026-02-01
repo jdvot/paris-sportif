@@ -79,13 +79,13 @@ export default function PicksPage() {
   const canGoNext = selectedDate < format(new Date(), "yyyy-MM-dd");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header Section */}
-      <section className="text-center py-8">
-        <h1 className="text-4xl font-bold text-white mb-4">
+      <section className="text-center py-6 sm:py-8 px-4">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-3 sm:mb-4">
           Tous les Picks
         </h1>
-        <p className="text-dark-300 text-lg max-w-2xl mx-auto">
+        <p className="text-dark-300 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto">
           Consultez l'historique complet de nos predictions avec filtres par
           date et competition. Analysez nos picks en details et suivez leur
           performance.
@@ -93,24 +93,24 @@ export default function PicksPage() {
       </section>
 
       {/* Date Navigation */}
-      <section className="bg-dark-800/50 border border-dark-700 rounded-xl p-6">
-        <div className="flex items-center justify-center gap-6">
+      <section className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
           <button
             onClick={handlePreviousDay}
-            className="px-4 py-2 text-dark-300 hover:text-white hover:bg-dark-700/50 rounded-lg transition-colors"
+            className="px-3 sm:px-4 py-2 text-dark-300 hover:text-white hover:bg-dark-700/50 rounded-lg transition-colors text-sm sm:text-base"
           >
             ← Jour precedent
           </button>
 
-          <div className="flex items-center gap-3">
-            <Calendar className="w-5 h-5 text-primary-400" />
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <Calendar className="w-5 h-5 text-primary-400 flex-shrink-0" />
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-dark-700 border border-dark-600 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-primary-500"
+              className="bg-dark-700 border border-dark-600 text-white px-3 sm:px-4 py-2 rounded-lg focus:outline-none focus:border-primary-500 text-sm flex-1 sm:flex-none"
             />
-            <span className="text-dark-400 text-sm">
+            <span className="text-dark-400 text-xs sm:text-sm">
               ({format(parseISO(selectedDate), "EEEE", { locale: fr })})
             </span>
           </div>
@@ -119,7 +119,7 @@ export default function PicksPage() {
             onClick={handleNextDay}
             disabled={!canGoNext}
             className={cn(
-              "px-4 py-2 rounded-lg transition-colors",
+              "px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base",
               canGoNext
                 ? "text-dark-300 hover:text-white hover:bg-dark-700/50"
                 : "text-dark-600 cursor-not-allowed"
@@ -131,15 +131,15 @@ export default function PicksPage() {
       </section>
 
       {/* Filter Section */}
-      <section>
+      <section className="px-4 sm:px-0">
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2 px-4 py-2 mb-4 bg-dark-800/50 border border-dark-700 hover:border-dark-600 text-white rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 mb-4 bg-dark-800/50 border border-dark-700 hover:border-dark-600 text-white rounded-lg transition-colors w-full sm:w-auto text-sm sm:text-base"
         >
-          <Filter className="w-4 h-4" />
+          <Filter className="w-4 h-4 flex-shrink-0" />
           <span>Filtres par competition</span>
           <span className={cn(
-            "ml-auto transition-transform",
+            "ml-auto transition-transform flex-shrink-0",
             showFilters && "rotate-180"
           )}>
             ▼
@@ -147,14 +147,14 @@ export default function PicksPage() {
         </button>
 
         {showFilters && (
-          <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 mb-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
               {COMPETITIONS.map((comp) => (
                 <button
                   key={comp.id}
                   onClick={() => toggleCompetition(comp.id)}
                   className={cn(
-                    "px-4 py-2 rounded-lg font-medium transition-all duration-200",
+                    "px-3 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 text-sm",
                     selectedCompetitions.includes(comp.id)
                       ? "bg-primary-500 text-white border border-primary-400"
                       : "bg-dark-700 text-dark-300 border border-dark-600 hover:border-dark-500"
@@ -168,7 +168,7 @@ export default function PicksPage() {
             {selectedCompetitions.length > 0 && (
               <button
                 onClick={() => setSelectedCompetitions([])}
-                className="mt-4 text-sm text-primary-400 hover:text-primary-300 transition-colors"
+                className="mt-4 text-xs sm:text-sm text-primary-400 hover:text-primary-300 transition-colors"
               >
                 Reinitialiser les filtres
               </button>
@@ -178,29 +178,29 @@ export default function PicksPage() {
       </section>
 
       {/* Results Info */}
-      <section className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white">
+      <section className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-4 sm:px-0">
+        <h2 className="text-lg sm:text-2xl font-bold text-white">
           {filteredPicks.length} Pick{filteredPicks.length !== 1 ? "s" : ""}
           {selectedCompetitions.length > 0 && (
-            <span className="text-sm text-dark-400 ml-2">
+            <span className="text-xs sm:text-sm text-dark-400 ml-2 block sm:inline">
               ({selectedCompetitions.join(", ")})
             </span>
           )}
         </h2>
-        <span className="text-dark-400 text-sm">
+        <span className="text-dark-400 text-xs sm:text-sm">
           Mis a jour: {format(parseISO(selectedDate), "d MMMM yyyy", { locale: fr })}
         </span>
       </section>
 
       {/* Loading State */}
       {isLoading && (
-        <div className="grid gap-4">
+        <div className="grid gap-3 sm:gap-4 px-4 sm:px-0">
           {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
               className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 animate-pulse"
             >
-              <div className="h-6 bg-dark-700 rounded w-1/3 mb-4" />
+              <div className="h-5 sm:h-6 bg-dark-700 rounded w-1/3 mb-3 sm:mb-4" />
               <div className="h-4 bg-dark-700 rounded w-2/3" />
             </div>
           ))}
@@ -209,17 +209,17 @@ export default function PicksPage() {
 
       {/* Error State */}
       {!isLoading && error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 sm:p-12 text-center">
-          <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-white mb-2">
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 sm:p-8 lg:p-12 text-center mx-4 sm:mx-0">
+          <AlertTriangle className="w-10 sm:w-12 h-10 sm:h-12 text-red-400 mx-auto mb-3 sm:mb-4" />
+          <h3 className="text-base sm:text-lg font-semibold text-white mb-2">
             Erreur de chargement
           </h3>
-          <p className="text-dark-400 mb-4">
+          <p className="text-dark-400 mb-3 sm:mb-4 text-sm sm:text-base">
             {error instanceof Error ? error.message : "Impossible de charger les picks."}
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors"
+            className="px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
           >
             Réessayer
           </button>
@@ -228,12 +228,12 @@ export default function PicksPage() {
 
       {/* No Results */}
       {!isLoading && !error && filteredPicks.length === 0 && (
-        <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-12 text-center">
-          <AlertTriangle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-white mb-2">
+        <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-8 sm:p-12 text-center mx-4 sm:mx-0">
+          <AlertTriangle className="w-10 sm:w-12 h-10 sm:h-12 text-yellow-400 mx-auto mb-3 sm:mb-4" />
+          <h3 className="text-base sm:text-lg font-semibold text-white mb-2">
             Aucun pick disponible
           </h3>
-          <p className="text-dark-400">
+          <p className="text-dark-400 text-sm sm:text-base">
             {selectedCompetitions.length > 0
               ? "Aucun pick ne correspond aux competitions selectionnees."
               : "Aucun pick disponible pour cette date."}
@@ -243,7 +243,7 @@ export default function PicksPage() {
 
       {/* Picks Grid */}
       {!isLoading && filteredPicks.length > 0 && (
-        <div className="grid gap-4">
+        <div className="grid gap-3 sm:gap-4 px-4 sm:px-0">
           {filteredPicks.map((pick) => (
             <PickCard key={pick.rank} pick={pick} />
           ))}
@@ -284,17 +284,17 @@ function PickCard({ pick }: { pick: DailyPick }) {
   return (
     <div className="bg-dark-800/50 border border-dark-700 rounded-xl overflow-hidden hover:border-dark-600 transition-colors">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-dark-700">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center justify-center w-8 h-8 bg-primary-500 rounded-full text-white font-bold text-sm">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-dark-700 gap-2 sm:gap-0">
+        <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
+          <span className="flex items-center justify-center w-7 sm:w-8 h-7 sm:h-8 bg-primary-500 rounded-full text-white font-bold text-xs sm:text-sm flex-shrink-0">
             {pick.rank}
           </span>
-          <div>
-            <h3 className="font-semibold text-white">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-sm sm:text-base text-white truncate">
               {match.homeTeam} vs {match.awayTeam}
             </h3>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-sm text-dark-400">{match.competition}</span>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="text-xs sm:text-sm text-dark-400">{match.competition}</span>
               <span className="text-xs text-dark-500">•</span>
               <span className="text-xs text-dark-400">
                 {format(matchDate, "d MMM, HH:mm", { locale: fr })}
@@ -302,20 +302,20 @@ function PickCard({ pick }: { pick: DailyPick }) {
             </div>
           </div>
         </div>
-        <div className="text-right">
-          <p className={cn("font-semibold", confidenceColor)}>
+        <div className="text-right flex-shrink-0">
+          <p className={cn("font-semibold text-sm sm:text-base", confidenceColor)}>
             {Math.round(prediction.confidence * 100)}% confiance
           </p>
-          <p className="text-sm text-dark-400">
+          <p className="text-xs sm:text-sm text-dark-400">
             Value: +{Math.round(prediction.valueScore * 100)}%
           </p>
         </div>
       </div>
 
       {/* Body */}
-      <div className="px-6 py-4">
+      <div className="px-4 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4">
         {/* Probabilities */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2">
           <ProbBar
             label={match.homeTeam}
             prob={prediction.homeProb ?? prediction.probabilities?.homeWin ?? 0}
@@ -335,19 +335,19 @@ function PickCard({ pick }: { pick: DailyPick }) {
 
         {/* Recommendation */}
         <div className={cn(
-          "flex items-center gap-2 mb-4 p-3 border rounded-lg",
+          "flex items-center gap-2 p-3 border rounded-lg",
           confidenceBgColor
         )}>
-          <CheckCircle className={cn("w-5 h-5", confidenceColor)} />
-          <span className={cn("font-medium", confidenceColor)}>{betLabel}</span>
+          <CheckCircle className={cn("w-5 h-5 flex-shrink-0", confidenceColor)} />
+          <span className={cn("font-medium text-sm", confidenceColor)}>{betLabel}</span>
         </div>
 
         {/* Explanation */}
-        <p className="text-dark-300 text-sm mb-4">{explanation}</p>
+        <p className="text-dark-300 text-xs sm:text-sm">{explanation}</p>
 
         {/* Key Factors */}
         {keyFactors.length > 0 && (
-          <div className="mb-3">
+          <div>
             <p className="text-xs font-semibold text-dark-300 mb-2">
               Points positifs:
             </p>
