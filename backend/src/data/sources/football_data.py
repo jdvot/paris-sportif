@@ -233,7 +233,10 @@ class FootballDataClient:
         if date_from:
             params["dateFrom"] = date_from.isoformat()
         if date_to:
-            params["dateTo"] = date_to.isoformat()
+            # football-data.org API uses exclusive dateTo, so add 1 day
+            # to include matches on the end date
+            adjusted_date_to = date_to + timedelta(days=1)
+            params["dateTo"] = adjusted_date_to.isoformat()
         if status:
             params["status"] = status
         if matchday:
