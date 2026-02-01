@@ -130,7 +130,9 @@ export default function MatchDetailPage() {
 
           {prediction && <PredictionSection prediction={prediction} />}
 
-          {prediction && <KeyFactorsSection prediction={prediction} />}
+          {prediction && prediction.keyFactors && prediction.keyFactors.length > 0 && (
+            <KeyFactorsSection prediction={prediction} />
+          )}
 
           {homeForm && awayForm && (
             <TeamFormSection homeForm={homeForm} awayForm={awayForm} />
@@ -384,7 +386,7 @@ function KeyFactorsSection({
       </h3>
 
       <div className="space-y-2">
-        {prediction.keyFactors.map((factor, index) => (
+        {(prediction.keyFactors || []).map((factor, index) => (
           <div
             key={index}
             className="flex items-start gap-3 p-3 bg-dark-700/50 rounded-lg"
@@ -395,12 +397,12 @@ function KeyFactorsSection({
         ))}
       </div>
 
-      {prediction.riskFactors && prediction.riskFactors.length > 0 && (
+      {prediction.riskFactors && Array.isArray(prediction.riskFactors) && prediction.riskFactors.length > 0 && (
         <div className="space-y-2 pt-4 border-t border-dark-700">
           <h4 className="text-sm font-semibold text-yellow-400">
             Facteurs de Risque
           </h4>
-          {prediction.riskFactors.map((factor, index) => (
+          {(prediction.riskFactors || []).map((factor, index) => (
             <div
               key={index}
               className="flex items-start gap-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20"
