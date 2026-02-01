@@ -1,10 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle, Loader2, AlertCircle } from "lucide-react";
+import { AlertCircle, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { fetchDailyPicks } from "@/lib/api";
+import { LoadingState } from "@/components/LoadingState";
 import type { DailyPick } from "@/lib/types";
 
 export function DailyPicks() {
@@ -16,74 +17,11 @@ export function DailyPicks() {
 
   if (isLoading) {
     return (
-      <div className="grid gap-4">
-        {/* Loading header */}
-        <div className="flex items-center justify-center gap-3 py-4">
-          <div className="relative">
-            <div className="w-8 h-8 rounded-full border-2 border-dark-700" />
-            <div className="absolute top-0 left-0 w-8 h-8 rounded-full border-2 border-transparent border-t-primary-500 animate-spin" />
-          </div>
-          <span className="text-dark-400 text-sm animate-pulse">Analyse des matchs en cours...</span>
-        </div>
-        {/* Skeleton cards */}
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div
-            key={i}
-            className="bg-dark-800/50 border border-dark-700 rounded-xl overflow-hidden"
-            style={{ animationDelay: `${i * 100}ms` }}
-          >
-            {/* Header skeleton */}
-            <div className="px-4 sm:px-6 py-4 border-b border-dark-700">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-dark-700 to-dark-600 animate-pulse" />
-                  <div className="space-y-2">
-                    <div className="h-4 w-40 sm:w-56 bg-gradient-to-r from-dark-700 to-dark-600 rounded animate-pulse" style={{ animationDelay: `${i * 50}ms` }} />
-                    <div className="h-3 w-24 bg-dark-700/50 rounded animate-pulse" style={{ animationDelay: `${i * 75}ms` }} />
-                  </div>
-                </div>
-                <div className="hidden sm:block space-y-2 text-right">
-                  <div className="h-4 w-28 bg-gradient-to-r from-primary-500/20 to-dark-700 rounded animate-pulse ml-auto" />
-                  <div className="h-3 w-20 bg-dark-700/50 rounded animate-pulse ml-auto" />
-                </div>
-              </div>
-            </div>
-            {/* Body skeleton */}
-            <div className="px-4 sm:px-6 py-4 space-y-4">
-              {/* Probability bars */}
-              <div className="flex flex-col sm:flex-row gap-2">
-                {[1, 2, 3].map((j) => (
-                  <div key={j} className="flex-1 space-y-1">
-                    <div className="flex justify-between">
-                      <div className="h-3 w-16 bg-dark-700/50 rounded animate-pulse" />
-                      <div className="h-3 w-10 bg-dark-700/50 rounded animate-pulse" />
-                    </div>
-                    <div className="h-2 bg-dark-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-dark-600 to-dark-500 rounded-full animate-pulse"
-                        style={{ width: `${25 + j * 20}%`, animationDelay: `${(i * 3 + j) * 100}ms` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {/* Recommendation skeleton */}
-              <div className="h-12 bg-primary-500/5 border border-primary-500/10 rounded-lg animate-pulse" />
-              {/* Description skeleton */}
-              <div className="space-y-2">
-                <div className="h-3 w-full bg-dark-700/50 rounded animate-pulse" />
-                <div className="h-3 w-4/5 bg-dark-700/30 rounded animate-pulse" />
-              </div>
-              {/* Tags skeleton */}
-              <div className="flex gap-2">
-                {[1, 2, 3].map((j) => (
-                  <div key={j} className="h-6 w-24 bg-dark-700 rounded animate-pulse" style={{ animationDelay: `${j * 100}ms` }} />
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      <LoadingState
+        variant="picks"
+        count={5}
+        message="Analyse des matchs en cours..."
+      />
     );
   }
 

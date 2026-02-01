@@ -1,0 +1,338 @@
+"use client";
+
+import { CheckCircle, TrendingUp, AlertCircle, Zap } from "lucide-react";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import type { DailyPick } from "@/lib/types";
+
+interface PredictionCardPremiumProps {
+  pick: DailyPick;
+  index?: number;
+  isTopPick?: boolean;
+}
+
+export function PredictionCardPremium({
+  pick,
+  index = 0,
+  isTopPick = false,
+}: PredictionCardPremiumProps) {
+  const { match, prediction, keyFactors, explanation, riskFactors } = pick;
+  const confidence = prediction.confidence || 0;
+  const valueScore = prediction.valueScore || 0;
+
+  const matchDate = new Date(match.matchDate);
+
+  // Determine confidence tier
+  const getConfidenceTier = (conf: number) => {
+    if (conf >= 0.75) return { level: "Très Haut", color: "from-primary-500 to-emerald-500", icon: "🔥" };
+    if (conf >= 0.65) return { level: "Haut", color: "from-primary-400 to-blue-400", icon: "⚡" };
+    if (conf >= 0.55) return { level: "Moyen", color: "from-yellow-400 to-orange-400", icon: "⚠️" };
+    return { level: "Bas", color: "from-orange-400 to-red-400", icon: "📊" };
+  };
+
+  const confidenceTier = getConfidenceTier(confidence);
+
+  // Determine value tier
+  const getValueTier = (value: number) => {
+    if (value >= 0.15) return "Excellent";
+    if (value >= 0.08) return "Bon";
+    if (value >= 0.05) return "Acceptable";
+    return "Faible";
+  };
+
+  const valueTier = getValueTier(valueScore);
+
+  // Bet label
+  const betLabels: Record<string, string> = {
+    home: `Victoire ${match.homeTeam}`,
+    home_win: `Victoire ${match.homeTeam}`,
+    draw: "Match nul",
+    away: `Victoire ${match.awayTeam}`,
+    away_win: `Victoire ${match.awayTeam}`,
+  };
+  const betLabel = betLabels[prediction.recommendedBet] || prediction.recommendedBet;
+
+  // Short bet label for mobile
+  const shortBetLabels: Record<string, string> = {
+    home: match.homeTeam.split(" ")[0],
+    home_win: match.homeTeam.split(" ")[0],
+    draw: "Nul",
+    away: match.awayTeam.split(" ")[0],
+    away_win: match.awayTeam.split(" ")[0],
+  };
+  const shortBetLabel = shortBetLabels[prediction.recommendedBet] || prediction.recommendedBet;
+
+  const isRecommendedBet = (bet: string) =>
+    prediction.recommendedBet === bet ||
+    prediction.recommendedBet === (bet === "home" ? "home_win" : bet === "away" ? "away_win" : bet);
+
+  return (
+    <div
+      className={cn(
+        "group relative overflow-hidden rounded-xl border transition-smooth",
+        "bg-gradient-to-br from-dark-800/80 to-dark-900/60",
+        "border-dark-700 hover:border-primary-500/50",
+        "animate-stagger-in",
+        isTopPick && "border-primary-500/50 bg-gradient-to-br from-primary-950/40 to-dark-900/60"
+      )}
+      style={{ animationDelay: `${index * 50}ms` } as React.CSSProperties}
+    >
+      {/* Background glow effect on hover */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-10 bg-gradient-to-br from-primary-500 to-transparent transition-opacity duration-300 pointer-events-none" />
+
+      {/* Top Pick Badge */}
+      {isTopPick && (
+        <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
+          <div className="flex items-center gap-1 px-2 sm:px-3 py-1 bg-gradient-to-r from-primary-500 to-emerald-500 rounded-full">
+            <Zap className="w-3 sm:w-4 h-3 sm:h-4 text-white" />
+            <span className="text-xs font-bold text-white">Top Pick</span>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="relative z-10">
+        {/* Header with rank and match info */}
+        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-dark-700/50">
+          <div className="flex items-start justify-between gap-3">
+            {/* Left: Rank and Match Info */}
+            <div className="flex items-start gap-2 sm:gap-4 flex-1 min-w-0">
+              {/* Rank Badge */}
+              <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
+                <span className="text-white font-bold text-xs sm:text-sm">{pick.rank}</span>
+              </div>
+
+              {/* Match Details */}
+              <div className="min-w-0 flex-1">
+                <h3 className="font-bold text-white leading-tight text-sm sm:text-base">
+                  <span className="hidden sm:inline">{match.homeTeam} vs {match.awayTeam}</span>
+                  <span className="sm:hidden">
+                    {match.homeTeam.split(" ")[0]} vs {match.awayTeam.split(" ")[0]}
+                  </span>
+                </h3>
+                <div className="flex items-center gap-1.5 mt-1 text-[10px] sm:text-xs text-dark-400 flex-wrap">
+                  <span className="px-1.5 py-0.5 bg-dark-700/50 rounded">{match.competition}</span>
+                  <span>•</span>
+                  <span>{format(matchDate, "d MMM, HH:mm", { locale: fr })}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Confidence Score */}
+            <div className="flex-shrink-0 text-right">
+              <div className={cn(
+                "inline-flex flex-col items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg",
+                "bg-gradient-to-br",
+                confidence >= 0.7 ? "from-primary-500/20 to-primary-600/10" :
+                confidence >= 0.6 ? "from-yellow-500/20 to-yellow-600/10" :
+                "from-orange-500/20 to-orange-600/10"
+              )}>
+                <span className="text-xs sm:text-xs font-bold text-primary-300">
+                  {Math.round(confidence * 100)}%
+                </span>
+                <span className="text-[10px] text-dark-400">confiance</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-3 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4">
+          {/* Probability Bars */}
+          <div className="space-y-2">
+            <div className="flex gap-1.5 sm:gap-2">
+              <ProbBarEnhanced
+                label={match.homeTeam}
+                prob={prediction.homeProb ?? prediction.probabilities?.homeWin ?? 0}
+                isRecommended={isRecommendedBet("home")}
+              />
+              <ProbBarEnhanced
+                label="Nul"
+                prob={prediction.drawProb ?? prediction.probabilities?.draw ?? 0}
+                isRecommended={isRecommendedBet("draw")}
+              />
+              <ProbBarEnhanced
+                label={match.awayTeam}
+                prob={prediction.awayProb ?? prediction.probabilities?.awayWin ?? 0}
+                isRecommendedBet={isRecommendedBet("away")}
+              />
+            </div>
+          </div>
+
+          {/* Recommended Bet - Enhanced */}
+          <div className={cn(
+            "flex items-center gap-2 p-2 sm:p-3 rounded-lg border-2 transition-smooth",
+            "bg-gradient-to-r",
+            confidence >= 0.7 ? "from-primary-500/15 to-emerald-500/10 border-primary-500/50" :
+            confidence >= 0.6 ? "from-yellow-500/15 to-orange-500/10 border-yellow-500/50" :
+            "from-orange-500/15 to-red-500/10 border-orange-500/50"
+          )}>
+            <CheckCircle className={cn(
+              "w-4 sm:w-5 h-4 sm:h-5 flex-shrink-0",
+              confidence >= 0.7 ? "text-primary-400" :
+              confidence >= 0.6 ? "text-yellow-400" :
+              "text-orange-400"
+            )} />
+            <div className="flex-1 min-w-0">
+              <span className={cn(
+                "font-semibold text-xs sm:text-sm block",
+                confidence >= 0.7 ? "text-primary-300" :
+                confidence >= 0.6 ? "text-yellow-300" :
+                "text-orange-300"
+              )}>
+                <span className="hidden sm:inline">{betLabel}</span>
+                <span className="sm:hidden">{shortBetLabel}</span>
+              </span>
+            </div>
+            <div className="flex-shrink-0 text-right">
+              <span className="text-[10px] sm:text-xs font-bold text-primary-400">
+                {confidence >= 0.75 && "🔥"}
+                {confidence >= 0.65 && confidence < 0.75 && "⚡"}
+                {confidence < 0.65 && "📊"}
+              </span>
+            </div>
+          </div>
+
+          {/* Explanation */}
+          <p className="text-dark-300 text-[11px] sm:text-sm leading-relaxed line-clamp-2 sm:line-clamp-none">
+            {explanation}
+          </p>
+
+          {/* Value Score Indicator */}
+          <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-dark-700/40 border border-dark-600/50">
+            <div className="flex items-center gap-1.5">
+              <TrendingUp className="w-4 h-4 text-accent-400 flex-shrink-0" />
+              <span className="text-xs sm:text-sm text-dark-300">Value</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs sm:text-sm font-bold text-accent-400">
+                +{Math.round(valueScore * 100)}%
+              </span>
+              <span className={cn(
+                "text-xs font-medium px-1.5 py-0.5 rounded-full",
+                valueScore >= 0.15 ? "bg-primary-500/30 text-primary-300" :
+                valueScore >= 0.08 ? "bg-green-500/30 text-green-300" :
+                "bg-yellow-500/30 text-yellow-300"
+              )}>
+                {valueTier}
+              </span>
+            </div>
+          </div>
+
+          {/* Key Factors */}
+          {keyFactors && keyFactors.length > 0 && (
+            <div>
+              <p className="text-[10px] sm:text-xs font-semibold text-dark-300 mb-1.5 sm:mb-2 flex items-center gap-1">
+                <span>✓ Points positifs</span>
+              </p>
+              <div className="flex flex-wrap gap-1 sm:gap-2">
+                {keyFactors.slice(0, 4).map((factor, i) => (
+                  <span
+                    key={i}
+                    className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-primary-500/20 border border-primary-500/40 rounded text-[10px] sm:text-xs text-primary-300 hover:bg-primary-500/30 transition-smooth"
+                  >
+                    +{factor}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Risk Factors */}
+          {riskFactors && riskFactors.length > 0 && (
+            <div>
+              <p className="text-[10px] sm:text-xs font-semibold text-dark-300 mb-1.5 sm:mb-2 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                <span>Risques à surveiller</span>
+              </p>
+              <div className="flex flex-wrap gap-1 sm:gap-2">
+                {riskFactors.slice(0, 3).map((factor, i) => (
+                  <span
+                    key={i}
+                    className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-orange-500/20 border border-orange-500/40 rounded text-[10px] sm:text-xs text-orange-300 hover:bg-orange-500/30 transition-smooth"
+                  >
+                    ⚠ {factor}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer with confidence tier info */}
+        <div className={cn(
+          "px-3 sm:px-6 py-2 sm:py-3 border-t border-dark-700/50 bg-dark-900/50 text-[10px] sm:text-xs",
+          "flex items-center justify-between"
+        )}>
+          <div className="flex items-center gap-1.5">
+            <span className="text-dark-400">Confiance:</span>
+            <span className={cn(
+              "font-bold px-1.5 py-0.5 rounded-full",
+              confidence >= 0.75 ? "bg-primary-500/30 text-primary-300" :
+              confidence >= 0.65 ? "bg-blue-500/30 text-blue-300" :
+              confidence >= 0.55 ? "bg-yellow-500/30 text-yellow-300" :
+              "bg-orange-500/30 text-orange-300"
+            )}>
+              {confidenceTier.level}
+            </span>
+          </div>
+          <div className="text-dark-500">
+            Pick #{pick.rank}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProbBarEnhanced({
+  label,
+  prob,
+  isRecommended,
+  isRecommendedBet,
+}: {
+  label: string;
+  prob: number;
+  isRecommended?: boolean;
+  isRecommendedBet?: boolean;
+}) {
+  const recommended = isRecommended || isRecommendedBet;
+
+  const getShortLabel = (name: string) => {
+    if (name === "Nul") return name;
+    if (name.length <= 8) return name;
+    const firstWord = name.split(" ")[0];
+    if (firstWord.length <= 8) return firstWord;
+    return name.slice(0, 7) + "…";
+  };
+
+  return (
+    <div className="flex-1 min-w-0">
+      <div className="flex justify-between text-[10px] sm:text-xs mb-1 gap-1">
+        <span className={cn(
+          "truncate font-medium",
+          recommended ? "text-primary-400" : "text-dark-400"
+        )}>
+          <span className="hidden sm:inline">{label.length > 12 ? label.slice(0, 12) + "…" : label}</span>
+          <span className="sm:hidden">{getShortLabel(label)}</span>
+        </span>
+        <span className={cn(
+          "flex-shrink-0 font-bold",
+          recommended ? "text-primary-400" : "text-dark-400"
+        )}>
+          {Math.round(prob * 100)}%
+        </span>
+      </div>
+      <div className="h-1.5 sm:h-2 bg-dark-700 rounded-full overflow-hidden">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all duration-500",
+            recommended ? "bg-gradient-to-r from-primary-500 to-emerald-500" : "bg-dark-600"
+          )}
+          style={{ width: `${prob * 100}%` }}
+        />
+      </div>
+    </div>
+  );
+}
