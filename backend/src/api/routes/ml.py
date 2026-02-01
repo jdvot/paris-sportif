@@ -97,14 +97,17 @@ async def collect_data(background_tasks: BackgroundTasks) -> PipelineResponse:
             detail="A pipeline task is already running"
         )
 
-    async def run_collection():
+    def run_collection_sync():
         global _pipeline_status
         _pipeline_status["running"] = True
         try:
             from src.ml.data_collector import HistoricalDataCollector
 
-            collector = HistoricalDataCollector()
-            await collector.collect_all_historical_data()
+            async def _collect():
+                collector = HistoricalDataCollector()
+                await collector.collect_all_historical_data()
+
+            asyncio.run(_collect())
             _pipeline_status["last_result"] = "success"
         except Exception as e:
             logger.error(f"Data collection failed: {e}")
@@ -113,7 +116,7 @@ async def collect_data(background_tasks: BackgroundTasks) -> PipelineResponse:
             _pipeline_status["running"] = False
             _pipeline_status["last_run"] = datetime.now()
 
-    background_tasks.add_task(asyncio.create_task, run_collection())
+    background_tasks.add_task(run_collection_sync)
 
     return PipelineResponse(
         message="Data collection started in background",
@@ -183,13 +186,16 @@ async def run_full_pipeline(background_tasks: BackgroundTasks) -> PipelineRespon
             detail="A pipeline task is already running"
         )
 
-    async def run_full():
+    def run_full_sync():
         global _pipeline_status
         _pipeline_status["running"] = True
         try:
             from src.ml.pipeline import run_pipeline_now
 
-            success = await run_pipeline_now()
+            async def _run():
+                return await run_pipeline_now()
+
+            success = asyncio.run(_run())
             _pipeline_status["last_result"] = "success" if success else "failed"
         except Exception as e:
             logger.error(f"Full pipeline failed: {e}")
@@ -198,7 +204,7 @@ async def run_full_pipeline(background_tasks: BackgroundTasks) -> PipelineRespon
             _pipeline_status["running"] = False
             _pipeline_status["last_run"] = datetime.now()
 
-    background_tasks.add_task(asyncio.create_task, run_full())
+    background_tasks.add_task(run_full_sync)
 
     return PipelineResponse(
         message="Full ML pipeline started in background. This may take 5-15 minutes.",
