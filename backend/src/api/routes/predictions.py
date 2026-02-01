@@ -21,6 +21,12 @@ from groq import Groq
 from src.data.sources.football_data import get_football_data_client, MatchData, COMPETITIONS
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 from src.core.config import settings
+from src.data.database import (
+    save_prediction,
+    get_prediction_from_db,
+    get_predictions_by_date,
+    get_scheduled_matches_from_db,
+)
 from src.prediction_engine.ensemble_advanced import (
     advanced_ensemble_predictor,
     AdvancedLLMAdjustments,
@@ -474,22 +480,76 @@ async def get_daily_picks(
     - Minimum 5% value vs bookmaker odds
     - Minimum 60% confidence
     - Diversified across competitions
+
+    Uses database caching to persist predictions across server restarts.
     """
     try:
         target_date_str = query_date or datetime.now().strftime("%Y-%m-%d")
         target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
 
-        # Fetch matches ONLY for the target date (not a 7-day range)
-        date_to = target_date  # Same day only
+        # First, check if we have cached predictions in DB
+        cached_predictions = get_predictions_by_date(target_date)
+        if cached_predictions:
+            logger.info(f"Found {len(cached_predictions)} cached predictions for {target_date_str}")
+            # Convert cached predictions to response format
+            all_predictions = []
+            for cached in cached_predictions:
+                pred = PredictionResponse(
+                    match_id=cached["match_id"],
+                    home_team=cached["home_team"],
+                    away_team=cached["away_team"],
+                    competition=COMPETITION_NAMES.get(cached["competition_code"], cached["competition_code"]),
+                    match_date=datetime.fromisoformat(cached["match_date"]),
+                    probabilities=PredictionProbabilities(
+                        home_win=cached["home_win_prob"],
+                        draw=cached["draw_prob"],
+                        away_win=cached["away_win_prob"],
+                    ),
+                    recommended_bet=cached["recommendation"],
+                    confidence=cached["confidence"],
+                    value_score=0.10,  # Default value
+                    explanation=cached["explanation"] or "",
+                    key_factors=["Données en cache"],
+                    risk_factors=["Mise à jour recommandée"],
+                    created_at=datetime.fromisoformat(cached["created_at"]),
+                    is_daily_pick=True,
+                )
+                pick_score = pred.confidence * pred.value_score
+                all_predictions.append((pred, pick_score))
 
-        # Fetch matches for that date from real API (no status filter to get SCHEDULED and TIMED)
+            # Sort and return top 5
+            all_predictions.sort(key=lambda x: x[1], reverse=True)
+            daily_picks = [
+                DailyPickResponse(rank=i+1, prediction=p, pick_score=round(s, 4))
+                for i, (p, s) in enumerate(all_predictions[:5])
+            ]
+            return DailyPicksResponse(
+                date=target_date_str,
+                picks=daily_picks,
+                total_matches_analyzed=len(cached_predictions),
+            )
+
+        # No cached predictions, fetch from API
+        date_to = target_date
+
+        # Try to get scheduled matches from DB first (fallback)
+        db_matches = get_scheduled_matches_from_db(date_from=target_date, date_to=date_to)
+
+        # Fetch matches for that date from real API
         client = get_football_data_client()
-        api_matches = await client.get_matches(
-            date_from=target_date,
-            date_to=date_to,
-        )
+        try:
+            api_matches = await client.get_matches(
+                date_from=target_date,
+                date_to=date_to,
+            )
+        except (RateLimitError, FootballDataAPIError) as e:
+            logger.warning(f"API failed, using {len(db_matches)} matches from DB: {e}")
+            # Convert DB matches to MatchData format
+            api_matches = []
+            for m in db_matches:
+                api_matches.append(MatchData(**m))
 
-        # Filter to only include matches on the exact target date that haven't started yet
+        # Filter to only include matches that haven't started yet
         now = datetime.now()
         api_matches = [
             m for m in api_matches
@@ -509,6 +569,25 @@ async def get_daily_picks(
         all_predictions = []
         for api_match in api_matches:
             pred = await _generate_prediction_from_api_match(api_match, include_model_details=False)
+
+            # Save prediction to database for caching
+            save_prediction({
+                "match_id": pred.match_id,
+                "match_external_id": f"{api_match.competition.code}_{pred.match_id}",
+                "home_team": pred.home_team,
+                "away_team": pred.away_team,
+                "competition_code": api_match.competition.code,
+                "match_date": api_match.utcDate,
+                "home_win_prob": pred.probabilities.home_win,
+                "draw_prob": pred.probabilities.draw,
+                "away_win_prob": pred.probabilities.away_win,
+                "predicted_home_goals": None,
+                "predicted_away_goals": None,
+                "confidence": pred.confidence,
+                "recommendation": pred.recommended_bet,
+                "explanation": pred.explanation,
+            })
+
             # Calculate pick score (confidence * value_score)
             pick_score = pred.confidence * pred.value_score
             all_predictions.append((pred, pick_score))

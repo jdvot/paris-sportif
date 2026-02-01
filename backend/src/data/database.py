@@ -106,10 +106,53 @@ def init_database():
             )
         """)
 
+        # Predictions table - stores generated predictions
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS predictions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                match_id INTEGER,
+                match_external_id TEXT,
+                home_team TEXT,
+                away_team TEXT,
+                competition_code TEXT,
+                match_date TEXT,
+                home_win_prob REAL,
+                draw_prob REAL,
+                away_win_prob REAL,
+                predicted_home_goals REAL,
+                predicted_away_goals REAL,
+                confidence REAL,
+                recommendation TEXT,
+                explanation TEXT,
+                model_version TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(match_id)
+            )
+        """)
+
+        # ML models table - stores trained model metadata and binary
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ml_models (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_name TEXT UNIQUE,
+                model_type TEXT,
+                version TEXT,
+                accuracy REAL,
+                training_samples INTEGER,
+                feature_columns TEXT,
+                model_binary BLOB,
+                scaler_binary BLOB,
+                trained_at TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         # Create indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(match_date)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_matches_competition ON matches(competition_code)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_standings_competition ON standings(competition_code)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_predictions_match ON predictions(match_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_predictions_date ON predictions(match_date)")
 
         logger.info("Database initialized successfully")
 
@@ -337,6 +380,166 @@ def get_db_stats() -> dict:
             "last_match_sync": last_match_sync,
             "last_standings_sync": last_standings_sync,
         }
+
+
+# ============== PREDICTIONS ==============
+
+def save_prediction(prediction: dict) -> bool:
+    """Save a prediction to database."""
+    try:
+        with db_session() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO predictions (
+                    match_id, match_external_id, home_team, away_team,
+                    competition_code, match_date, home_win_prob, draw_prob,
+                    away_win_prob, predicted_home_goals, predicted_away_goals,
+                    confidence, recommendation, explanation, model_version, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                prediction.get("match_id"),
+                prediction.get("match_external_id"),
+                prediction.get("home_team"),
+                prediction.get("away_team"),
+                prediction.get("competition_code"),
+                prediction.get("match_date"),
+                prediction.get("home_win_prob"),
+                prediction.get("draw_prob"),
+                prediction.get("away_win_prob"),
+                prediction.get("predicted_home_goals"),
+                prediction.get("predicted_away_goals"),
+                prediction.get("confidence"),
+                prediction.get("recommendation"),
+                prediction.get("explanation"),
+                prediction.get("model_version", "v1"),
+                datetime.now().isoformat()
+            ))
+            return True
+    except Exception as e:
+        logger.error(f"Error saving prediction: {e}")
+        return False
+
+
+def get_prediction_from_db(match_id: int) -> dict | None:
+    """Get a prediction by match ID."""
+    with db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM predictions WHERE match_id = ?", (match_id,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+        return None
+
+
+def get_predictions_by_date(target_date: date) -> list[dict]:
+    """Get all predictions for a specific date."""
+    with db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM predictions
+            WHERE DATE(match_date) = ?
+            ORDER BY confidence DESC
+        """, (target_date.isoformat(),))
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_scheduled_matches_from_db(
+    date_from: date | None = None,
+    date_to: date | None = None,
+    competition: str | None = None,
+) -> list[dict]:
+    """Get scheduled (not finished) matches from database."""
+    with db_session() as conn:
+        cursor = conn.cursor()
+
+        query = "SELECT raw_data FROM matches WHERE status IN ('SCHEDULED', 'TIMED', 'IN_PLAY', 'PAUSED', 'LIVE')"
+        params = []
+
+        if date_from:
+            query += " AND DATE(match_date) >= ?"
+            params.append(date_from.isoformat())
+        if date_to:
+            query += " AND DATE(match_date) <= ?"
+            params.append(date_to.isoformat())
+        if competition:
+            query += " AND competition_code = ?"
+            params.append(competition)
+
+        query += " ORDER BY match_date ASC"
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+        return [json.loads(row["raw_data"]) for row in rows]
+
+
+# ============== ML MODELS ==============
+
+def save_ml_model(
+    model_name: str,
+    model_type: str,
+    version: str,
+    accuracy: float,
+    training_samples: int,
+    feature_columns: list[str],
+    model_binary: bytes,
+    scaler_binary: bytes | None = None
+) -> bool:
+    """Save a trained ML model to database."""
+    try:
+        with db_session() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO ml_models (
+                    model_name, model_type, version, accuracy, training_samples,
+                    feature_columns, model_binary, scaler_binary, trained_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                model_name,
+                model_type,
+                version,
+                accuracy,
+                training_samples,
+                json.dumps(feature_columns),
+                model_binary,
+                scaler_binary,
+                datetime.now().isoformat()
+            ))
+            logger.info(f"Saved ML model {model_name} v{version} to database")
+            return True
+    except Exception as e:
+        logger.error(f"Error saving ML model: {e}")
+        return False
+
+
+def get_ml_model(model_name: str) -> dict | None:
+    """Get a trained ML model from database."""
+    with db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM ml_models WHERE model_name = ?
+        """, (model_name,))
+        row = cursor.fetchone()
+        if row:
+            result = dict(row)
+            result["feature_columns"] = json.loads(result["feature_columns"])
+            return result
+        return None
+
+
+def get_all_ml_models() -> list[dict]:
+    """Get all ML models metadata (without binary)."""
+    with db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT model_name, model_type, version, accuracy,
+                   training_samples, trained_at
+            FROM ml_models
+            ORDER BY trained_at DESC
+        """)
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
 
 
 # Initialize database on import
