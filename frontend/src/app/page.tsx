@@ -1,27 +1,28 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { DailyPicks } from "@/components/DailyPicks";
 import { UpcomingMatches } from "@/components/UpcomingMatches";
 import { StatsOverview } from "@/components/StatsOverview";
 import { TrendingUp, Calendar, Trophy, Loader2 } from "lucide-react";
-import { fetchPredictionStats } from "@/lib/api";
+import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
 
 export default function Home() {
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["predictionStats"],
-    queryFn: () => fetchPredictionStats(30),
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: statsResponse, isLoading: statsLoading } = useGetPredictionStats(
+    { days: 30 },
+    { query: { staleTime: 5 * 60 * 1000 } }
+  );
 
-  // Check if stats have actual data (totalPredictions > 0 indicates real data)
-  const hasData = stats && stats.totalPredictions > 0;
-  const successRate = hasData ? ((stats.accuracy || 0) * 100).toFixed(1) : null;
-  const totalPredictions = hasData ? stats.totalPredictions : null;
+  // Extract stats data from response
+  const stats = (statsResponse as { data?: { total_predictions?: number; accuracy?: number; by_competition?: Record<string, unknown> } })?.data || statsResponse;
+
+  // Check if stats have actual data (total_predictions > 0 indicates real data)
+  const hasData = stats && (stats as { total_predictions?: number }).total_predictions && (stats as { total_predictions: number }).total_predictions > 0;
+  const successRate = hasData ? (((stats as { accuracy: number }).accuracy || 0) * 100).toFixed(1) : null;
+  const totalPredictions = hasData ? (stats as { total_predictions: number }).total_predictions : null;
 
   // Count competitions with data
-  const competitionsWithData = hasData && stats.byCompetition
-    ? Object.keys(stats.byCompetition).length
+  const competitionsWithData = hasData && (stats as { by_competition?: Record<string, unknown> }).by_competition
+    ? Object.keys((stats as { by_competition: Record<string, unknown> }).by_competition).length
     : null;
 
   return (

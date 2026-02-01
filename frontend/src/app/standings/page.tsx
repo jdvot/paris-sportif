@@ -1,9 +1,9 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Trophy, AlertCircle } from "lucide-react";
-import { fetchStandings } from "@/lib/api";
+import { useGetStandings } from "@/lib/api/endpoints/matches/matches";
+import type { StandingsResponse } from "@/lib/api/models";
 import { LeagueStandings } from "@/components/LeagueStandings";
 
 const COMPETITIONS = [
@@ -17,11 +17,13 @@ const COMPETITIONS = [
 export default function StandingsPage() {
   const [selectedCompetition, setSelectedCompetition] = useState("PL");
 
-  const { data: standings, isLoading, error } = useQuery({
-    queryKey: ["standings", selectedCompetition],
-    queryFn: () => fetchStandings(selectedCompetition),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  const { data: response, isLoading, error } = useGetStandings(
+    selectedCompetition,
+    { query: { staleTime: 5 * 60 * 1000 } }
+  );
+
+  // Extract standings from response
+  const standings = (response as unknown as { data?: StandingsResponse })?.data;
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -59,7 +61,7 @@ export default function StandingsPage() {
       </section>
 
       {/* Error State */}
-      {error && (
+      {error ? (
         <section className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 sm:p-8 mx-4 sm:mx-0 flex items-start gap-3 sm:gap-4">
           <AlertCircle className="w-5 sm:w-6 h-5 sm:h-6 text-red-400 flex-shrink-0 mt-0.5" />
           <div>
@@ -69,31 +71,31 @@ export default function StandingsPage() {
             </p>
           </div>
         </section>
-      )}
+      ) : null}
 
       {/* Standings Table */}
-      {!error && standings && (
+      {!error && standings ? (
         <section className="px-4 sm:px-0 space-y-4">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-base sm:text-lg font-semibold text-white">
               {standings.competition_name}
             </h2>
-            {standings.last_updated && (
+            {standings.last_updated ? (
               <p className="text-xs sm:text-sm text-dark-400">
                 Mis à jour: {new Date(standings.last_updated).toLocaleDateString("fr-FR")}
               </p>
-            )}
+            ) : null}
           </div>
           <LeagueStandings standings={standings} isLoading={isLoading} />
         </section>
-      )}
+      ) : null}
 
       {/* Loading State */}
-      {isLoading && standings === undefined && (
+      {isLoading && standings === undefined ? (
         <section className="px-4 sm:px-0">
           <LeagueStandings standings={{ competition_code: selectedCompetition, competition_name: "", standings: [] }} isLoading={true} />
         </section>
-      )}
+      ) : null}
 
       {/* Info Section */}
       <section className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 sm:p-8 mx-4 sm:mx-0 space-y-4">

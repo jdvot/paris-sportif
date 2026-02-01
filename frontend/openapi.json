@@ -1,0 +1,549 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Paris Sportif API",
+    "version": "1.0.0",
+    "description": "API for football predictions and sports betting analysis"
+  },
+  "servers": [
+    { "url": "http://localhost:8000" },
+    { "url": "https://paris-sportif-api.onrender.com" }
+  ],
+  "paths": {
+    "/api/v1/matches": {
+      "get": {
+        "tags": ["matches"],
+        "summary": "List matches with filters",
+        "operationId": "listMatches",
+        "parameters": [
+          { "name": "competition", "in": "query", "schema": { "type": "string" }, "description": "Competition code (PL, SA, etc.)" },
+          { "name": "date_from", "in": "query", "schema": { "type": "string", "format": "date" }, "description": "Start date (YYYY-MM-DD)" },
+          { "name": "date_to", "in": "query", "schema": { "type": "string", "format": "date" }, "description": "End date (YYYY-MM-DD)" },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["scheduled", "live", "finished"] }, "description": "Match status" },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 }, "description": "Page number" },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 20 }, "description": "Items per page" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Match list response",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MatchListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matches/upcoming": {
+      "get": {
+        "tags": ["matches"],
+        "summary": "Get upcoming matches",
+        "operationId": "getUpcomingMatches",
+        "parameters": [
+          { "name": "days", "in": "query", "schema": { "type": "integer", "default": 2 }, "description": "Number of days ahead" },
+          { "name": "competition", "in": "query", "schema": { "type": "string" }, "description": "Competition code filter" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Upcoming matches",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MatchListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matches/{match_id}": {
+      "get": {
+        "tags": ["matches"],
+        "summary": "Get match details",
+        "operationId": "getMatch",
+        "parameters": [
+          { "name": "match_id", "in": "path", "required": true, "schema": { "type": "integer" }, "description": "Match ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Match details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Match" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matches/{match_id}/head-to-head": {
+      "get": {
+        "tags": ["matches"],
+        "summary": "Get head-to-head history",
+        "operationId": "getHeadToHead",
+        "parameters": [
+          { "name": "match_id", "in": "path", "required": true, "schema": { "type": "integer" }, "description": "Match ID" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 }, "description": "Number of matches to return" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Head-to-head history",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HeadToHeadResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matches/teams/{team_id}/form": {
+      "get": {
+        "tags": ["matches"],
+        "summary": "Get team recent form",
+        "operationId": "getTeamForm",
+        "parameters": [
+          { "name": "team_id", "in": "path", "required": true, "schema": { "type": "integer" }, "description": "Team ID" },
+          { "name": "matches_count", "in": "query", "schema": { "type": "integer", "default": 5 }, "description": "Number of matches" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Team form data",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TeamFormResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matches/standings/{competition_code}": {
+      "get": {
+        "tags": ["matches"],
+        "summary": "Get league standings",
+        "operationId": "getStandings",
+        "parameters": [
+          { "name": "competition_code", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Competition code (PL, SA, etc.)" }
+        ],
+        "responses": {
+          "200": {
+            "description": "League standings",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StandingsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/predictions/daily": {
+      "get": {
+        "tags": ["predictions"],
+        "summary": "Get daily picks",
+        "operationId": "getDailyPicks",
+        "parameters": [
+          { "name": "date", "in": "query", "schema": { "type": "string", "format": "date" }, "description": "Date for picks (YYYY-MM-DD)" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daily picks",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DailyPicksResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/predictions/{match_id}": {
+      "get": {
+        "tags": ["predictions"],
+        "summary": "Get prediction for a match",
+        "operationId": "getPrediction",
+        "parameters": [
+          { "name": "match_id", "in": "path", "required": true, "schema": { "type": "integer" }, "description": "Match ID" },
+          { "name": "include_model_details", "in": "query", "schema": { "type": "boolean", "default": false }, "description": "Include model details" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prediction details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PredictionResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/predictions/stats": {
+      "get": {
+        "tags": ["predictions"],
+        "summary": "Get prediction statistics",
+        "operationId": "getPredictionStats",
+        "parameters": [
+          { "name": "days", "in": "query", "schema": { "type": "integer", "default": 30 }, "description": "Number of days to analyze" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prediction statistics",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PredictionStatsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rag/status": {
+      "get": {
+        "tags": ["rag"],
+        "summary": "Get RAG system status",
+        "operationId": "getRagStatus",
+        "responses": {
+          "200": {
+            "description": "RAG status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RAGStatusResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rag/enrich": {
+      "get": {
+        "tags": ["rag"],
+        "summary": "Enrich match context",
+        "operationId": "enrichMatch",
+        "parameters": [
+          { "name": "home_team", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Home team name" },
+          { "name": "away_team", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Away team name" },
+          { "name": "competition", "in": "query", "schema": { "type": "string", "default": "PL" }, "description": "Competition code" },
+          { "name": "match_date", "in": "query", "schema": { "type": "string", "format": "date" }, "description": "Match date" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Match context",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MatchContext" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rag/analyze": {
+      "post": {
+        "tags": ["rag"],
+        "summary": "Analyze match context with LLM",
+        "operationId": "analyzeMatch",
+        "parameters": [
+          { "name": "home_team", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Home team name" },
+          { "name": "away_team", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Away team name" },
+          { "name": "competition", "in": "query", "schema": { "type": "string", "default": "PL" }, "description": "Competition code" },
+          { "name": "additional_context", "in": "query", "schema": { "type": "string" }, "description": "Additional context" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analysis result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AnalysisResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Health check",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "Service health",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Team": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "short_name": { "type": "string" }
+        },
+        "required": ["id", "name"]
+      },
+      "Match": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "external_id": { "type": "string" },
+          "home_team": { "oneOf": [{ "$ref": "#/components/schemas/Team" }, { "type": "string" }] },
+          "away_team": { "oneOf": [{ "$ref": "#/components/schemas/Team" }, { "type": "string" }] },
+          "competition": { "type": "string" },
+          "competition_code": { "type": "string" },
+          "match_date": { "type": "string", "format": "date-time" },
+          "status": { "type": "string", "enum": ["scheduled", "live", "finished", "postponed", "cancelled"] },
+          "home_score": { "type": "integer", "nullable": true },
+          "away_score": { "type": "integer", "nullable": true },
+          "matchday": { "type": "integer" }
+        },
+        "required": ["id", "home_team", "away_team", "competition", "competition_code", "match_date", "status"]
+      },
+      "MatchListResponse": {
+        "type": "object",
+        "properties": {
+          "matches": { "type": "array", "items": { "$ref": "#/components/schemas/Match" } },
+          "total": { "type": "integer" }
+        },
+        "required": ["matches", "total"]
+      },
+      "HeadToHeadResponse": {
+        "type": "object",
+        "properties": {
+          "matches": { "type": "array", "items": { "$ref": "#/components/schemas/Match" } },
+          "home_wins": { "type": "integer" },
+          "draws": { "type": "integer" },
+          "away_wins": { "type": "integer" }
+        },
+        "required": ["matches", "home_wins", "draws", "away_wins"]
+      },
+      "LastMatch": {
+        "type": "object",
+        "properties": {
+          "opponent": { "type": "string" },
+          "result": { "type": "string", "enum": ["W", "D", "L"] },
+          "score": { "type": "string" },
+          "home_away": { "type": "string", "enum": ["H", "A"] },
+          "date": { "type": "string", "format": "date" }
+        },
+        "required": ["opponent", "result", "score", "home_away", "date"]
+      },
+      "TeamFormResponse": {
+        "type": "object",
+        "properties": {
+          "team_id": { "type": "integer" },
+          "team_name": { "type": "string" },
+          "last_matches": { "type": "array", "items": { "$ref": "#/components/schemas/LastMatch" } },
+          "form_string": { "type": "string" },
+          "points_last_5": { "type": "integer" },
+          "goals_scored_avg": { "type": "number" },
+          "goals_conceded_avg": { "type": "number" },
+          "clean_sheets": { "type": "integer" },
+          "xg_for_avg": { "type": "number", "nullable": true },
+          "xg_against_avg": { "type": "number", "nullable": true }
+        },
+        "required": ["team_id", "team_name", "last_matches", "form_string", "points_last_5", "goals_scored_avg", "goals_conceded_avg", "clean_sheets"]
+      },
+      "StandingTeam": {
+        "type": "object",
+        "properties": {
+          "position": { "type": "integer" },
+          "team_id": { "type": "integer" },
+          "team_name": { "type": "string" },
+          "team_logo_url": { "type": "string", "nullable": true },
+          "played": { "type": "integer" },
+          "won": { "type": "integer" },
+          "drawn": { "type": "integer" },
+          "lost": { "type": "integer" },
+          "goals_for": { "type": "integer" },
+          "goals_against": { "type": "integer" },
+          "goal_difference": { "type": "integer" },
+          "points": { "type": "integer" }
+        },
+        "required": ["position", "team_id", "team_name", "played", "won", "drawn", "lost", "goals_for", "goals_against", "goal_difference", "points"]
+      },
+      "StandingsResponse": {
+        "type": "object",
+        "properties": {
+          "competition_code": { "type": "string" },
+          "competition_name": { "type": "string" },
+          "standings": { "type": "array", "items": { "$ref": "#/components/schemas/StandingTeam" } },
+          "last_updated": { "type": "string", "format": "date-time" }
+        },
+        "required": ["competition_code", "competition_name", "standings"]
+      },
+      "Probabilities": {
+        "type": "object",
+        "properties": {
+          "home_win": { "type": "number" },
+          "draw": { "type": "number" },
+          "away_win": { "type": "number" }
+        },
+        "required": ["home_win", "draw", "away_win"]
+      },
+      "Prediction": {
+        "type": "object",
+        "properties": {
+          "match_id": { "type": "integer" },
+          "home_team": { "type": "string" },
+          "away_team": { "type": "string" },
+          "match_date": { "type": "string", "format": "date-time" },
+          "probabilities": { "$ref": "#/components/schemas/Probabilities" },
+          "recommended_bet": { "type": "string", "enum": ["home_win", "draw", "away_win", "home", "away"] },
+          "confidence": { "type": "number" },
+          "value_score": { "type": "number" },
+          "explanation": { "type": "string" },
+          "key_factors": { "type": "array", "items": { "type": "string" } },
+          "risk_factors": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["match_id", "home_team", "away_team", "probabilities", "recommended_bet", "confidence", "value_score"]
+      },
+      "DailyPick": {
+        "type": "object",
+        "properties": {
+          "rank": { "type": "integer" },
+          "pick_score": { "type": "number" },
+          "prediction": { "$ref": "#/components/schemas/Prediction" }
+        },
+        "required": ["rank", "prediction"]
+      },
+      "DailyPicksResponse": {
+        "type": "object",
+        "properties": {
+          "date": { "type": "string", "format": "date" },
+          "picks": { "type": "array", "items": { "$ref": "#/components/schemas/DailyPick" } },
+          "total_matches_analyzed": { "type": "integer" }
+        },
+        "required": ["date", "picks"]
+      },
+      "ModelContribution": {
+        "type": "object",
+        "properties": {
+          "home_win": { "type": "number" },
+          "draw": { "type": "number" },
+          "away_win": { "type": "number" }
+        }
+      },
+      "LLMAdjustments": {
+        "type": "object",
+        "properties": {
+          "injury_impact_home": { "type": "number" },
+          "injury_impact_away": { "type": "number" },
+          "sentiment_home": { "type": "number" },
+          "sentiment_away": { "type": "number" },
+          "tactical_edge": { "type": "number" },
+          "total_adjustment": { "type": "number" },
+          "reasoning": { "type": "string" }
+        }
+      },
+      "PredictionResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Prediction" },
+          {
+            "type": "object",
+            "properties": {
+              "model_contributions": {
+                "type": "object",
+                "properties": {
+                  "poisson": { "$ref": "#/components/schemas/ModelContribution" },
+                  "elo": { "$ref": "#/components/schemas/ModelContribution" },
+                  "xg_model": { "$ref": "#/components/schemas/ModelContribution" },
+                  "xgboost": { "$ref": "#/components/schemas/ModelContribution" }
+                }
+              },
+              "llm_adjustments": { "$ref": "#/components/schemas/LLMAdjustments" },
+              "expected_home_goals": { "type": "number" },
+              "expected_away_goals": { "type": "number" },
+              "created_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        ]
+      },
+      "CompetitionStats": {
+        "type": "object",
+        "properties": {
+          "total": { "type": "integer" },
+          "correct": { "type": "integer" },
+          "accuracy": { "type": "number" }
+        }
+      },
+      "PredictionStatsResponse": {
+        "type": "object",
+        "properties": {
+          "total_predictions": { "type": "integer" },
+          "accuracy": { "type": "number" },
+          "roi": { "type": "number" },
+          "by_competition": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/CompetitionStats" } },
+          "by_bet_type": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/CompetitionStats" } }
+        },
+        "required": ["total_predictions", "accuracy"]
+      },
+      "RAGStatusResponse": {
+        "type": "object",
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "groq_configured": { "type": "boolean" },
+          "last_enrichment": { "type": "string", "format": "date-time", "nullable": true },
+          "total_enrichments": { "type": "integer" }
+        },
+        "required": ["enabled", "groq_configured"]
+      },
+      "TeamContext": {
+        "type": "object",
+        "properties": {
+          "team_name": { "type": "string" },
+          "recent_news": { "type": "array", "items": { "type": "string" } },
+          "injuries": { "type": "array", "items": { "type": "string" } },
+          "sentiment_score": { "type": "number" },
+          "sentiment_label": { "type": "string" }
+        },
+        "required": ["team_name"]
+      },
+      "MatchContext": {
+        "type": "object",
+        "properties": {
+          "home_team": { "type": "string" },
+          "away_team": { "type": "string" },
+          "competition": { "type": "string" },
+          "match_date": { "type": "string", "format": "date-time" },
+          "home_context": { "$ref": "#/components/schemas/TeamContext" },
+          "away_context": { "$ref": "#/components/schemas/TeamContext" },
+          "is_derby": { "type": "boolean" },
+          "match_importance": { "type": "string" },
+          "combined_analysis": { "type": "string", "nullable": true },
+          "enriched_at": { "type": "string", "format": "date-time" },
+          "sources_used": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["home_team", "away_team", "competition", "match_date", "home_context", "away_context"]
+      },
+      "AnalysisResponse": {
+        "type": "object",
+        "properties": {
+          "home_team": { "type": "string" },
+          "away_team": { "type": "string" },
+          "competition": { "type": "string" },
+          "analysis": { "type": "string" },
+          "generated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["home_team", "away_team", "competition", "analysis", "generated_at"]
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string" },
+          "version": { "type": "string" }
+        },
+        "required": ["status"]
+      }
+    }
+  }
+}

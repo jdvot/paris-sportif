@@ -1,19 +1,19 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  fetchMatch,
-  fetchPrediction,
-  fetchHeadToHead,
-  fetchTeamForm,
-} from "@/lib/api";
+  useGetMatch,
+  useGetHeadToHead,
+  useGetTeamForm,
+} from "@/lib/api/endpoints/matches/matches";
+import { useGetPrediction } from "@/lib/api/endpoints/predictions/predictions";
 import type {
   Match,
-  DetailedPrediction,
-  TeamForm,
-} from "@/lib/types";
+  HeadToHeadResponse,
+  TeamFormResponse,
+  PredictionResponse,
+} from "@/lib/api/models";
 import {
   TrendingUp,
   AlertTriangle,
@@ -29,6 +29,12 @@ import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { PredictionCharts } from "@/components/PredictionCharts";
 
+// Helper to get team name from Team | string
+const getTeamName = (team: Match["home_team"]): string => {
+  if (typeof team === "string") return team;
+  return team.name || "Unknown";
+};
+
 export default function MatchDetailPage() {
   const params = useParams();
   const [matchId, setMatchId] = useState<number | null>(null);
@@ -43,40 +49,47 @@ export default function MatchDetailPage() {
     }
   }, [params]);
 
-  const { data: match, isLoading: matchLoading, error: matchError } = useQuery({
-    queryKey: ["match", matchId],
-    queryFn: () => fetchMatch(matchId!),
-    enabled: !!matchId && matchId > 0,
-  });
+  // Using Orval hooks
+  const { data: matchResponse, isLoading: matchLoading, error: matchError } = useGetMatch(
+    matchId!,
+    { query: { enabled: !!matchId && matchId > 0 } }
+  );
 
-  const { data: prediction, isLoading: predictionLoading, error: predictionError } = useQuery({
-    queryKey: ["prediction", matchId],
-    queryFn: () => fetchPrediction(matchId!, true),
-    enabled: !!matchId && matchId > 0,
-    retry: 1, // Retry once on errors
-  });
+  const { data: predictionResponse, isLoading: predictionLoading, error: predictionError } = useGetPrediction(
+    matchId!,
+    { include_model_details: true },
+    { query: { enabled: !!matchId && matchId > 0, retry: 1 } }
+  );
 
-  const { data: headToHead } = useQuery({
-    queryKey: ["headToHead", matchId],
-    queryFn: () => fetchHeadToHead(matchId!, 10),
-    enabled: !!matchId && matchId > 0,
-  });
+  const { data: h2hResponse } = useGetHeadToHead(
+    matchId!,
+    { limit: 10 },
+    { query: { enabled: !!matchId && matchId > 0 } }
+  );
+
+  // Extract data from responses
+  const match = (matchResponse as unknown as { data?: Match })?.data;
+  const prediction = (predictionResponse as unknown as { data?: PredictionResponse })?.data;
+  const headToHead = (h2hResponse as unknown as { data?: HeadToHeadResponse })?.data;
 
   // Fetch form for both teams - use real team IDs from API
-  const homeTeamId = (match as { homeTeamId?: number } | undefined)?.homeTeamId;
-  const awayTeamId = (match as { awayTeamId?: number } | undefined)?.awayTeamId;
+  const homeTeamId = (match as unknown as { home_team_id?: number })?.home_team_id;
+  const awayTeamId = (match as unknown as { away_team_id?: number })?.away_team_id;
 
-  const { data: homeForm } = useQuery({
-    queryKey: ["teamForm", homeTeamId],
-    queryFn: () => fetchTeamForm(homeTeamId!, 5),
-    enabled: !!homeTeamId && homeTeamId > 0,
-  });
+  const { data: homeFormResponse } = useGetTeamForm(
+    homeTeamId!,
+    { matches_count: 5 },
+    { query: { enabled: !!homeTeamId && homeTeamId > 0 } }
+  );
 
-  const { data: awayForm } = useQuery({
-    queryKey: ["teamForm", awayTeamId],
-    queryFn: () => fetchTeamForm(awayTeamId!, 5),
-    enabled: !!awayTeamId && awayTeamId > 0,
-  });
+  const { data: awayFormResponse } = useGetTeamForm(
+    awayTeamId!,
+    { matches_count: 5 },
+    { query: { enabled: !!awayTeamId && awayTeamId > 0 } }
+  );
+
+  const homeForm = (homeFormResponse as unknown as { data?: TeamFormResponse })?.data;
+  const awayForm = (awayFormResponse as unknown as { data?: TeamFormResponse })?.data;
 
   if (matchLoading) {
     return <LoadingState />;
@@ -113,19 +126,19 @@ export default function MatchDetailPage() {
             </div>
           )}
 
-          {!predictionLoading && predictionError && (
+          {!predictionLoading && predictionError ? (
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 sm:p-6">
               <div className="flex items-center gap-3">
                 <AlertTriangle className="w-5 sm:w-6 h-5 sm:h-6 text-red-400 flex-shrink-0" />
                 <div>
                   <h3 className="font-semibold text-white text-sm sm:text-base">Erreur de chargement</h3>
                   <p className="text-xs sm:text-sm text-red-300">
-                    {predictionError instanceof Error ? predictionError.message : "Impossible de charger les prédictions"}
+                    {predictionError instanceof Error ? predictionError.message : "Impossible de charger les predictions"}
                   </p>
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
 
           {!predictionLoading && !predictionError && !prediction && (
             <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
@@ -141,11 +154,11 @@ export default function MatchDetailPage() {
 
           {prediction && <PredictionSection prediction={prediction} />}
 
-          {prediction && prediction.keyFactors && prediction.keyFactors.length > 0 && (
+          {prediction && prediction.key_factors && prediction.key_factors.length > 0 && (
             <KeyFactorsSection prediction={prediction} />
           )}
 
-          {homeForm && awayForm && typeof homeForm === 'object' && typeof awayForm === 'object' && (
+          {homeForm && awayForm && (
             <TeamFormSection homeForm={homeForm} awayForm={awayForm} />
           )}
         </div>
@@ -155,20 +168,20 @@ export default function MatchDetailPage() {
           {headToHead && (
             <HeadToHeadSection
               headToHead={headToHead}
-              homeTeam={match.homeTeam}
-              awayTeam={match.awayTeam}
+              homeTeam={getTeamName(match.home_team)}
+              awayTeam={getTeamName(match.away_team)}
             />
           )}
         </div>
       </div>
 
       {/* Model Contributions */}
-      {prediction?.modelContributions && (
+      {prediction?.model_contributions && (
         <ModelContributionsSection prediction={prediction} />
       )}
 
       {/* LLM Adjustments */}
-      {prediction?.llmAdjustments && (
+      {prediction?.llm_adjustments && (
         <LLMAdjustmentsSection prediction={prediction} />
       )}
     </div>
@@ -179,11 +192,10 @@ export default function MatchDetailPage() {
    COMPONENT: Match Header
    ============================================ */
 function MatchHeader({ match }: { match: Match }) {
-  // Guard: safely parse match date
   let matchDate;
   try {
-    matchDate = match?.matchDate && typeof match.matchDate === 'string'
-      ? parseISO(match.matchDate)
+    matchDate = match?.match_date && typeof match.match_date === 'string'
+      ? parseISO(match.match_date)
       : new Date();
   } catch {
     matchDate = new Date();
@@ -204,12 +216,13 @@ function MatchHeader({ match }: { match: Match }) {
   };
 
   const status = typeof match?.status === 'string' ? match.status : 'scheduled';
-  const competition = typeof match?.competition === 'string' ? match.competition : 'Compétition';
+  const competition = typeof match?.competition === 'string' ? match.competition : 'Competition';
+  const homeTeamName = getTeamName(match.home_team);
+  const awayTeamName = getTeamName(match.away_team);
 
   return (
     <div className="bg-gradient-to-r from-dark-800/50 to-dark-900/50 border border-dark-700 rounded-xl overflow-hidden">
       <div className="p-4 sm:p-6 lg:p-8">
-        {/* Competition and Status */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Trophy className="w-4 sm:w-5 h-4 sm:h-5 text-accent-400" />
@@ -232,21 +245,18 @@ function MatchHeader({ match }: { match: Match }) {
           </div>
         </div>
 
-        {/* Teams and Score */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-4">
-          {/* Home Team */}
           <div className="flex-1 text-center order-1 sm:order-1">
             <h2 className="text-lg sm:text-xl lg:text-3xl font-bold text-white mb-1 sm:mb-2 break-words">
-              {typeof match?.homeTeam === 'string' ? match.homeTeam : "Équipe"}
+              {homeTeamName}
             </h2>
-            {status === "finished" && typeof match?.homeScore === 'number' && (
+            {status === "finished" && typeof match?.home_score === 'number' && (
               <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary-400">
-                {match.homeScore}
+                {match.home_score}
               </p>
             )}
           </div>
 
-          {/* VS and Date */}
           <div className="flex flex-col items-center gap-1 sm:gap-2 px-2 sm:px-4 lg:px-6 order-2 sm:order-2">
             <p className="text-lg sm:text-xl lg:text-2xl font-bold text-dark-400">vs</p>
             <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-dark-400 text-xs sm:text-sm">
@@ -254,19 +264,18 @@ function MatchHeader({ match }: { match: Match }) {
               <span className="text-center">
                 {format(matchDate, "dd MMM yyyy", { locale: fr })}
               </span>
-              <span className="hidden sm:inline">à</span>
+              <span className="hidden sm:inline">a</span>
               <span>{format(matchDate, "HH:mm", { locale: fr })}</span>
             </div>
           </div>
 
-          {/* Away Team */}
           <div className="flex-1 text-center order-3 sm:order-3">
             <h2 className="text-lg sm:text-xl lg:text-3xl font-bold text-white mb-1 sm:mb-2 break-words">
-              {typeof match?.awayTeam === 'string' ? match.awayTeam : "Équipe"}
+              {awayTeamName}
             </h2>
-            {status === "finished" && typeof match?.awayScore === 'number' && (
+            {status === "finished" && typeof match?.away_score === 'number' && (
               <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-accent-400">
-                {match.awayScore}
+                {match.away_score}
               </p>
             )}
           </div>
@@ -282,7 +291,7 @@ function MatchHeader({ match }: { match: Match }) {
 function PredictionSection({
   prediction,
 }: {
-  prediction: DetailedPrediction;
+  prediction: PredictionResponse;
 }) {
   const betLabels: Record<string, string> = {
     home: "Victoire domicile",
@@ -292,15 +301,6 @@ function PredictionSection({
     away_win: "Victoire exterieur",
   };
 
-  const betColors: Record<string, string> = {
-    home: "text-primary-400",
-    home_win: "text-primary-400",
-    draw: "text-yellow-400",
-    away: "text-accent-400",
-    away_win: "text-accent-400",
-  };
-
-  // Guard: safely extract numeric values
   const confidence = typeof prediction?.confidence === 'number' && !isNaN(prediction.confidence)
     ? prediction.confidence
     : 0;
@@ -312,40 +312,16 @@ function PredictionSection({
         ? "text-yellow-400"
         : "text-orange-400";
 
-  // Support both API formats (snake_case from API, camelCase from types)
-  // API returns: home_win, draw, away_win (snake_case)
-  // Types expect: homeWin, draw, awayWin (camelCase)
-  const probs = prediction?.probabilities as Record<string, number> | undefined;
+  const homeProb = prediction?.probabilities?.home_win ?? 0;
+  const drawProb = prediction?.probabilities?.draw ?? 0;
+  const awayProb = prediction?.probabilities?.away_win ?? 0;
 
-  const homeProb = typeof prediction?.homeProb === 'number'
-    ? prediction.homeProb
-    : typeof probs?.home_win === 'number'
-      ? probs.home_win
-      : typeof probs?.homeWin === 'number'
-        ? probs.homeWin
-        : 0;
-
-  const drawProb = typeof prediction?.drawProb === 'number'
-    ? prediction.drawProb
-    : typeof probs?.draw === 'number'
-      ? probs.draw
-      : 0;
-
-  const awayProb = typeof prediction?.awayProb === 'number'
-    ? prediction.awayProb
-    : typeof probs?.away_win === 'number'
-      ? probs.away_win
-      : typeof probs?.awayWin === 'number'
-        ? probs.awayWin
-        : 0;
-
-  const recommendedBet = typeof prediction?.recommendedBet === 'string' ? prediction.recommendedBet : '';
+  const recommendedBet = prediction?.recommended_bet ?? '';
   const isHomeRecommended = recommendedBet === "home" || recommendedBet === "home_win";
   const isAwayRecommended = recommendedBet === "away" || recommendedBet === "away_win";
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Main Prediction Section */}
       <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
           <h2 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2">
@@ -360,7 +336,6 @@ function PredictionSection({
           </div>
         </div>
 
-        {/* Probabilities */}
         <div className="space-y-3 sm:space-y-4">
           <ProbabilityBar
             label="Victoire Domicile"
@@ -371,7 +346,7 @@ function PredictionSection({
           <ProbabilityBar
             label="Match Nul"
             probability={drawProb}
-            isRecommended={prediction.recommendedBet === "draw"}
+            isRecommended={recommendedBet === "draw"}
             color="yellow"
           />
           <ProbabilityBar
@@ -382,46 +357,41 @@ function PredictionSection({
           />
         </div>
 
-        {/* Recommended Bet */}
         <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 bg-primary-500/10 border border-primary-500/30 rounded-lg">
           <CheckCircle className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 flex-shrink-0 mt-0.5 sm:mt-0" />
           <div className="min-w-0">
             <p className="text-primary-400 font-bold text-sm sm:text-base">
-              {typeof prediction?.recommendedBet === 'string' && betLabels[prediction.recommendedBet]
-                ? betLabels[prediction.recommendedBet]
-                : "Prédiction indisponible"}
+              {betLabels[recommendedBet] || "Prediction indisponible"}
             </p>
             <p className="text-xs sm:text-sm text-primary-300">
-              Cote Value: +{typeof prediction?.valueScore === 'number' && !isNaN(prediction.valueScore)
-                ? Math.round(prediction.valueScore * 100)
+              Cote Value: +{typeof prediction?.value_score === 'number' && !isNaN(prediction.value_score)
+                ? Math.round(prediction.value_score * 100)
                 : 0}%
             </p>
           </div>
         </div>
 
-        {/* Expected Goals */}
-        {(typeof prediction?.expectedHomeGoals === 'number' || typeof prediction?.expectedAwayGoals === 'number') && (
+        {(typeof prediction?.expected_home_goals === 'number' || typeof prediction?.expected_away_goals === 'number') && (
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4">
               <p className="text-dark-400 text-xs sm:text-sm mb-1">Buts attendus (Domicile)</p>
               <p className="text-2xl sm:text-3xl font-bold text-primary-400">
-                {typeof prediction?.expectedHomeGoals === 'number' && !isNaN(prediction.expectedHomeGoals)
-                  ? prediction.expectedHomeGoals.toFixed(2)
+                {typeof prediction?.expected_home_goals === 'number' && !isNaN(prediction.expected_home_goals)
+                  ? prediction.expected_home_goals.toFixed(2)
                   : "-"}
               </p>
             </div>
             <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4">
               <p className="text-dark-400 text-xs sm:text-sm mb-1">Buts attendus (Exterieur)</p>
               <p className="text-2xl sm:text-3xl font-bold text-accent-400">
-                {typeof prediction?.expectedAwayGoals === 'number' && !isNaN(prediction.expectedAwayGoals)
-                  ? prediction.expectedAwayGoals.toFixed(2)
+                {typeof prediction?.expected_away_goals === 'number' && !isNaN(prediction.expected_away_goals)
+                  ? prediction.expected_away_goals.toFixed(2)
                   : "-"}
               </p>
             </div>
           </div>
         )}
 
-        {/* Explanation */}
         {prediction.explanation && (
           <div className="p-3 sm:p-4 bg-dark-700/50 rounded-lg border border-dark-600">
             <p className="text-dark-300 text-sm leading-relaxed">
@@ -431,8 +401,7 @@ function PredictionSection({
         )}
       </div>
 
-      {/* Interactive Charts */}
-      <PredictionCharts prediction={prediction} />
+      <PredictionCharts prediction={prediction as any} />
     </div>
   );
 }
@@ -443,16 +412,10 @@ function PredictionSection({
 function KeyFactorsSection({
   prediction,
 }: {
-  prediction: DetailedPrediction;
+  prediction: PredictionResponse;
 }) {
-  // Guard: safely extract arrays
-  const keyFactors = Array.isArray(prediction?.keyFactors)
-    ? prediction.keyFactors.filter(factor => typeof factor === 'string' && factor.length > 0)
-    : [];
-
-  const riskFactors = Array.isArray(prediction?.riskFactors)
-    ? prediction.riskFactors.filter(factor => typeof factor === 'string' && factor.length > 0)
-    : [];
+  const keyFactors = prediction?.key_factors || [];
+  const riskFactors = prediction?.risk_factors || [];
 
   return (
     <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-3 sm:space-y-4">
@@ -464,10 +427,7 @@ function KeyFactorsSection({
       {keyFactors.length > 0 && (
         <div className="space-y-2">
           {keyFactors.map((factor, index) => (
-            <div
-              key={index}
-              className="flex items-start gap-3 p-3 bg-dark-700/50 rounded-lg"
-            >
+            <div key={index} className="flex items-start gap-3 p-3 bg-dark-700/50 rounded-lg">
               <CheckCircle className="w-4 sm:w-5 h-4 sm:h-5 text-primary-400 flex-shrink-0 mt-0.5" />
               <p className="text-dark-200 text-sm">{factor}</p>
             </div>
@@ -477,14 +437,9 @@ function KeyFactorsSection({
 
       {riskFactors.length > 0 && (
         <div className="space-y-2 pt-3 sm:pt-4 border-t border-dark-700">
-          <h4 className="text-xs sm:text-sm font-semibold text-yellow-400">
-            Facteurs de Risque
-          </h4>
+          <h4 className="text-xs sm:text-sm font-semibold text-yellow-400">Facteurs de Risque</h4>
           {riskFactors.map((factor, index) => (
-            <div
-              key={index}
-              className="flex items-start gap-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20"
-            >
+            <div key={index} className="flex items-start gap-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
               <AlertTriangle className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
               <p className="text-yellow-200 text-xs sm:text-sm">{factor}</p>
             </div>
@@ -502,8 +457,8 @@ function TeamFormSection({
   homeForm,
   awayForm,
 }: {
-  homeForm: TeamForm;
-  awayForm: TeamForm;
+  homeForm: TeamFormResponse;
+  awayForm: TeamFormResponse;
 }) {
   return (
     <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
@@ -511,7 +466,6 @@ function TeamFormSection({
         <TrendingUp className="w-5 h-5 text-primary-400 flex-shrink-0" />
         Forme Recente
       </h3>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         <TeamFormCard form={homeForm} isHome={true} />
         <TeamFormCard form={awayForm} isHome={false} />
@@ -520,60 +474,38 @@ function TeamFormSection({
   );
 }
 
-function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
-  // Guard clause: safely handle undefined form
-  if (!form || typeof form !== 'object') {
+function TeamFormCard({ form, isHome }: { form: TeamFormResponse; isHome: boolean }) {
+  if (!form) {
     return (
       <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4">
-        <p className="text-dark-400 text-sm">Données non disponibles</p>
+        <p className="text-dark-400 text-sm">Donnees non disponibles</p>
       </div>
     );
   }
 
-  // Safely extract and validate formString
-  const formString = typeof form.formString === 'string' && form.formString.length > 0 ? form.formString : "";
-
-  // Safely split the form string - guard against null/undefined
-  const formResults = formString && typeof formString === 'string'
-    ? formString.split("").filter(Boolean).slice(0, 5)
-    : [];
-
+  const formString = form.form_string || "";
+  const formResults = formString.split("").filter(Boolean).slice(0, 5);
   const color = isHome ? "primary" : "accent";
-  const teamName = typeof form.teamName === 'string' ? form.teamName : "Équipe";
 
   return (
     <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4 space-y-3 sm:space-y-4">
       <div>
-        <h4 className="font-bold text-white text-sm sm:text-base mb-1">{teamName}</h4>
-        {formString && typeof formString === 'string' && (
+        <h4 className="font-bold text-white text-sm sm:text-base mb-1">{form.team_name}</h4>
+        {formString && (
           <p className={cn("text-xs sm:text-sm font-mono", color === "primary" ? "text-primary-400" : "text-accent-400")}>
             {formString}
           </p>
         )}
       </div>
 
-      {/* Last 5 matches */}
-      {Array.isArray(formResults) && formResults.length > 0 && (
+      {formResults.length > 0 && (
         <div className="flex gap-2">
           {formResults.map((result, i) => {
-            const resultStr = typeof result === 'string' ? result.toUpperCase() : "";
-            // API returns W (Win), D (Draw), L (Loss)
-            const bgColor =
-              resultStr === "W"
-                ? "bg-primary-500"
-                : resultStr === "D"
-                  ? "bg-gray-500"
-                  : "bg-red-500";
-            // Display in French: V (Victoire), N (Nul), D (Défaite)
+            const resultStr = result.toUpperCase();
+            const bgColor = resultStr === "W" ? "bg-primary-500" : resultStr === "D" ? "bg-gray-500" : "bg-red-500";
             const displayLabel = resultStr === "W" ? "V" : resultStr === "D" ? "N" : "D";
             return (
-              <div
-                key={i}
-                className={cn(
-                  "flex-1 h-7 sm:h-8 rounded flex items-center justify-center text-white font-semibold text-xs sm:text-sm",
-                  bgColor
-                )}
-              >
+              <div key={i} className={cn("flex-1 h-7 sm:h-8 rounded flex items-center justify-center text-white font-semibold text-xs sm:text-sm", bgColor)}>
                 {displayLabel}
               </div>
             );
@@ -581,47 +513,41 @@ function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
         </div>
       )}
 
-      {/* Stats */}
       <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm">
         <div>
           <p className="text-dark-400">Points (5 derniers)</p>
-          <p className="text-base sm:text-lg font-bold text-white">
-            {typeof form.pointsLast5 === 'number' ? form.pointsLast5 : "-"}
-          </p>
+          <p className="text-base sm:text-lg font-bold text-white">{form.points_last_5 ?? "-"}</p>
         </div>
         <div>
           <p className="text-dark-400">Buts marques/match</p>
           <p className="text-base sm:text-lg font-bold text-primary-400">
-            {typeof form.goalsScoredAvg === 'number' ? form.goalsScoredAvg.toFixed(1) : "-"}
+            {typeof form.goals_scored_avg === 'number' ? form.goals_scored_avg.toFixed(1) : "-"}
           </p>
         </div>
         <div>
           <p className="text-dark-400">Buts encaisses/match</p>
           <p className="text-base sm:text-lg font-bold text-orange-400">
-            {typeof form.goalsConcededAvg === 'number' ? form.goalsConcededAvg.toFixed(1) : "-"}
+            {typeof form.goals_conceded_avg === 'number' ? form.goals_conceded_avg.toFixed(1) : "-"}
           </p>
         </div>
         <div>
           <p className="text-dark-400">Matchs sans encaisser</p>
-          <p className="text-base sm:text-lg font-bold text-accent-400">
-            {typeof form.cleanSheets === 'number' ? form.cleanSheets : "-"}
-          </p>
+          <p className="text-base sm:text-lg font-bold text-accent-400">{form.clean_sheets ?? "-"}</p>
         </div>
       </div>
 
-      {/* xG Stats if available */}
-      {(typeof form.xgForAvg === 'number' || typeof form.xgAgainstAvg === 'number') && (
+      {(form.xg_for_avg !== null || form.xg_against_avg !== null) && (
         <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm border-t border-dark-600 pt-2 sm:pt-3">
           <div>
             <p className="text-dark-400">xG pour/match</p>
             <p className="text-base sm:text-lg font-bold text-primary-300">
-              {typeof form.xgForAvg === 'number' ? form.xgForAvg.toFixed(2) : "-"}
+              {typeof form.xg_for_avg === 'number' ? form.xg_for_avg.toFixed(2) : "-"}
             </p>
           </div>
           <div>
             <p className="text-dark-400">xG contre/match</p>
             <p className="text-base sm:text-lg font-bold text-orange-300">
-              {typeof form.xgAgainstAvg === 'number' ? form.xgAgainstAvg.toFixed(2) : "-"}
+              {typeof form.xg_against_avg === 'number' ? form.xg_against_avg.toFixed(2) : "-"}
             </p>
           </div>
         </div>
@@ -638,12 +564,7 @@ function HeadToHeadSection({
   homeTeam,
   awayTeam,
 }: {
-  headToHead: {
-    matches: Match[];
-    homeWins: number;
-    draws: number;
-    awayWins: number;
-  };
+  headToHead: HeadToHeadResponse;
   homeTeam: string;
   awayTeam: string;
 }) {
@@ -654,73 +575,44 @@ function HeadToHeadSection({
         Head-to-Head
       </h3>
 
-      {/* Historical Stats */}
       <div className="space-y-3">
         <div className="flex items-center justify-between p-3 bg-primary-500/10 border border-primary-500/20 rounded-lg">
-          <span className="text-primary-300 font-semibold">
-            Victoires {typeof homeTeam === 'string' ? homeTeam : "Équipe"}
-          </span>
-          <span className="text-2xl font-bold text-primary-400">
-            {typeof headToHead?.homeWins === 'number' ? headToHead.homeWins : 0}
-          </span>
+          <span className="text-primary-300 font-semibold">Victoires {homeTeam}</span>
+          <span className="text-2xl font-bold text-primary-400">{headToHead.home_wins ?? 0}</span>
         </div>
         <div className="flex items-center justify-between p-3 bg-gray-500/10 border border-gray-500/20 rounded-lg">
           <span className="text-gray-300 font-semibold">Matchs nuls</span>
-          <span className="text-2xl font-bold text-gray-400">
-            {typeof headToHead?.draws === 'number' ? headToHead.draws : 0}
-          </span>
+          <span className="text-2xl font-bold text-gray-400">{headToHead.draws ?? 0}</span>
         </div>
         <div className="flex items-center justify-between p-3 bg-accent-500/10 border border-accent-500/20 rounded-lg">
-          <span className="text-accent-300 font-semibold">
-            Victoires {typeof awayTeam === 'string' ? awayTeam : "Équipe"}
-          </span>
-          <span className="text-2xl font-bold text-accent-400">
-            {typeof headToHead?.awayWins === 'number' ? headToHead.awayWins : 0}
-          </span>
+          <span className="text-accent-300 font-semibold">Victoires {awayTeam}</span>
+          <span className="text-2xl font-bold text-accent-400">{headToHead.away_wins ?? 0}</span>
         </div>
       </div>
 
-      {/* Recent Matches */}
-      {Array.isArray(headToHead.matches) && headToHead.matches.length > 0 && (
+      {headToHead.matches && headToHead.matches.length > 0 && (
         <div className="space-y-2 border-t border-dark-700 pt-4">
           <h4 className="text-sm font-semibold text-dark-300">Derniers Matchs</h4>
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {(headToHead.matches || []).map((match) => {
-              // Guard clauses for match properties
-              if (!match || typeof match !== 'object') return null;
-
-              const homeTeam = typeof match.homeTeam === 'string' ? match.homeTeam : "Équipe";
-              const awayTeam = typeof match.awayTeam === 'string' ? match.awayTeam : "Équipe";
-              const homeScore = typeof match.homeScore === 'number' ? match.homeScore : null;
-              const awayScore = typeof match.awayScore === 'number' ? match.awayScore : null;
-              const status = typeof match.status === 'string' ? match.status : "scheduled";
+            {headToHead.matches.map((match) => {
+              const matchHomeTeam = getTeamName(match.home_team);
+              const matchAwayTeam = getTeamName(match.away_team);
 
               let scoreDisplay = "";
-              if (status === "finished" && homeScore !== null && awayScore !== null) {
-                scoreDisplay = `${homeScore} - ${awayScore}`;
-              } else if (match.matchDate && typeof match.matchDate === 'string') {
+              if (match.status === "finished" && match.home_score !== null && match.away_score !== null) {
+                scoreDisplay = `${match.home_score} - ${match.away_score}`;
+              } else if (match.match_date) {
                 try {
-                  scoreDisplay = format(parseISO(match.matchDate), "dd MMM yyyy", {
-                    locale: fr,
-                  });
+                  scoreDisplay = format(parseISO(match.match_date), "dd MMM yyyy", { locale: fr });
                 } catch {
                   scoreDisplay = "Date invalide";
                 }
-              } else {
-                scoreDisplay = "Date indisponible";
               }
 
               return (
-                <div
-                  key={match.id || Math.random()}
-                  className="p-2 bg-dark-700/50 rounded text-xs space-y-1"
-                >
-                  <p className="font-semibold text-dark-100">
-                    {homeTeam} vs {awayTeam}
-                  </p>
-                  <p className="text-dark-400">
-                    {scoreDisplay}
-                  </p>
+                <div key={match.id} className="p-2 bg-dark-700/50 rounded text-xs space-y-1">
+                  <p className="font-semibold text-dark-100">{matchHomeTeam} vs {matchAwayTeam}</p>
+                  <p className="text-dark-400">{scoreDisplay}</p>
                 </div>
               );
             })}
@@ -734,36 +626,17 @@ function HeadToHeadSection({
 /* ============================================
    COMPONENT: Model Contributions Section
    ============================================ */
-function ModelContributionsSection({
-  prediction,
-}: {
-  prediction: DetailedPrediction;
-}) {
-  // Guard: check if modelContributions exists and is an object
-  if (!prediction || !prediction.modelContributions || typeof prediction.modelContributions !== 'object') {
-    return null;
-  }
+function ModelContributionsSection({ prediction }: { prediction: PredictionResponse }) {
+  if (!prediction?.model_contributions) return null;
 
-  const models = Array.isArray(prediction.modelContributions)
-    ? []
-    : Object.entries(prediction.modelContributions).filter(
-        ([key, value]) => typeof key === 'string' && value && typeof value === 'object'
-      );
+  const models = Object.entries(prediction.model_contributions).filter(([, v]) => v);
+  if (models.length === 0) return null;
 
-  // Guard: check if models array is not empty
-  if (!Array.isArray(models) || models.length === 0) {
-    return null;
-  }
-
-  // Model descriptions for professional context
   const modelDescriptions: Record<string, { desc: string; weight: string; icon: string }> = {
     poisson: { desc: "Distribution statistique des buts", weight: "15%", icon: "📊" },
-    elo: { desc: "Classement dynamique des équipes", weight: "10%", icon: "📈" },
-    dixon_coles: { desc: "Modèle avancé avec correction buts faibles", weight: "35%", icon: "🎯" },
-    xgModel: { desc: "Analyse des Expected Goals (xG)", weight: "15%", icon: "⚽" },
+    elo: { desc: "Classement dynamique des equipes", weight: "10%", icon: "📈" },
+    xg_model: { desc: "Analyse des Expected Goals (xG)", weight: "15%", icon: "⚽" },
     xgboost: { desc: "Machine Learning gradient boosting", weight: "35%", icon: "🤖" },
-    random_forest: { desc: "Ensemble d'arbres de décision", weight: "15%", icon: "🌳" },
-    advanced_elo: { desc: "ELO avec forme récente", weight: "15%", icon: "📉" },
   };
 
   return (
@@ -771,44 +644,25 @@ function ModelContributionsSection({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
           <BarChart3 className="w-5 h-5 text-accent-400 flex-shrink-0" />
-          Modèles de Prédiction
+          Modeles de Prediction
         </h3>
-        <span className="text-xs sm:text-sm text-dark-400">
-          {models.length} modèles combinés (Ensemble)
-        </span>
+        <span className="text-xs sm:text-sm text-dark-400">{models.length} modeles combines</span>
       </div>
 
-      {/* Explanation */}
-      <div className="p-3 bg-dark-700/30 rounded-lg">
-        <p className="text-xs sm:text-sm text-dark-400">
-          🧮 Notre système combine plusieurs algorithmes statistiques et de machine learning pour une prédiction optimale. Chaque modèle apporte une perspective différente.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {models.map(([modelName, contribution]) => {
-          if (!modelName || typeof modelName !== 'string' || !contribution || typeof contribution !== 'object') {
-            return null;
-          }
-          const modelInfo = modelDescriptions[modelName] || { desc: "Modèle statistique", weight: "N/A", icon: "📐" };
+          const modelInfo = modelDescriptions[modelName] || { desc: "Modele statistique", weight: "N/A", icon: "📐" };
           return (
             <ModelContributionCard
               key={modelName}
               modelName={modelName}
-              contribution={contribution as any}
+              contribution={contribution!}
               description={modelInfo.desc}
               weight={modelInfo.weight}
               icon={modelInfo.icon}
             />
           );
         })}
-      </div>
-
-      {/* Legend */}
-      <div className="pt-3 border-t border-dark-700">
-        <p className="text-dark-500 text-xs">
-          📌 Les probabilités finales sont une moyenne pondérée de tous les modèles, ajustée par l'analyse IA contextuelle.
-        </p>
       </div>
     </div>
   );
@@ -818,119 +672,52 @@ function ModelContributionCard({
   modelName,
   contribution,
   description,
-  weight: displayWeight,
+  weight,
   icon,
 }: {
   modelName: string;
-  contribution: {
-    homeProb?: number;
-    drawProb?: number;
-    awayProb?: number;
-    homeWin?: number;
-    draw?: number;
-    awayWin?: number;
-    weight?: number;
-  };
-  description?: string;
-  weight?: string;
-  icon?: string;
+  contribution: { home_win?: number; draw?: number; away_win?: number };
+  description: string;
+  weight: string;
+  icon: string;
 }) {
   const displayName: Record<string, string> = {
     poisson: "Poisson",
     elo: "ELO",
-    xg: "xG",
-    xgModel: "Expected Goals",
+    xg_model: "Expected Goals",
     xgboost: "XGBoost ML",
-    dixon_coles: "Dixon-Coles",
-    random_forest: "Random Forest",
-    advanced_elo: "ELO Avancé",
   };
 
-  // Guard: safely extract numeric values with proper type checking
-  const homeProb = typeof contribution?.homeProb === 'number'
-    ? contribution.homeProb
-    : typeof contribution?.homeWin === 'number'
-      ? contribution.homeWin
-      : 0;
+  const homeProb = contribution?.home_win ?? 0;
+  const drawProb = contribution?.draw ?? 0;
+  const awayProb = contribution?.away_win ?? 0;
 
-  const drawProb = typeof contribution?.drawProb === 'number'
-    ? contribution.drawProb
-    : typeof contribution?.draw === 'number'
-      ? contribution.draw
-      : 0;
-
-  const awayProb = typeof contribution?.awayProb === 'number'
-    ? contribution.awayProb
-    : typeof contribution?.awayWin === 'number'
-      ? contribution.awayWin
-      : 0;
-
-  const weight = typeof contribution?.weight === 'number' ? contribution.weight : 0.25;
-
-  // Guard: ensure values are valid numbers before calculations
-  const safeHomeProb = typeof homeProb === 'number' && !isNaN(homeProb) ? homeProb : 0;
-  const safeDrawProb = typeof drawProb === 'number' && !isNaN(drawProb) ? drawProb : 0;
-  const safeAwayProb = typeof awayProb === 'number' && !isNaN(awayProb) ? awayProb : 0;
-  const safeWeight = typeof weight === 'number' && !isNaN(weight) ? weight : 0.25;
-
-  const displayModelName = typeof modelName === 'string' ? displayName[modelName] || modelName : "Modèle";
-
-  // Determine which outcome this model predicts
-  const maxProb = Math.max(safeHomeProb, safeDrawProb, safeAwayProb);
-  const predictedOutcome = maxProb === safeHomeProb ? "home" : maxProb === safeDrawProb ? "draw" : "away";
+  const maxProb = Math.max(homeProb, drawProb, awayProb);
+  const predictedOutcome = maxProb === homeProb ? "home" : maxProb === drawProb ? "draw" : "away";
   const outcomeColors = { home: "border-primary-500/50", draw: "border-yellow-500/50", away: "border-accent-500/50" };
 
   return (
     <div className={cn("bg-dark-700/50 rounded-lg p-3 sm:p-4 space-y-3 border-l-2", outcomeColors[predictedOutcome])}>
       <div className="flex items-start gap-2">
-        {icon && <span className="text-lg">{icon}</span>}
+        <span className="text-lg">{icon}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-white text-sm sm:text-base font-semibold truncate">
-            {displayModelName}
-          </p>
-          <p className="text-xs text-dark-400">
-            Poids: {displayWeight || `${Math.round(safeWeight * 100)}%`}
-          </p>
+          <p className="text-white text-sm sm:text-base font-semibold truncate">{displayName[modelName] || modelName}</p>
+          <p className="text-xs text-dark-400">Poids: {weight}</p>
         </div>
       </div>
-
-      {description && (
-        <p className="text-xs text-dark-400 line-clamp-2">{description}</p>
-      )}
-
+      <p className="text-xs text-dark-400 line-clamp-2">{description}</p>
       <div className="space-y-1.5 text-xs">
         <div className="flex items-center justify-between">
           <span className="text-dark-400">Domicile:</span>
-          <div className="flex items-center gap-2">
-            <div className="w-12 sm:w-16 h-1.5 bg-dark-600 rounded-full overflow-hidden">
-              <div className="h-full bg-primary-500 rounded-full" style={{ width: `${safeHomeProb * 100}%` }} />
-            </div>
-            <span className="text-primary-400 font-semibold w-10 text-right">
-              {Math.round(safeHomeProb * 100)}%
-            </span>
-          </div>
+          <span className="text-primary-400 font-semibold">{Math.round(homeProb * 100)}%</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-dark-400">Nul:</span>
-          <div className="flex items-center gap-2">
-            <div className="w-12 sm:w-16 h-1.5 bg-dark-600 rounded-full overflow-hidden">
-              <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${safeDrawProb * 100}%` }} />
-            </div>
-            <span className="text-yellow-400 font-semibold w-10 text-right">
-              {Math.round(safeDrawProb * 100)}%
-            </span>
-          </div>
+          <span className="text-yellow-400 font-semibold">{Math.round(drawProb * 100)}%</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-dark-400">Extérieur:</span>
-          <div className="flex items-center gap-2">
-            <div className="w-12 sm:w-16 h-1.5 bg-dark-600 rounded-full overflow-hidden">
-              <div className="h-full bg-accent-500 rounded-full" style={{ width: `${safeAwayProb * 100}%` }} />
-            </div>
-            <span className="text-accent-400 font-semibold w-10 text-right">
-              {Math.round(safeAwayProb * 100)}%
-            </span>
-          </div>
+          <span className="text-dark-400">Exterieur:</span>
+          <span className="text-accent-400 font-semibold">{Math.round(awayProb * 100)}%</span>
         </div>
       </div>
     </div>
@@ -940,186 +727,75 @@ function ModelContributionCard({
 /* ============================================
    COMPONENT: LLM Adjustments Section
    ============================================ */
-function LLMAdjustmentsSection({
-  prediction,
-}: {
-  prediction: DetailedPrediction;
-}) {
-  // Guard: check if llmAdjustments exists and is an object
-  if (!prediction || !prediction.llmAdjustments || typeof prediction.llmAdjustments !== 'object') {
-    return null;
-  }
+function LLMAdjustmentsSection({ prediction }: { prediction: PredictionResponse }) {
+  if (!prediction?.llm_adjustments) return null;
 
-  const adjustments = prediction.llmAdjustments;
+  const adjustments = prediction.llm_adjustments;
 
-  // Descriptions for each adjustment type
-  const adjustmentDetails = [
-    {
-      label: "Impact Blessures",
-      homeValue: adjustments.injuryImpactHome,
-      awayValue: adjustments.injuryImpactAway,
-      color: "orange" as const,
-      description: "Analyse des joueurs clés absents (blessures, suspensions). Un impact négatif signifie des absences importantes.",
-      icon: "🏥",
-    },
-    {
-      label: "Sentiment & Moral",
-      homeValue: adjustments.sentimentHome,
-      awayValue: adjustments.sentimentAway,
-      color: "blue" as const,
-      description: "Analyse du moral de l'équipe basée sur les récentes performances, déclarations et ambiance générale.",
-      icon: "💭",
-    },
-  ];
+  const formatAdjustment = (value: number | undefined): string => {
+    if (typeof value !== 'number' || isNaN(value)) return "-";
+    return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`;
+  };
 
   return (
     <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-primary-400 flex-shrink-0" />
-          Analyse IA Avancée
+          Analyse IA Avancee
         </h3>
         <div className={cn(
           "px-3 py-1 rounded-full text-xs sm:text-sm font-semibold",
-          (adjustments.totalAdjustment ?? 0) >= 0
-            ? "bg-primary-500/20 text-primary-400"
-            : "bg-red-500/20 text-red-400"
+          (adjustments.total_adjustment ?? 0) >= 0 ? "bg-primary-500/20 text-primary-400" : "bg-red-500/20 text-red-400"
         )}>
-          Ajustement Total: {typeof adjustments.totalAdjustment === 'number'
-            ? `${adjustments.totalAdjustment >= 0 ? "+" : ""}${(adjustments.totalAdjustment * 100).toFixed(1)}%`
-            : "-"}
+          Ajustement Total: {formatAdjustment(adjustments.total_adjustment)}
         </div>
       </div>
 
-      {/* Detailed Adjustment Cards */}
-      <div className="space-y-4">
-        {adjustmentDetails.map((detail, idx) => (
-          <div key={idx} className="bg-dark-700/30 rounded-lg p-3 sm:p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{detail.icon}</span>
-              <h4 className="font-semibold text-white text-sm sm:text-base">{detail.label}</h4>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-dark-700/30 rounded-lg p-3 sm:p-4">
+          <h4 className="font-semibold text-white text-sm mb-2">🏥 Impact Blessures</h4>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <p className="text-dark-400">Domicile</p>
+              <p className="text-orange-400 font-bold">{formatAdjustment(adjustments.injury_impact_home)}</p>
             </div>
-            <p className="text-dark-400 text-xs sm:text-sm">{detail.description}</p>
-            <div className="grid grid-cols-2 gap-3">
-              <AdjustmentCard
-                label="Domicile"
-                value={detail.homeValue}
-                color={detail.color}
-              />
-              <AdjustmentCard
-                label="Extérieur"
-                value={detail.awayValue}
-                color={detail.color}
-              />
+            <div>
+              <p className="text-dark-400">Exterieur</p>
+              <p className="text-orange-400 font-bold">{formatAdjustment(adjustments.injury_impact_away)}</p>
             </div>
           </div>
-        ))}
+        </div>
 
-        {/* Tactical Edge */}
-        <div className="bg-dark-700/30 rounded-lg p-3 sm:p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">⚔️</span>
-            <h4 className="font-semibold text-white text-sm sm:text-base">Avantage Tactique</h4>
+        <div className="bg-dark-700/30 rounded-lg p-3 sm:p-4">
+          <h4 className="font-semibold text-white text-sm mb-2">💭 Sentiment & Moral</h4>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <p className="text-dark-400">Domicile</p>
+              <p className="text-blue-400 font-bold">{formatAdjustment(adjustments.sentiment_home)}</p>
+            </div>
+            <div>
+              <p className="text-dark-400">Exterieur</p>
+              <p className="text-blue-400 font-bold">{formatAdjustment(adjustments.sentiment_away)}</p>
+            </div>
           </div>
-          <p className="text-dark-400 text-xs sm:text-sm">
-            Comparaison des systèmes de jeu, styles tactiques et adaptations potentielles de l'entraîneur.
-          </p>
-          <AdjustmentCard
-            label="Avantage tactique global"
-            value={adjustments.tacticalEdge}
-            color="primary"
-          />
+        </div>
+
+        <div className="bg-dark-700/30 rounded-lg p-3 sm:p-4 sm:col-span-2">
+          <h4 className="font-semibold text-white text-sm mb-2">⚔️ Avantage Tactique</h4>
+          <p className="text-primary-400 font-bold text-lg">{formatAdjustment(adjustments.tactical_edge)}</p>
         </div>
       </div>
 
-      {/* AI Reasoning */}
       {adjustments.reasoning && (
         <div className="p-3 sm:p-4 bg-gradient-to-r from-primary-500/10 to-accent-500/10 rounded-lg border border-primary-500/20">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">🤖</span>
             <h4 className="font-semibold text-white text-sm sm:text-base">Raisonnement IA</h4>
           </div>
-          <p className="text-xs sm:text-sm text-dark-300 leading-relaxed">
-            {adjustments.reasoning}
-          </p>
+          <p className="text-xs sm:text-sm text-dark-300 leading-relaxed">{adjustments.reasoning}</p>
         </div>
       )}
-
-      {/* Legend */}
-      <div className="pt-3 border-t border-dark-700">
-        <p className="text-dark-500 text-xs">
-          💡 Les ajustements IA affinent les probabilités statistiques en analysant des facteurs contextuels (blessures, moral, tactique) via l'intelligence artificielle Groq.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function AdjustmentCard({
-  label,
-  value,
-  color,
-  isBold = false,
-}: {
-  label: string;
-  value: number | undefined;
-  color: "primary" | "orange" | "blue";
-  isBold?: boolean;
-}) {
-  const colorClasses: Record<string, string> = {
-    primary: "text-primary-400",
-    orange: "text-orange-400",
-    blue: "text-blue-400",
-  };
-
-  const bgColorClasses: Record<string, string> = {
-    primary: "bg-primary-500/10 border-primary-500/20",
-    orange: "bg-orange-500/10 border-orange-500/20",
-    blue: "bg-blue-500/10 border-blue-500/20",
-  };
-
-  const barColorClasses: Record<string, string> = {
-    primary: "bg-primary-500",
-    orange: "bg-orange-500",
-    blue: "bg-blue-500",
-  };
-
-  // Guard: safely check if value is a valid number
-  const numValue = typeof value === 'number' && !isNaN(value) ? value : 0;
-  const displayValue = typeof value === 'number' && !isNaN(value)
-    ? `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`
-    : "-";
-
-  // Calculate bar width (centered at 50%, range -30% to +30% maps to 0-100%)
-  const barWidth = Math.min(100, Math.max(0, 50 + (numValue * 100 * 1.67)));
-  const isPositive = numValue >= 0;
-
-  // Ensure color is valid
-  const safeColor = color && ['primary', 'orange', 'blue'].includes(color) ? color : 'primary';
-
-  return (
-    <div className={cn("p-3 sm:p-4 rounded-lg border", bgColorClasses[safeColor])}>
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-dark-400 text-xs sm:text-sm">{label || "N/A"}</p>
-        <p className={cn("text-sm sm:text-lg font-bold", colorClasses[safeColor], isBold && "font-black")}>
-          {displayValue}
-        </p>
-      </div>
-      {/* Progress bar visualization */}
-      <div className="h-1.5 sm:h-2 bg-dark-600 rounded-full overflow-hidden">
-        <div
-          className={cn(
-            "h-full rounded-full transition-all",
-            isPositive ? barColorClasses[safeColor] : "bg-red-500"
-          )}
-          style={{ width: `${barWidth}%` }}
-        />
-      </div>
-      <div className="flex justify-between text-xs text-dark-500 mt-1">
-        <span>-30%</span>
-        <span>0</span>
-        <span>+30%</span>
-      </div>
     </div>
   );
 }
@@ -1155,30 +831,16 @@ function ProbabilityBar({
   return (
     <div>
       <div className="flex justify-between items-center mb-2">
-        <span
-          className={cn(
-            "text-sm font-semibold",
-            isRecommended ? textColorClasses[color] : "text-dark-300"
-          )}
-        >
+        <span className={cn("text-sm font-semibold", isRecommended ? textColorClasses[color] : "text-dark-300")}>
           {label}
         </span>
-        <span
-          className={cn(
-            "text-sm font-bold",
-            isRecommended ? textColorClasses[color] : "text-dark-400"
-          )}
-        >
+        <span className={cn("text-sm font-bold", isRecommended ? textColorClasses[color] : "text-dark-400")}>
           {Math.round(prob * 100)}%
         </span>
       </div>
       <div className="h-3 bg-dark-700 rounded-full overflow-hidden">
         <div
-          className={cn(
-            "h-full rounded-full transition-all",
-            colorClasses[color],
-            !isRecommended && "opacity-60"
-          )}
+          className={cn("h-full rounded-full transition-all", colorClasses[color], !isRecommended && "opacity-60")}
           style={{ width: `${prob * 100}%` }}
         />
       </div>
@@ -1192,35 +854,26 @@ function ProbabilityBar({
 function LoadingState() {
   return (
     <div className="space-y-6">
-      {/* Header Skeleton */}
       <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-8 animate-pulse">
         <div className="h-6 bg-dark-700 rounded w-1/3 mb-4" />
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 space-y-2">
             <div className="h-8 bg-dark-700 rounded w-2/3 mx-auto" />
-            <div className="h-4 bg-dark-700 rounded w-1/3 mx-auto" />
           </div>
           <div className="h-4 bg-dark-700 rounded w-1/4" />
           <div className="flex-1 space-y-2">
             <div className="h-8 bg-dark-700 rounded w-2/3 mx-auto" />
-            <div className="h-4 bg-dark-700 rounded w-1/3 mx-auto" />
           </div>
         </div>
       </div>
-
-      {/* Content Skeleton */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 animate-pulse"
-            >
+          {[1, 2].map((i) => (
+            <div key={i} className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 animate-pulse">
               <div className="h-6 bg-dark-700 rounded w-1/3 mb-4" />
               <div className="space-y-2">
                 <div className="h-4 bg-dark-700 rounded w-full" />
                 <div className="h-4 bg-dark-700 rounded w-5/6" />
-                <div className="h-4 bg-dark-700 rounded w-4/6" />
               </div>
             </div>
           ))}
@@ -1230,15 +883,9 @@ function LoadingState() {
           <div className="space-y-2">
             <div className="h-4 bg-dark-700 rounded" />
             <div className="h-4 bg-dark-700 rounded" />
-            <div className="h-4 bg-dark-700 rounded" />
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-/* ============================================
-   UTILITY FUNCTIONS
-   ============================================ */
-

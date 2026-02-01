@@ -162,12 +162,28 @@ async def analyze_match_context(
     try:
         rag = get_rag_enrichment()
 
-        # Generate analysis
-        analysis = await rag.generate_enriched_analysis(
+        # First, get the enrichment data
+        enrichment = await rag.enrich_match_prediction(
             home_team=home_team,
             away_team=away_team,
             competition=competition,
-            additional_context=additional_context or "",
+            match_date=datetime.now(),
+        )
+
+        # Create a base prediction structure
+        base_prediction = {
+            "home_win": 0.40,
+            "draw": 0.30,
+            "away_win": 0.30,
+            "explanation": additional_context or "",
+        }
+
+        # Generate analysis with correct signature
+        analysis = await rag.generate_enriched_analysis(
+            home_team=home_team,
+            away_team=away_team,
+            base_prediction=base_prediction,
+            enrichment=enrichment,
         )
 
         return {

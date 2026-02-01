@@ -1,20 +1,18 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import {
   Calendar,
   ChevronRight,
   Filter,
   X,
-  ChevronLeft,
   ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { format, startOfDay, addDays, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
-import { fetchMatches, fetchUpcomingMatches } from "@/lib/api";
-import type { Match } from "@/lib/types";
+import { useListMatches } from "@/lib/api/endpoints/matches/matches";
+import type { Match, MatchListResponse } from "@/lib/api/models";
 
 const competitionColors: Record<string, string> = {
   PL: "bg-purple-500",
@@ -36,57 +34,71 @@ const competitionLabels: Record<string, string> = {
   EL: "Ligue Europa",
 };
 
-type DateRange = "today" | "tomorrow" | "week" | "custom";
+type DateRange = "today" | "tomorrow" | "week" | "next7days" | "custom";
+
+// Helper to get team name from Team | string
+const getTeamName = (team: Match["home_team"]): string => {
+  if (typeof team === "string") return team;
+  return team.name || "Unknown";
+};
 
 export default function MatchesPage() {
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [selectedCompetitions, setSelectedCompetitions] = useState<string[]>([]);
-  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  // Auto-expand today's date by default
+  const todayKey = format(startOfDay(new Date()), "yyyy-MM-dd");
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set([todayKey]));
 
-  // Fetch matches based on date range - REAL DATA ONLY
-  const { data: matches = [], isLoading, error } = useQuery({
-    queryKey: ["matches", dateRange, selectedCompetitions],
-    queryFn: async () => {
-      const today = startOfDay(new Date());
-      let dateFrom = today;
-      let dateTo = today;
+  // Calculate dates based on range
+  const today = startOfDay(new Date());
+  const dateParams = useMemo(() => {
+    let dateFrom = today;
+    let dateTo = today;
 
-      switch (dateRange) {
-        case "today":
-          dateTo = addDays(today, 0);
-          break;
-        case "tomorrow":
-          dateFrom = addDays(today, 1);
-          dateTo = addDays(today, 1);
-          break;
-        case "week":
-          dateTo = addDays(today, 6);
-          break;
-      }
+    switch (dateRange) {
+      case "today":
+        dateTo = addDays(today, 0);
+        break;
+      case "tomorrow":
+        dateFrom = addDays(today, 1);
+        dateTo = addDays(today, 1);
+        break;
+      case "week":
+        dateTo = addDays(today, 6);
+        break;
+      case "next7days":
+        dateTo = addDays(today, 7);
+        break;
+    }
 
-      const result = await fetchMatches({
-        dateFrom: format(dateFrom, "yyyy-MM-dd"),
-        dateTo: format(dateTo, "yyyy-MM-dd"),
-        competition: selectedCompetitions.length > 0 ? selectedCompetitions[0] : undefined,
-      });
-      return result.matches;
-    },
-    enabled: true,
-    staleTime: 0, // Always fetch fresh data from API
-    retry: 2,
-  });
+    return {
+      date_from: format(dateFrom, "yyyy-MM-dd"),
+      date_to: format(dateTo, "yyyy-MM-dd"),
+      competition: selectedCompetitions.length > 0 ? selectedCompetitions[0] : undefined,
+    };
+  }, [dateRange, selectedCompetitions, today]);
+
+  // Fetch matches using Orval hook
+  const { data: response, isLoading, error } = useListMatches(
+    dateParams,
+    { query: { staleTime: 0, retry: 2 } }
+  );
+
+  // Extract matches from response
+  const responseData = response as unknown as { data?: MatchListResponse } | undefined;
+  const matches = responseData?.data?.matches || [];
 
   // Filter matches by selected competitions
   const filteredMatches = useMemo(() => {
     if (selectedCompetitions.length === 0) return matches;
     return matches.filter((match) =>
-      selectedCompetitions.includes(match.competitionCode)
+      selectedCompetitions.includes(match.competition_code)
     );
   }, [matches, selectedCompetitions]);
 
   // Get unique competitions from matches
   const availableCompetitions = useMemo(() => {
-    const codes = new Set(matches.map((m) => m.competitionCode));
+    const codes = new Set(matches.map((m) => m.competition_code));
     return Array.from(codes).sort();
   }, [matches]);
 
@@ -95,7 +107,7 @@ export default function MatchesPage() {
     const grouped: Record<string, Match[]> = {};
 
     filteredMatches.forEach((match) => {
-      const date = startOfDay(new Date(match.matchDate));
+      const date = startOfDay(new Date(match.match_date));
       const dateKey = format(date, "yyyy-MM-dd");
 
       if (!grouped[dateKey]) {
@@ -110,7 +122,7 @@ export default function MatchesPage() {
       .reduce((acc, [key, value]) => {
         acc[key] = value.sort(
           (a, b) =>
-            new Date(a.matchDate).getTime() - new Date(b.matchDate).getTime()
+            new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
         );
         return acc;
       }, {} as Record<string, Match[]>);
@@ -136,8 +148,6 @@ export default function MatchesPage() {
     setExpandedDates(newExpanded);
   };
 
-  // Calculate today's date for reference
-  const today = startOfDay(new Date());
   const datesToDisplay = Object.keys(groupedMatches);
 
   return (
@@ -156,7 +166,7 @@ export default function MatchesPage() {
         {/* Date Range Navigation */}
         <div className="flex flex-wrap gap-2 sm:gap-3">
           {(
-            ["today", "tomorrow", "week"] as const
+            ["today", "tomorrow", "week", "next7days"] as const
           ).map((range) => (
             <button
               key={range}
@@ -170,6 +180,7 @@ export default function MatchesPage() {
               {range === "today" && "Aujourd'hui"}
               {range === "tomorrow" && "Demain"}
               {range === "week" && "Cette Semaine"}
+              {range === "next7days" && "7 Prochains Jours"}
             </button>
           ))}
         </div>
@@ -228,7 +239,7 @@ export default function MatchesPage() {
       </section>
 
       {/* Error State */}
-      {error && (
+      {error ? (
         <section className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 sm:p-8 lg:p-12 text-center mx-4 sm:mx-0">
           <Calendar className="w-10 sm:w-12 h-10 sm:h-12 text-red-400 mx-auto mb-3 sm:mb-4" />
           <h3 className="text-base sm:text-lg font-semibold text-white mb-2">
@@ -244,10 +255,10 @@ export default function MatchesPage() {
             Réessayer
           </button>
         </section>
-      )}
+      ) : null}
 
       {/* Matches List Grouped by Date */}
-      {!error && (
+      {!error ? (
       <section className="space-y-4 sm:space-y-6 px-4 sm:px-0">
         {datesToDisplay.length === 0 ? (
           <div className="text-center py-8 sm:py-12">
@@ -313,23 +324,25 @@ export default function MatchesPage() {
           })
         )}
       </section>
-      )}
+      ) : null}
 
       {/* Load More Info */}
-      {filteredMatches.length > 0 && (
+      {filteredMatches.length > 0 ? (
         <section className="text-center py-6 sm:py-8 px-4">
           <p className="text-dark-400 text-xs sm:text-sm">
             {filteredMatches.length} matchs charges. Les donnees sont mises a
             jour en temps reel.
           </p>
         </section>
-      )}
+      ) : null}
     </div>
   );
 }
 
 function MatchCard({ match }: { match: Match }) {
-  const matchDate = new Date(match.matchDate);
+  const matchDate = new Date(match.match_date);
+  const homeTeamName = getTeamName(match.home_team);
+  const awayTeamName = getTeamName(match.away_team);
 
   return (
     <Link
@@ -340,16 +353,16 @@ function MatchCard({ match }: { match: Match }) {
         {/* Competition indicator */}
         <div
           className={`w-2 sm:w-3 h-8 sm:h-10 rounded-full flex-shrink-0 ${
-            competitionColors[match.competitionCode] || "bg-dark-500"
+            competitionColors[match.competition_code] || "bg-dark-500"
           }`}
         />
 
         {/* Match info */}
         <div className="flex-1 min-w-0">
           <h4 className="font-semibold text-sm sm:text-base text-white group-hover:text-primary-300 transition-colors break-words">
-            {match.homeTeam}
+            {homeTeamName}
             <span className="text-dark-400 mx-1 sm:mx-2">vs</span>
-            {match.awayTeam}
+            {awayTeamName}
           </h4>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="text-xs font-medium text-dark-400 bg-dark-700/50 px-2 py-1 rounded">

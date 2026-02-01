@@ -1,12 +1,11 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Loader2, AlertCircle } from "lucide-react";
+import { ChevronRight, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { fetchUpcomingMatches } from "@/lib/api";
-import type { Match } from "@/lib/types";
+import { useGetUpcomingMatches } from "@/lib/api/endpoints/matches/matches";
+import type { Match } from "@/lib/api/models";
 
 const competitionColors: Record<string, string> = {
   PL: "bg-purple-500",
@@ -19,11 +18,14 @@ const competitionColors: Record<string, string> = {
 };
 
 export function UpcomingMatches() {
-  const { data: matches, isLoading, error } = useQuery({
-    queryKey: ["upcomingMatches"],
-    queryFn: () => fetchUpcomingMatches(3),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  const { data: response, isLoading, error } = useGetUpcomingMatches(
+    { days: 3 },
+    { query: { staleTime: 5 * 60 * 1000 } }
+  );
+
+  // Extract matches from response
+  const responseData = response as unknown as { data?: { matches?: Match[] }; matches?: Match[] } | undefined;
+  const matches = responseData?.data?.matches || responseData?.matches || [];
 
   if (isLoading) {
     return (
@@ -108,9 +110,11 @@ export function UpcomingMatches() {
 }
 
 function MatchRow({ match }: { match: Match }) {
-  const matchDate = new Date(match.matchDate);
-  const homeTeam = match.homeTeam;
-  const awayTeam = match.awayTeam;
+  // Use snake_case properties from Orval types
+  const matchDate = new Date(match.match_date);
+  const homeTeam = typeof match.home_team === 'string' ? match.home_team : match.home_team.name;
+  const awayTeam = typeof match.away_team === 'string' ? match.away_team : match.away_team.name;
+  const competitionCode = match.competition_code;
 
   return (
     <Link
@@ -120,7 +124,7 @@ function MatchRow({ match }: { match: Match }) {
       <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 w-full sm:w-auto">
         <div
           className={`w-2 h-7 sm:h-8 rounded-full flex-shrink-0 ${
-            competitionColors[match.competitionCode] || "bg-dark-500"
+            competitionColors[competitionCode] || "bg-dark-500"
           }`}
         />
         <div className="min-w-0">

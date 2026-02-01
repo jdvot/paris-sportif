@@ -1,19 +1,21 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { fetchDailyPicks } from "@/lib/api";
 import { LoadingState } from "@/components/LoadingState";
-import type { DailyPick } from "@/lib/types";
+import { useGetDailyPicks } from "@/lib/api/endpoints/predictions/predictions";
+import type { DailyPick, Prediction } from "@/lib/api/models";
 
 export function DailyPicks() {
-  const { data: picks, isLoading, error } = useQuery({
-    queryKey: ["dailyPicks"],
-    queryFn: () => fetchDailyPicks(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  const { data: response, isLoading, error } = useGetDailyPicks(
+    undefined,
+    { query: { staleTime: 5 * 60 * 1000 } }
+  );
+
+  // Extract picks from response (handle both wrapped and unwrapped formats)
+  const responseData = response as unknown as { data?: { picks?: DailyPick[] }; picks?: DailyPick[] } | undefined;
+  const picks = responseData?.data?.picks || responseData?.picks || [];
 
   if (isLoading) {
     return (
@@ -54,10 +56,12 @@ export function DailyPicks() {
 }
 
 function PickCard({ pick }: { pick: DailyPick }) {
-  const { match, prediction, keyFactors, explanation } = pick;
+  const { prediction } = pick;
 
-  const homeTeam = match.homeTeam;
-  const awayTeam = match.awayTeam;
+  // Use snake_case properties from Orval types
+  const homeTeam = prediction.home_team;
+  const awayTeam = prediction.away_team;
+  const matchId = prediction.match_id;
 
   const betLabel = {
     home: `Victoire ${homeTeam}`,
@@ -65,7 +69,7 @@ function PickCard({ pick }: { pick: DailyPick }) {
     draw: "Match nul",
     away: `Victoire ${awayTeam}`,
     away_win: `Victoire ${awayTeam}`,
-  }[prediction.recommendedBet] || prediction.recommendedBet;
+  }[prediction.recommended_bet] || prediction.recommended_bet;
 
   const confidence = prediction.confidence || 0;
   const confidenceColor =
@@ -75,13 +79,17 @@ function PickCard({ pick }: { pick: DailyPick }) {
       ? "text-yellow-400"
       : "text-orange-400";
 
-  const homeProb = prediction.homeProb || prediction.probabilities?.homeWin || 0;
-  const drawProb = prediction.drawProb || prediction.probabilities?.draw || 0;
-  const awayProb = prediction.awayProb || prediction.probabilities?.awayWin || 0;
+  // Use snake_case probabilities from Orval types
+  const homeProb = prediction.probabilities?.home_win || 0;
+  const drawProb = prediction.probabilities?.draw || 0;
+  const awayProb = prediction.probabilities?.away_win || 0;
+
+  // Get competition from match_date context or default
+  const competition = "Football";
 
   return (
     <Link
-      href={`/match/${match.id}`}
+      href={`/match/${matchId}`}
       className="block bg-dark-800/50 border border-dark-700 rounded-xl overflow-hidden hover:border-primary-500/50 transition-colors"
     >
       {/* Header */}
@@ -94,7 +102,7 @@ function PickCard({ pick }: { pick: DailyPick }) {
             <h3 className="font-semibold text-white text-sm sm:text-base truncate">
               {homeTeam} vs {awayTeam}
             </h3>
-            <p className="text-xs sm:text-sm text-dark-400">{match.competition}</p>
+            <p className="text-xs sm:text-sm text-dark-400">{competition}</p>
           </div>
         </div>
         <div className="text-left sm:text-right flex sm:flex-col gap-3 sm:gap-0 shrink-0">
@@ -102,7 +110,7 @@ function PickCard({ pick }: { pick: DailyPick }) {
             {Math.round(confidence * 100)}% confiance
           </p>
           <p className="text-xs sm:text-sm text-dark-400">
-            Value: +{Math.round((prediction.valueScore || 0) * 100)}%
+            Value: +{Math.round((prediction.value_score || 0) * 100)}%
           </p>
         </div>
       </div>
@@ -114,17 +122,17 @@ function PickCard({ pick }: { pick: DailyPick }) {
           <ProbBar
             label={homeTeam}
             prob={homeProb}
-            isRecommended={prediction.recommendedBet === "home" || prediction.recommendedBet === "home_win"}
+            isRecommended={prediction.recommended_bet === "home" || prediction.recommended_bet === "home_win"}
           />
           <ProbBar
             label="Nul"
             prob={drawProb}
-            isRecommended={prediction.recommendedBet === "draw"}
+            isRecommended={prediction.recommended_bet === "draw"}
           />
           <ProbBar
             label={awayTeam}
             prob={awayProb}
-            isRecommended={prediction.recommendedBet === "away" || prediction.recommendedBet === "away_win"}
+            isRecommended={prediction.recommended_bet === "away" || prediction.recommended_bet === "away_win"}
           />
         </div>
 
@@ -135,14 +143,14 @@ function PickCard({ pick }: { pick: DailyPick }) {
         </div>
 
         {/* Explanation */}
-        {explanation && (
-          <p className="text-dark-300 text-xs sm:text-sm mb-4 line-clamp-2 sm:line-clamp-none">{explanation}</p>
+        {prediction.explanation && (
+          <p className="text-dark-300 text-xs sm:text-sm mb-4 line-clamp-2 sm:line-clamp-none">{prediction.explanation}</p>
         )}
 
         {/* Key Factors */}
-        {keyFactors && keyFactors.length > 0 && (
+        {prediction.key_factors && prediction.key_factors.length > 0 && (
           <div className="flex flex-wrap gap-1 sm:gap-2">
-            {keyFactors.slice(0, 3).map((factor, i) => (
+            {prediction.key_factors.slice(0, 3).map((factor, i) => (
               <span
                 key={i}
                 className="px-2 py-1 bg-dark-700 rounded text-xs text-dark-300 truncate max-w-[150px] sm:max-w-none"

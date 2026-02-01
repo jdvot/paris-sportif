@@ -1,10 +1,9 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
-import type { Standings } from "@/lib/types";
+import type { StandingsResponse } from "@/lib/api/models";
 
 interface LeagueStandingsProps {
-  standings: Standings;
+  standings: StandingsResponse;
   isLoading?: boolean;
 }
 

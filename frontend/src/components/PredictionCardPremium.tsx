@@ -4,7 +4,7 @@ import { CheckCircle, TrendingUp, AlertCircle, Zap } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import type { DailyPick } from "@/lib/types";
+import type { DailyPick } from "@/lib/api/models";
 
 interface PredictionCardPremiumProps {
   pick: DailyPick;
@@ -17,11 +17,11 @@ export function PredictionCardPremium({
   index = 0,
   isTopPick = false,
 }: PredictionCardPremiumProps) {
-  const { match, prediction, keyFactors, explanation, riskFactors } = pick;
+  const { prediction } = pick;
   const confidence = prediction.confidence || 0;
-  const valueScore = prediction.valueScore || 0;
+  const valueScore = prediction.value_score || 0;
 
-  const matchDate = new Date(match.matchDate);
+  const matchDate = prediction.match_date ? new Date(prediction.match_date) : new Date();
 
   // Determine confidence tier
   const getConfidenceTier = (conf: number) => {
@@ -45,27 +45,27 @@ export function PredictionCardPremium({
 
   // Bet label
   const betLabels: Record<string, string> = {
-    home: `Victoire ${match.homeTeam}`,
-    home_win: `Victoire ${match.homeTeam}`,
+    home: `Victoire ${prediction.home_team}`,
+    home_win: `Victoire ${prediction.home_team}`,
     draw: "Match nul",
-    away: `Victoire ${match.awayTeam}`,
-    away_win: `Victoire ${match.awayTeam}`,
+    away: `Victoire ${prediction.away_team}`,
+    away_win: `Victoire ${prediction.away_team}`,
   };
-  const betLabel = betLabels[prediction.recommendedBet] || prediction.recommendedBet;
+  const betLabel = betLabels[prediction.recommended_bet] || prediction.recommended_bet;
 
   // Short bet label for mobile
   const shortBetLabels: Record<string, string> = {
-    home: match.homeTeam.split(" ")[0],
-    home_win: match.homeTeam.split(" ")[0],
+    home: prediction.home_team.split(" ")[0],
+    home_win: prediction.home_team.split(" ")[0],
     draw: "Nul",
-    away: match.awayTeam.split(" ")[0],
-    away_win: match.awayTeam.split(" ")[0],
+    away: prediction.away_team.split(" ")[0],
+    away_win: prediction.away_team.split(" ")[0],
   };
-  const shortBetLabel = shortBetLabels[prediction.recommendedBet] || prediction.recommendedBet;
+  const shortBetLabel = shortBetLabels[prediction.recommended_bet] || prediction.recommended_bet;
 
   const isRecommendedBet = (bet: string) =>
-    prediction.recommendedBet === bet ||
-    prediction.recommendedBet === (bet === "home" ? "home_win" : bet === "away" ? "away_win" : bet);
+    prediction.recommended_bet === bet ||
+    prediction.recommended_bet === (bet === "home" ? "home_win" : bet === "away" ? "away_win" : bet);
 
   return (
     <div
@@ -106,13 +106,12 @@ export function PredictionCardPremium({
               {/* Match Details */}
               <div className="min-w-0 flex-1">
                 <h3 className="font-bold text-white leading-tight text-sm sm:text-base">
-                  <span className="hidden sm:inline">{match.homeTeam} vs {match.awayTeam}</span>
+                  <span className="hidden sm:inline">{prediction.home_team} vs {prediction.away_team}</span>
                   <span className="sm:hidden">
-                    {match.homeTeam.split(" ")[0]} vs {match.awayTeam.split(" ")[0]}
+                    {prediction.home_team.split(" ")[0]} vs {prediction.away_team.split(" ")[0]}
                   </span>
                 </h3>
                 <div className="flex items-center gap-1.5 mt-1 text-[10px] sm:text-xs text-dark-400 flex-wrap">
-                  <span className="px-1.5 py-0.5 bg-dark-700/50 rounded">{match.competition}</span>
                   <span>•</span>
                   <span>{format(matchDate, "d MMM, HH:mm", { locale: fr })}</span>
                 </div>
@@ -143,19 +142,19 @@ export function PredictionCardPremium({
           <div className="space-y-2">
             <div className="flex gap-1.5 sm:gap-2">
               <ProbBarEnhanced
-                label={match.homeTeam}
-                prob={prediction.homeProb ?? prediction.probabilities?.homeWin ?? 0}
+                label={prediction.home_team}
+                prob={prediction.probabilities?.home_win ?? 0}
                 isRecommended={isRecommendedBet("home")}
               />
               <ProbBarEnhanced
                 label="Nul"
-                prob={prediction.drawProb ?? prediction.probabilities?.draw ?? 0}
+                prob={prediction.probabilities?.draw ?? 0}
                 isRecommended={isRecommendedBet("draw")}
               />
               <ProbBarEnhanced
-                label={match.awayTeam}
-                prob={prediction.awayProb ?? prediction.probabilities?.awayWin ?? 0}
-                isRecommendedBet={isRecommendedBet("away")}
+                label={prediction.away_team}
+                prob={prediction.probabilities?.away_win ?? 0}
+                isRecommended={isRecommendedBet("away")}
               />
             </div>
           </div>
@@ -195,9 +194,11 @@ export function PredictionCardPremium({
           </div>
 
           {/* Explanation */}
-          <p className="text-dark-300 text-[11px] sm:text-sm leading-relaxed line-clamp-2 sm:line-clamp-none">
-            {explanation}
-          </p>
+          {prediction.explanation && (
+            <p className="text-dark-300 text-[11px] sm:text-sm leading-relaxed line-clamp-2 sm:line-clamp-none">
+              {prediction.explanation}
+            </p>
+          )}
 
           {/* Value Score Indicator */}
           <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-dark-700/40 border border-dark-600/50">
@@ -221,13 +222,13 @@ export function PredictionCardPremium({
           </div>
 
           {/* Key Factors */}
-          {keyFactors && keyFactors.length > 0 && (
+          {prediction.key_factors && prediction.key_factors.length > 0 && (
             <div>
               <p className="text-[10px] sm:text-xs font-semibold text-dark-300 mb-1.5 sm:mb-2 flex items-center gap-1">
                 <span>✓ Points positifs</span>
               </p>
               <div className="flex flex-wrap gap-1 sm:gap-2">
-                {keyFactors.slice(0, 4).map((factor, i) => (
+                {prediction.key_factors.slice(0, 4).map((factor, i) => (
                   <span
                     key={i}
                     className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-primary-500/20 border border-primary-500/40 rounded text-[10px] sm:text-xs text-primary-300 hover:bg-primary-500/30 transition-smooth"
@@ -240,14 +241,14 @@ export function PredictionCardPremium({
           )}
 
           {/* Risk Factors */}
-          {riskFactors && riskFactors.length > 0 && (
+          {prediction.risk_factors && prediction.risk_factors.length > 0 && (
             <div>
               <p className="text-[10px] sm:text-xs font-semibold text-dark-300 mb-1.5 sm:mb-2 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
                 <span>Risques à surveiller</span>
               </p>
               <div className="flex flex-wrap gap-1 sm:gap-2">
-                {riskFactors.slice(0, 3).map((factor, i) => (
+                {prediction.risk_factors.slice(0, 3).map((factor, i) => (
                   <span
                     key={i}
                     className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-orange-500/20 border border-orange-500/40 rounded text-[10px] sm:text-xs text-orange-300 hover:bg-orange-500/30 transition-smooth"
@@ -290,15 +291,11 @@ function ProbBarEnhanced({
   label,
   prob,
   isRecommended,
-  isRecommendedBet,
 }: {
   label: string;
   prob: number;
   isRecommended?: boolean;
-  isRecommendedBet?: boolean;
 }) {
-  const recommended = isRecommended || isRecommendedBet;
-
   const getShortLabel = (name: string) => {
     if (name === "Nul") return name;
     if (name.length <= 8) return name;
@@ -312,14 +309,14 @@ function ProbBarEnhanced({
       <div className="flex justify-between text-[10px] sm:text-xs mb-1 gap-1">
         <span className={cn(
           "truncate font-medium",
-          recommended ? "text-primary-400" : "text-dark-400"
+          isRecommended ? "text-primary-400" : "text-dark-400"
         )}>
           <span className="hidden sm:inline">{label.length > 12 ? label.slice(0, 12) + "…" : label}</span>
           <span className="sm:hidden">{getShortLabel(label)}</span>
         </span>
         <span className={cn(
           "flex-shrink-0 font-bold",
-          recommended ? "text-primary-400" : "text-dark-400"
+          isRecommended ? "text-primary-400" : "text-dark-400"
         )}>
           {Math.round(prob * 100)}%
         </span>
@@ -328,7 +325,7 @@ function ProbBarEnhanced({
         <div
           className={cn(
             "h-full rounded-full transition-all duration-500",
-            recommended ? "bg-gradient-to-r from-primary-500 to-emerald-500" : "bg-dark-600"
+            isRecommended ? "bg-gradient-to-r from-primary-500 to-emerald-500" : "bg-dark-600"
           )}
           style={{ width: `${prob * 100}%` }}
         />

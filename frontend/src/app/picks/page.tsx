@@ -1,16 +1,15 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useState, useCallback } from "react";
 import { format, subDays, addDays, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { AlertTriangle, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchDailyPicks } from "@/lib/api";
+import { useGetDailyPicks } from "@/lib/api/endpoints/predictions/predictions";
 import { PredictionCardPremium } from "@/components/PredictionCardPremium";
 import { LoadingState } from "@/components/LoadingState";
 import { CompetitionFilter } from "@/components/CompetitionFilter";
-import type { DailyPick } from "@/lib/types";
+import type { DailyPick } from "@/lib/api/models";
 
 const COMPETITIONS = [
   { id: "PL", name: "Premier League" },
@@ -29,25 +28,29 @@ export default function PicksPage() {
   const [selectedCompetitions, setSelectedCompetitions] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
-  const { data: picks = [], isLoading, error } = useQuery({
-    queryKey: ["dailyPicks", selectedDate],
-    queryFn: () => fetchDailyPicks(selectedDate),
-    enabled: true,
-    staleTime: 0, // Always fetch fresh data from API
-    retry: 2,
-  });
+  const { data: response, isLoading, error } = useGetDailyPicks(
+    { date: selectedDate },
+    { query: { staleTime: 0, retry: 2 } }
+  );
+
+  // Extract picks from response
+  const responseData = response as unknown as { data?: { picks?: DailyPick[] }; picks?: DailyPick[] } | undefined;
+  const picks = responseData?.data?.picks || responseData?.picks || [];
 
   const filteredPicks = picks.filter((pick) => {
     if (selectedCompetitions.length === 0) return true;
-    return selectedCompetitions.some(
-      (comp) =>
-        pick.match.competition
-          .toLowerCase()
-          .includes(comp.toLowerCase()) ||
-        COMPETITIONS.find(
-          (c) => c.id === comp && c.name === pick.match.competition
-        )
-    );
+    // Get competition from prediction (snake_case from API)
+    const pred = pick.prediction as unknown as { competition?: string };
+    const predCompetition = pred?.competition || "";
+    return selectedCompetitions.some((compId) => {
+      const competition = COMPETITIONS.find((c) => c.id === compId);
+      if (!competition) return false;
+      return (
+        predCompetition === competition.name ||
+        predCompetition.toLowerCase().includes(competition.name.toLowerCase()) ||
+        predCompetition.includes(compId)
+      );
+    });
   });
 
   const toggleCompetition = useCallback((competitionId: string) => {
@@ -58,18 +61,22 @@ export default function PicksPage() {
     );
   }, []);
 
+  // Allow navigation up to 7 days in the future
+  const MAX_FUTURE_DAYS = 7;
+
   const handlePreviousDay = () => {
     setSelectedDate(format(subDays(parseISO(selectedDate), 1), "yyyy-MM-dd"));
   };
 
   const handleNextDay = () => {
     const nextDay = format(addDays(parseISO(selectedDate), 1), "yyyy-MM-dd");
-    if (nextDay <= format(new Date(), "yyyy-MM-dd")) {
+    const maxDate = format(addDays(new Date(), MAX_FUTURE_DAYS), "yyyy-MM-dd");
+    if (nextDay <= maxDate) {
       setSelectedDate(nextDay);
     }
   };
 
-  const canGoNext = selectedDate < format(new Date(), "yyyy-MM-dd");
+  const canGoNext = selectedDate < format(addDays(new Date(), MAX_FUTURE_DAYS), "yyyy-MM-dd");
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -101,6 +108,7 @@ export default function PicksPage() {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
+              max={format(addDays(new Date(), MAX_FUTURE_DAYS), "yyyy-MM-dd")}
               className="bg-dark-700 border border-dark-600 text-white px-3 sm:px-4 py-2 rounded-lg focus:outline-none focus:border-primary-500 text-sm flex-1 sm:flex-none"
             />
             <span className="text-dark-400 text-xs sm:text-sm">
@@ -151,16 +159,16 @@ export default function PicksPage() {
       </section>
 
       {/* Loading State */}
-      {isLoading && (
+      {isLoading ? (
         <LoadingState
           variant="picks"
           count={5}
           message="Analyse des matchs en cours..."
         />
-      )}
+      ) : null}
 
       {/* Error State */}
-      {!isLoading && error && (
+      {!isLoading && error ? (
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 sm:p-8 lg:p-12 text-center mx-4 sm:mx-0">
           <AlertTriangle className="w-10 sm:w-12 h-10 sm:h-12 text-red-400 mx-auto mb-3 sm:mb-4" />
           <h3 className="text-base sm:text-lg font-semibold text-white mb-2">
@@ -176,10 +184,10 @@ export default function PicksPage() {
             Réessayer
           </button>
         </div>
-      )}
+      ) : null}
 
       {/* No Results */}
-      {!isLoading && !error && filteredPicks.length === 0 && (
+      {!isLoading && !error && filteredPicks.length === 0 ? (
         <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-8 sm:p-12 text-center mx-4 sm:mx-0">
           <AlertTriangle className="w-10 sm:w-12 h-10 sm:h-12 text-yellow-400 mx-auto mb-3 sm:mb-4" />
           <h3 className="text-base sm:text-lg font-semibold text-white mb-2">
@@ -191,10 +199,10 @@ export default function PicksPage() {
               : "Aucun pick disponible pour cette date."}
           </p>
         </div>
-      )}
+      ) : null}
 
       {/* Picks Grid */}
-      {!isLoading && filteredPicks.length > 0 && (
+      {!isLoading && filteredPicks.length > 0 ? (
         <div className="grid gap-3 sm:gap-4 px-4 sm:px-0">
           {filteredPicks.map((pick, index) => (
             <PredictionCardPremium
@@ -205,8 +213,7 @@ export default function PicksPage() {
             />
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
-
