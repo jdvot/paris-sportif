@@ -1,4 +1,12 @@
-"""Prediction endpoints - Using real match data from football-data.org."""
+"""Prediction endpoints - Using real match data from football-data.org.
+
+Enhanced with advanced statistical models:
+- Dixon-Coles: Handles low-score bias and time decay
+- Advanced ELO: Dynamic K-factor and recent form
+- Multiple ensemble: Combines best approaches
+
+See /src/prediction_engine/ensemble_advanced.py for details.
+"""
 
 import random
 import json
@@ -13,6 +21,13 @@ from groq import Groq
 from src.data.sources.football_data import get_football_data_client, MatchData, COMPETITIONS
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 from src.core.config import settings
+from src.prediction_engine.ensemble_advanced import (
+    advanced_ensemble_predictor,
+    AdvancedLLMAdjustments,
+)
+from src.llm.prompts_advanced import (
+    get_prediction_analysis_prompt,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -172,11 +187,16 @@ def _get_groq_prediction(
     home_team: str,
     away_team: str,
     competition: str,
+    home_current_form: str = "",
+    away_current_form: str = "",
+    home_injuries: str = "",
+    away_injuries: str = "",
 ) -> dict | None:
     """
-    Get match prediction from Groq API.
+    Get match prediction from Groq API using advanced analysis prompt.
 
-    Returns a dict with home_win, draw, away_win probabilities, or None if API fails.
+    Returns a dict with probabilities, confidence, injury impacts, and reasoning.
+    Returns None if API fails.
     """
     try:
         if not settings.groq_api_key:
@@ -185,29 +205,20 @@ def _get_groq_prediction(
 
         client = get_groq_client()
 
-        prompt = f"""Analyse le match de football suivant et fournis des probabilités de résultat.
-
-Match: {home_team} vs {away_team}
-Compétition: {competition}
-
-Basé sur les données disponibles (historique, forme, effectif, etc.), estime les probabilités suivantes:
-- Probabilité de victoire du club à domicile ({home_team})
-- Probabilité de match nul
-- Probabilité de victoire de l'équipe en déplacement ({away_team})
-
-IMPORTANT: Tu dois répondre UNIQUEMENT avec un JSON valide (pas de texte avant ou après), dans ce format exact:
-{{
-    "home_win": 0.00,
-    "draw": 0.00,
-    "away_win": 0.00,
-    "reasoning": "Brève explication de l'analyse"
-}}
-
-Les trois probabilités doivent totaliser 1.0 exactement."""
+        # Use advanced analysis prompt
+        prompt = get_prediction_analysis_prompt(
+            home_team=home_team,
+            away_team=away_team,
+            competition=competition,
+            home_current_form=home_current_form,
+            away_current_form=away_current_form,
+            home_injuries=home_injuries,
+            away_injuries=away_injuries,
+        )
 
         message = client.chat.completions.create(
             model="mixtral-8x7b-32768",
-            max_tokens=500,
+            max_tokens=1000,
             messages=[
                 {
                     "role": "user",
@@ -228,17 +239,32 @@ Les trois probabilités doivent totaliser 1.0 exactement."""
                 json_str = response_text[start_idx:end_idx]
                 prediction_data = json.loads(json_str)
 
+                # Support both old and new formats
+                home_win = prediction_data.get("home_win_probability") or prediction_data.get("home_win", 0.33)
+                draw = prediction_data.get("draw_probability") or prediction_data.get("draw", 0.34)
+                away_win = prediction_data.get("away_win_probability") or prediction_data.get("away_win", 0.33)
+
                 # Validate probabilities sum to approximately 1.0
-                total = prediction_data.get("home_win", 0) + prediction_data.get("draw", 0) + prediction_data.get("away_win", 0)
+                total = home_win + draw + away_win
                 if abs(total - 1.0) < 0.01:  # Allow small floating point errors
-                    return {
-                        "home_win": round(prediction_data.get("home_win", 0.33), 4),
-                        "draw": round(prediction_data.get("draw", 0.34), 4),
-                        "away_win": round(prediction_data.get("away_win", 0.33), 4),
+                    # Normalize if needed
+                    if total > 0:
+                        home_win /= total
+                        draw /= total
+                        away_win /= total
+
+                    result = {
+                        "home_win": round(home_win, 4),
+                        "draw": round(draw, 4),
+                        "away_win": round(away_win, 4),
                         "reasoning": prediction_data.get("reasoning", ""),
+                        "confidence_level": prediction_data.get("confidence_level", "medium"),
+                        "injury_impact_home": prediction_data.get("injury_impact_home", 0.0),
+                        "injury_impact_away": prediction_data.get("injury_impact_away", 0.0),
                     }
-        except (json.JSONDecodeError, ValueError, AttributeError) as e:
-            logger.warning(f"Failed to parse Groq response as JSON: {e}")
+                    return result
+        except (json.JSONDecodeError, ValueError, AttributeError, TypeError) as e:
+            logger.warning(f"Failed to parse Groq response as JSON: {e}, Response was: {response_text[:200]}")
             return None
 
         return None
