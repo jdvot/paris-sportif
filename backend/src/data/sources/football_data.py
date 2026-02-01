@@ -4,6 +4,7 @@ Free tier: 10 requests/minute
 Documentation: https://www.football-data.org/documentation/api
 """
 
+import logging
 from datetime import date, datetime
 from typing import Any, Literal
 
@@ -13,6 +14,8 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from src.core.config import settings
 from src.core.exceptions import FootballDataAPIError, RateLimitError
+
+logger = logging.getLogger(__name__)
 
 
 class TeamData(BaseModel):
@@ -89,6 +92,12 @@ class FootballDataClient:
     def __init__(self, api_key: str | None = None):
         self.api_key = api_key or settings.football_data_api_key
         self.headers = {"X-Auth-Token": self.api_key} if self.api_key else {}
+        # Debug logging
+        if self.api_key:
+            masked_key = self.api_key[:4] + "..." + self.api_key[-4:] if len(self.api_key) > 8 else "***"
+            logger.info(f"FootballDataClient initialized with API key: {masked_key}")
+        else:
+            logger.warning("FootballDataClient initialized WITHOUT API key!")
 
     @retry(
         stop=stop_after_attempt(3),
@@ -113,12 +122,14 @@ class FootballDataClient:
             )
 
             if response.status_code == 429:
+                logger.error(f"Rate limit exceeded! Headers: {response.headers}")
                 raise RateLimitError(
                     "Rate limit exceeded for football-data.org",
                     details={"retry_after": response.headers.get("Retry-After")},
                 )
 
             if response.status_code != 200:
+                logger.error(f"API error {response.status_code} for {url}: {response.text[:500]}")
                 raise FootballDataAPIError(
                     f"API error: {response.status_code}",
                     details={"response": response.text},
