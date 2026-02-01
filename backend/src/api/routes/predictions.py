@@ -550,12 +550,11 @@ async def get_daily_picks(
             for m in db_matches:
                 api_matches.append(MatchData(**m))
 
-        # Filter to only include matches that haven't started yet
-        now = datetime.now()
+        # Include all matches for the day (scheduled, in-play, and finished)
+        # This allows users to see predictions even for completed matches
         api_matches = [
             m for m in api_matches
-            if m.status in ("SCHEDULED", "TIMED") and
-            datetime.fromisoformat(m.utcDate.replace("Z", "+00:00")).replace(tzinfo=None) > now
+            if m.status in ("SCHEDULED", "TIMED", "FINISHED", "IN_PLAY", "PAUSED")
         ]
 
         if not api_matches:
