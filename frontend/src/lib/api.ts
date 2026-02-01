@@ -93,15 +93,86 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
   return response.json();
 }
 
+// API response type for daily picks (snake_case from backend)
+interface ApiDailyPick {
+  rank: number;
+  pick_score?: number;
+  prediction: Record<string, unknown>;
+}
+
+interface ApiDailyPicksResponse {
+  date: string;
+  picks: ApiDailyPick[];
+  total_matches_analyzed?: number;
+}
+
+/**
+ * Transform API daily pick to frontend format
+ */
+function transformDailyPick(apiPick: ApiDailyPick): DailyPick {
+  const pred = apiPick.prediction;
+
+  // Extract probabilities
+  const probs = pred.probabilities as Record<string, number> | undefined;
+  const probabilities = probs ? {
+    homeWin: probs.home_win ?? probs.homeWin ?? 0,
+    draw: probs.draw ?? 0,
+    awayWin: probs.away_win ?? probs.awayWin ?? 0,
+  } : undefined;
+
+  // Map recommended_bet
+  const recBet = (pred.recommended_bet ?? pred.recommendedBet) as string;
+  const validBets = ["home_win", "draw", "away_win", "home", "away"] as const;
+  const recommendedBet = validBets.includes(recBet as typeof validBets[number])
+    ? (recBet as "home_win" | "draw" | "away_win" | "home" | "away")
+    : "home";
+
+  // Build match object from prediction fields
+  const match = {
+    id: (pred.match_id ?? pred.matchId ?? 0) as number,
+    homeTeam: (pred.home_team ?? pred.homeTeam ?? "") as string,
+    awayTeam: (pred.away_team ?? pred.awayTeam ?? "") as string,
+    competition: (pred.competition ?? "") as string,
+    matchDate: (pred.match_date ?? pred.matchDate ?? "") as string,
+  };
+
+  // Build prediction object
+  const prediction = {
+    probabilities,
+    homeProb: probabilities?.homeWin,
+    drawProb: probabilities?.draw,
+    awayProb: probabilities?.awayWin,
+    recommendedBet,
+    confidence: (pred.confidence as number) ?? 0,
+    valueScore: (pred.value_score ?? pred.valueScore ?? 0) as number,
+  };
+
+  return {
+    rank: apiPick.rank || 0,
+    match,
+    prediction,
+    explanation: (pred.explanation as string) ?? "",
+    keyFactors: (pred.key_factors ?? pred.keyFactors ?? []) as string[],
+    riskFactors: (pred.risk_factors ?? pred.riskFactors) as string[] | undefined,
+    pickScore: apiPick.pick_score,
+  };
+}
+
 /**
  * Fetch daily picks
  */
 export async function fetchDailyPicks(date?: string): Promise<DailyPick[]> {
   const params = date ? `?date=${date}` : "";
-  const response = await fetchApi<DailyPicksResponse>(
+  const response = await fetchApi<ApiDailyPicksResponse>(
     `/api/v1/predictions/daily${params}`
   );
-  return response.picks;
+
+  // Transform each pick from API format to frontend format
+  if (!response.picks || !Array.isArray(response.picks)) {
+    return [];
+  }
+
+  return response.picks.map(transformDailyPick);
 }
 
 /**

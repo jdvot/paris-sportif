@@ -227,7 +227,27 @@ export default function MatchesPage() {
         )}
       </section>
 
+      {/* Error State */}
+      {error && (
+        <section className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 sm:p-12 text-center">
+          <Calendar className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-white mb-2">
+            Erreur de chargement
+          </h3>
+          <p className="text-dark-400 mb-4">
+            {error instanceof Error ? error.message : "Impossible de charger les matchs."}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors"
+          >
+            Réessayer
+          </button>
+        </section>
+      )}
+
       {/* Matches List Grouped by Date */}
+      {!error && (
       <section className="space-y-6">
         {datesToDisplay.length === 0 ? (
           <div className="text-center py-12">
@@ -292,6 +312,7 @@ export default function MatchesPage() {
           })
         )}
       </section>
+      )}
 
       {/* Load More Info */}
       {filteredMatches.length > 0 && (

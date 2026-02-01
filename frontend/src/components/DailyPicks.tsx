@@ -90,32 +90,32 @@ function PickCard({ pick }: { pick: DailyPick }) {
       className="block bg-dark-800/50 border border-dark-700 rounded-xl overflow-hidden hover:border-primary-500/50 transition-colors"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-dark-700">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center justify-center w-8 h-8 bg-primary-500 rounded-full text-white font-bold">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-6 py-4 border-b border-dark-700 gap-3 sm:gap-0">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <span className="flex items-center justify-center w-8 h-8 bg-primary-500 rounded-full text-white font-bold text-sm shrink-0">
             {pick.rank}
           </span>
-          <div>
-            <h3 className="font-semibold text-white">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-white text-sm sm:text-base truncate">
               {homeTeam} vs {awayTeam}
             </h3>
-            <p className="text-sm text-dark-400">{match.competition}</p>
+            <p className="text-xs sm:text-sm text-dark-400">{match.competition}</p>
           </div>
         </div>
-        <div className="text-right">
-          <p className={cn("font-semibold", confidenceColor)}>
+        <div className="text-left sm:text-right flex sm:flex-col gap-3 sm:gap-0 shrink-0">
+          <p className={cn("font-semibold text-sm sm:text-base", confidenceColor)}>
             {Math.round(confidence * 100)}% confiance
           </p>
-          <p className="text-sm text-dark-400">
+          <p className="text-xs sm:text-sm text-dark-400">
             Value: +{Math.round((prediction.valueScore || 0) * 100)}%
           </p>
         </div>
       </div>
 
       {/* Body */}
-      <div className="px-6 py-4">
+      <div className="px-4 sm:px-6 py-4">
         {/* Probabilities */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex flex-col sm:flex-row gap-2 mb-4">
           <ProbBar
             label={homeTeam}
             prob={homeProb}
@@ -134,23 +134,23 @@ function PickCard({ pick }: { pick: DailyPick }) {
         </div>
 
         {/* Recommendation */}
-        <div className="flex items-center gap-2 mb-4 p-3 bg-primary-500/10 border border-primary-500/30 rounded-lg">
-          <CheckCircle className="w-5 h-5 text-primary-400" />
-          <span className="font-medium text-primary-400">{betLabel}</span>
+        <div className="flex items-center gap-2 mb-4 p-2 sm:p-3 bg-primary-500/10 border border-primary-500/30 rounded-lg">
+          <CheckCircle className="w-4 sm:w-5 h-4 sm:h-5 text-primary-400 shrink-0" />
+          <span className="font-medium text-primary-400 text-sm sm:text-base">{betLabel}</span>
         </div>
 
         {/* Explanation */}
         {explanation && (
-          <p className="text-dark-300 text-sm mb-4">{explanation}</p>
+          <p className="text-dark-300 text-xs sm:text-sm mb-4 line-clamp-2 sm:line-clamp-none">{explanation}</p>
         )}
 
         {/* Key Factors */}
         {keyFactors && keyFactors.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1 sm:gap-2">
             {keyFactors.slice(0, 3).map((factor, i) => (
               <span
                 key={i}
-                className="px-2 py-1 bg-dark-700 rounded text-xs text-dark-300"
+                className="px-2 py-1 bg-dark-700 rounded text-xs text-dark-300 truncate max-w-[150px] sm:max-w-none"
               >
                 {factor}
               </span>

@@ -337,8 +337,8 @@ async def get_match(match_id: int) -> MatchResponse:
         for m in mock_matches:
             if m.id == match_id:
                 return m
-        # Return first mock match with the requested ID
-        mock = mock_matches[0]
+        # Clone the first mock match and set the requested ID (avoid mutation)
+        mock = mock_matches[0].model_copy()
         mock.id = match_id
         return mock
 

@@ -198,7 +198,7 @@ export default function PicksPage() {
           {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
-              className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 animate-pulse"
+              className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 animate-pulse"
             >
               <div className="h-6 bg-dark-700 rounded w-1/3 mb-4" />
               <div className="h-4 bg-dark-700 rounded w-2/3" />
@@ -207,8 +207,27 @@ export default function PicksPage() {
         </div>
       )}
 
+      {/* Error State */}
+      {!isLoading && error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 sm:p-12 text-center">
+          <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-white mb-2">
+            Erreur de chargement
+          </h3>
+          <p className="text-dark-400 mb-4">
+            {error instanceof Error ? error.message : "Impossible de charger les picks."}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors"
+          >
+            Réessayer
+          </button>
+        </div>
+      )}
+
       {/* No Results */}
-      {!isLoading && filteredPicks.length === 0 && (
+      {!isLoading && !error && filteredPicks.length === 0 && (
         <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-12 text-center">
           <AlertTriangle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-white mb-2">
