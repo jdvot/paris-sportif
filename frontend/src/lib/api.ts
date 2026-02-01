@@ -9,6 +9,7 @@ import type {
   DetailedPrediction,
   PredictionStats,
   TeamForm,
+  ModelContribution,
 } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -186,6 +187,23 @@ function transformPrediction(apiPrediction: Record<string, unknown>): DetailedPr
     reasoning: (llm.reasoning as string) ?? "",
   } : undefined;
 
+  // Map recommended_bet to valid type
+  const recBet = apiPrediction.recommended_bet as string;
+  const validBets = ["home_win", "draw", "away_win", "home", "away"] as const;
+  const recommendedBet = validBets.includes(recBet as typeof validBets[number])
+    ? (recBet as "home_win" | "draw" | "away_win" | "home" | "away")
+    : "home";
+
+  // Build model contributions only if all required properties exist
+  const finalModelContributions = modelContributions?.poisson && modelContributions?.elo
+    ? {
+        poisson: modelContributions.poisson,
+        elo: modelContributions.elo,
+        xgModel: modelContributions.xgModel,
+        xgboost: modelContributions.xgboost,
+      }
+    : undefined;
+
   return {
     matchId: apiPrediction.match_id as number,
     homeTeam: apiPrediction.home_team as string,
@@ -195,13 +213,13 @@ function transformPrediction(apiPrediction: Record<string, unknown>): DetailedPr
     homeProb: probabilities?.homeWin,
     drawProb: probabilities?.draw,
     awayProb: probabilities?.awayWin,
-    recommendedBet: (apiPrediction.recommended_bet as string) ?? "home",
+    recommendedBet,
     confidence: (apiPrediction.confidence as number) ?? 0,
     valueScore: (apiPrediction.value_score as number) ?? 0,
     explanation: (apiPrediction.explanation as string) ?? "",
     keyFactors: (apiPrediction.key_factors as string[]) ?? [],
     riskFactors: (apiPrediction.risk_factors as string[]) ?? [],
-    modelContributions,
+    modelContributions: finalModelContributions,
     llmAdjustments,
     expectedHomeGoals: apiPrediction.expected_home_goals as number | undefined,
     expectedAwayGoals: apiPrediction.expected_away_goals as number | undefined,
@@ -209,7 +227,7 @@ function transformPrediction(apiPrediction: Record<string, unknown>): DetailedPr
   };
 }
 
-function transformModelContrib(mc: unknown): { homeProb?: number; drawProb?: number; awayProb?: number } | undefined {
+function transformModelContrib(mc: unknown): ModelContribution | undefined {
   if (!mc || typeof mc !== 'object') return undefined;
   const contrib = mc as Record<string, number>;
   return {
