@@ -11,8 +11,9 @@ import {
 import Link from "next/link";
 import { format, startOfDay, addDays, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
-import { useListMatches } from "@/lib/api/endpoints/matches/matches";
-import type { Match, MatchListResponse } from "@/lib/api/models";
+import { useGetMatches } from "@/lib/api/endpoints/matches/matches";
+import type { MatchResponse, MatchListResponse } from "@/lib/api/models";
+import { LoadingState } from "@/components/LoadingState";
 
 const competitionColors: Record<string, string> = {
   PL: "bg-purple-500",
@@ -37,13 +38,13 @@ const competitionLabels: Record<string, string> = {
 type DateRange = "today" | "tomorrow" | "week" | "next7days" | "custom";
 
 // Helper to get team name from Team | string
-const getTeamName = (team: Match["home_team"]): string => {
+const getTeamName = (team: MatchResponse["home_team"]): string => {
   if (typeof team === "string") return team;
   return team.name || "Unknown";
 };
 
 export default function MatchesPage() {
-  const [dateRange, setDateRange] = useState<DateRange>("today");
+  const [dateRange, setDateRange] = useState<DateRange>("week");
   const [selectedCompetitions, setSelectedCompetitions] = useState<string[]>([]);
   // Auto-expand today's date by default
   const todayKey = format(startOfDay(new Date()), "yyyy-MM-dd");
@@ -74,19 +75,18 @@ export default function MatchesPage() {
     return {
       date_from: format(dateFrom, "yyyy-MM-dd"),
       date_to: format(dateTo, "yyyy-MM-dd"),
-      competition: selectedCompetitions.length > 0 ? selectedCompetitions[0] : undefined,
+      // Competition filtering is done client-side to support multi-select
     };
-  }, [dateRange, selectedCompetitions, today]);
+  }, [dateRange, today]);
 
   // Fetch matches using Orval hook
-  const { data: response, isLoading, error } = useListMatches(
+  const { data: response, isLoading, error } = useGetMatches(
     dateParams,
     { query: { staleTime: 0, retry: 2 } }
   );
 
-  // Extract matches from response - API returns { matches: [...] } directly
-  const responseData = response as unknown as MatchListResponse | undefined;
-  const matches = responseData?.matches || [];
+  // Extract matches from response - API returns { data: { matches: [...] }, status: number }
+  const matches = (response?.data as MatchListResponse | undefined)?.matches || [];
 
   // Filter matches by selected competitions
   const filteredMatches = useMemo(() => {
@@ -104,7 +104,7 @@ export default function MatchesPage() {
 
   // Group matches by date
   const groupedMatches = useMemo(() => {
-    const grouped: Record<string, Match[]> = {};
+    const grouped: Record<string, MatchResponse[]> = {};
 
     filteredMatches.forEach((match) => {
       const date = startOfDay(new Date(match.match_date));
@@ -125,7 +125,7 @@ export default function MatchesPage() {
             new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
         );
         return acc;
-      }, {} as Record<string, Match[]>);
+      }, {} as Record<string, MatchResponse[]>);
   }, [filteredMatches]);
 
   // Toggle competition filter
@@ -339,7 +339,7 @@ export default function MatchesPage() {
   );
 }
 
-function MatchCard({ match }: { match: Match }) {
+function MatchCard({ match }: { match: MatchResponse }) {
   const matchDate = new Date(match.match_date);
   const homeTeamName = getTeamName(match.home_team);
   const awayTeamName = getTeamName(match.away_team);

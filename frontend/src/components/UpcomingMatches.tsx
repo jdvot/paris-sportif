@@ -23,9 +23,8 @@ export function UpcomingMatches() {
     { query: { staleTime: 5 * 60 * 1000 } }
   );
 
-  // Extract matches from response - API returns { matches: [...] } directly
-  const responseData = response as unknown as { matches?: Match[] } | undefined;
-  const matches = responseData?.matches || [];
+  // Extract matches from response - API returns { data: { matches: [...] }, status: number }
+  const matches = (response?.data as { matches?: Match[] } | undefined)?.matches || [];
 
   if (isLoading) {
     return (

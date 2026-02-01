@@ -81,16 +81,6 @@ export function PredictionCardPremium({
       {/* Background glow effect on hover */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-10 bg-gradient-to-br from-primary-500 to-transparent transition-opacity duration-300 pointer-events-none" />
 
-      {/* Top Pick Badge */}
-      {isTopPick && (
-        <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
-          <div className="flex items-center gap-1 px-2 sm:px-3 py-1 bg-gradient-to-r from-primary-500 to-emerald-500 rounded-full">
-            <Zap className="w-3 sm:w-4 h-3 sm:h-4 text-white" />
-            <span className="text-xs font-bold text-white">Top Pick</span>
-          </div>
-        </div>
-      )}
-
       {/* Main Content */}
       <div className="relative z-10">
         {/* Header with rank and match info */}
@@ -105,12 +95,20 @@ export function PredictionCardPremium({
 
               {/* Match Details */}
               <div className="min-w-0 flex-1">
-                <h3 className="font-bold text-white leading-tight text-sm sm:text-base">
-                  <span className="hidden sm:inline">{prediction.home_team} vs {prediction.away_team}</span>
-                  <span className="sm:hidden">
-                    {prediction.home_team.split(" ")[0]} vs {prediction.away_team.split(" ")[0]}
-                  </span>
-                </h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-white leading-tight text-sm sm:text-base">
+                    <span className="hidden sm:inline">{prediction.home_team} vs {prediction.away_team}</span>
+                    <span className="sm:hidden">
+                      {prediction.home_team.split(" ")[0]} vs {prediction.away_team.split(" ")[0]}
+                    </span>
+                  </h3>
+                  {isTopPick && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-primary-500 to-emerald-500 rounded-full text-xs font-bold text-white whitespace-nowrap">
+                      <Zap className="w-3 h-3" />
+                      Top Pick
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-1.5 mt-1 text-[10px] sm:text-xs text-dark-400 flex-wrap">
                   <span>•</span>
                   <span>{format(matchDate, "d MMM, HH:mm", { locale: fr })}</span>

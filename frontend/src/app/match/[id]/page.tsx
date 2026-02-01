@@ -67,10 +67,10 @@ export default function MatchDetailPage() {
     { query: { enabled: !!matchId && matchId > 0 } }
   );
 
-  // Extract data from responses - API returns objects directly
-  const match = matchResponse as unknown as Match | undefined;
-  const prediction = predictionResponse as unknown as PredictionResponse | undefined;
-  const headToHead = h2hResponse as unknown as HeadToHeadResponse | undefined;
+  // Extract data from responses - API returns { data: {...}, status: number }
+  const match = matchResponse?.data as Match | undefined;
+  const prediction = predictionResponse?.data as PredictionResponse | undefined;
+  const headToHead = h2hResponse?.data as HeadToHeadResponse | undefined;
 
   // Fetch form for both teams - extract IDs from home_team/away_team objects
   const homeTeamId = typeof match?.home_team === 'object' ? (match.home_team as { id?: number }).id : undefined;
@@ -88,8 +88,9 @@ export default function MatchDetailPage() {
     { query: { enabled: !!awayTeamId && awayTeamId > 0 } }
   );
 
-  const homeForm = homeFormResponse as unknown as TeamFormResponse | undefined;
-  const awayForm = awayFormResponse as unknown as TeamFormResponse | undefined;
+  // Extract form data from responses - API returns { data: {...}, status: number }
+  const homeForm = homeFormResponse?.data as TeamFormResponse | undefined;
+  const awayForm = awayFormResponse?.data as TeamFormResponse | undefined;
 
   if (matchLoading) {
     return <LoadingState />;
@@ -133,7 +134,7 @@ export default function MatchDetailPage() {
                 <div>
                   <h3 className="font-semibold text-white text-sm sm:text-base">Erreur de chargement</h3>
                   <p className="text-xs sm:text-sm text-red-300">
-                    {predictionError instanceof Error ? predictionError.message : "Impossible de charger les predictions"}
+                    {(predictionError as Error)?.message || "Impossible de charger les predictions"}
                   </p>
                 </div>
               </div>
@@ -316,9 +317,10 @@ function PredictionSection({
   const drawProb = prediction?.probabilities?.draw ?? 0;
   const awayProb = prediction?.probabilities?.away_win ?? 0;
 
-  const recommendedBet = prediction?.recommended_bet ?? '';
-  const isHomeRecommended = recommendedBet === "home" || recommendedBet === "home_win";
-  const isAwayRecommended = recommendedBet === "away" || recommendedBet === "away_win";
+  const recommendedBet = prediction?.recommended_bet;
+  const recommendedBetStr = typeof recommendedBet === 'string' ? recommendedBet : '';
+  const isHomeRecommended = recommendedBetStr === "home_win";
+  const isAwayRecommended = recommendedBetStr === "away_win";
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -371,26 +373,6 @@ function PredictionSection({
           </div>
         </div>
 
-        {(typeof prediction?.expected_home_goals === 'number' || typeof prediction?.expected_away_goals === 'number') && (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4">
-              <p className="text-dark-400 text-xs sm:text-sm mb-1">Buts attendus (Domicile)</p>
-              <p className="text-2xl sm:text-3xl font-bold text-primary-400">
-                {typeof prediction?.expected_home_goals === 'number' && !isNaN(prediction.expected_home_goals)
-                  ? prediction.expected_home_goals.toFixed(2)
-                  : "-"}
-              </p>
-            </div>
-            <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4">
-              <p className="text-dark-400 text-xs sm:text-sm mb-1">Buts attendus (Exterieur)</p>
-              <p className="text-2xl sm:text-3xl font-bold text-accent-400">
-                {typeof prediction?.expected_away_goals === 'number' && !isNaN(prediction.expected_away_goals)
-                  ? prediction.expected_away_goals.toFixed(2)
-                  : "-"}
-              </p>
-            </div>
-          </div>
-        )}
 
         {prediction.explanation && (
           <div className="p-3 sm:p-4 bg-dark-700/50 rounded-lg border border-dark-600">
@@ -598,21 +580,21 @@ function HeadToHeadSection({
               const matchHomeTeam = getTeamName(match.home_team);
               const matchAwayTeam = getTeamName(match.away_team);
 
-              let scoreDisplay = "";
-              if (match.status === "finished" && match.home_score !== null && match.away_score !== null) {
-                scoreDisplay = `${match.home_score} - ${match.away_score}`;
-              } else if (match.match_date) {
+              const scoreDisplay = `${match.home_score} - ${match.away_score}`;
+              let dateDisplay = "";
+              if (match.date) {
                 try {
-                  scoreDisplay = format(parseISO(match.match_date), "dd MMM yyyy", { locale: fr });
+                  dateDisplay = format(parseISO(match.date), "dd MMM yyyy", { locale: fr });
                 } catch {
-                  scoreDisplay = "Date invalide";
+                  dateDisplay = "Date invalide";
                 }
               }
 
               return (
-                <div key={match.id} className="p-2 bg-dark-700/50 rounded text-xs space-y-1">
+                <div key={`h2h-${matchHomeTeam}-${matchAwayTeam}-${match.date}`} className="p-2 bg-dark-700/50 rounded text-xs space-y-1">
                   <p className="font-semibold text-dark-100">{matchHomeTeam} vs {matchAwayTeam}</p>
                   <p className="text-dark-400">{scoreDisplay}</p>
+                  <p className="text-dark-500 text-xs">{dateDisplay}</p>
                 </div>
               );
             })}

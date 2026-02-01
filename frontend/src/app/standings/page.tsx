@@ -22,8 +22,8 @@ export default function StandingsPage() {
     { query: { staleTime: 5 * 60 * 1000 } }
   );
 
-  // Extract standings from response - API returns the object directly
-  const standings = response as unknown as StandingsResponse | undefined;
+  // Extract standings from response - API returns { data: {...}, status: number }
+  const standings = response?.data as StandingsResponse | undefined;
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -67,7 +67,12 @@ export default function StandingsPage() {
           <div>
             <h3 className="font-semibold text-white mb-1">Erreur de chargement</h3>
             <p className="text-dark-400 text-sm">
-              {error instanceof Error ? error.message : "Impossible de charger les classements"}
+              {(() => {
+                const errorMsg = error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string'
+                  ? (error as any).message
+                  : "Impossible de charger les classements";
+                return errorMsg;
+              })()}
             </p>
           </div>
         </section>

@@ -13,9 +13,8 @@ export function DailyPicks() {
     { query: { staleTime: 5 * 60 * 1000 } }
   );
 
-  // Extract picks from response - API returns { picks: [...] } directly
-  const responseData = response as unknown as { picks?: DailyPick[] } | undefined;
-  const picks = responseData?.picks || [];
+  // Extract picks from response - API returns { data: { picks: [...] }, status: number }
+  const picks = (response?.data as { picks?: DailyPick[] } | undefined)?.picks || [];
 
   if (isLoading) {
     return (

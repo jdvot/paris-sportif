@@ -6,7 +6,11 @@
  * So we support both (url, options) and (config) formats
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// In browser: use relative URLs to leverage Next.js rewrites
+// On server: use full API URL for direct access
+const API_BASE_URL = typeof window !== 'undefined'
+  ? ''
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
 
 /**
  * Custom instance for Orval - handles fetch requests
@@ -68,11 +72,19 @@ export const customInstance = async <T>(
   // Handle empty responses
   const text = await response.text();
   if (!text) {
-    return {} as T;
+    return {
+      data: {},
+      status: response.status,
+    } as T;
   }
 
   try {
-    return JSON.parse(text);
+    const jsonData = JSON.parse(text);
+    // Wrap in Orval expected format
+    return {
+      data: jsonData,
+      status: response.status,
+    } as T;
   } catch {
     throw new Error(`Invalid JSON response from ${url}`);
   }

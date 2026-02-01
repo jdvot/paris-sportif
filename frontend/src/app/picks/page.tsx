@@ -33,9 +33,8 @@ export default function PicksPage() {
     { query: { staleTime: 0, retry: 2 } }
   );
 
-  // Extract picks from response - API returns { picks: [...] } directly
-  const responseData = response as unknown as { picks?: DailyPick[] } | undefined;
-  const picks = responseData?.picks || [];
+  // Extract picks from response - API returns { data: { picks: [...] }, status: number }
+  const picks = (response?.data as { picks?: DailyPick[] } | undefined)?.picks || [];
 
   const filteredPicks = picks.filter((pick) => {
     if (selectedCompetitions.length === 0) return true;
@@ -175,7 +174,12 @@ export default function PicksPage() {
             Erreur de chargement
           </h3>
           <p className="text-dark-400 mb-3 sm:mb-4 text-sm sm:text-base">
-            {error instanceof Error ? error.message : "Impossible de charger les picks."}
+            {(() => {
+              const errorMsg = error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string'
+                ? (error as any).message
+                : "Impossible de charger les picks.";
+              return errorMsg;
+            })()}
           </p>
           <button
             onClick={() => window.location.reload()}

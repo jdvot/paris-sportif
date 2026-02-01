@@ -103,6 +103,18 @@ async def enrich_match(
             match_date=parsed_date,
         )
 
+        # Extract nested contexts
+        home_ctx = enrichment.get("home_context", {})
+        away_ctx = enrichment.get("away_context", {})
+        match_ctx = enrichment.get("match_context", {})
+
+        # Convert sentiment string to float score
+        sentiment_map = {"positive": 0.8, "negative": 0.2, "neutral": 0.5}
+        home_sentiment_str = home_ctx.get("sentiment", "neutral")
+        home_sentiment_score = sentiment_map.get(home_sentiment_str, 0.5)
+        away_sentiment_str = away_ctx.get("sentiment", "neutral")
+        away_sentiment_score = sentiment_map.get(away_sentiment_str, 0.5)
+
         # Build response
         return MatchContext(
             home_team=home_team,
@@ -111,21 +123,21 @@ async def enrich_match(
             match_date=parsed_date,
             home_context=TeamContext(
                 team_name=home_team,
-                recent_news=enrichment.get("home_news", []),
-                injuries=enrichment.get("home_injuries", []),
-                sentiment_score=enrichment.get("home_sentiment", 0.0),
-                sentiment_label=_get_sentiment_label(enrichment.get("home_sentiment", 0.0)),
+                recent_news=home_ctx.get("news", []),
+                injuries=home_ctx.get("injuries", []),
+                sentiment_score=home_sentiment_score,
+                sentiment_label=home_sentiment_str,
             ),
             away_context=TeamContext(
                 team_name=away_team,
-                recent_news=enrichment.get("away_news", []),
-                injuries=enrichment.get("away_injuries", []),
-                sentiment_score=enrichment.get("away_sentiment", 0.0),
-                sentiment_label=_get_sentiment_label(enrichment.get("away_sentiment", 0.0)),
+                recent_news=away_ctx.get("news", []),
+                injuries=away_ctx.get("injuries", []),
+                sentiment_score=away_sentiment_score,
+                sentiment_label=away_sentiment_str,
             ),
-            is_derby=enrichment.get("is_derby", False),
-            match_importance=enrichment.get("importance", "normal"),
-            combined_analysis=enrichment.get("analysis"),
+            is_derby=match_ctx.get("is_derby", False),
+            match_importance=match_ctx.get("importance", "normal"),
+            combined_analysis=None,  # Not generated in base enrichment
             enriched_at=datetime.now(),
             sources_used=["groq_llm", "public_data"],
         )
@@ -139,10 +151,16 @@ async def enrich_match(
 
 
 def _get_sentiment_label(score: float) -> str:
-    """Convert sentiment score to label."""
-    if score >= 0.3:
+    """
+    Convert sentiment score to label.
+
+    Note: This function is kept for backward compatibility but is no longer
+    used in the main enrich endpoint, which now receives sentiment as a string
+    from the RAG enrichment service.
+    """
+    if score >= 0.6:
         return "positive"
-    elif score <= -0.3:
+    elif score <= 0.4:
         return "negative"
     return "neutral"
 
