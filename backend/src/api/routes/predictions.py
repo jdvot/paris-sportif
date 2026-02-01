@@ -217,7 +217,7 @@ def _get_groq_prediction(
         )
 
         message = client.chat.completions.create(
-            model="mixtral-8x7b-32768",
+            model="llama-3.3-70b-versatile",  # Updated from deprecated mixtral-8x7b-32768
             max_tokens=1000,
             messages=[
                 {
