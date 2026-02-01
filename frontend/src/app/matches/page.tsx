@@ -39,7 +39,7 @@ const competitionLabels: Record<string, string> = {
 type DateRange = "today" | "tomorrow" | "week" | "custom";
 
 export default function MatchesPage() {
-  const [dateRange, setDateRange] = useState<DateRange>("week");
+  const [dateRange, setDateRange] = useState<DateRange>("today");
   const [selectedCompetitions, setSelectedCompetitions] = useState<string[]>([]);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
