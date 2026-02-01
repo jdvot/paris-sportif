@@ -328,13 +328,20 @@ async def get_daily_picks(
         target_date_str = query_date or datetime.now().strftime("%Y-%m-%d")
         target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
 
-        # Fetch matches for that date from real API
+        # Fetch matches for that date from real API (no status filter to get SCHEDULED and TIMED)
         client = get_football_data_client()
         api_matches = await client.get_matches(
             date_from=target_date,
             date_to=target_date,
-            status="SCHEDULED",
         )
+
+        # Filter to only include matches that haven't started yet
+        now = datetime.now()
+        api_matches = [
+            m for m in api_matches
+            if m.status in ("SCHEDULED", "TIMED") and
+            datetime.fromisoformat(m.utcDate.replace("Z", "+00:00")).replace(tzinfo=None) > now
+        ]
 
         if not api_matches:
             return DailyPicksResponse(
@@ -390,73 +397,15 @@ async def get_prediction_stats(
     days: int = Query(30, ge=7, le=365, description="Number of days to analyze"),
 ) -> PredictionStatsResponse:
     """Get historical prediction performance statistics."""
-    # Note: Real stats would come from database tracking
-    # For now, generate realistic mock statistics
-    random.seed(days)  # Consistent results for same query
-
-    total_predictions = random.randint(150, 250)
-    correct_predictions = int(total_predictions * random.uniform(0.52, 0.62))
-    accuracy = round(correct_predictions / total_predictions, 4)
-    roi_simulated = round(random.uniform(0.08, 0.25), 4)
-
-    by_competition = {
-        "PL": {
-            "total": random.randint(25, 40),
-            "correct": random.randint(15, 28),
-            "accuracy": round(random.uniform(0.52, 0.65), 4),
-        },
-        "PD": {
-            "total": random.randint(20, 35),
-            "correct": random.randint(12, 24),
-            "accuracy": round(random.uniform(0.50, 0.62), 4),
-        },
-        "BL1": {
-            "total": random.randint(15, 30),
-            "correct": random.randint(9, 20),
-            "accuracy": round(random.uniform(0.48, 0.60), 4),
-        },
-        "SA": {
-            "total": random.randint(15, 30),
-            "correct": random.randint(9, 20),
-            "accuracy": round(random.uniform(0.50, 0.62), 4),
-        },
-        "FL1": {
-            "total": random.randint(15, 30),
-            "correct": random.randint(8, 20),
-            "accuracy": round(random.uniform(0.48, 0.60), 4),
-        },
-    }
-
-    by_bet_type = {
-        "home_win": {
-            "total": random.randint(50, 80),
-            "correct": random.randint(28, 50),
-            "accuracy": round(random.uniform(0.52, 0.65), 4),
-            "avg_value": round(random.uniform(0.08, 0.15), 4),
-        },
-        "draw": {
-            "total": random.randint(30, 60),
-            "correct": random.randint(14, 36),
-            "accuracy": round(random.uniform(0.45, 0.58), 4),
-            "avg_value": round(random.uniform(0.06, 0.12), 4),
-        },
-        "away_win": {
-            "total": random.randint(40, 70),
-            "correct": random.randint(22, 42),
-            "accuracy": round(random.uniform(0.50, 0.62), 4),
-            "avg_value": round(random.uniform(0.08, 0.16), 4),
-        },
-    }
-
-    random.seed()  # Reset seed
-
+    # No historical data available yet - return zeros to indicate no data
+    # Real stats would come from database tracking actual prediction outcomes
     return PredictionStatsResponse(
-        total_predictions=total_predictions,
-        correct_predictions=correct_predictions,
-        accuracy=accuracy,
-        roi_simulated=roi_simulated,
-        by_competition=by_competition,
-        by_bet_type=by_bet_type,
+        total_predictions=0,
+        correct_predictions=0,
+        accuracy=0.0,
+        roi_simulated=0.0,
+        by_competition={},
+        by_bet_type={},
         last_updated=datetime.now(),
     )
 
