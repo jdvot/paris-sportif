@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
+import { PredictionCharts } from "@/components/PredictionCharts";
 
 export default function MatchDetailPage() {
   const params = useParams();
@@ -329,89 +330,95 @@ function PredictionSection({
   const isAwayRecommended = recommendedBet === "away" || recommendedBet === "away_win";
 
   return (
-    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-        <h2 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2">
-          <Target className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 flex-shrink-0" />
-          Prediction
-        </h2>
-        <div className={cn("text-right", confidenceColor)}>
-          <p className="font-bold text-base sm:text-lg">
-            {Math.round(confidence * 100)}%
-          </p>
-          <p className="text-xs text-dark-300">Confiance</p>
-        </div>
-      </div>
-
-      {/* Probabilities */}
-      <div className="space-y-3 sm:space-y-4">
-        <ProbabilityBar
-          label="Victoire Domicile"
-          probability={homeProb}
-          isRecommended={isHomeRecommended}
-          color="primary"
-        />
-        <ProbabilityBar
-          label="Match Nul"
-          probability={drawProb}
-          isRecommended={prediction.recommendedBet === "draw"}
-          color="yellow"
-        />
-        <ProbabilityBar
-          label="Victoire Exterieur"
-          probability={awayProb}
-          isRecommended={isAwayRecommended}
-          color="accent"
-        />
-      </div>
-
-      {/* Recommended Bet */}
-      <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 bg-primary-500/10 border border-primary-500/30 rounded-lg">
-        <CheckCircle className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 flex-shrink-0 mt-0.5 sm:mt-0" />
-        <div className="min-w-0">
-          <p className="text-primary-400 font-bold text-sm sm:text-base">
-            {typeof prediction?.recommendedBet === 'string' && betLabels[prediction.recommendedBet]
-              ? betLabels[prediction.recommendedBet]
-              : "Prédiction indisponible"}
-          </p>
-          <p className="text-xs sm:text-sm text-primary-300">
-            Cote Value: +{typeof prediction?.valueScore === 'number' && !isNaN(prediction.valueScore)
-              ? Math.round(prediction.valueScore * 100)
-              : 0}%
-          </p>
-        </div>
-      </div>
-
-      {/* Expected Goals */}
-      {(typeof prediction?.expectedHomeGoals === 'number' || typeof prediction?.expectedAwayGoals === 'number') && (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4">
-          <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4">
-            <p className="text-dark-400 text-xs sm:text-sm mb-1">Buts attendus (Domicile)</p>
-            <p className="text-2xl sm:text-3xl font-bold text-primary-400">
-              {typeof prediction?.expectedHomeGoals === 'number' && !isNaN(prediction.expectedHomeGoals)
-                ? prediction.expectedHomeGoals.toFixed(2)
-                : "-"}
+    <div className="space-y-4 sm:space-y-6">
+      {/* Main Prediction Section */}
+      <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+          <h2 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2">
+            <Target className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 flex-shrink-0" />
+            Prediction
+          </h2>
+          <div className={cn("text-right", confidenceColor)}>
+            <p className="font-bold text-base sm:text-lg">
+              {Math.round(confidence * 100)}%
             </p>
+            <p className="text-xs text-dark-300">Confiance</p>
           </div>
-          <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4">
-            <p className="text-dark-400 text-xs sm:text-sm mb-1">Buts attendus (Exterieur)</p>
-            <p className="text-2xl sm:text-3xl font-bold text-accent-400">
-              {typeof prediction?.expectedAwayGoals === 'number' && !isNaN(prediction.expectedAwayGoals)
-                ? prediction.expectedAwayGoals.toFixed(2)
-                : "-"}
+        </div>
+
+        {/* Probabilities */}
+        <div className="space-y-3 sm:space-y-4">
+          <ProbabilityBar
+            label="Victoire Domicile"
+            probability={homeProb}
+            isRecommended={isHomeRecommended}
+            color="primary"
+          />
+          <ProbabilityBar
+            label="Match Nul"
+            probability={drawProb}
+            isRecommended={prediction.recommendedBet === "draw"}
+            color="yellow"
+          />
+          <ProbabilityBar
+            label="Victoire Exterieur"
+            probability={awayProb}
+            isRecommended={isAwayRecommended}
+            color="accent"
+          />
+        </div>
+
+        {/* Recommended Bet */}
+        <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 bg-primary-500/10 border border-primary-500/30 rounded-lg">
+          <CheckCircle className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 flex-shrink-0 mt-0.5 sm:mt-0" />
+          <div className="min-w-0">
+            <p className="text-primary-400 font-bold text-sm sm:text-base">
+              {typeof prediction?.recommendedBet === 'string' && betLabels[prediction.recommendedBet]
+                ? betLabels[prediction.recommendedBet]
+                : "Prédiction indisponible"}
+            </p>
+            <p className="text-xs sm:text-sm text-primary-300">
+              Cote Value: +{typeof prediction?.valueScore === 'number' && !isNaN(prediction.valueScore)
+                ? Math.round(prediction.valueScore * 100)
+                : 0}%
             </p>
           </div>
         </div>
-      )}
 
-      {/* Explanation */}
-      {prediction.explanation && (
-        <div className="p-3 sm:p-4 bg-dark-700/50 rounded-lg border border-dark-600">
-          <p className="text-dark-300 text-sm leading-relaxed">
-            {prediction.explanation}
-          </p>
-        </div>
-      )}
+        {/* Expected Goals */}
+        {(typeof prediction?.expectedHomeGoals === 'number' || typeof prediction?.expectedAwayGoals === 'number') && (
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4">
+              <p className="text-dark-400 text-xs sm:text-sm mb-1">Buts attendus (Domicile)</p>
+              <p className="text-2xl sm:text-3xl font-bold text-primary-400">
+                {typeof prediction?.expectedHomeGoals === 'number' && !isNaN(prediction.expectedHomeGoals)
+                  ? prediction.expectedHomeGoals.toFixed(2)
+                  : "-"}
+              </p>
+            </div>
+            <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4">
+              <p className="text-dark-400 text-xs sm:text-sm mb-1">Buts attendus (Exterieur)</p>
+              <p className="text-2xl sm:text-3xl font-bold text-accent-400">
+                {typeof prediction?.expectedAwayGoals === 'number' && !isNaN(prediction.expectedAwayGoals)
+                  ? prediction.expectedAwayGoals.toFixed(2)
+                  : "-"}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Explanation */}
+        {prediction.explanation && (
+          <div className="p-3 sm:p-4 bg-dark-700/50 rounded-lg border border-dark-600">
+            <p className="text-dark-300 text-sm leading-relaxed">
+              {prediction.explanation}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Interactive Charts */}
+      <PredictionCharts prediction={prediction} />
     </div>
   );
 }

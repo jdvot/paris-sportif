@@ -138,3 +138,25 @@ export interface Competition {
   country?: string;
   emblemUrl?: string;
 }
+
+export interface StandingTeam {
+  position: number;
+  team_id: number;
+  team_name: string;
+  team_logo_url?: string | null;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goals_for: number;
+  goals_against: number;
+  goal_difference: number;
+  points: number;
+}
+
+export interface Standings {
+  competition_code: string;
+  competition_name: string;
+  standings: StandingTeam[];
+  last_updated?: string;
+}

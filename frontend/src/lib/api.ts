@@ -10,6 +10,8 @@ import type {
   PredictionStats,
   TeamForm,
   ModelContribution,
+  Standings,
+  StandingTeam,
 } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -408,4 +410,41 @@ export async function fetchPredictionStats(days: number = 30): Promise<Predictio
  */
 export async function healthCheck(): Promise<{ status: string; version: string }> {
   return fetchApi("/health");
+}
+
+/**
+ * Transform API standings response (snake_case) to frontend format (camelCase)
+ */
+function transformStandings(apiStandings: Record<string, unknown>): Standings {
+  const standings = Array.isArray(apiStandings.standings)
+    ? (apiStandings.standings as Record<string, unknown>[]).map((team) => ({
+        position: (team.position as number) ?? 0,
+        team_id: (team.team_id ?? team.teamId) as number,
+        team_name: (team.team_name ?? team.teamName) as string,
+        team_logo_url: (team.team_logo_url ?? team.teamLogoUrl) as string | null | undefined,
+        played: (team.played ?? team.playedGames) as number,
+        won: team.won as number,
+        drawn: (team.drawn ?? team.draw) as number,
+        lost: team.lost as number,
+        goals_for: (team.goals_for ?? team.goalsFor) as number,
+        goals_against: (team.goals_against ?? team.goalsAgainst) as number,
+        goal_difference: (team.goal_difference ?? team.goalDifference) as number,
+        points: team.points as number,
+      }))
+    : [];
+
+  return {
+    competition_code: (apiStandings.competition_code ?? apiStandings.competitionCode) as string,
+    competition_name: (apiStandings.competition_name ?? apiStandings.competitionName) as string,
+    standings,
+    last_updated: (apiStandings.last_updated ?? apiStandings.lastUpdated) as string | undefined,
+  };
+}
+
+/**
+ * Fetch league standings
+ */
+export async function fetchStandings(competitionCode: string): Promise<Standings> {
+  const rawStandings = await fetchApi<Record<string, unknown>>(`/api/v1/standings/${competitionCode}`);
+  return transformStandings(rawStandings);
 }

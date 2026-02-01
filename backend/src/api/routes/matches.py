@@ -119,6 +119,32 @@ class TeamFormResponse(BaseModel):
     xg_against_avg: float | None = None
 
 
+class StandingTeamResponse(BaseModel):
+    """Team standing in league table."""
+
+    position: int
+    team_id: int
+    team_name: str
+    team_logo_url: str | None = None
+    played: int
+    won: int
+    drawn: int
+    lost: int
+    goals_for: int
+    goals_against: int
+    goal_difference: int
+    points: int
+
+
+class StandingsResponse(BaseModel):
+    """League standings response."""
+
+    competition_code: str
+    competition_name: str
+    standings: list[StandingTeamResponse]
+    last_updated: datetime | None = None
+
+
 class HeadToHeadMatch(BaseModel):
     """A match in head-to-head history."""
 
@@ -501,4 +527,87 @@ async def get_team_form(
             goals_scored_avg=1.8,
             goals_conceded_avg=0.8,
             clean_sheets=2,
+        )
+
+
+@router.get("/standings/{competition_code}", response_model=StandingsResponse)
+async def get_standings(
+    competition_code: str,
+) -> StandingsResponse:
+    """
+    Get current league standings for a competition.
+
+    Competition codes:
+    - PL: Premier League
+    - PD: La Liga
+    - BL1: Bundesliga
+    - SA: Serie A
+    - FL1: Ligue 1
+    """
+    try:
+        # Validate competition code
+        if competition_code not in COMPETITIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid competition code: {competition_code}. Must be one of: {', '.join(COMPETITIONS.keys())}"
+            )
+
+        # Fetch standings from API
+        client = get_football_data_client()
+        api_standings = await client.get_standings(competition_code)
+
+        # Convert to our format
+        standings = []
+        for api_team in api_standings:
+            standings.append(StandingTeamResponse(
+                position=api_team.position,
+                team_id=api_team.team.id,
+                team_name=api_team.team.name,
+                team_logo_url=api_team.team.crest,
+                played=api_team.playedGames,
+                won=api_team.won,
+                drawn=api_team.draw,
+                lost=api_team.lost,
+                goals_for=api_team.goalsFor,
+                goals_against=api_team.goalsAgainst,
+                goal_difference=api_team.goalDifference,
+                points=api_team.points,
+            ))
+
+        return StandingsResponse(
+            competition_code=competition_code,
+            competition_name=COMPETITIONS.get(competition_code, competition_code),
+            standings=standings,
+            last_updated=datetime.now(),
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except (RateLimitError, FootballDataAPIError, Exception) as e:
+        logger.warning(f"API error for standings {competition_code}: {e}, using mock data")
+        # Return mock standings data
+        mock_standings = [
+            StandingTeamResponse(
+                position=i + 1,
+                team_id=1000 + i,
+                team_name=f"Team {i + 1}",
+                team_logo_url=None,
+                played=30,
+                won=20 - i,
+                drawn=6 - (i % 3),
+                lost=4 + i,
+                goals_for=70 - (i * 2),
+                goals_against=30 + (i * 2),
+                goal_difference=40 - (i * 4),
+                points=66 - (i * 3),
+            )
+            for i in range(20)
+        ]
+
+        return StandingsResponse(
+            competition_code=competition_code,
+            competition_name=COMPETITIONS.get(competition_code, competition_code),
+            standings=mock_standings,
+            last_updated=datetime.now(),
         )
