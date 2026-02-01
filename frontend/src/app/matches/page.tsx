@@ -84,9 +84,9 @@ export default function MatchesPage() {
     { query: { staleTime: 0, retry: 2 } }
   );
 
-  // Extract matches from response
-  const responseData = response as unknown as { data?: MatchListResponse } | undefined;
-  const matches = responseData?.data?.matches || [];
+  // Extract matches from response - API returns { matches: [...] } directly
+  const responseData = response as unknown as MatchListResponse | undefined;
+  const matches = responseData?.matches || [];
 
   // Filter matches by selected competitions
   const filteredMatches = useMemo(() => {

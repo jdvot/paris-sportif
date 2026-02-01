@@ -33,9 +33,9 @@ export default function PicksPage() {
     { query: { staleTime: 0, retry: 2 } }
   );
 
-  // Extract picks from response
-  const responseData = response as unknown as { data?: { picks?: DailyPick[] }; picks?: DailyPick[] } | undefined;
-  const picks = responseData?.data?.picks || responseData?.picks || [];
+  // Extract picks from response - API returns { picks: [...] } directly
+  const responseData = response as unknown as { picks?: DailyPick[] } | undefined;
+  const picks = responseData?.picks || [];
 
   const filteredPicks = picks.filter((pick) => {
     if (selectedCompetitions.length === 0) return true;

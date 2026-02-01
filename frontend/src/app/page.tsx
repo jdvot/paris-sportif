@@ -12,8 +12,8 @@ export default function Home() {
     { query: { staleTime: 5 * 60 * 1000 } }
   );
 
-  // Extract stats data from response
-  const stats = (statsResponse as { data?: { total_predictions?: number; accuracy?: number; by_competition?: Record<string, unknown> } })?.data || statsResponse;
+  // Extract stats data from response - API returns the object directly
+  const stats = statsResponse as { total_predictions?: number; accuracy?: number; by_competition?: Record<string, unknown> } | undefined;
 
   // Check if stats have actual data (total_predictions > 0 indicates real data)
   const hasData = stats && (stats as { total_predictions?: number }).total_predictions && (stats as { total_predictions: number }).total_predictions > 0;

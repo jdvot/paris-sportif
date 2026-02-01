@@ -67,14 +67,14 @@ export default function MatchDetailPage() {
     { query: { enabled: !!matchId && matchId > 0 } }
   );
 
-  // Extract data from responses
-  const match = (matchResponse as unknown as { data?: Match })?.data;
-  const prediction = (predictionResponse as unknown as { data?: PredictionResponse })?.data;
-  const headToHead = (h2hResponse as unknown as { data?: HeadToHeadResponse })?.data;
+  // Extract data from responses - API returns objects directly
+  const match = matchResponse as unknown as Match | undefined;
+  const prediction = predictionResponse as unknown as PredictionResponse | undefined;
+  const headToHead = h2hResponse as unknown as HeadToHeadResponse | undefined;
 
-  // Fetch form for both teams - use real team IDs from API
-  const homeTeamId = (match as unknown as { home_team_id?: number })?.home_team_id;
-  const awayTeamId = (match as unknown as { away_team_id?: number })?.away_team_id;
+  // Fetch form for both teams - extract IDs from home_team/away_team objects
+  const homeTeamId = typeof match?.home_team === 'object' ? (match.home_team as { id?: number }).id : undefined;
+  const awayTeamId = typeof match?.away_team === 'object' ? (match.away_team as { id?: number }).id : undefined;
 
   const { data: homeFormResponse } = useGetTeamForm(
     homeTeamId!,
@@ -88,8 +88,8 @@ export default function MatchDetailPage() {
     { query: { enabled: !!awayTeamId && awayTeamId > 0 } }
   );
 
-  const homeForm = (homeFormResponse as unknown as { data?: TeamFormResponse })?.data;
-  const awayForm = (awayFormResponse as unknown as { data?: TeamFormResponse })?.data;
+  const homeForm = homeFormResponse as unknown as TeamFormResponse | undefined;
+  const awayForm = awayFormResponse as unknown as TeamFormResponse | undefined;
 
   if (matchLoading) {
     return <LoadingState />;

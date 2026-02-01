@@ -22,8 +22,8 @@ export default function StandingsPage() {
     { query: { staleTime: 5 * 60 * 1000 } }
   );
 
-  // Extract standings from response
-  const standings = (response as unknown as { data?: StandingsResponse })?.data;
+  // Extract standings from response - API returns the object directly
+  const standings = response as unknown as StandingsResponse | undefined;
 
   return (
     <div className="space-y-6 sm:space-y-8">
