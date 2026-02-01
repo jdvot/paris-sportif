@@ -240,16 +240,7 @@ export function PerformanceHistory() {
                   return value;
                 }}
               />
-              {/* @ts-ignore */}
-              <Legend
-                wrapperStyle={{ paddingTop: "20px" }}
-                contentStyle={{
-                  color: "#e2e8f0",
-                  backgroundColor: "#1e293b",
-                  border: "1px solid #334155",
-                  borderRadius: "6px",
-                }}
-              />
+              <Legend wrapperStyle={{ paddingTop: "20px" }} />
               <Bar dataKey="predictions" fill="#4ade80" name="Predictions" radius={[8, 8, 0, 0] as any}>
                 {competitionData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

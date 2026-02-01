@@ -164,15 +164,7 @@ export function PerformanceStats() {
                   return value;
                 }}
               />
-              <Legend
-                wrapperStyle={{ paddingTop: "20px" }}
-                contentStyle={{
-                  color: "#e2e8f0",
-                  backgroundColor: "#1e293b",
-                  border: "1px solid #334155",
-                  borderRadius: "6px",
-                }}
-              />
+              <Legend wrapperStyle={{ paddingTop: "20px" }} />
               <Bar yAxisId="left" dataKey="total" fill="#4ade80" name="Predictions" radius={[8, 8, 0, 0] as any} />
               <Bar yAxisId="right" dataKey="accuracy" fill="#60a5fa" name="Precision (%)" radius={[8, 8, 0, 0] as any} />
             </BarChart>

@@ -177,14 +177,7 @@ function ModelComparisonChart({ prediction }: PredictionChartsProps) {
             }}
             formatter={(value) => `${value}%`}
           />
-          <Legend
-            wrapperStyle={{ color: COLORS.textSecondary }}
-            contentStyle={{
-              backgroundColor: COLORS.background,
-              border: `1px solid ${COLORS.dark700}`,
-              borderRadius: "8px",
-            }}
-          />
+          <Legend wrapperStyle={{ color: COLORS.textSecondary }} />
           <Bar dataKey="Domicile" fill={COLORS.primary} />
           <Bar dataKey="Nul" fill={COLORS.yellow} />
           <Bar dataKey="Extérieur" fill={COLORS.accent} />
@@ -426,7 +419,7 @@ function ExpectedGoalsChart({ prediction }: PredictionChartsProps) {
               borderRadius: "8px",
               color: COLORS.text,
             }}
-            formatter={(value) => value.toFixed(2)}
+            formatter={(value) => typeof value === 'number' ? value.toFixed(2) : value}
           />
           <Legend wrapperStyle={{ color: COLORS.textSecondary }} />
           <Bar dataKey="Domicile" fill={COLORS.primary} radius={[0, 8, 8, 0]} />

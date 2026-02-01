@@ -174,7 +174,10 @@ export function OddsComparison({
       {/* Content */}
       <div className="p-4 sm:p-6">
         {activeTab === "comparison" && (
-          <OddsComparisonTab oddsData={oddsDataWithValues} onOddsChange={setSelectedBookmakerOdds} />
+          <OddsComparisonTab
+            oddsData={oddsDataWithValues}
+            onOddsChange={(outcome, value) => setSelectedBookmakerOdds(prev => ({ ...prev, [outcome]: value }))}
+          />
         )}
         {activeTab === "roi" && (
           <ROITab
@@ -205,7 +208,7 @@ function OddsComparisonTab({
   onOddsChange,
 }: {
   oddsData: OddsData[];
-  onOddsChange: (odds: Record<string, number>) => void;
+  onOddsChange: (outcome: string, value: number) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -213,7 +216,7 @@ function OddsComparisonTab({
         <OddsComparisonCard
           key={data.outcome}
           data={data}
-          onOddsChange={(value) => onOddsChange((prev) => ({ ...prev, [data.outcome]: value }))}
+          onOddsChange={(value) => onOddsChange(data.outcome, value)}
         />
       ))}
 
@@ -248,14 +251,14 @@ function OddsComparisonCard({
   data: OddsData;
   onOddsChange: (value: number) => void;
 }) {
-  const colorMap = {
+  const colorMap: Record<string, "primary" | "yellow" | "accent"> = {
     home: "primary",
     draw: "yellow",
     away: "accent",
   };
 
-  const color = colorMap[data.outcome as keyof typeof colorMap];
-  const colorClasses = {
+  const color = colorMap[data.outcome] || "primary";
+  const colorClasses: Record<"primary" | "yellow" | "accent", { bg: string; border: string; text: string; barBg: string }> = {
     primary: {
       bg: "bg-primary-500/10",
       border: "border-primary-500/30",
