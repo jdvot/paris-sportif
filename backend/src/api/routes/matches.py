@@ -1,4 +1,4 @@
-"""Match endpoints - Real data from football-data.org API with mock fallback."""
+"""Match endpoints - Real data from football-data.org API with DB and mock fallback."""
 
 from datetime import date, datetime, timedelta
 from typing import Literal
@@ -8,6 +8,7 @@ from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
 
 from src.data.sources.football_data import get_football_data_client, MatchData, COMPETITIONS
+from src.data.database import get_matches_from_db, get_standings_from_db
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 
 router = APIRouter()
@@ -281,29 +282,38 @@ async def get_matches(
             per_page=per_page,
         )
 
-    except RateLimitError as e:
-        logger.warning(f"Rate limit exceeded: {e}")
-        # Fallback to mock data
-        matches = _generate_mock_matches()
-        return MatchListResponse(
-            matches=matches[:per_page],
-            total=len(matches),
-            page=page,
-            per_page=per_page,
-        )
-    except FootballDataAPIError as e:
-        logger.warning(f"Football API error: {e}, using mock data")
-        # Fallback to mock data
-        matches = _generate_mock_matches()
-        return MatchListResponse(
-            matches=matches[:per_page],
-            total=len(matches),
-            page=page,
-            per_page=per_page,
-        )
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}, using mock data")
-        # Fallback to mock data
+    except (RateLimitError, FootballDataAPIError, Exception) as e:
+        logger.warning(f"API error: {e}, trying database fallback...")
+
+        # Try database first
+        try:
+            db_matches = get_matches_from_db(
+                date_from=date_from,
+                date_to=date_to,
+                competition=competition,
+            )
+
+            if db_matches:
+                logger.info(f"Found {len(db_matches)} matches in database")
+                matches = [_convert_api_match(MatchData(**m)) for m in db_matches]
+                matches = sorted(matches, key=lambda m: m.match_date)
+
+                total = len(matches)
+                start_idx = (page - 1) * per_page
+                end_idx = start_idx + per_page
+                paginated_matches = matches[start_idx:end_idx]
+
+                return MatchListResponse(
+                    matches=paginated_matches,
+                    total=total,
+                    page=page,
+                    per_page=per_page,
+                )
+        except Exception as db_error:
+            logger.warning(f"Database fallback failed: {db_error}")
+
+        # Final fallback to mock data
+        logger.warning("Using mock data as final fallback")
         matches = _generate_mock_matches()
         return MatchListResponse(
             matches=matches[:per_page],
@@ -585,8 +595,44 @@ async def get_standings(
         # Re-raise HTTP exceptions
         raise
     except (RateLimitError, FootballDataAPIError, Exception) as e:
-        logger.warning(f"API error for standings {competition_code}: {e}, using mock data")
-        # Return mock standings data
+        logger.warning(f"API error for standings {competition_code}: {e}, trying database...")
+
+        # Try database first
+        try:
+            from src.data.sources.football_data import StandingTeam
+
+            db_standings = get_standings_from_db(competition_code)
+            if db_standings:
+                logger.info(f"Found {len(db_standings)} standings in database for {competition_code}")
+                standings = []
+                for api_team in db_standings:
+                    team_data = api_team.get("team", {})
+                    standings.append(StandingTeamResponse(
+                        position=api_team.get("position", 0),
+                        team_id=team_data.get("id", 0),
+                        team_name=team_data.get("name", "Unknown"),
+                        team_logo_url=team_data.get("crest"),
+                        played=api_team.get("playedGames", 0),
+                        won=api_team.get("won", 0),
+                        drawn=api_team.get("draw", 0),
+                        lost=api_team.get("lost", 0),
+                        goals_for=api_team.get("goalsFor", 0),
+                        goals_against=api_team.get("goalsAgainst", 0),
+                        goal_difference=api_team.get("goalDifference", 0),
+                        points=api_team.get("points", 0),
+                    ))
+
+                return StandingsResponse(
+                    competition_code=competition_code,
+                    competition_name=COMPETITIONS.get(competition_code, competition_code),
+                    standings=standings,
+                    last_updated=datetime.now(),
+                )
+        except Exception as db_error:
+            logger.warning(f"Database fallback failed for standings: {db_error}")
+
+        # Final fallback to mock data
+        logger.warning(f"Using mock data for standings {competition_code}")
         mock_standings = [
             StandingTeamResponse(
                 position=i + 1,

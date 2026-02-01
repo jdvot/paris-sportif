@@ -2,10 +2,14 @@
 
 Free tier: 10 requests/minute
 Documentation: https://www.football-data.org/documentation/api
+
+INCLUDES CACHING to avoid rate limits.
 """
 
 import logging
-from datetime import date, datetime
+import hashlib
+import json
+from datetime import date, datetime, timedelta
 from typing import Any, Literal
 
 import httpx
@@ -16,6 +20,56 @@ from src.core.config import settings
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 
 logger = logging.getLogger(__name__)
+
+
+# ============== CACHE SYSTEM ==============
+class SimpleCache:
+    """Simple in-memory cache with TTL."""
+
+    def __init__(self):
+        self._cache: dict[str, tuple[Any, datetime]] = {}
+
+    def _make_key(self, endpoint: str, params: dict | None) -> str:
+        """Create a unique cache key."""
+        param_str = json.dumps(params or {}, sort_keys=True)
+        key = f"{endpoint}:{param_str}"
+        return hashlib.md5(key.encode()).hexdigest()
+
+    def get(self, endpoint: str, params: dict | None = None) -> Any | None:
+        """Get cached value if not expired."""
+        key = self._make_key(endpoint, params)
+        if key in self._cache:
+            value, expires_at = self._cache[key]
+            if datetime.now() < expires_at:
+                logger.info(f"Cache HIT for {endpoint}")
+                return value
+            else:
+                # Expired, remove it
+                del self._cache[key]
+                logger.info(f"Cache EXPIRED for {endpoint}")
+        return None
+
+    def set(self, endpoint: str, params: dict | None, value: Any, ttl_seconds: int):
+        """Cache a value with TTL."""
+        key = self._make_key(endpoint, params)
+        expires_at = datetime.now() + timedelta(seconds=ttl_seconds)
+        self._cache[key] = (value, expires_at)
+        logger.info(f"Cache SET for {endpoint} (TTL: {ttl_seconds}s)")
+
+    def clear(self):
+        """Clear all cached data."""
+        self._cache.clear()
+        logger.info("Cache CLEARED")
+
+
+# Global cache instance
+_cache = SimpleCache()
+
+# Cache TTLs (in seconds)
+CACHE_TTL_MATCHES = 300      # 5 minutes for matches
+CACHE_TTL_STANDINGS = 600    # 10 minutes for standings
+CACHE_TTL_H2H = 1800         # 30 minutes for head-to-head
+CACHE_TTL_TEAM = 900         # 15 minutes for team info
 
 
 class TeamData(BaseModel):
@@ -165,7 +219,7 @@ class FootballDataClient:
         matchday: int | None = None,
     ) -> list[MatchData]:
         """
-        Get matches with optional filters.
+        Get matches with optional filters. USES CACHE.
 
         Args:
             competition: Competition code (PL, PD, BL1, SA, FL1, CL, EL)
@@ -194,8 +248,17 @@ class FootballDataClient:
                 # Filter to our supported competitions
                 params["competitions"] = ",".join(COMPETITIONS.keys())
 
+        # Check cache first
+        cached = _cache.get(endpoint, params)
+        if cached is not None:
+            return [MatchData(**m) for m in cached]
+
+        # Fetch from API
         data = await self._request("GET", endpoint, params)
         matches = data.get("matches", [])
+
+        # Cache the raw data
+        _cache.set(endpoint, params, matches, CACHE_TTL_MATCHES)
 
         return [MatchData(**m) for m in matches]
 
@@ -226,8 +289,25 @@ class FootballDataClient:
         return [MatchData(**m) for m in matches]
 
     async def get_standings(self, competition: str) -> list[StandingTeam]:
-        """Get current standings for a competition."""
-        data = await self._request("GET", f"/competitions/{competition}/standings")
+        """Get current standings for a competition. USES CACHE."""
+        endpoint = f"/competitions/{competition}/standings"
+
+        # Check cache first
+        cached = _cache.get(endpoint, None)
+        if cached is not None:
+            standings = []
+            for standing_group in cached:
+                if standing_group.get("type") == "TOTAL":
+                    for team_standing in standing_group.get("table", []):
+                        standings.append(StandingTeam(**team_standing))
+                    break
+            return standings
+
+        # Fetch from API
+        data = await self._request("GET", endpoint)
+
+        # Cache the raw standings data
+        _cache.set(endpoint, None, data.get("standings", []), CACHE_TTL_STANDINGS)
 
         standings = []
         for standing_group in data.get("standings", []):

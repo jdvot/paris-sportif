@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.api.routes import matches, predictions, health, debug, ml
+from src.api.routes import matches, predictions, health, debug, ml, sync
 from src.core.config import settings
 from src.core.exceptions import ParisportifError
 
@@ -100,6 +100,11 @@ app.include_router(
     ml.router,
     prefix=f"{settings.api_v1_prefix}/ml",
     tags=["Machine Learning"],
+)
+app.include_router(
+    sync.router,
+    prefix=f"{settings.api_v1_prefix}/sync",
+    tags=["Data Sync"],
 )
 
 
