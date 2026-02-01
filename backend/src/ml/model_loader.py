@@ -1,0 +1,316 @@
+"""Model loader for trained ML models.
+
+Loads trained XGBoost and Random Forest models for inference.
+Provides a unified interface for predictions.
+"""
+
+import logging
+import pickle
+from pathlib import Path
+from typing import Dict, Optional, Tuple
+
+import numpy as np
+
+logger = logging.getLogger(__name__)
+
+ML_DIR = Path(__file__).parent
+MODELS_DIR = ML_DIR / "trained_models"
+
+
+class TrainedModelLoader:
+    """Loads and manages trained ML models."""
+
+    _instance = None
+    _initialized = False
+
+    def __new__(cls):
+        """Singleton pattern for model loading."""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        """Initialize model loader."""
+        if TrainedModelLoader._initialized:
+            return
+
+        self.xgb_model = None
+        self.rf_model = None
+        self.feature_state = None
+        self._load_models()
+        TrainedModelLoader._initialized = True
+
+    def _load_models(self):
+        """Load trained models from disk."""
+        # Load XGBoost
+        xgb_path = MODELS_DIR / "xgboost_latest.pkl"
+        if xgb_path.exists():
+            try:
+                with open(xgb_path, "rb") as f:
+                    self.xgb_model = pickle.load(f)
+                logger.info("XGBoost model loaded successfully")
+            except Exception as e:
+                logger.warning(f"Failed to load XGBoost model: {e}")
+
+        # Load Random Forest
+        rf_path = MODELS_DIR / "random_forest_latest.pkl"
+        if rf_path.exists():
+            try:
+                with open(rf_path, "rb") as f:
+                    self.rf_model = pickle.load(f)
+                logger.info("Random Forest model loaded successfully")
+            except Exception as e:
+                logger.warning(f"Failed to load Random Forest model: {e}")
+
+        # Load feature engineer state
+        fe_path = MODELS_DIR / "feature_engineer_state.pkl"
+        if fe_path.exists():
+            try:
+                with open(fe_path, "rb") as f:
+                    self.feature_state = pickle.load(f)
+                logger.info("Feature engineer state loaded successfully")
+            except Exception as e:
+                logger.warning(f"Failed to load feature state: {e}")
+
+    def reload_models(self):
+        """Reload models from disk (useful after retraining)."""
+        TrainedModelLoader._initialized = False
+        self.xgb_model = None
+        self.rf_model = None
+        self.feature_state = None
+        self._load_models()
+        TrainedModelLoader._initialized = True
+
+    def is_trained(self) -> bool:
+        """Check if at least one model is trained."""
+        return self.xgb_model is not None or self.rf_model is not None
+
+    def has_team_data(self, team_id: int) -> bool:
+        """Check if we have historical data for a team."""
+        if not self.feature_state:
+            return False
+        return team_id in self.feature_state.get("team_goals_scored", {})
+
+    def get_team_stats(self, team_id: int) -> Optional[Dict]:
+        """Get historical stats for a team."""
+        if not self.feature_state or not self.has_team_data(team_id):
+            return None
+
+        goals_scored = self.feature_state["team_goals_scored"].get(team_id, [])
+        goals_conceded = self.feature_state["team_goals_conceded"].get(team_id, [])
+        results = self.feature_state["team_results"].get(team_id, [])
+
+        if not goals_scored:
+            return None
+
+        # Calculate attack/defense strength
+        recent_scored = goals_scored[-10:] if goals_scored else []
+        recent_conceded = goals_conceded[-10:] if goals_conceded else []
+        recent_results = results[-5:] if results else []
+
+        attack = sum(recent_scored) / len(recent_scored) if recent_scored else 1.3
+        defense = sum(recent_conceded) / len(recent_conceded) if recent_conceded else 1.3
+
+        # Form calculation
+        form_points = sum(3 if r == 0 else (1 if r == 1 else 0) for r in recent_results)
+        max_points = len(recent_results) * 3
+        form = (form_points / max_points * 100) if max_points > 0 else 50
+
+        return {
+            "attack_strength": attack,
+            "defense_strength": defense,
+            "form": form,
+            "matches_played": len(goals_scored),
+        }
+
+    def create_features(
+        self,
+        home_team_id: int,
+        away_team_id: int,
+        home_attack: float = 1.3,
+        home_defense: float = 1.3,
+        away_attack: float = 1.3,
+        away_defense: float = 1.3,
+        home_form: float = 50.0,
+        away_form: float = 50.0,
+    ) -> np.ndarray:
+        """
+        Create feature vector for prediction.
+
+        Uses historical data if available, otherwise uses provided values.
+        """
+        # Try to use historical data
+        if self.feature_state:
+            home_stats = self.get_team_stats(home_team_id)
+            away_stats = self.get_team_stats(away_team_id)
+
+            if home_stats:
+                home_attack = home_stats["attack_strength"]
+                home_defense = home_stats["defense_strength"]
+                home_form = home_stats["form"]
+
+            if away_stats:
+                away_attack = away_stats["attack_strength"]
+                away_defense = away_stats["defense_strength"]
+                away_form = away_stats["form"]
+
+        # Calculate H2H if available
+        h2h = 0.5
+        if self.feature_state:
+            h2h_data = self.feature_state.get("head_to_head", {})
+            if home_team_id in h2h_data and away_team_id in h2h_data[home_team_id]:
+                results = h2h_data[home_team_id][away_team_id]
+                if results:
+                    wins = sum(1 for r in results if r == 0)
+                    draws = sum(1 for r in results if r == 1)
+                    points = wins * 3 + draws
+                    h2h = points / (len(results) * 3)
+
+        return np.array([[
+            home_attack,
+            home_defense,
+            away_attack,
+            away_defense,
+            home_form / 100.0,
+            away_form / 100.0,
+            h2h,
+        ]])
+
+    def predict_xgboost(
+        self,
+        features: np.ndarray
+    ) -> Optional[Tuple[np.ndarray, float]]:
+        """
+        Make prediction with XGBoost model.
+
+        Args:
+            features: Feature vector
+
+        Returns:
+            Tuple of (probabilities, confidence) or None
+        """
+        if self.xgb_model is None:
+            return None
+
+        try:
+            probs = self.xgb_model.predict_proba(features)[0]
+            confidence = float(max(probs))
+            return probs, confidence
+        except Exception as e:
+            logger.error(f"XGBoost prediction failed: {e}")
+            return None
+
+    def predict_random_forest(
+        self,
+        features: np.ndarray
+    ) -> Optional[Tuple[np.ndarray, float]]:
+        """
+        Make prediction with Random Forest model.
+
+        Args:
+            features: Feature vector
+
+        Returns:
+            Tuple of (probabilities, confidence) or None
+        """
+        if self.rf_model is None:
+            return None
+
+        try:
+            probs = self.rf_model.predict_proba(features)[0]
+            confidence = float(max(probs))
+            return probs, confidence
+        except Exception as e:
+            logger.error(f"Random Forest prediction failed: {e}")
+            return None
+
+    def predict_ensemble(
+        self,
+        home_team_id: int,
+        away_team_id: int,
+        home_attack: float = 1.3,
+        home_defense: float = 1.3,
+        away_attack: float = 1.3,
+        away_defense: float = 1.3,
+        home_form: float = 50.0,
+        away_form: float = 50.0,
+        xgb_weight: float = 0.7,
+        rf_weight: float = 0.3,
+    ) -> Optional[Dict]:
+        """
+        Make ensemble prediction combining both models.
+
+        Returns:
+            Dictionary with probabilities and metadata
+        """
+        features = self.create_features(
+            home_team_id, away_team_id,
+            home_attack, home_defense,
+            away_attack, away_defense,
+            home_form, away_form
+        )
+
+        xgb_result = self.predict_xgboost(features)
+        rf_result = self.predict_random_forest(features)
+
+        if xgb_result is None and rf_result is None:
+            return None
+
+        # Combine predictions
+        if xgb_result is not None and rf_result is not None:
+            xgb_probs, xgb_conf = xgb_result
+            rf_probs, rf_conf = rf_result
+
+            # Weighted average
+            combined_probs = (xgb_probs * xgb_weight + rf_probs * rf_weight)
+            combined_probs = combined_probs / combined_probs.sum()  # Normalize
+
+            confidence = xgb_conf * xgb_weight + rf_conf * rf_weight
+            model_used = "ensemble"
+
+        elif xgb_result is not None:
+            combined_probs, confidence = xgb_result
+            model_used = "xgboost"
+
+        else:
+            combined_probs, confidence = rf_result
+            model_used = "random_forest"
+
+        return {
+            "home_win": float(combined_probs[0]),
+            "draw": float(combined_probs[1]),
+            "away_win": float(combined_probs[2]),
+            "confidence": float(confidence),
+            "model_used": model_used,
+            "is_trained_model": True,
+        }
+
+
+# Global instance
+model_loader = TrainedModelLoader()
+
+
+def get_ml_prediction(
+    home_team_id: int,
+    away_team_id: int,
+    home_attack: float = 1.3,
+    home_defense: float = 1.3,
+    away_attack: float = 1.3,
+    away_defense: float = 1.3,
+    home_form: float = 50.0,
+    away_form: float = 50.0,
+) -> Optional[Dict]:
+    """
+    Convenience function to get ML prediction.
+
+    Falls back to None if no trained models available.
+    """
+    if not model_loader.is_trained():
+        return None
+
+    return model_loader.predict_ensemble(
+        home_team_id, away_team_id,
+        home_attack, home_defense,
+        away_attack, away_defense,
+        home_form, away_form
+    )

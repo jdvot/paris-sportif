@@ -4,6 +4,8 @@ Combines:
 - Dixon-Coles model (corrects low-score bias)
 - Advanced ELO system (dynamic K-factor, performance rating)
 - Poisson model (baseline)
+- XGBoost ML model (trained on historical data)
+- Random Forest ML model (trained on historical data)
 - Time-weighted recent form
 - Probability calibration
 
@@ -12,12 +14,23 @@ This ensemble uses adaptive weighting based on data availability and match conte
 
 from dataclasses import dataclass
 from typing import Literal, Optional
+import logging
 import numpy as np
 
 from src.prediction_engine.models.poisson import PoissonModel, PoissonPrediction
 from src.prediction_engine.models.dixon_coles import DixonColesModel, DixonColesPrediction
 from src.prediction_engine.models.elo import ELOSystem, ELOPrediction
 from src.prediction_engine.models.elo_advanced import AdvancedELOSystem, AdvancedELOPrediction
+
+logger = logging.getLogger(__name__)
+
+# Try to import ML models
+try:
+    from src.ml.model_loader import get_ml_prediction, model_loader
+    ML_AVAILABLE = True
+except ImportError:
+    ML_AVAILABLE = False
+    logger.warning("ML models not available")
 
 
 @dataclass
@@ -117,10 +130,19 @@ class AdvancedEnsemblePredictor:
 
     # Base model weights (can be adjusted based on data availability)
     # Improved weights based on empirical model performance
-    WEIGHT_DIXON_COLES = 0.40  # Primary model - best for low-score bias correction
-    WEIGHT_ADVANCED_ELO = 0.35  # Recent form very important for current performance
-    WEIGHT_POISSON = 0.15  # Baseline validation
-    WEIGHT_BASIC_ELO = 0.10  # Reference model
+    # When ML models are trained, they get higher weights
+    WEIGHT_DIXON_COLES = 0.30  # Primary statistical model
+    WEIGHT_ADVANCED_ELO = 0.25  # Recent form
+    WEIGHT_POISSON = 0.10  # Baseline validation
+    WEIGHT_BASIC_ELO = 0.05  # Reference model
+    WEIGHT_XGBOOST = 0.20  # ML model (when trained)
+    WEIGHT_RANDOM_FOREST = 0.10  # ML model (when trained)
+
+    # Weights when ML not available (fallback to statistical models)
+    WEIGHT_DIXON_COLES_NO_ML = 0.40
+    WEIGHT_ADVANCED_ELO_NO_ML = 0.35
+    WEIGHT_POISSON_NO_ML = 0.15
+    WEIGHT_BASIC_ELO_NO_ML = 0.10
 
     # Maximum LLM adjustment for safety
     MAX_LLM_ADJUSTMENT = 0.5
@@ -379,6 +401,12 @@ class AdvancedEnsemblePredictor:
         odds_home: Optional[float] = None,
         odds_draw: Optional[float] = None,
         odds_away: Optional[float] = None,
+        # Team IDs for ML models
+        home_team_id: Optional[int] = None,
+        away_team_id: Optional[int] = None,
+        # Form scores for ML (0-100)
+        home_form_score: float = 50.0,
+        away_form_score: float = 50.0,
     ) -> AdvancedEnsemblePrediction:
         """
         Make advanced ensemble prediction.
@@ -399,6 +427,21 @@ class AdvancedEnsemblePredictor:
         predictions: list[tuple[float, float, float]] = []
         weights_list: list[float] = []
 
+        # Check if ML models are available and trained
+        ml_available = ML_AVAILABLE and model_loader.is_trained()
+
+        # Determine weights based on ML availability
+        if ml_available:
+            dc_base_weight = self.WEIGHT_DIXON_COLES
+            elo_adv_weight = self.WEIGHT_ADVANCED_ELO
+            poisson_weight = self.WEIGHT_POISSON
+            basic_elo_weight = self.WEIGHT_BASIC_ELO
+        else:
+            dc_base_weight = self.WEIGHT_DIXON_COLES_NO_ML
+            elo_adv_weight = self.WEIGHT_ADVANCED_ELO_NO_ML
+            poisson_weight = self.WEIGHT_POISSON_NO_ML
+            basic_elo_weight = self.WEIGHT_BASIC_ELO_NO_ML
+
         # 1. Dixon-Coles Model (Primary)
         # Check if xG data is available and meaningful
         has_xg_data = all([
@@ -418,7 +461,7 @@ class AdvancedEnsemblePredictor:
                 time_weight=time_weight,
             )
             # Boost weight when using xG data (25% increase - more conservative than before)
-            dc_weight = self.WEIGHT_DIXON_COLES * 1.25
+            dc_weight = dc_base_weight * 1.25
         else:
             dc_pred = self.dixon_coles.predict(
                 home_attack=home_attack,
@@ -427,7 +470,7 @@ class AdvancedEnsemblePredictor:
                 away_defense=away_defense,
                 time_weight=time_weight,
             )
-            dc_weight = self.WEIGHT_DIXON_COLES
+            dc_weight = dc_base_weight
 
         predictions.append((
             dc_pred.home_win_prob,
@@ -456,7 +499,7 @@ class AdvancedEnsemblePredictor:
             adv_elo_pred.draw_prob,
             adv_elo_pred.away_win_prob,
         ))
-        weights_list.append(self.WEIGHT_ADVANCED_ELO)
+        weights_list.append(elo_adv_weight)
         contributions.append(ModelContribution(
             name="Advanced ELO",
             home_prob=adv_elo_pred.home_win_prob,
@@ -478,7 +521,7 @@ class AdvancedEnsemblePredictor:
             poisson_pred.draw_prob,
             poisson_pred.away_win_prob,
         ))
-        weights_list.append(self.WEIGHT_POISSON)
+        weights_list.append(poisson_weight)
         contributions.append(ModelContribution(
             name="Poisson",
             home_prob=poisson_pred.home_win_prob,
@@ -495,15 +538,50 @@ class AdvancedEnsemblePredictor:
             elo_pred.draw_prob,
             elo_pred.away_win_prob,
         ))
-        weights_list.append(self.WEIGHT_BASIC_ELO)
+        weights_list.append(basic_elo_weight)
         contributions.append(ModelContribution(
             name="Basic ELO",
             home_prob=elo_pred.home_win_prob,
             draw_prob=elo_pred.draw_prob,
             away_prob=elo_pred.away_win_prob,
-            weight=self.WEIGHT_BASIC_ELO,
+            weight=basic_elo_weight,
             confidence=0.65,
         ))
+
+        # 5. ML Models (XGBoost & Random Forest) - if trained
+        if ml_available and home_team_id is not None and away_team_id is not None:
+            try:
+                ml_result = get_ml_prediction(
+                    home_team_id=home_team_id,
+                    away_team_id=away_team_id,
+                    home_attack=home_attack,
+                    home_defense=home_defense,
+                    away_attack=away_attack,
+                    away_defense=away_defense,
+                    home_form=home_form_score,
+                    away_form=away_form_score,
+                )
+
+                if ml_result:
+                    # ML ensemble prediction
+                    predictions.append((
+                        ml_result["home_win"],
+                        ml_result["draw"],
+                        ml_result["away_win"],
+                    ))
+                    ml_weight = self.WEIGHT_XGBOOST + self.WEIGHT_RANDOM_FOREST
+                    weights_list.append(ml_weight)
+                    contributions.append(ModelContribution(
+                        name=f"ML ({ml_result['model_used']})",
+                        home_prob=ml_result["home_win"],
+                        draw_prob=ml_result["draw"],
+                        away_prob=ml_result["away_win"],
+                        weight=ml_weight,
+                        confidence=ml_result["confidence"],
+                    ))
+                    logger.info(f"ML prediction added: {ml_result['model_used']}")
+            except Exception as e:
+                logger.warning(f"ML prediction failed: {e}")
 
         # Calculate model agreement
         model_agreement = self._calculate_model_agreement(predictions, weights_list)

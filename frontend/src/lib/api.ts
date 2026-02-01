@@ -445,6 +445,6 @@ function transformStandings(apiStandings: Record<string, unknown>): Standings {
  * Fetch league standings
  */
 export async function fetchStandings(competitionCode: string): Promise<Standings> {
-  const rawStandings = await fetchApi<Record<string, unknown>>(`/api/v1/standings/${competitionCode}`);
+  const rawStandings = await fetchApi<Record<string, unknown>>(`/api/v1/matches/standings/${competitionCode}`);
   return transformStandings(rawStandings);
 }
