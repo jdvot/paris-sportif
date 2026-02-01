@@ -533,13 +533,16 @@ function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
       {Array.isArray(formResults) && formResults.length > 0 && (
         <div className="flex gap-2">
           {formResults.map((result, i) => {
-            const resultStr = typeof result === 'string' ? result : "";
+            const resultStr = typeof result === 'string' ? result.toUpperCase() : "";
+            // API returns W (Win), D (Draw), L (Loss)
             const bgColor =
-              resultStr === "V"
+              resultStr === "W"
                 ? "bg-primary-500"
                 : resultStr === "D"
                   ? "bg-gray-500"
                   : "bg-red-500";
+            // Display in French: V (Victoire), N (Nul), D (Défaite)
+            const displayLabel = resultStr === "W" ? "V" : resultStr === "D" ? "N" : "D";
             return (
               <div
                 key={i}
@@ -548,7 +551,7 @@ function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
                   bgColor
                 )}
               >
-                {resultStr === "V" ? "V" : resultStr === "D" ? "N" : "D"}
+                {displayLabel}
               </div>
             );
           })}
