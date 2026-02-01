@@ -61,13 +61,9 @@ export default function MatchDetailPage() {
     enabled: !!matchId && matchId > 0,
   });
 
-  // Fetch form for both teams
-  const homeTeamId = match?.homeTeam
-    ? Math.abs(hash(match.homeTeam) % 10000)
-    : null;
-  const awayTeamId = match?.awayTeam
-    ? Math.abs(hash(match.awayTeam) % 10000)
-    : null;
+  // Fetch form for both teams - use real team IDs from API
+  const homeTeamId = (match as { homeTeamId?: number } | undefined)?.homeTeamId;
+  const awayTeamId = (match as { awayTeamId?: number } | undefined)?.awayTeamId;
 
   const { data: homeForm } = useQuery({
     queryKey: ["teamForm", homeTeamId],
@@ -299,24 +295,32 @@ function PredictionSection({
         ? "text-yellow-400"
         : "text-orange-400";
 
-  // Support both API formats - guard against undefined/null
+  // Support both API formats (snake_case from API, camelCase from types)
+  // API returns: home_win, draw, away_win (snake_case)
+  // Types expect: homeWin, draw, awayWin (camelCase)
+  const probs = prediction?.probabilities as Record<string, number> | undefined;
+
   const homeProb = typeof prediction?.homeProb === 'number'
     ? prediction.homeProb
-    : typeof prediction?.probabilities?.homeWin === 'number'
-      ? prediction.probabilities.homeWin
-      : 0;
+    : typeof probs?.home_win === 'number'
+      ? probs.home_win
+      : typeof probs?.homeWin === 'number'
+        ? probs.homeWin
+        : 0;
 
   const drawProb = typeof prediction?.drawProb === 'number'
     ? prediction.drawProb
-    : typeof prediction?.probabilities?.draw === 'number'
-      ? prediction.probabilities.draw
+    : typeof probs?.draw === 'number'
+      ? probs.draw
       : 0;
 
   const awayProb = typeof prediction?.awayProb === 'number'
     ? prediction.awayProb
-    : typeof prediction?.probabilities?.awayWin === 'number'
-      ? prediction.probabilities.awayWin
-      : 0;
+    : typeof probs?.away_win === 'number'
+      ? probs.away_win
+      : typeof probs?.awayWin === 'number'
+        ? probs.awayWin
+        : 0;
 
   const recommendedBet = typeof prediction?.recommendedBet === 'string' ? prediction.recommendedBet : '';
   const isHomeRecommended = recommendedBet === "home" || recommendedBet === "home_win";
@@ -1063,15 +1067,3 @@ function LoadingState() {
    UTILITY FUNCTIONS
    ============================================ */
 
-/**
- * Simple hash function to generate consistent team IDs from team names
- */
-function hash(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  return hash;
-}
