@@ -7,6 +7,7 @@ import {
   Filter,
   X,
   ChevronDown,
+  CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
 import { format, startOfDay, addDays, isSameDay, startOfWeek, endOfWeek } from "date-fns";
@@ -46,6 +47,7 @@ const getTeamName = (team: MatchResponse["home_team"]): string => {
 export default function MatchesPage() {
   const [dateRange, setDateRange] = useState<DateRange>("week");
   const [selectedCompetitions, setSelectedCompetitions] = useState<string[]>([]);
+  const [showFinished, setShowFinished] = useState<boolean>(true);
   // Auto-expand today's date by default
   const todayKey = format(startOfDay(new Date()), "yyyy-MM-dd");
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set([todayKey]));
@@ -90,13 +92,24 @@ export default function MatchesPage() {
   // Extract matches from response - API returns { data: { matches: [...] }, status: number }
   const matches = (response?.data as MatchListResponse | undefined)?.matches || [];
 
-  // Filter matches by selected competitions
+  // Filter matches by selected competitions and status
   const filteredMatches = useMemo(() => {
-    if (selectedCompetitions.length === 0) return matches;
-    return matches.filter((match) =>
-      selectedCompetitions.includes(match.competition_code)
-    );
-  }, [matches, selectedCompetitions]);
+    let result = matches;
+
+    // Filter by status (finished or not)
+    if (!showFinished) {
+      result = result.filter((match) => match.status !== "finished");
+    }
+
+    // Filter by competition
+    if (selectedCompetitions.length > 0) {
+      result = result.filter((match) =>
+        selectedCompetitions.includes(match.competition_code)
+      );
+    }
+
+    return result;
+  }, [matches, selectedCompetitions, showFinished]);
 
   // Get unique competitions from matches
   const availableCompetitions = useMemo(() => {
@@ -219,6 +232,28 @@ export default function MatchesPage() {
               Effacer les filtres
             </button>
           )}
+        </div>
+
+        {/* Show Finished Matches Toggle */}
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 cursor-pointer group">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={showFinished}
+                onChange={(e) => setShowFinished(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-5 h-5 border-2 border-dark-500 rounded bg-dark-800 peer-checked:bg-primary-500 peer-checked:border-primary-500 transition-all">
+                {showFinished && (
+                  <CheckCircle2 className="w-4 h-4 text-white absolute top-0.5 left-0.5" />
+                )}
+              </div>
+            </div>
+            <span className="text-xs sm:text-sm text-dark-300 group-hover:text-white transition-colors">
+              Inclure les matchs terminés
+            </span>
+          </label>
         </div>
       </section>
 
@@ -345,6 +380,7 @@ function MatchCard({ match }: { match: MatchResponse }) {
   const matchDate = new Date(match.match_date);
   const homeTeamName = getTeamName(match.home_team);
   const awayTeamName = getTeamName(match.away_team);
+  const isFinished = match.status === "finished";
 
   return (
     <Link
@@ -361,11 +397,21 @@ function MatchCard({ match }: { match: MatchResponse }) {
 
         {/* Match info */}
         <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-sm sm:text-base text-white group-hover:text-primary-300 transition-colors break-words">
-            {homeTeamName}
-            <span className="text-dark-400 mx-1 sm:mx-2">vs</span>
-            {awayTeamName}
-          </h4>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h4 className="font-semibold text-sm sm:text-base text-white group-hover:text-primary-300 transition-colors">
+              {homeTeamName}
+            </h4>
+            {isFinished && match.home_score !== null && match.away_score !== null ? (
+              <span className="text-sm sm:text-base font-bold text-primary-400">
+                {match.home_score} - {match.away_score}
+              </span>
+            ) : (
+              <span className="text-dark-400 text-sm">vs</span>
+            )}
+            <h4 className="font-semibold text-sm sm:text-base text-white group-hover:text-primary-300 transition-colors">
+              {awayTeamName}
+            </h4>
+          </div>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="text-xs font-medium text-dark-400 bg-dark-700/50 px-2 py-1 rounded">
               {match.competition}
@@ -373,6 +419,11 @@ function MatchCard({ match }: { match: MatchResponse }) {
             {match.matchday && (
               <span className="text-xs text-dark-500">
                 Journee {match.matchday}
+              </span>
+            )}
+            {isFinished && (
+              <span className="text-xs font-medium text-emerald-400 bg-emerald-500/20 px-2 py-1 rounded">
+                Terminé
               </span>
             )}
           </div>
