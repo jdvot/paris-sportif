@@ -443,20 +443,23 @@ function TeamFormSection({
 }
 
 function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
-  const formString = form.formString || "VVVVV";
-  const formResults = formString.split("").slice(0, 5);
+  const formString = form?.formString || "";
+  const formResults = formString ? formString.split("").slice(0, 5) : [];
   const color = isHome ? "primary" : "accent";
 
   return (
     <div className="bg-dark-700/50 rounded-lg p-4 space-y-4">
       <div>
-        <h4 className="font-bold text-white mb-1">{form.teamName}</h4>
-        <p className={cn("text-sm font-mono", color === "primary" ? "text-primary-400" : "text-accent-400")}>
-          {formString}
-        </p>
+        <h4 className="font-bold text-white mb-1">{form?.teamName || "Équipe"}</h4>
+        {formString && (
+          <p className={cn("text-sm font-mono", color === "primary" ? "text-primary-400" : "text-accent-400")}>
+            {formString}
+          </p>
+        )}
       </div>
 
       {/* Last 5 matches */}
+      {formResults.length > 0 && (
       <div className="flex gap-2">
         {formResults.map((result, i) => {
           const bgColor =
@@ -478,6 +481,7 @@ function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
           );
         })}
       </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-2 text-sm">
@@ -579,11 +583,11 @@ function HeadToHeadSection({
       </div>
 
       {/* Recent Matches */}
-      {headToHead.matches.length > 0 && (
+      {headToHead.matches && headToHead.matches.length > 0 && (
         <div className="space-y-2 border-t border-dark-700 pt-4">
           <h4 className="text-sm font-semibold text-dark-300">Derniers Matchs</h4>
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {headToHead.matches.map((match) => (
+            {(headToHead.matches || []).map((match) => (
               <div
                 key={match.id}
                 className="p-2 bg-dark-700/50 rounded text-xs space-y-1"
