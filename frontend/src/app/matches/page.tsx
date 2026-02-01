@@ -16,100 +16,6 @@ import { fr } from "date-fns/locale";
 import { fetchMatches, fetchUpcomingMatches } from "@/lib/api";
 import type { Match } from "@/lib/types";
 
-// Mock data for initial display
-const mockMatches: Match[] = [
-  {
-    id: 1,
-    homeTeam: "Liverpool",
-    awayTeam: "Chelsea",
-    competition: "Premier League",
-    competitionCode: "PL",
-    matchDate: new Date(Date.now() + 86400000).toISOString(),
-    status: "scheduled",
-  },
-  {
-    id: 2,
-    homeTeam: "Manchester City",
-    awayTeam: "Arsenal",
-    competition: "Premier League",
-    competitionCode: "PL",
-    matchDate: new Date(Date.now() + 86400000).toISOString(),
-    status: "scheduled",
-  },
-  {
-    id: 3,
-    homeTeam: "Atletico Madrid",
-    awayTeam: "Sevilla",
-    competition: "La Liga",
-    competitionCode: "PD",
-    matchDate: new Date(Date.now() + 86400000 * 1.5).toISOString(),
-    status: "scheduled",
-  },
-  {
-    id: 4,
-    homeTeam: "Leipzig",
-    awayTeam: "Leverkusen",
-    competition: "Bundesliga",
-    competitionCode: "BL1",
-    matchDate: new Date(Date.now() + 86400000 * 2).toISOString(),
-    status: "scheduled",
-  },
-  {
-    id: 5,
-    homeTeam: "AC Milan",
-    awayTeam: "Napoli",
-    competition: "Serie A",
-    competitionCode: "SA",
-    matchDate: new Date(Date.now() + 86400000 * 2).toISOString(),
-    status: "scheduled",
-  },
-  {
-    id: 6,
-    homeTeam: "Lyon",
-    awayTeam: "Monaco",
-    competition: "Ligue 1",
-    competitionCode: "FL1",
-    matchDate: new Date(Date.now() + 86400000 * 3).toISOString(),
-    status: "scheduled",
-  },
-  {
-    id: 7,
-    homeTeam: "PSG",
-    awayTeam: "Marseille",
-    competition: "Ligue 1",
-    competitionCode: "FL1",
-    matchDate: new Date(Date.now() + 86400000 * 3).toISOString(),
-    status: "scheduled",
-  },
-  {
-    id: 8,
-    homeTeam: "Barcelona",
-    awayTeam: "Real Madrid",
-    competition: "La Liga",
-    competitionCode: "PD",
-    matchDate: new Date(Date.now() + 86400000 * 4).toISOString(),
-    status: "scheduled",
-  },
-  {
-    id: 9,
-    homeTeam: "Bayern Munich",
-    awayTeam: "Borussia Dortmund",
-    competition: "Bundesliga",
-    competitionCode: "BL1",
-    matchDate: new Date(Date.now() + 86400000 * 5).toISOString(),
-    status: "scheduled",
-  },
-  {
-    id: 10,
-    homeTeam: "Tottenham",
-    awayTeam: "Manchester United",
-    competition: "Premier League",
-    competitionCode: "PL",
-    matchDate: new Date(Date.now() + 86400000 * 5).toISOString(),
-    status: "scheduled",
-  },
-];
-
 const competitionColors: Record<string, string> = {
   PL: "bg-purple-500",
   PD: "bg-orange-500",
@@ -137,8 +43,8 @@ export default function MatchesPage() {
   const [selectedCompetitions, setSelectedCompetitions] = useState<string[]>([]);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
-  // Fetch matches based on date range
-  const { data: matches = mockMatches, isLoading } = useQuery({
+  // Fetch matches based on date range - REAL DATA ONLY
+  const { data: matches = [], isLoading, error } = useQuery({
     queryKey: ["matches", dateRange, selectedCompetitions],
     queryFn: async () => {
       const today = startOfDay(new Date());
@@ -158,20 +64,16 @@ export default function MatchesPage() {
           break;
       }
 
-      try {
-        const result = await fetchMatches({
-          dateFrom: format(dateFrom, "yyyy-MM-dd"),
-          dateTo: format(dateTo, "yyyy-MM-dd"),
-          competition: selectedCompetitions.length > 0 ? selectedCompetitions[0] : undefined,
-        });
-        return result.matches;
-      } catch {
-        return mockMatches;
-      }
+      const result = await fetchMatches({
+        dateFrom: format(dateFrom, "yyyy-MM-dd"),
+        dateTo: format(dateTo, "yyyy-MM-dd"),
+        competition: selectedCompetitions.length > 0 ? selectedCompetitions[0] : undefined,
+      });
+      return result.matches;
     },
     enabled: true,
-    placeholderData: mockMatches, // Use placeholder instead of initialData to force fetch
-    staleTime: 0, // Always refetch from API
+    staleTime: 0, // Always fetch fresh data from API
+    retry: 2,
   });
 
   // Filter matches by selected competitions

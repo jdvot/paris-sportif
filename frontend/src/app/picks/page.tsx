@@ -4,133 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useCallback } from "react";
 import { format, subDays, addDays, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
-import { TrendingUp, AlertTriangle, CheckCircle, Calendar, Filter } from "lucide-react";
+import { TrendingUp, AlertTriangle, CheckCircle, Calendar, Filter, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchDailyPicks } from "@/lib/api";
 import type { DailyPick } from "@/lib/types";
-
-// Mock data for development
-const mockPicks: DailyPick[] = [
-  {
-    rank: 1,
-    match: {
-      id: 1,
-      homeTeam: "Manchester City",
-      awayTeam: "Arsenal",
-      competition: "Premier League",
-      matchDate: new Date().toISOString(),
-    },
-    prediction: {
-      homeProb: 0.52,
-      drawProb: 0.26,
-      awayProb: 0.22,
-      recommendedBet: "home",
-      confidence: 0.72,
-      valueScore: 0.08,
-    },
-    explanation:
-      "City en excellente forme a domicile avec 8 victoires consecutives. Arsenal fatigue apres le match de Ligue des Champions.",
-    keyFactors: [
-      "8 victoires consecutives a domicile",
-      "Arsenal en deplacement difficile",
-      "Avantage xG significatif",
-    ],
-  },
-  {
-    rank: 2,
-    match: {
-      id: 2,
-      homeTeam: "Real Madrid",
-      awayTeam: "Barcelona",
-      competition: "La Liga",
-      matchDate: new Date().toISOString(),
-    },
-    prediction: {
-      homeProb: 0.41,
-      drawProb: 0.29,
-      awayProb: 0.30,
-      recommendedBet: "home",
-      confidence: 0.65,
-      valueScore: 0.12,
-    },
-    explanation:
-      "El Clasico au Bernabeu. Real favori leger avec l'avantage du terrain.",
-    keyFactors: [
-      "Bernabeu en feu",
-      "Vinicius Jr en forme",
-      "Barcelona sans Pedri",
-    ],
-  },
-  {
-    rank: 3,
-    match: {
-      id: 3,
-      homeTeam: "Bayern Munich",
-      awayTeam: "Dortmund",
-      competition: "Bundesliga",
-      matchDate: new Date().toISOString(),
-    },
-    prediction: {
-      homeProb: 0.58,
-      drawProb: 0.24,
-      awayProb: 0.18,
-      recommendedBet: "home",
-      confidence: 0.78,
-      valueScore: 0.06,
-    },
-    explanation: "Der Klassiker avec Bayern dominant a domicile cette saison.",
-    keyFactors: [
-      "Bayern invaincu a domicile",
-      "Dortmund instable",
-      "Historique favorable",
-    ],
-  },
-  {
-    rank: 4,
-    match: {
-      id: 4,
-      homeTeam: "PSG",
-      awayTeam: "Marseille",
-      competition: "Ligue 1",
-      matchDate: new Date().toISOString(),
-    },
-    prediction: {
-      homeProb: 0.62,
-      drawProb: 0.22,
-      awayProb: 0.16,
-      recommendedBet: "home",
-      confidence: 0.75,
-      valueScore: 0.09,
-    },
-    explanation:
-      "Le Classique au Parc des Princes. PSG ultra-favori malgre absence de Mbappe.",
-    keyFactors: ["Parc des Princes", "Domination historique", "OM en crise"],
-  },
-  {
-    rank: 5,
-    match: {
-      id: 5,
-      homeTeam: "Inter Milan",
-      awayTeam: "Juventus",
-      competition: "Serie A",
-      matchDate: new Date().toISOString(),
-    },
-    prediction: {
-      homeProb: 0.45,
-      drawProb: 0.30,
-      awayProb: 0.25,
-      recommendedBet: "home",
-      confidence: 0.62,
-      valueScore: 0.07,
-    },
-    explanation: "Derby d'Italie. Match serre attendu avec leger avantage Inter.",
-    keyFactors: [
-      "San Siro plein",
-      "Inter en tete",
-      "Juventus defensive solide",
-    ],
-  },
-];
 
 const COMPETITIONS = [
   { id: "PL", name: "Premier League" },
@@ -159,11 +36,12 @@ export default function PicksPage() {
   const [selectedCompetitions, setSelectedCompetitions] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
-  const { data: picks = mockPicks, isLoading } = useQuery({
+  const { data: picks = [], isLoading, error } = useQuery({
     queryKey: ["dailyPicks", selectedDate],
     queryFn: () => fetchDailyPicks(selectedDate),
     enabled: true,
-    initialData: mockPicks,
+    staleTime: 0, // Always fetch fresh data from API
+    retry: 2,
   });
 
   const filteredPicks = picks.filter((pick) => {
