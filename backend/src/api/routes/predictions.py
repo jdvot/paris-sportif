@@ -28,6 +28,7 @@ from src.prediction_engine.ensemble_advanced import (
 from src.llm.prompts_advanced import (
     get_prediction_analysis_prompt,
 )
+from src.prediction_engine.rag_enrichment import get_rag_enrichment
 
 logger = logging.getLogger(__name__)
 
@@ -313,13 +314,26 @@ def _get_recommended_bet(
     return "draw"
 
 
-def _generate_prediction_from_api_match(
-    api_match: MatchData, include_model_details: bool = False
+async def _generate_prediction_from_api_match(
+    api_match: MatchData, include_model_details: bool = False, use_rag: bool = True
 ) -> PredictionResponse:
-    """Generate a prediction for a real match from the API using Groq LLM."""
+    """Generate a prediction for a real match from the API using Groq LLM and RAG."""
     home_team = api_match.homeTeam.name
     away_team = api_match.awayTeam.name
     competition = api_match.competition.code
+    match_date = datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00"))
+
+    # Try RAG enrichment for better context
+    rag_context = None
+    if use_rag:
+        try:
+            rag = get_rag_enrichment()
+            rag_context = await rag.enrich_match_prediction(
+                home_team, away_team, competition, match_date
+            )
+            logger.info(f"RAG enrichment applied for {home_team} vs {away_team}")
+        except Exception as e:
+            logger.warning(f"RAG enrichment failed: {e}")
 
     # Try to get prediction from Groq API first
     groq_prediction = _get_groq_prediction(home_team, away_team, competition)
@@ -494,7 +508,7 @@ async def get_daily_picks(
         # Generate predictions for all matches
         all_predictions = []
         for api_match in api_matches:
-            pred = _generate_prediction_from_api_match(api_match, include_model_details=False)
+            pred = await _generate_prediction_from_api_match(api_match, include_model_details=False)
             # Calculate pick score (confidence * value_score)
             pick_score = pred.confidence * pred.value_score
             all_predictions.append((pred, pick_score))
@@ -671,7 +685,7 @@ async def get_prediction(
         # Fetch real match from API
         client = get_football_data_client()
         api_match = await client.get_match(match_id)
-        return _generate_prediction_from_api_match(api_match, include_model_details=include_model_details)
+        return await _generate_prediction_from_api_match(api_match, include_model_details=include_model_details)
 
     except RateLimitError:
         # On rate limit, try fallback instead of failing
