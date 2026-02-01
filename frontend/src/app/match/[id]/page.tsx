@@ -168,7 +168,16 @@ export default function MatchDetailPage() {
    COMPONENT: Match Header
    ============================================ */
 function MatchHeader({ match }: { match: Match }) {
-  const matchDate = parseISO(match.matchDate);
+  // Guard: safely parse match date
+  let matchDate;
+  try {
+    matchDate = match?.matchDate && typeof match.matchDate === 'string'
+      ? parseISO(match.matchDate)
+      : new Date();
+  } catch {
+    matchDate = new Date();
+  }
+
   const statusLabels: Record<string, string> = {
     scheduled: "A venir",
     live: "EN DIRECT",
@@ -183,6 +192,9 @@ function MatchHeader({ match }: { match: Match }) {
     postponed: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
   };
 
+  const status = typeof match?.status === 'string' ? match.status : 'scheduled';
+  const competition = typeof match?.competition === 'string' ? match.competition : 'Compétition';
+
   return (
     <div className="bg-gradient-to-r from-dark-800/50 to-dark-900/50 border border-dark-700 rounded-xl overflow-hidden">
       <div className="p-8">
@@ -191,9 +203,9 @@ function MatchHeader({ match }: { match: Match }) {
           <div className="flex items-center gap-2">
             <Trophy className="w-5 h-5 text-accent-400" />
             <span className="text-accent-400 font-semibold">
-              {match.competition}
+              {competition}
             </span>
-            {match.matchday && (
+            {typeof match?.matchday === 'number' && (
               <span className="text-dark-400 text-sm">
                 • Journee {match.matchday}
               </span>
@@ -202,10 +214,10 @@ function MatchHeader({ match }: { match: Match }) {
           <div
             className={cn(
               "px-3 py-1 rounded-lg border font-semibold text-sm",
-              statusColors[match.status]
+              statusColors[status] || statusColors.scheduled
             )}
           >
-            {statusLabels[match.status]}
+            {statusLabels[status] || "Status"}
           </div>
         </div>
 
@@ -214,9 +226,9 @@ function MatchHeader({ match }: { match: Match }) {
           {/* Home Team */}
           <div className="flex-1 text-center">
             <h2 className="text-3xl font-bold text-white mb-2">
-              {match.homeTeam}
+              {typeof match?.homeTeam === 'string' ? match.homeTeam : "Équipe"}
             </h2>
-            {match.status === "finished" && match.homeScore !== undefined && (
+            {status === "finished" && typeof match?.homeScore === 'number' && (
               <p className="text-4xl font-bold text-primary-400">
                 {match.homeScore}
               </p>
@@ -237,9 +249,9 @@ function MatchHeader({ match }: { match: Match }) {
           {/* Away Team */}
           <div className="flex-1 text-center">
             <h2 className="text-3xl font-bold text-white mb-2">
-              {match.awayTeam}
+              {typeof match?.awayTeam === 'string' ? match.awayTeam : "Équipe"}
             </h2>
-            {match.status === "finished" && match.awayScore !== undefined && (
+            {status === "finished" && typeof match?.awayScore === 'number' && (
               <p className="text-4xl font-bold text-accent-400">
                 {match.awayScore}
               </p>
@@ -275,7 +287,11 @@ function PredictionSection({
     away_win: "text-accent-400",
   };
 
-  const confidence = prediction.confidence ?? 0;
+  // Guard: safely extract numeric values
+  const confidence = typeof prediction?.confidence === 'number' && !isNaN(prediction.confidence)
+    ? prediction.confidence
+    : 0;
+
   const confidenceColor =
     confidence >= 0.7
       ? "text-primary-400"
@@ -283,12 +299,28 @@ function PredictionSection({
         ? "text-yellow-400"
         : "text-orange-400";
 
-  // Support both API formats
-  const homeProb = prediction.homeProb ?? prediction.probabilities?.homeWin ?? 0;
-  const drawProb = prediction.drawProb ?? prediction.probabilities?.draw ?? 0;
-  const awayProb = prediction.awayProb ?? prediction.probabilities?.awayWin ?? 0;
-  const isHomeRecommended = prediction.recommendedBet === "home" || prediction.recommendedBet === "home_win";
-  const isAwayRecommended = prediction.recommendedBet === "away" || prediction.recommendedBet === "away_win";
+  // Support both API formats - guard against undefined/null
+  const homeProb = typeof prediction?.homeProb === 'number'
+    ? prediction.homeProb
+    : typeof prediction?.probabilities?.homeWin === 'number'
+      ? prediction.probabilities.homeWin
+      : 0;
+
+  const drawProb = typeof prediction?.drawProb === 'number'
+    ? prediction.drawProb
+    : typeof prediction?.probabilities?.draw === 'number'
+      ? prediction.probabilities.draw
+      : 0;
+
+  const awayProb = typeof prediction?.awayProb === 'number'
+    ? prediction.awayProb
+    : typeof prediction?.probabilities?.awayWin === 'number'
+      ? prediction.probabilities.awayWin
+      : 0;
+
+  const recommendedBet = typeof prediction?.recommendedBet === 'string' ? prediction.recommendedBet : '';
+  const isHomeRecommended = recommendedBet === "home" || recommendedBet === "home_win";
+  const isAwayRecommended = recommendedBet === "away" || recommendedBet === "away_win";
 
   return (
     <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 space-y-6">
@@ -332,27 +364,35 @@ function PredictionSection({
         <CheckCircle className="w-6 h-6 text-primary-400 flex-shrink-0" />
         <div>
           <p className="text-primary-400 font-bold">
-            {betLabels[prediction.recommendedBet]}
+            {typeof prediction?.recommendedBet === 'string' && betLabels[prediction.recommendedBet]
+              ? betLabels[prediction.recommendedBet]
+              : "Prédiction indisponible"}
           </p>
           <p className="text-sm text-primary-300">
-            Cote Value: +{Math.round((prediction.valueScore ?? 0) * 100)}%
+            Cote Value: +{typeof prediction?.valueScore === 'number' && !isNaN(prediction.valueScore)
+              ? Math.round(prediction.valueScore * 100)
+              : 0}%
           </p>
         </div>
       </div>
 
       {/* Expected Goals */}
-      {(prediction.expectedHomeGoals !== undefined || prediction.expectedAwayGoals !== undefined) && (
+      {(typeof prediction?.expectedHomeGoals === 'number' || typeof prediction?.expectedAwayGoals === 'number') && (
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-dark-700/50 rounded-lg p-4">
             <p className="text-dark-400 text-sm mb-1">Buts attendus (Domicile)</p>
             <p className="text-3xl font-bold text-primary-400">
-              {prediction.expectedHomeGoals?.toFixed(2) ?? "-"}
+              {typeof prediction?.expectedHomeGoals === 'number' && !isNaN(prediction.expectedHomeGoals)
+                ? prediction.expectedHomeGoals.toFixed(2)
+                : "-"}
             </p>
           </div>
           <div className="bg-dark-700/50 rounded-lg p-4">
             <p className="text-dark-400 text-sm mb-1">Buts attendus (Exterieur)</p>
             <p className="text-3xl font-bold text-accent-400">
-              {prediction.expectedAwayGoals?.toFixed(2) ?? "-"}
+              {typeof prediction?.expectedAwayGoals === 'number' && !isNaN(prediction.expectedAwayGoals)
+                ? prediction.expectedAwayGoals.toFixed(2)
+                : "-"}
             </p>
           </div>
         </div>
@@ -378,6 +418,15 @@ function KeyFactorsSection({
 }: {
   prediction: DetailedPrediction;
 }) {
+  // Guard: safely extract arrays
+  const keyFactors = Array.isArray(prediction?.keyFactors)
+    ? prediction.keyFactors.filter(factor => typeof factor === 'string' && factor.length > 0)
+    : [];
+
+  const riskFactors = Array.isArray(prediction?.riskFactors)
+    ? prediction.riskFactors.filter(factor => typeof factor === 'string' && factor.length > 0)
+    : [];
+
   return (
     <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 space-y-4">
       <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -385,24 +434,26 @@ function KeyFactorsSection({
         Facteurs Cles
       </h3>
 
-      <div className="space-y-2">
-        {(prediction.keyFactors || []).map((factor, index) => (
-          <div
-            key={index}
-            className="flex items-start gap-3 p-3 bg-dark-700/50 rounded-lg"
-          >
-            <CheckCircle className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
-            <p className="text-dark-200">{factor}</p>
-          </div>
-        ))}
-      </div>
+      {keyFactors.length > 0 && (
+        <div className="space-y-2">
+          {keyFactors.map((factor, index) => (
+            <div
+              key={index}
+              className="flex items-start gap-3 p-3 bg-dark-700/50 rounded-lg"
+            >
+              <CheckCircle className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
+              <p className="text-dark-200">{factor}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {prediction.riskFactors && Array.isArray(prediction.riskFactors) && prediction.riskFactors.length > 0 && (
+      {riskFactors.length > 0 && (
         <div className="space-y-2 pt-4 border-t border-dark-700">
           <h4 className="text-sm font-semibold text-yellow-400">
             Facteurs de Risque
           </h4>
-          {(prediction.riskFactors || []).map((factor, index) => (
+          {riskFactors.map((factor, index) => (
             <div
               key={index}
               className="flex items-start gap-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20"
@@ -443,8 +494,8 @@ function TeamFormSection({
 }
 
 function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
-  // Safely handle undefined form or formString
-  if (!form) {
+  // Guard clause: safely handle undefined form
+  if (!form || typeof form !== 'object') {
     return (
       <div className="bg-dark-700/50 rounded-lg p-4">
         <p className="text-dark-400">Données non disponibles</p>
@@ -452,15 +503,22 @@ function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
     );
   }
 
-  const formString = typeof form.formString === 'string' ? form.formString : "";
-  const formResults = formString.length > 0 ? formString.split("").slice(0, 5) : [];
+  // Safely extract and validate formString
+  const formString = typeof form.formString === 'string' && form.formString.length > 0 ? form.formString : "";
+
+  // Safely split the form string - guard against null/undefined
+  const formResults = formString && typeof formString === 'string'
+    ? formString.split("").filter(Boolean).slice(0, 5)
+    : [];
+
   const color = isHome ? "primary" : "accent";
+  const teamName = typeof form.teamName === 'string' ? form.teamName : "Équipe";
 
   return (
     <div className="bg-dark-700/50 rounded-lg p-4 space-y-4">
       <div>
-        <h4 className="font-bold text-white mb-1">{form?.teamName || "Équipe"}</h4>
-        {formString && (
+        <h4 className="font-bold text-white mb-1">{teamName}</h4>
+        {formString && typeof formString === 'string' && (
           <p className={cn("text-sm font-mono", color === "primary" ? "text-primary-400" : "text-accent-400")}>
             {formString}
           </p>
@@ -468,28 +526,29 @@ function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
       </div>
 
       {/* Last 5 matches */}
-      {formResults.length > 0 && (
-      <div className="flex gap-2">
-        {formResults.map((result, i) => {
-          const bgColor =
-            result === "V"
-              ? "bg-primary-500"
-              : result === "D"
-                ? "bg-gray-500"
-                : "bg-red-500";
-          return (
-            <div
-              key={i}
-              className={cn(
-                "flex-1 h-8 rounded flex items-center justify-center text-white font-semibold text-sm",
-                bgColor
-              )}
-            >
-              {result === "V" ? "V" : result === "D" ? "N" : "D"}
-            </div>
-          );
-        })}
-      </div>
+      {Array.isArray(formResults) && formResults.length > 0 && (
+        <div className="flex gap-2">
+          {formResults.map((result, i) => {
+            const resultStr = typeof result === 'string' ? result : "";
+            const bgColor =
+              resultStr === "V"
+                ? "bg-primary-500"
+                : resultStr === "D"
+                  ? "bg-gray-500"
+                  : "bg-red-500";
+            return (
+              <div
+                key={i}
+                className={cn(
+                  "flex-1 h-8 rounded flex items-center justify-center text-white font-semibold text-sm",
+                  bgColor
+                )}
+              >
+                {resultStr === "V" ? "V" : resultStr === "D" ? "N" : "D"}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {/* Stats */}
@@ -497,42 +556,42 @@ function TeamFormCard({ form, isHome }: { form: TeamForm; isHome: boolean }) {
         <div>
           <p className="text-dark-400">Points (5 derniers)</p>
           <p className="text-lg font-bold text-white">
-            {form.pointsLast5 ?? "-"}
+            {typeof form.pointsLast5 === 'number' ? form.pointsLast5 : "-"}
           </p>
         </div>
         <div>
           <p className="text-dark-400">Buts marques/match</p>
           <p className="text-lg font-bold text-primary-400">
-            {form.goalsScoredAvg?.toFixed(1) ?? "-"}
+            {typeof form.goalsScoredAvg === 'number' ? form.goalsScoredAvg.toFixed(1) : "-"}
           </p>
         </div>
         <div>
           <p className="text-dark-400">Buts encaisses/match</p>
           <p className="text-lg font-bold text-orange-400">
-            {form.goalsConcededAvg?.toFixed(1) ?? "-"}
+            {typeof form.goalsConcededAvg === 'number' ? form.goalsConcededAvg.toFixed(1) : "-"}
           </p>
         </div>
         <div>
           <p className="text-dark-400">Matchs sans encaisser</p>
           <p className="text-lg font-bold text-accent-400">
-            {form.cleanSheets ?? "-"}
+            {typeof form.cleanSheets === 'number' ? form.cleanSheets : "-"}
           </p>
         </div>
       </div>
 
       {/* xG Stats if available */}
-      {(form.xgForAvg !== undefined || form.xgAgainstAvg !== undefined) && (
+      {(typeof form.xgForAvg === 'number' || typeof form.xgAgainstAvg === 'number') && (
         <div className="grid grid-cols-2 gap-2 text-sm border-t border-dark-600 pt-2">
           <div>
             <p className="text-dark-400">xG pour/match</p>
             <p className="text-lg font-bold text-primary-300">
-              {form.xgForAvg?.toFixed(2) ?? "-"}
+              {typeof form.xgForAvg === 'number' ? form.xgForAvg.toFixed(2) : "-"}
             </p>
           </div>
           <div>
             <p className="text-dark-400">xG contre/match</p>
             <p className="text-lg font-bold text-orange-300">
-              {form.xgAgainstAvg?.toFixed(2) ?? "-"}
+              {typeof form.xgAgainstAvg === 'number' ? form.xgAgainstAvg.toFixed(2) : "-"}
             </p>
           </div>
         </div>
@@ -569,50 +628,72 @@ function HeadToHeadSection({
       <div className="space-y-3">
         <div className="flex items-center justify-between p-3 bg-primary-500/10 border border-primary-500/20 rounded-lg">
           <span className="text-primary-300 font-semibold">
-            Victoires {homeTeam}
+            Victoires {typeof homeTeam === 'string' ? homeTeam : "Équipe"}
           </span>
           <span className="text-2xl font-bold text-primary-400">
-            {headToHead.homeWins}
+            {typeof headToHead?.homeWins === 'number' ? headToHead.homeWins : 0}
           </span>
         </div>
         <div className="flex items-center justify-between p-3 bg-gray-500/10 border border-gray-500/20 rounded-lg">
           <span className="text-gray-300 font-semibold">Matchs nuls</span>
           <span className="text-2xl font-bold text-gray-400">
-            {headToHead.draws}
+            {typeof headToHead?.draws === 'number' ? headToHead.draws : 0}
           </span>
         </div>
         <div className="flex items-center justify-between p-3 bg-accent-500/10 border border-accent-500/20 rounded-lg">
           <span className="text-accent-300 font-semibold">
-            Victoires {awayTeam}
+            Victoires {typeof awayTeam === 'string' ? awayTeam : "Équipe"}
           </span>
           <span className="text-2xl font-bold text-accent-400">
-            {headToHead.awayWins}
+            {typeof headToHead?.awayWins === 'number' ? headToHead.awayWins : 0}
           </span>
         </div>
       </div>
 
       {/* Recent Matches */}
-      {headToHead.matches && headToHead.matches.length > 0 && (
+      {Array.isArray(headToHead.matches) && headToHead.matches.length > 0 && (
         <div className="space-y-2 border-t border-dark-700 pt-4">
           <h4 className="text-sm font-semibold text-dark-300">Derniers Matchs</h4>
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {(headToHead.matches || []).map((match) => (
-              <div
-                key={match.id}
-                className="p-2 bg-dark-700/50 rounded text-xs space-y-1"
-              >
-                <p className="font-semibold text-dark-100">
-                  {match.homeTeam} vs {match.awayTeam}
-                </p>
-                <p className="text-dark-400">
-                  {match.status === "finished"
-                    ? `${match.homeScore} - ${match.awayScore}`
-                    : format(parseISO(match.matchDate), "dd MMM yyyy", {
-                        locale: fr,
-                      })}
-                </p>
-              </div>
-            ))}
+            {(headToHead.matches || []).map((match) => {
+              // Guard clauses for match properties
+              if (!match || typeof match !== 'object') return null;
+
+              const homeTeam = typeof match.homeTeam === 'string' ? match.homeTeam : "Équipe";
+              const awayTeam = typeof match.awayTeam === 'string' ? match.awayTeam : "Équipe";
+              const homeScore = typeof match.homeScore === 'number' ? match.homeScore : null;
+              const awayScore = typeof match.awayScore === 'number' ? match.awayScore : null;
+              const status = typeof match.status === 'string' ? match.status : "scheduled";
+
+              let scoreDisplay = "";
+              if (status === "finished" && homeScore !== null && awayScore !== null) {
+                scoreDisplay = `${homeScore} - ${awayScore}`;
+              } else if (match.matchDate && typeof match.matchDate === 'string') {
+                try {
+                  scoreDisplay = format(parseISO(match.matchDate), "dd MMM yyyy", {
+                    locale: fr,
+                  });
+                } catch {
+                  scoreDisplay = "Date invalide";
+                }
+              } else {
+                scoreDisplay = "Date indisponible";
+              }
+
+              return (
+                <div
+                  key={match.id || Math.random()}
+                  className="p-2 bg-dark-700/50 rounded text-xs space-y-1"
+                >
+                  <p className="font-semibold text-dark-100">
+                    {homeTeam} vs {awayTeam}
+                  </p>
+                  <p className="text-dark-400">
+                    {scoreDisplay}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -628,9 +709,21 @@ function ModelContributionsSection({
 }: {
   prediction: DetailedPrediction;
 }) {
-  if (!prediction.modelContributions) return null;
+  // Guard: check if modelContributions exists and is an object
+  if (!prediction || !prediction.modelContributions || typeof prediction.modelContributions !== 'object') {
+    return null;
+  }
 
-  const models = Object.entries(prediction.modelContributions);
+  const models = Array.isArray(prediction.modelContributions)
+    ? []
+    : Object.entries(prediction.modelContributions).filter(
+        ([key, value]) => typeof key === 'string' && value && typeof value === 'object'
+      );
+
+  // Guard: check if models array is not empty
+  if (!Array.isArray(models) || models.length === 0) {
+    return null;
+  }
 
   return (
     <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 space-y-4">
@@ -640,13 +733,18 @@ function ModelContributionsSection({
       </h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {models.map(([modelName, contribution]) => (
-          <ModelContributionCard
-            key={modelName}
-            modelName={modelName}
-            contribution={contribution}
-          />
-        ))}
+        {models.map(([modelName, contribution]) => {
+          if (!modelName || typeof modelName !== 'string' || !contribution || typeof contribution !== 'object') {
+            return null;
+          }
+          return (
+            <ModelContributionCard
+              key={modelName}
+              modelName={modelName}
+              contribution={contribution as any}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -675,20 +773,43 @@ function ModelContributionCard({
     xgboost: "XGBoost",
   };
 
-  // Support both formats
-  const homeProb = contribution.homeProb ?? contribution.homeWin ?? 0;
-  const drawProb = contribution.drawProb ?? contribution.draw ?? 0;
-  const awayProb = contribution.awayProb ?? contribution.awayWin ?? 0;
-  const weight = contribution.weight ?? 0.25;
+  // Guard: safely extract numeric values with proper type checking
+  const homeProb = typeof contribution?.homeProb === 'number'
+    ? contribution.homeProb
+    : typeof contribution?.homeWin === 'number'
+      ? contribution.homeWin
+      : 0;
+
+  const drawProb = typeof contribution?.drawProb === 'number'
+    ? contribution.drawProb
+    : typeof contribution?.draw === 'number'
+      ? contribution.draw
+      : 0;
+
+  const awayProb = typeof contribution?.awayProb === 'number'
+    ? contribution.awayProb
+    : typeof contribution?.awayWin === 'number'
+      ? contribution.awayWin
+      : 0;
+
+  const weight = typeof contribution?.weight === 'number' ? contribution.weight : 0.25;
+
+  // Guard: ensure values are valid numbers before calculations
+  const safeHomeProb = typeof homeProb === 'number' && !isNaN(homeProb) ? homeProb : 0;
+  const safeDrawProb = typeof drawProb === 'number' && !isNaN(drawProb) ? drawProb : 0;
+  const safeAwayProb = typeof awayProb === 'number' && !isNaN(awayProb) ? awayProb : 0;
+  const safeWeight = typeof weight === 'number' && !isNaN(weight) ? weight : 0.25;
+
+  const displayModelName = typeof modelName === 'string' ? displayName[modelName] || modelName : "Modèle";
 
   return (
     <div className="bg-dark-700/50 rounded-lg p-4 space-y-2">
       <div>
         <p className="text-dark-300 text-sm font-semibold">
-          {displayName[modelName] || modelName}
+          {displayModelName}
         </p>
         <p className="text-xs text-dark-400">
-          Poids: {Math.round(weight * 100)}%
+          Poids: {Math.round(safeWeight * 100)}%
         </p>
       </div>
 
@@ -696,19 +817,19 @@ function ModelContributionCard({
         <div className="flex justify-between">
           <span className="text-dark-400">Domicile:</span>
           <span className="text-primary-400 font-semibold">
-            {Math.round(homeProb * 100)}%
+            {Math.round(safeHomeProb * 100)}%
           </span>
         </div>
         <div className="flex justify-between">
           <span className="text-dark-400">Nul:</span>
           <span className="text-yellow-400 font-semibold">
-            {Math.round(drawProb * 100)}%
+            {Math.round(safeDrawProb * 100)}%
           </span>
         </div>
         <div className="flex justify-between">
           <span className="text-dark-400">Exterieur:</span>
           <span className="text-accent-400 font-semibold">
-            {Math.round(awayProb * 100)}%
+            {Math.round(safeAwayProb * 100)}%
           </span>
         </div>
       </div>
@@ -724,7 +845,10 @@ function LLMAdjustmentsSection({
 }: {
   prediction: DetailedPrediction;
 }) {
-  if (!prediction.llmAdjustments) return null;
+  // Guard: check if llmAdjustments exists and is an object
+  if (!prediction || !prediction.llmAdjustments || typeof prediction.llmAdjustments !== 'object') {
+    return null;
+  }
 
   const adjustments = prediction.llmAdjustments;
 
@@ -787,7 +911,7 @@ function AdjustmentCard({
   isBold = false,
 }: {
   label: string;
-  value: number;
+  value: number | undefined;
   color: "primary" | "orange" | "blue";
   isBold?: boolean;
 }) {
@@ -803,14 +927,18 @@ function AdjustmentCard({
     blue: "bg-blue-500/10 border-blue-500/20",
   };
 
-  const displayValue = value !== undefined && value !== null
+  // Guard: safely check if value is a valid number
+  const displayValue = typeof value === 'number' && !isNaN(value)
     ? `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`
     : "-";
 
+  // Ensure color is valid
+  const safeColor = color && ['primary', 'orange', 'blue'].includes(color) ? color : 'primary';
+
   return (
-    <div className={cn("p-4 rounded-lg border", bgColorClasses[color])}>
-      <p className="text-dark-400 text-sm mb-2">{label}</p>
-      <p className={cn("text-2xl font-bold", colorClasses[color])}>
+    <div className={cn("p-4 rounded-lg border", bgColorClasses[safeColor])}>
+      <p className="text-dark-400 text-sm mb-2">{label || "N/A"}</p>
+      <p className={cn("text-2xl font-bold", colorClasses[safeColor], isBold && "font-black")}>
         {displayValue}
       </p>
     </div>
