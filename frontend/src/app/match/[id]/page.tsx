@@ -734,26 +734,60 @@ function ModelContributionsSection({
     return null;
   }
 
-  return (
-    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-3 sm:space-y-4">
-      <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
-        <BarChart3 className="w-5 h-5 text-accent-400 flex-shrink-0" />
-        Contributions des Modeles
-      </h3>
+  // Model descriptions for professional context
+  const modelDescriptions: Record<string, { desc: string; weight: string; icon: string }> = {
+    poisson: { desc: "Distribution statistique des buts", weight: "15%", icon: "📊" },
+    elo: { desc: "Classement dynamique des équipes", weight: "10%", icon: "📈" },
+    dixon_coles: { desc: "Modèle avancé avec correction buts faibles", weight: "35%", icon: "🎯" },
+    xgModel: { desc: "Analyse des Expected Goals (xG)", weight: "15%", icon: "⚽" },
+    xgboost: { desc: "Machine Learning gradient boosting", weight: "35%", icon: "🤖" },
+    random_forest: { desc: "Ensemble d'arbres de décision", weight: "15%", icon: "🌳" },
+    advanced_elo: { desc: "ELO avec forme récente", weight: "15%", icon: "📉" },
+  };
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+  return (
+    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-accent-400 flex-shrink-0" />
+          Modèles de Prédiction
+        </h3>
+        <span className="text-xs sm:text-sm text-dark-400">
+          {models.length} modèles combinés (Ensemble)
+        </span>
+      </div>
+
+      {/* Explanation */}
+      <div className="p-3 bg-dark-700/30 rounded-lg">
+        <p className="text-xs sm:text-sm text-dark-400">
+          🧮 Notre système combine plusieurs algorithmes statistiques et de machine learning pour une prédiction optimale. Chaque modèle apporte une perspective différente.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {models.map(([modelName, contribution]) => {
           if (!modelName || typeof modelName !== 'string' || !contribution || typeof contribution !== 'object') {
             return null;
           }
+          const modelInfo = modelDescriptions[modelName] || { desc: "Modèle statistique", weight: "N/A", icon: "📐" };
           return (
             <ModelContributionCard
               key={modelName}
               modelName={modelName}
               contribution={contribution as any}
+              description={modelInfo.desc}
+              weight={modelInfo.weight}
+              icon={modelInfo.icon}
             />
           );
         })}
+      </div>
+
+      {/* Legend */}
+      <div className="pt-3 border-t border-dark-700">
+        <p className="text-dark-500 text-xs">
+          📌 Les probabilités finales sont une moyenne pondérée de tous les modèles, ajustée par l'analyse IA contextuelle.
+        </p>
       </div>
     </div>
   );
@@ -762,6 +796,9 @@ function ModelContributionsSection({
 function ModelContributionCard({
   modelName,
   contribution,
+  description,
+  weight: displayWeight,
+  icon,
 }: {
   modelName: string;
   contribution: {
@@ -773,13 +810,19 @@ function ModelContributionCard({
     awayWin?: number;
     weight?: number;
   };
+  description?: string;
+  weight?: string;
+  icon?: string;
 }) {
   const displayName: Record<string, string> = {
     poisson: "Poisson",
     elo: "ELO",
     xg: "xG",
-    xgModel: "xG Model",
-    xgboost: "XGBoost",
+    xgModel: "Expected Goals",
+    xgboost: "XGBoost ML",
+    dixon_coles: "Dixon-Coles",
+    random_forest: "Random Forest",
+    advanced_elo: "ELO Avancé",
   };
 
   // Guard: safely extract numeric values with proper type checking
@@ -811,35 +854,62 @@ function ModelContributionCard({
 
   const displayModelName = typeof modelName === 'string' ? displayName[modelName] || modelName : "Modèle";
 
+  // Determine which outcome this model predicts
+  const maxProb = Math.max(safeHomeProb, safeDrawProb, safeAwayProb);
+  const predictedOutcome = maxProb === safeHomeProb ? "home" : maxProb === safeDrawProb ? "draw" : "away";
+  const outcomeColors = { home: "border-primary-500/50", draw: "border-yellow-500/50", away: "border-accent-500/50" };
+
   return (
-    <div className="bg-dark-700/50 rounded-lg p-3 sm:p-4 space-y-2">
-      <div>
-        <p className="text-dark-300 text-xs sm:text-sm font-semibold">
-          {displayModelName}
-        </p>
-        <p className="text-xs text-dark-400">
-          Poids: {Math.round(safeWeight * 100)}%
-        </p>
+    <div className={cn("bg-dark-700/50 rounded-lg p-3 sm:p-4 space-y-3 border-l-2", outcomeColors[predictedOutcome])}>
+      <div className="flex items-start gap-2">
+        {icon && <span className="text-lg">{icon}</span>}
+        <div className="flex-1 min-w-0">
+          <p className="text-white text-sm sm:text-base font-semibold truncate">
+            {displayModelName}
+          </p>
+          <p className="text-xs text-dark-400">
+            Poids: {displayWeight || `${Math.round(safeWeight * 100)}%`}
+          </p>
+        </div>
       </div>
 
-      <div className="space-y-1 text-xs">
-        <div className="flex justify-between">
+      {description && (
+        <p className="text-xs text-dark-400 line-clamp-2">{description}</p>
+      )}
+
+      <div className="space-y-1.5 text-xs">
+        <div className="flex items-center justify-between">
           <span className="text-dark-400">Domicile:</span>
-          <span className="text-primary-400 font-semibold">
-            {Math.round(safeHomeProb * 100)}%
-          </span>
+          <div className="flex items-center gap-2">
+            <div className="w-12 sm:w-16 h-1.5 bg-dark-600 rounded-full overflow-hidden">
+              <div className="h-full bg-primary-500 rounded-full" style={{ width: `${safeHomeProb * 100}%` }} />
+            </div>
+            <span className="text-primary-400 font-semibold w-10 text-right">
+              {Math.round(safeHomeProb * 100)}%
+            </span>
+          </div>
         </div>
-        <div className="flex justify-between">
+        <div className="flex items-center justify-between">
           <span className="text-dark-400">Nul:</span>
-          <span className="text-yellow-400 font-semibold">
-            {Math.round(safeDrawProb * 100)}%
-          </span>
+          <div className="flex items-center gap-2">
+            <div className="w-12 sm:w-16 h-1.5 bg-dark-600 rounded-full overflow-hidden">
+              <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${safeDrawProb * 100}%` }} />
+            </div>
+            <span className="text-yellow-400 font-semibold w-10 text-right">
+              {Math.round(safeDrawProb * 100)}%
+            </span>
+          </div>
         </div>
-        <div className="flex justify-between">
-          <span className="text-dark-400">Exterieur:</span>
-          <span className="text-accent-400 font-semibold">
-            {Math.round(safeAwayProb * 100)}%
-          </span>
+        <div className="flex items-center justify-between">
+          <span className="text-dark-400">Extérieur:</span>
+          <div className="flex items-center gap-2">
+            <div className="w-12 sm:w-16 h-1.5 bg-dark-600 rounded-full overflow-hidden">
+              <div className="h-full bg-accent-500 rounded-full" style={{ width: `${safeAwayProb * 100}%` }} />
+            </div>
+            <span className="text-accent-400 font-semibold w-10 text-right">
+              {Math.round(safeAwayProb * 100)}%
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -861,54 +931,105 @@ function LLMAdjustmentsSection({
 
   const adjustments = prediction.llmAdjustments;
 
-  return (
-    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-3 sm:space-y-4">
-      <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
-        <TrendingUp className="w-5 h-5 text-primary-400 flex-shrink-0" />
-        Ajustements IA
-      </h3>
+  // Descriptions for each adjustment type
+  const adjustmentDetails = [
+    {
+      label: "Impact Blessures",
+      homeValue: adjustments.injuryImpactHome,
+      awayValue: adjustments.injuryImpactAway,
+      color: "orange" as const,
+      description: "Analyse des joueurs clés absents (blessures, suspensions). Un impact négatif signifie des absences importantes.",
+      icon: "🏥",
+    },
+    {
+      label: "Sentiment & Moral",
+      homeValue: adjustments.sentimentHome,
+      awayValue: adjustments.sentimentAway,
+      color: "blue" as const,
+      description: "Analyse du moral de l'équipe basée sur les récentes performances, déclarations et ambiance générale.",
+      icon: "💭",
+    },
+  ];
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-        <AdjustmentCard
-          label="Impact Blessures (Domicile)"
-          value={adjustments.injuryImpactHome}
-          color="orange"
-        />
-        <AdjustmentCard
-          label="Impact Blessures (Exterieur)"
-          value={adjustments.injuryImpactAway}
-          color="orange"
-        />
-        <AdjustmentCard
-          label="Sentiment (Domicile)"
-          value={adjustments.sentimentHome}
-          color="blue"
-        />
-        <AdjustmentCard
-          label="Sentiment (Exterieur)"
-          value={adjustments.sentimentAway}
-          color="blue"
-        />
-        <AdjustmentCard
-          label="Avantage Tactique"
-          value={adjustments.tacticalEdge}
-          color="primary"
-        />
-        <AdjustmentCard
-          label="Ajustement Total"
-          value={adjustments.totalAdjustment}
-          color="primary"
-          isBold
-        />
+  return (
+    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-primary-400 flex-shrink-0" />
+          Analyse IA Avancée
+        </h3>
+        <div className={cn(
+          "px-3 py-1 rounded-full text-xs sm:text-sm font-semibold",
+          (adjustments.totalAdjustment ?? 0) >= 0
+            ? "bg-primary-500/20 text-primary-400"
+            : "bg-red-500/20 text-red-400"
+        )}>
+          Ajustement Total: {typeof adjustments.totalAdjustment === 'number'
+            ? `${adjustments.totalAdjustment >= 0 ? "+" : ""}${(adjustments.totalAdjustment * 100).toFixed(1)}%`
+            : "-"}
+        </div>
       </div>
 
+      {/* Detailed Adjustment Cards */}
+      <div className="space-y-4">
+        {adjustmentDetails.map((detail, idx) => (
+          <div key={idx} className="bg-dark-700/30 rounded-lg p-3 sm:p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{detail.icon}</span>
+              <h4 className="font-semibold text-white text-sm sm:text-base">{detail.label}</h4>
+            </div>
+            <p className="text-dark-400 text-xs sm:text-sm">{detail.description}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <AdjustmentCard
+                label="Domicile"
+                value={detail.homeValue}
+                color={detail.color}
+              />
+              <AdjustmentCard
+                label="Extérieur"
+                value={detail.awayValue}
+                color={detail.color}
+              />
+            </div>
+          </div>
+        ))}
+
+        {/* Tactical Edge */}
+        <div className="bg-dark-700/30 rounded-lg p-3 sm:p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⚔️</span>
+            <h4 className="font-semibold text-white text-sm sm:text-base">Avantage Tactique</h4>
+          </div>
+          <p className="text-dark-400 text-xs sm:text-sm">
+            Comparaison des systèmes de jeu, styles tactiques et adaptations potentielles de l'entraîneur.
+          </p>
+          <AdjustmentCard
+            label="Avantage tactique global"
+            value={adjustments.tacticalEdge}
+            color="primary"
+          />
+        </div>
+      </div>
+
+      {/* AI Reasoning */}
       {adjustments.reasoning && (
-        <div className="p-3 sm:p-4 bg-dark-700/50 rounded-lg border border-dark-600">
+        <div className="p-3 sm:p-4 bg-gradient-to-r from-primary-500/10 to-accent-500/10 rounded-lg border border-primary-500/20">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-lg">🤖</span>
+            <h4 className="font-semibold text-white text-sm sm:text-base">Raisonnement IA</h4>
+          </div>
           <p className="text-xs sm:text-sm text-dark-300 leading-relaxed">
             {adjustments.reasoning}
           </p>
         </div>
       )}
+
+      {/* Legend */}
+      <div className="pt-3 border-t border-dark-700">
+        <p className="text-dark-500 text-xs">
+          💡 Les ajustements IA affinent les probabilités statistiques en analysant des facteurs contextuels (blessures, moral, tactique) via l'intelligence artificielle Groq.
+        </p>
+      </div>
     </div>
   );
 }
@@ -936,20 +1057,48 @@ function AdjustmentCard({
     blue: "bg-blue-500/10 border-blue-500/20",
   };
 
+  const barColorClasses: Record<string, string> = {
+    primary: "bg-primary-500",
+    orange: "bg-orange-500",
+    blue: "bg-blue-500",
+  };
+
   // Guard: safely check if value is a valid number
+  const numValue = typeof value === 'number' && !isNaN(value) ? value : 0;
   const displayValue = typeof value === 'number' && !isNaN(value)
     ? `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`
     : "-";
+
+  // Calculate bar width (centered at 50%, range -30% to +30% maps to 0-100%)
+  const barWidth = Math.min(100, Math.max(0, 50 + (numValue * 100 * 1.67)));
+  const isPositive = numValue >= 0;
 
   // Ensure color is valid
   const safeColor = color && ['primary', 'orange', 'blue'].includes(color) ? color : 'primary';
 
   return (
     <div className={cn("p-3 sm:p-4 rounded-lg border", bgColorClasses[safeColor])}>
-      <p className="text-dark-400 text-xs sm:text-sm mb-2">{label || "N/A"}</p>
-      <p className={cn("text-xl sm:text-2xl font-bold", colorClasses[safeColor], isBold && "font-black")}>
-        {displayValue}
-      </p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-dark-400 text-xs sm:text-sm">{label || "N/A"}</p>
+        <p className={cn("text-sm sm:text-lg font-bold", colorClasses[safeColor], isBold && "font-black")}>
+          {displayValue}
+        </p>
+      </div>
+      {/* Progress bar visualization */}
+      <div className="h-1.5 sm:h-2 bg-dark-600 rounded-full overflow-hidden">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all",
+            isPositive ? barColorClasses[safeColor] : "bg-red-500"
+          )}
+          style={{ width: `${barWidth}%` }}
+        />
+      </div>
+      <div className="flex justify-between text-xs text-dark-500 mt-1">
+        <span>-30%</span>
+        <span>0</span>
+        <span>+30%</span>
+      </div>
     </div>
   );
 }
