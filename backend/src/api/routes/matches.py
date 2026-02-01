@@ -224,10 +224,10 @@ async def get_matches(
             }
             api_status = status_map.get(status)
 
-        # Default date range if not specified: next 14 days
+        # Default date range if not specified: next 10 days (API free tier limit)
         if not date_from and not date_to:
             date_from = date.today()
-            date_to = date.today() + timedelta(days=14)
+            date_to = date.today() + timedelta(days=10)
 
         # Fetch matches from API
         client = get_football_data_client()

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(npm install)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Remove mock data fallbacks, use real API for all frontend components\n\n- Update StatsOverview to fetch stats from API dynamically\n- Update DailyPicks to use fetchDailyPicks without mock fallback\n- Update UpcomingMatches to use fetchUpcomingMatches without mock fallback\n- Make home page dynamic with real API stats\n- Update types to support both legacy and new API response formats\n- Add support for home_win/away_win bet type variants\n- Clean up console.log debug statements from api.ts\n- Simplify mockData.ts to match new type definitions\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)"
+    ]
+  }
+}
