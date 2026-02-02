@@ -129,6 +129,24 @@ async def enrich_match(
         away_sentiment_raw = away_ctx.get("sentiment", "neutral")
         away_sentiment_score, away_sentiment_str = parse_sentiment(away_sentiment_raw)
 
+        # Extract news titles and injury descriptions from dict lists
+        def extract_titles(items: list, key: str = "title") -> list[str]:
+            """Extract string values from a list of dicts or strings."""
+            result = []
+            for item in items:
+                if isinstance(item, dict):
+                    val = item.get(key) or item.get("type") or str(item)
+                    if val:
+                        result.append(str(val)[:200])  # Truncate to avoid huge strings
+                elif isinstance(item, str):
+                    result.append(item[:200])
+            return result
+
+        home_news = extract_titles(home_ctx.get("news", []), "title")
+        away_news = extract_titles(away_ctx.get("news", []), "title")
+        home_injuries = extract_titles(home_ctx.get("injuries", []), "type")
+        away_injuries = extract_titles(away_ctx.get("injuries", []), "type")
+
         # Build response
         return MatchContext(
             home_team=home_team,
@@ -137,15 +155,15 @@ async def enrich_match(
             match_date=parsed_date,
             home_context=TeamContext(
                 team_name=home_team,
-                recent_news=home_ctx.get("news", []),
-                injuries=home_ctx.get("injuries", []),
+                recent_news=home_news,
+                injuries=home_injuries,
                 sentiment_score=home_sentiment_score,
                 sentiment_label=home_sentiment_str,
             ),
             away_context=TeamContext(
                 team_name=away_team,
-                recent_news=away_ctx.get("news", []),
-                injuries=away_ctx.get("injuries", []),
+                recent_news=away_news,
+                injuries=away_injuries,
                 sentiment_score=away_sentiment_score,
                 sentiment_label=away_sentiment_str,
             ),
