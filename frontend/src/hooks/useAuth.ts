@@ -150,21 +150,24 @@ export function useAuth() {
     });
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (nextUrl?: string) => {
+    // Get the ?next= param from URL or use default
+    const next = nextUrl || new URLSearchParams(window.location.search).get("next") || "/picks";
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
     return { error };
   };
 
-  const signInWithGithub = async () => {
+  const signInWithGithub = async (nextUrl?: string) => {
+    const next = nextUrl || new URLSearchParams(window.location.search).get("next") || "/picks";
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
     return { error };
