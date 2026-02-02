@@ -199,25 +199,50 @@ export function PredictionCardPremium({
             </p>
           )}
 
-          {/* Value Score Indicator */}
-          <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-slate-700/40 border border-gray-200 dark:border-slate-600/50">
-            <div className="flex items-center gap-1.5">
-              <TrendingUp className="w-4 h-4 text-cyan-600 dark:text-accent-400 flex-shrink-0" />
-              <span className="text-xs sm:text-sm text-gray-600 dark:text-slate-300">Value</span>
+          {/* Value Score & Pick Score Indicators */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-slate-700/40 border border-gray-200 dark:border-slate-600/50">
+              <div className="flex items-center gap-1.5">
+                <TrendingUp className="w-4 h-4 text-cyan-600 dark:text-accent-400 flex-shrink-0" />
+                <span className="text-xs sm:text-sm text-gray-600 dark:text-slate-300">Value</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-xs sm:text-sm font-bold text-cyan-600 dark:text-accent-400">
+                  +{Math.round(valueScore * 100)}%
+                </span>
+                <span className={cn(
+                  "text-xs font-medium px-1.5 py-0.5 rounded-full",
+                  valueScore >= 0.15 ? "bg-primary-200 dark:bg-primary-500/30 text-primary-700 dark:text-primary-300" :
+                  valueScore >= 0.08 ? "bg-green-200 dark:bg-green-500/30 text-green-700 dark:text-green-300" :
+                  "bg-yellow-200 dark:bg-yellow-500/30 text-yellow-700 dark:text-yellow-300"
+                )}>
+                  {valueTier}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="text-xs sm:text-sm font-bold text-cyan-600 dark:text-accent-400">
-                +{Math.round(valueScore * 100)}%
-              </span>
-              <span className={cn(
-                "text-xs font-medium px-1.5 py-0.5 rounded-full",
-                valueScore >= 0.15 ? "bg-primary-200 dark:bg-primary-500/30 text-primary-700 dark:text-primary-300" :
-                valueScore >= 0.08 ? "bg-green-200 dark:bg-green-500/30 text-green-700 dark:text-green-300" :
-                "bg-yellow-200 dark:bg-yellow-500/30 text-yellow-700 dark:text-yellow-300"
-              )}>
-                {valueTier}
-              </span>
-            </div>
+
+            {/* Pick Score */}
+            {pick.pick_score !== undefined && (
+              <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-slate-700/40 border border-gray-200 dark:border-slate-600/50">
+                <div className="flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-slate-300">Score</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs sm:text-sm font-bold text-amber-500">
+                    {pick.pick_score.toFixed(2)}
+                  </span>
+                  <span className={cn(
+                    "text-xs font-medium px-1.5 py-0.5 rounded-full",
+                    pick.pick_score >= 0.8 ? "bg-amber-200 dark:bg-amber-500/30 text-amber-700 dark:text-amber-300" :
+                    pick.pick_score >= 0.6 ? "bg-yellow-200 dark:bg-yellow-500/30 text-yellow-700 dark:text-yellow-300" :
+                    "bg-gray-200 dark:bg-gray-500/30 text-gray-700 dark:text-gray-300"
+                  )}>
+                    {pick.pick_score >= 0.8 ? "Top" : pick.pick_score >= 0.6 ? "Bon" : "Moyen"}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Key Factors */}

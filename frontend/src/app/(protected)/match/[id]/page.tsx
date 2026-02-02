@@ -8,11 +8,16 @@ import {
   useGetTeamForm,
 } from "@/lib/api/endpoints/matches/matches";
 import { useGetPrediction } from "@/lib/api/endpoints/predictions/predictions";
+import { useGetFullEnrichmentApiV1EnrichmentFullGet } from "@/lib/api/endpoints/data-enrichment/data-enrichment";
 import type {
   Match,
   HeadToHeadResponse,
   TeamFormResponse,
   PredictionResponse,
+  FullEnrichmentResponse,
+  OddsData,
+  XGEstimate,
+  StandingsContext,
 } from "@/lib/api/models";
 import {
   TrendingUp,
@@ -23,6 +28,10 @@ import {
   Trophy,
   Clock,
   Target,
+  DollarSign,
+  Crosshair,
+  Medal,
+  ArrowUpDown,
 } from "lucide-react";
 import { cn, isAuthError } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -91,6 +100,22 @@ export default function MatchDetailPage() {
   // Extract form data from responses - API returns { data: {...}, status: number }
   const homeForm = homeFormResponse?.data as TeamFormResponse | undefined;
   const awayForm = awayFormResponse?.data as TeamFormResponse | undefined;
+
+  // Fetch full enrichment data (odds, xG, standings)
+  const homeTeamName = getTeamName(match?.home_team || "");
+  const awayTeamName = getTeamName(match?.away_team || "");
+  const competition = typeof match?.competition === 'string' ? match.competition : '';
+
+  const { data: enrichmentResponse } = useGetFullEnrichmentApiV1EnrichmentFullGet(
+    {
+      home_team: homeTeamName,
+      away_team: awayTeamName,
+      competition: competition || "PL",
+    },
+    { query: { enabled: !!homeTeamName && !!awayTeamName } }
+  );
+
+  const enrichment = enrichmentResponse?.data as FullEnrichmentResponse | undefined;
 
   if (matchLoading) {
     return <LoadingState />;
@@ -190,6 +215,35 @@ export default function MatchDetailPage() {
       {/* LLM Adjustments */}
       {prediction?.llm_adjustments && (
         <LLMAdjustmentsSection prediction={prediction} />
+      )}
+
+      {/* Enrichment Data: Odds, xG, Standings */}
+      {enrichment && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Odds Section */}
+          {enrichment.odds && (
+            <OddsSection odds={enrichment.odds} />
+          )}
+
+          {/* xG Estimates Section */}
+          {(enrichment.home_xg_estimate || enrichment.away_xg_estimate) && (
+            <XGEstimatesSection
+              homeXg={enrichment.home_xg_estimate}
+              awayXg={enrichment.away_xg_estimate}
+              homeTeam={homeTeamName}
+              awayTeam={awayTeamName}
+            />
+          )}
+
+          {/* Standings Context */}
+          {enrichment.standings && (
+            <StandingsSection
+              standings={enrichment.standings}
+              homeTeam={homeTeamName}
+              awayTeam={awayTeamName}
+            />
+          )}
+        </div>
       )}
     </div>
   );
@@ -782,6 +836,226 @@ function LLMAdjustmentsSection({ prediction }: { prediction: PredictionResponse 
             <h4 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">Raisonnement IA</h4>
           </div>
           <p className="text-xs sm:text-sm text-gray-600 dark:text-slate-300 leading-relaxed">{adjustments.reasoning}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================
+   COMPONENT: Odds Section
+   ============================================ */
+function OddsSection({ odds }: { odds: OddsData }) {
+  if (!odds.home_win && !odds.draw && !odds.away_win) return null;
+
+  return (
+    <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4">
+      <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+        <DollarSign className="w-5 h-5 text-green-500" />
+        Cotes Bookmakers
+      </h3>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="text-center p-3 bg-primary-100 dark:bg-primary-500/20 rounded-lg border border-primary-300 dark:border-primary-500/40">
+          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Domicile</p>
+          <p className="text-xl font-bold text-primary-600 dark:text-primary-400">
+            {odds.home_win?.toFixed(2) || "-"}
+          </p>
+        </div>
+        <div className="text-center p-3 bg-gray-100 dark:bg-gray-500/20 rounded-lg border border-gray-300 dark:border-gray-500/40">
+          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Nul</p>
+          <p className="text-xl font-bold text-gray-600 dark:text-gray-400">
+            {odds.draw?.toFixed(2) || "-"}
+          </p>
+        </div>
+        <div className="text-center p-3 bg-accent-100 dark:bg-accent-500/20 rounded-lg border border-accent-300 dark:border-accent-500/40">
+          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Exterieur</p>
+          <p className="text-xl font-bold text-accent-600 dark:text-accent-400">
+            {odds.away_win?.toFixed(2) || "-"}
+          </p>
+        </div>
+      </div>
+
+      {odds.value_detected && (
+        <div className="flex items-center gap-2 p-2 bg-green-100 dark:bg-green-500/20 rounded-lg border border-green-300 dark:border-green-500/40">
+          <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+          <span className="text-xs text-green-700 dark:text-green-300 font-semibold">
+            Value Bet detecte
+          </span>
+        </div>
+      )}
+
+      {odds.bookmakers && odds.bookmakers.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-200 dark:border-slate-700">
+          <span className="text-xs text-gray-500 dark:text-slate-400">Sources:</span>
+          {odds.bookmakers.map((bookie, i) => (
+            <span key={i} className="px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 rounded text-[10px] text-gray-600 dark:text-slate-400">
+              {bookie}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================
+   COMPONENT: xG Estimates Section
+   ============================================ */
+function XGEstimatesSection({
+  homeXg,
+  awayXg,
+  homeTeam,
+  awayTeam,
+}: {
+  homeXg?: XGEstimate | null;
+  awayXg?: XGEstimate | null;
+  homeTeam: string;
+  awayTeam: string;
+}) {
+  if (!homeXg && !awayXg) return null;
+
+  return (
+    <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4">
+      <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+        <Crosshair className="w-5 h-5 text-orange-500" />
+        Expected Goals (xG)
+      </h3>
+
+      <div className="space-y-4">
+        {/* Home Team xG */}
+        {homeXg && (
+          <div className="p-3 bg-primary-50 dark:bg-primary-500/10 rounded-lg border border-primary-200 dark:border-primary-500/30">
+            <p className="text-xs font-semibold text-primary-700 dark:text-primary-300 mb-2">{homeTeam}</p>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <p className="text-gray-500 dark:text-slate-400">xG estime</p>
+                <p className="text-lg font-bold text-primary-600 dark:text-primary-400">
+                  {homeXg.estimated_xg?.toFixed(2) || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-500 dark:text-slate-400">xGA estime</p>
+                <p className="text-lg font-bold text-orange-500">
+                  {homeXg.estimated_xga?.toFixed(2) || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-500 dark:text-slate-400">Rating offensif</p>
+                <p className="font-semibold text-green-600 dark:text-green-400">
+                  {homeXg.offensive_rating?.toFixed(1) || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-500 dark:text-slate-400">Rating defensif</p>
+                <p className="font-semibold text-red-500">
+                  {homeXg.defensive_rating?.toFixed(1) || "-"}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Away Team xG */}
+        {awayXg && (
+          <div className="p-3 bg-accent-50 dark:bg-accent-500/10 rounded-lg border border-accent-200 dark:border-accent-500/30">
+            <p className="text-xs font-semibold text-accent-700 dark:text-accent-300 mb-2">{awayTeam}</p>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <p className="text-gray-500 dark:text-slate-400">xG estime</p>
+                <p className="text-lg font-bold text-accent-600 dark:text-accent-400">
+                  {awayXg.estimated_xg?.toFixed(2) || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-500 dark:text-slate-400">xGA estime</p>
+                <p className="text-lg font-bold text-orange-500">
+                  {awayXg.estimated_xga?.toFixed(2) || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-500 dark:text-slate-400">Rating offensif</p>
+                <p className="font-semibold text-green-600 dark:text-green-400">
+                  {awayXg.offensive_rating?.toFixed(1) || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-500 dark:text-slate-400">Rating defensif</p>
+                <p className="font-semibold text-red-500">
+                  {awayXg.defensive_rating?.toFixed(1) || "-"}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================
+   COMPONENT: Standings Section
+   ============================================ */
+function StandingsSection({
+  standings,
+  homeTeam,
+  awayTeam,
+}: {
+  standings: StandingsContext;
+  homeTeam: string;
+  awayTeam: string;
+}) {
+  const hasData = standings.home_position || standings.away_position;
+  if (!hasData) return null;
+
+  const positionDiff = standings.position_diff ?? 0;
+  const diffColor = positionDiff > 0 ? "text-primary-500" : positionDiff < 0 ? "text-accent-500" : "text-gray-500";
+
+  return (
+    <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4">
+      <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+        <Medal className="w-5 h-5 text-yellow-500" />
+        Classement
+      </h3>
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* Home Team */}
+        <div className="p-3 bg-primary-50 dark:bg-primary-500/10 rounded-lg border border-primary-200 dark:border-primary-500/30 text-center">
+          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1 truncate">{homeTeam}</p>
+          <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">
+            {standings.home_position ? `${standings.home_position}e` : "-"}
+          </p>
+          {standings.home_points != null && (
+            <p className="text-xs text-gray-500 dark:text-slate-400">{standings.home_points} pts</p>
+          )}
+        </div>
+
+        {/* Away Team */}
+        <div className="p-3 bg-accent-50 dark:bg-accent-500/10 rounded-lg border border-accent-200 dark:border-accent-500/30 text-center">
+          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1 truncate">{awayTeam}</p>
+          <p className="text-2xl font-bold text-accent-600 dark:text-accent-400">
+            {standings.away_position ? `${standings.away_position}e` : "-"}
+          </p>
+          {standings.away_points != null && (
+            <p className="text-xs text-gray-500 dark:text-slate-400">{standings.away_points} pts</p>
+          )}
+        </div>
+      </div>
+
+      {/* Position Difference */}
+      {positionDiff !== 0 && (
+        <div className="flex items-center justify-center gap-2 p-2 bg-gray-100 dark:bg-slate-700/50 rounded-lg">
+          <ArrowUpDown className={cn("w-4 h-4", diffColor)} />
+          <span className={cn("text-sm font-semibold", diffColor)}>
+            {Math.abs(positionDiff)} place{Math.abs(positionDiff) > 1 ? "s" : ""} d'ecart
+          </span>
+        </div>
+      )}
+
+      {/* Context Note */}
+      {standings.context_note && (
+        <div className="p-2 bg-yellow-50 dark:bg-yellow-500/10 rounded-lg border border-yellow-200 dark:border-yellow-500/30">
+          <p className="text-xs text-yellow-700 dark:text-yellow-300">{standings.context_note}</p>
         </div>
       )}
     </div>

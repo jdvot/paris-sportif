@@ -1,6 +1,6 @@
 "use client";
 
-import { Newspaper, UserX, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, Info, Cloud, CloudRain, Sun, Wind, Thermometer } from "lucide-react";
+import { Newspaper, UserX, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, Info, Cloud, CloudRain, Sun, Wind, Thermometer, MessageSquare, Database, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEnrichMatch } from "@/lib/api/endpoints/rag/rag";
 import type { TeamContext, WeatherInfo } from "@/lib/api/models";
@@ -283,6 +283,49 @@ export function RAGContext({
         )}
         {hasAwayContext && (
           <TeamContextSection context={awayContext} teamName={awayTeam} />
+        )}
+      </div>
+
+      {/* Combined Analysis */}
+      {ragContext.combined_analysis && (
+        <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-500/10 dark:to-indigo-500/10 rounded-lg border border-blue-200 dark:border-blue-500/30">
+          <div className="flex items-center gap-2 mb-2">
+            <MessageSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">Analyse IA</span>
+          </div>
+          <p className="text-xs text-gray-700 dark:text-slate-300 leading-relaxed">
+            {ragContext.combined_analysis}
+          </p>
+        </div>
+      )}
+
+      {/* Sources & Metadata */}
+      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-200 dark:border-slate-700/50">
+        {/* Sources Used */}
+        {ragContext.sources_used && ragContext.sources_used.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <Database className="w-3 h-3 text-gray-400 dark:text-slate-500" />
+            <div className="flex flex-wrap gap-1">
+              {ragContext.sources_used.map((source, i) => (
+                <span
+                  key={i}
+                  className="px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700/50 rounded text-[9px] text-gray-500 dark:text-slate-400"
+                >
+                  {source}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Enriched At */}
+        {ragContext.enriched_at && (
+          <div className="flex items-center gap-1 ml-auto">
+            <Clock className="w-3 h-3 text-gray-400 dark:text-slate-500" />
+            <span className="text-[9px] text-gray-400 dark:text-slate-500">
+              {new Date(ragContext.enriched_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          </div>
         )}
       </div>
     </div>
