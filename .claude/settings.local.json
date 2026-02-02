@@ -46,7 +46,8 @@
       "Bash(npx orval:*)",
       "Bash(DEBUG=*)",
       "Bash(__NEW_LINE_8ef8323ae2be835c__ echo \"\")",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "WebFetch(domain:supabase.com)"
     ]
   }
 }

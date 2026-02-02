@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 import { Header } from "./Header";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -37,6 +38,11 @@ interface AppShellProps {
 /**
  * AppShell - Handles authentication check and shows fullscreen loader
  * This component wraps the entire app to ensure the loader covers everything
+ *
+ * IMPORTANT: To avoid race conditions after OAuth callback:
+ * 1. Subscribe to onAuthStateChange FIRST
+ * 2. Then check initial session
+ * 3. Give cookies time to hydrate after OAuth redirect
  */
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
@@ -44,6 +50,8 @@ export function AppShell({ children }: AppShellProps) {
     // Start as authenticated for public routes to avoid flash
     isPublicRoute(pathname) ? "authenticated" : "loading"
   );
+  // Track if auth was resolved by onAuthStateChange to avoid double-redirect
+  const authResolvedRef = useRef(false);
 
   useEffect(() => {
     // Skip auth check for public routes
@@ -53,69 +61,87 @@ export function AppShell({ children }: AppShellProps) {
     }
 
     let isMounted = true;
-    let timeoutId: NodeJS.Timeout;
+    let fallbackTimeoutId: NodeJS.Timeout;
 
-    const checkAuth = async () => {
-      try {
-        const supabase = createClient();
+    // Use a single Supabase client instance for consistency
+    const supabase = createClient();
 
-        // Short timeout - don't block UI for too long
-        const timeoutPromise = new Promise<null>((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error("Auth check timeout")), 3000);
-        });
+    // STEP 1: Subscribe to auth state changes FIRST
+    // This catches the SIGNED_IN event from OAuth before getSession returns
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+      console.log("[AppShell] Auth event:", event, "hasSession:", !!session);
 
-        const sessionPromise = supabase.auth.getSession();
+      if (!isMounted) return;
 
-        const result = await Promise.race([sessionPromise, timeoutPromise]);
-        clearTimeout(timeoutId);
-
-        if (!isMounted) return;
-
-        if (!result || !result.data?.session) {
-          // No session - redirect to login immediately
-          console.log("[AppShell] No session, redirecting to login...");
-          setAuthState("redirecting");
-          redirectToLogin(pathname);
-          return;
-        }
-
-        // User is authenticated
-        console.log("[AppShell] Session valid, user authenticated");
+      if (event === "SIGNED_IN" && session) {
+        // User just logged in (e.g., from OAuth callback)
+        authResolvedRef.current = true;
         setAuthState("authenticated");
+        clearTimeout(fallbackTimeoutId);
+      } else if (event === "SIGNED_OUT") {
+        // User logged out
+        authResolvedRef.current = true;
+        setAuthState("redirecting");
+        redirectToLogin(pathname);
+      } else if (event === "TOKEN_REFRESHED" && !session) {
+        // Token refresh failed - session expired
+        authResolvedRef.current = true;
+        setAuthState("redirecting");
+        redirectToLogin(pathname);
+      } else if (event === "INITIAL_SESSION") {
+        // Initial session loaded from cookies
+        if (session) {
+          authResolvedRef.current = true;
+          setAuthState("authenticated");
+          clearTimeout(fallbackTimeoutId);
+        }
+        // If no session on INITIAL_SESSION, wait for fallback timeout
+      }
+    });
+
+    // STEP 2: Check initial session (backup for when no events fire)
+    const checkInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log("[AppShell] getSession result:", !!session);
+
+        if (!isMounted || authResolvedRef.current) return;
+
+        if (session) {
+          authResolvedRef.current = true;
+          setAuthState("authenticated");
+          clearTimeout(fallbackTimeoutId);
+        }
+        // If no session, let the fallback timeout handle redirect
       } catch (err) {
         // Ignore AbortError - this happens during normal navigation/unmount
         if (err instanceof Error && err.name === "AbortError") {
           console.log("[AppShell] Request aborted (normal during navigation)");
           return;
         }
-
-        // On timeout, redirect to login (don't trust stale session)
-        console.warn("[AppShell] Auth check failed, redirecting:", err);
-        if (isMounted) {
-          setAuthState("redirecting");
-          redirectToLogin(pathname);
-        }
+        console.warn("[AppShell] getSession error:", err);
       }
     };
 
-    checkAuth();
+    checkInitialSession();
 
-    // Listen for auth state changes
-    const supabase = createClient();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("[AppShell] Auth state change:", event);
-      if (event === "SIGNED_OUT" || (!session && !isPublicRoute(pathname))) {
+    // STEP 3: Fallback timeout - redirect if no auth after delay
+    // This gives OAuth cookies time to hydrate (important after callback redirect)
+    fallbackTimeoutId = setTimeout(() => {
+      if (isMounted && !authResolvedRef.current && authState === "loading") {
+        console.log("[AppShell] Fallback timeout - no session, redirecting to login");
         setAuthState("redirecting");
         redirectToLogin(pathname);
       }
-    });
+    }, 1500); // 1.5 seconds is enough for cookies to hydrate
 
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId);
+      authResolvedRef.current = false;
+      clearTimeout(fallbackTimeoutId);
       subscription.unsubscribe();
     };
-  }, [pathname]);
+  }, [pathname, authState]);
 
   // Show fullscreen loader while checking auth or redirecting (covers EVERYTHING)
   if (authState === "loading" || authState === "redirecting") {

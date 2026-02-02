@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -76,7 +77,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
     // Listen for auth state changes
     const supabase = createClient();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       console.log("[AuthGuard] Auth state change:", event);
       if (event === "SIGNED_OUT" || !session) {
         setAuthState("redirecting");
