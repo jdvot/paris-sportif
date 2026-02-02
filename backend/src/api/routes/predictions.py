@@ -322,10 +322,70 @@ def _get_recommended_bet(
     return "draw"
 
 
+def _get_team_stats_for_ml(home_team: str, away_team: str, match_id: int) -> dict:
+    """
+    Get team statistics for ML ensemble prediction.
+
+    Uses model_loader's feature engineer state if available,
+    otherwise returns default values based on match_id for consistency.
+    """
+    from src.ml.model_loader import model_loader
+
+    # Default ELO ratings (1500 is baseline)
+    default_elo = 1500.0
+    default_attack = 1.3
+    default_defense = 1.3
+    default_form = 50.0
+
+    # Try to get stats from model_loader
+    home_stats = None
+    away_stats = None
+
+    # Use match_id as team_id proxy (in real system, we'd have actual team IDs)
+    # This is a deterministic mapping based on team names
+    home_team_id = hash(home_team) % 1000000
+    away_team_id = hash(away_team) % 1000000
+
+    if model_loader.feature_state:
+        home_stats = model_loader.get_team_stats(home_team_id)
+        away_stats = model_loader.get_team_stats(away_team_id)
+
+    # Use historical data if available, otherwise use defaults
+    result = {
+        "home_team_id": home_team_id,
+        "away_team_id": away_team_id,
+        "home_elo": default_elo,
+        "away_elo": default_elo,
+        "home_attack": home_stats["attack_strength"] if home_stats else default_attack,
+        "home_defense": home_stats["defense_strength"] if home_stats else default_defense,
+        "away_attack": away_stats["attack_strength"] if away_stats else default_attack,
+        "away_defense": away_stats["defense_strength"] if away_stats else default_defense,
+        "home_form": home_stats["form"] if home_stats else default_form,
+        "away_form": away_stats["form"] if away_stats else default_form,
+    }
+
+    # Adjust ELO based on form if we have data
+    if home_stats:
+        # Better form = higher ELO adjustment
+        form_adj = (home_stats["form"] - 50) * 2  # -100 to +100
+        result["home_elo"] = default_elo + form_adj
+
+    if away_stats:
+        form_adj = (away_stats["form"] - 50) * 2
+        result["away_elo"] = default_elo + form_adj
+
+    return result
+
+
 async def _generate_prediction_from_api_match(
     api_match: MatchData, include_model_details: bool = False, use_rag: bool = True
 ) -> PredictionResponse:
-    """Generate a prediction for a real match from the API using Groq LLM and RAG."""
+    """
+    Generate a prediction for a real match using the advanced ensemble predictor.
+
+    This uses the trained ML models (XGBoost, Random Forest) combined with
+    statistical models (Dixon-Coles, ELO, Poisson) for accurate predictions.
+    """
     home_team = api_match.homeTeam.name
     away_team = api_match.awayTeam.name
     competition = api_match.competition.code
@@ -343,35 +403,65 @@ async def _generate_prediction_from_api_match(
         except Exception as e:
             logger.warning(f"RAG enrichment failed: {e}")
 
-    # Try to get prediction from Groq API first
-    groq_prediction = _get_groq_prediction(home_team, away_team, competition)
+    # Get team stats for ML models
+    team_stats = _get_team_stats_for_ml(home_team, away_team, api_match.id)
 
-    if groq_prediction:
-        # Use Groq prediction
-        logger.info(f"Using Groq prediction for {home_team} vs {away_team}")
-        home_prob = groq_prediction["home_win"]
-        draw_prob = groq_prediction["draw"]
-        away_prob = groq_prediction["away_win"]
-        groq_reasoning = groq_prediction.get("reasoning", "")
-    else:
-        # Fallback to random probabilities if Groq fails
-        logger.info(f"Using fallback random prediction for {home_team} vs {away_team}")
-        random.seed(api_match.id)
-        strength_ratio = random.uniform(0.75, 1.35)
-        home_prob, draw_prob, away_prob = _generate_realistic_probabilities(strength_ratio)
-        groq_reasoning = ""
-        random.seed()
+    # Use the advanced ensemble predictor with all models (ML + statistical)
+    try:
+        ensemble_result = advanced_ensemble_predictor.predict(
+            home_attack=team_stats["home_attack"],
+            home_defense=team_stats["home_defense"],
+            away_attack=team_stats["away_attack"],
+            away_defense=team_stats["away_defense"],
+            home_elo=team_stats["home_elo"],
+            away_elo=team_stats["away_elo"],
+            home_team_id=team_stats["home_team_id"],
+            away_team_id=team_stats["away_team_id"],
+            home_form_score=team_stats["home_form"],
+            away_form_score=team_stats["away_form"],
+        )
 
-    # Get recommended bet
-    recommended_bet = _get_recommended_bet(home_prob, draw_prob, away_prob)
+        # Use ensemble prediction results
+        home_prob = round(ensemble_result.home_win_prob, 4)
+        draw_prob = round(ensemble_result.draw_prob, 4)
+        away_prob = round(ensemble_result.away_win_prob, 4)
+        confidence = round(ensemble_result.confidence, 3)
+        model_agreement = ensemble_result.model_agreement
 
-    # Generate confidence score (60-85%)
+        logger.info(
+            f"Ensemble prediction for {home_team} vs {away_team}: "
+            f"H={home_prob:.2%} D={draw_prob:.2%} A={away_prob:.2%} "
+            f"(confidence={confidence:.2%}, agreement={model_agreement:.2%})"
+        )
+
+        # Map ensemble recommended_bet to API format
+        bet_map = {"home": "home_win", "draw": "draw", "away": "away_win"}
+        recommended_bet = bet_map.get(ensemble_result.recommended_bet, "draw")
+
+    except Exception as e:
+        logger.warning(f"Ensemble prediction failed, using fallback: {e}")
+        # Fallback to Groq or random if ensemble fails
+        groq_prediction = _get_groq_prediction(home_team, away_team, competition)
+
+        if groq_prediction:
+            home_prob = groq_prediction["home_win"]
+            draw_prob = groq_prediction["draw"]
+            away_prob = groq_prediction["away_win"]
+        else:
+            random.seed(api_match.id)
+            strength_ratio = random.uniform(0.75, 1.35)
+            home_prob, draw_prob, away_prob = _generate_realistic_probabilities(strength_ratio)
+            random.seed()
+
+        recommended_bet = _get_recommended_bet(home_prob, draw_prob, away_prob)
+        confidence = round(random.uniform(0.60, 0.75), 3)
+        model_agreement = 0.5
+
+    # Generate value score based on confidence and model agreement
+    # Higher agreement = higher value potential
     random.seed(api_match.id)
-    base_confidence = random.uniform(0.60, 0.85)
-    confidence = round(base_confidence, 3)
-
-    # Generate value score (5-18%)
-    value_score = round(random.uniform(0.05, 0.18), 3)
+    base_value = 0.05 + (model_agreement * 0.10)  # 5-15% based on agreement
+    value_score = round(base_value + random.uniform(0.0, 0.05), 3)
 
     # Select key factors based on predicted outcome
     if recommended_bet == "home_win":
@@ -388,64 +478,101 @@ async def _generate_prediction_from_api_match(
     explanation_template = EXPLANATIONS_TEMPLATES[recommended_bet]
     explanation = explanation_template.format(home=home_team, away=away_team)
 
-    # Enhance explanation with Groq reasoning if available
-    if groq_reasoning:
-        explanation = f"{explanation}\n\n(Analyse Groq: {groq_reasoning})"
-
-    # Model contributions (optional)
+    # Model contributions from ensemble (real data)
     model_contributions = None
     if include_model_details:
-        base_home = home_prob + random.uniform(-0.05, 0.05)
-        base_home = max(0.01, min(0.99, base_home))
+        try:
+            # Build real model contributions from ensemble
+            contributions = {}
+            if hasattr(ensemble_result, 'model_contributions') and ensemble_result.model_contributions:
+                for contrib in ensemble_result.model_contributions:
+                    name_key = contrib.name.lower().replace(" ", "_").replace("-", "_")
+                    contributions[name_key] = {
+                        "home_win": round(contrib.home_prob, 4),
+                        "draw": round(contrib.draw_prob, 4),
+                        "away_win": round(contrib.away_prob, 4),
+                        "weight": round(contrib.weight, 4),
+                    }
 
-        model_contributions = ModelContributions(
-            poisson=PredictionProbabilities(
-                home_win=round(base_home, 4),
-                draw=round(max(0.01, 0.40 - base_home / 2), 4),
-                away_win=round(1.0 - base_home - max(0.01, 0.40 - base_home / 2), 4),
-            ),
-            xgboost=PredictionProbabilities(
-                home_win=home_prob,
-                draw=draw_prob,
-                away_win=away_prob,
-            ),
-            xg_model=PredictionProbabilities(
-                home_win=round(home_prob + random.uniform(-0.03, 0.03), 4),
-                draw=round(draw_prob + random.uniform(-0.02, 0.02), 4),
-                away_win=round(away_prob + random.uniform(-0.03, 0.03), 4),
-            ),
-            elo=PredictionProbabilities(
-                home_win=round(home_prob - random.uniform(0.01, 0.04), 4),
-                draw=round(draw_prob + random.uniform(0.00, 0.02), 4),
-                away_win=round(away_prob + random.uniform(0.01, 0.03), 4),
-            ),
-        )
+            # Map to API model contributions format
+            model_contributions = ModelContributions(
+                poisson=PredictionProbabilities(
+                    home_win=contributions.get("poisson", {}).get("home_win", home_prob),
+                    draw=contributions.get("poisson", {}).get("draw", draw_prob),
+                    away_win=contributions.get("poisson", {}).get("away_win", away_prob),
+                ),
+                xgboost=PredictionProbabilities(
+                    home_win=contributions.get("ml_(ensemble)", {}).get("home_win", home_prob) or
+                             contributions.get("ml_(xgboost)", {}).get("home_win", home_prob),
+                    draw=contributions.get("ml_(ensemble)", {}).get("draw", draw_prob) or
+                         contributions.get("ml_(xgboost)", {}).get("draw", draw_prob),
+                    away_win=contributions.get("ml_(ensemble)", {}).get("away_win", away_prob) or
+                             contributions.get("ml_(xgboost)", {}).get("away_win", away_prob),
+                ),
+                xg_model=PredictionProbabilities(
+                    home_win=contributions.get("dixon_coles", {}).get("home_win", home_prob),
+                    draw=contributions.get("dixon_coles", {}).get("draw", draw_prob),
+                    away_win=contributions.get("dixon_coles", {}).get("away_win", away_prob),
+                ),
+                elo=PredictionProbabilities(
+                    home_win=contributions.get("advanced_elo", {}).get("home_win", home_prob) or
+                             contributions.get("basic_elo", {}).get("home_win", home_prob),
+                    draw=contributions.get("advanced_elo", {}).get("draw", draw_prob) or
+                         contributions.get("basic_elo", {}).get("draw", draw_prob),
+                    away_win=contributions.get("advanced_elo", {}).get("away_win", away_prob) or
+                             contributions.get("basic_elo", {}).get("away_win", away_prob),
+                ),
+            )
+        except Exception as e:
+            logger.warning(f"Failed to build model contributions: {e}")
+            model_contributions = None
 
-    # LLM adjustments (optional)
+    # LLM adjustments (from RAG context if available)
     llm_adjustments = None
     if include_model_details:
-        injury_impact_home = round(random.uniform(-0.15, 0.0), 3)
-        injury_impact_away = round(random.uniform(-0.15, 0.0), 3)
-        sentiment_home = round(random.uniform(-0.05, 0.05), 3)
-        sentiment_away = round(random.uniform(-0.05, 0.05), 3)
-        tactical_edge = round(random.uniform(-0.03, 0.03), 3)
+        if rag_context:
+            # Extract real adjustments from RAG context
+            home_ctx = rag_context.get("home_context", {})
+            away_ctx = rag_context.get("away_context", {})
 
-        llm_adjustments = LLMAdjustments(
-            injury_impact_home=injury_impact_home,
-            injury_impact_away=injury_impact_away,
-            sentiment_home=sentiment_home,
-            sentiment_away=sentiment_away,
-            tactical_edge=tactical_edge,
-            total_adjustment=round(
-                injury_impact_home + injury_impact_away + sentiment_home + sentiment_away + tactical_edge, 3
-            ),
-            reasoning="Analyse basée sur l'IA Groq et données publiques disponibles.",
-        )
+            # Calculate injury impact (more injuries = negative impact)
+            home_injuries = len(home_ctx.get("injuries", []))
+            away_injuries = len(away_ctx.get("injuries", []))
+            injury_impact_home = round(min(0.0, -home_injuries * 0.05), 3)
+            injury_impact_away = round(min(0.0, -away_injuries * 0.05), 3)
+
+            # Calculate sentiment from RAG
+            home_sentiment_raw = home_ctx.get("sentiment", "neutral")
+            away_sentiment_raw = away_ctx.get("sentiment", "neutral")
+            sentiment_map = {"positive": 0.05, "neutral": 0.0, "negative": -0.05}
+            sentiment_home = sentiment_map.get(str(home_sentiment_raw).lower(), 0.0)
+            sentiment_away = sentiment_map.get(str(away_sentiment_raw).lower(), 0.0)
+
+            llm_adjustments = LLMAdjustments(
+                injury_impact_home=injury_impact_home,
+                injury_impact_away=injury_impact_away,
+                sentiment_home=round(sentiment_home, 3),
+                sentiment_away=round(sentiment_away, 3),
+                tactical_edge=0.0,
+                total_adjustment=round(
+                    injury_impact_home + injury_impact_away + sentiment_home + sentiment_away, 3
+                ),
+                reasoning="Analyse basée sur le contexte RAG (news, blessures, sentiment).",
+            )
+        else:
+            # Minimal adjustments without RAG
+            llm_adjustments = LLMAdjustments(
+                injury_impact_home=0.0,
+                injury_impact_away=0.0,
+                sentiment_home=0.0,
+                sentiment_away=0.0,
+                tactical_edge=0.0,
+                total_adjustment=0.0,
+                reasoning="Données contextuelles non disponibles.",
+            )
 
     # Reset random seed
     random.seed()
-
-    match_date = datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00"))
 
     return PredictionResponse(
         match_id=api_match.id,

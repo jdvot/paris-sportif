@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { DailyPick } from "@/lib/api/models";
+import { RAGContext } from "./RAGContext";
 
 interface PredictionCardPremiumProps {
   pick: DailyPick;
@@ -257,6 +258,16 @@ export function PredictionCardPremium({
               </div>
             </div>
           )}
+
+          {/* RAG Context - News, Injuries, Sentiment */}
+          <div className="border-t border-gray-200 dark:border-slate-700/50 pt-3">
+            <RAGContext
+              homeTeam={prediction.home_team}
+              awayTeam={prediction.away_team}
+              competition={(prediction as { competition?: string }).competition || "PL"}
+              matchDate={matchDate}
+            />
+          </div>
         </div>
 
         {/* Footer with confidence tier info */}
