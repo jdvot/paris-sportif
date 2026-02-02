@@ -43,7 +43,8 @@ def _get_jwks_url() -> str | None:
         return None
     # Remove trailing slash if present
     base_url = SUPABASE_URL.rstrip("/")
-    return f"{base_url}/.well-known/jwks.json"
+    # Supabase JWKS is at /auth/v1/.well-known/jwks.json
+    return f"{base_url}/auth/v1/.well-known/jwks.json"
 
 
 @lru_cache(maxsize=1)
