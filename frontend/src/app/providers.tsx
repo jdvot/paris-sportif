@@ -1,33 +1,42 @@
 "use client";
 
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ApiError } from "@/lib/api/custom-instance";
 import { createClient } from "@/lib/supabase/client";
 
-// Flag to prevent multiple redirects
+// Flag to prevent multiple redirects (reset on page load)
 let isRedirecting = false;
 
 function handleAuthError(status: number) {
   // Prevent multiple redirects
-  if (isRedirecting) return;
+  if (isRedirecting || typeof window === 'undefined') return;
 
   if (status === 401) {
-    console.log('[Auth] 401 detected, redirecting to login...');
+    console.log('[Auth] 401 detected, forcing redirect to login...');
     isRedirecting = true;
+    // Force immediate redirect - don't wait for signOut
+    const currentPath = window.location.pathname;
+    const loginUrl = `/auth/login?next=${encodeURIComponent(currentPath)}`;
+
+    // Sign out in background, redirect immediately
     const supabase = createClient();
-    supabase.auth.signOut().then(() => {
-      window.location.href = "/auth/login";
-    });
+    supabase.auth.signOut().catch(() => {});
+    window.location.replace(loginUrl);
   } else if (status === 403) {
     console.log('[Auth] 403 detected, redirecting to plans...');
     isRedirecting = true;
-    window.location.href = "/plans";
+    window.location.replace("/plans");
   }
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  // Reset redirect flag on mount (new page load)
+  useEffect(() => {
+    isRedirecting = false;
+  }, []);
+
   const [queryClient] = useState(
     () =>
       new QueryClient({
