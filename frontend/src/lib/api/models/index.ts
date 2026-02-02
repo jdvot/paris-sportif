@@ -121,5 +121,6 @@ export * from './teamFormMatchResult';
 export * from './teamFormResponse';
 export * from './teamInfo';
 export * from './validationError';
+export * from './weatherInfo';
 export * from './weatherData';
 export * from './xGEstimate';

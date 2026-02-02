@@ -1,9 +1,9 @@
 "use client";
 
-import { Newspaper, UserX, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, Info } from "lucide-react";
+import { Newspaper, UserX, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, Info, Cloud, CloudRain, Sun, Wind, Thermometer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEnrichMatch } from "@/lib/api/endpoints/rag/rag";
-import type { TeamContext } from "@/lib/api/models";
+import type { TeamContext, WeatherInfo } from "@/lib/api/models";
 import { format } from "date-fns";
 
 interface RAGContextProps {
@@ -51,6 +51,76 @@ function SentimentBadge({ label, score }: { label?: string; score?: number }) {
       <Icon className="w-3 h-3" />
       {label || "Neutre"}
     </span>
+  );
+}
+
+function WeatherSection({ weather }: { weather: WeatherInfo }) {
+  if (!weather.available) return null;
+
+  const getWeatherIcon = () => {
+    const desc = weather.description?.toLowerCase() || "";
+    if (desc.includes("rain") || desc.includes("drizzle") || desc.includes("shower")) {
+      return <CloudRain className="w-4 h-4 text-blue-500" />;
+    }
+    if (desc.includes("clear") || desc.includes("sun")) {
+      return <Sun className="w-4 h-4 text-yellow-500" />;
+    }
+    return <Cloud className="w-4 h-4 text-gray-500" />;
+  };
+
+  const getImpactBadge = () => {
+    if (!weather.impact || weather.impact === "favorable") {
+      return (
+        <span className="px-1.5 py-0.5 bg-green-100 dark:bg-green-500/20 border border-green-300 dark:border-green-500/40 rounded text-[10px] text-green-700 dark:text-green-300">
+          Favorable
+        </span>
+      );
+    }
+    const impacts = weather.impact.split(",");
+    return impacts.map((impact, i) => (
+      <span
+        key={i}
+        className="px-1.5 py-0.5 bg-orange-100 dark:bg-orange-500/20 border border-orange-300 dark:border-orange-500/40 rounded text-[10px] text-orange-700 dark:text-orange-300"
+      >
+        {impact === "cold_conditions" ? "Froid" :
+         impact === "hot_conditions" ? "Chaud" :
+         impact === "strong_wind" ? "Vent fort" :
+         impact === "likely_rain" ? "Pluie probable" :
+         impact}
+      </span>
+    ));
+  };
+
+  return (
+    <div className="flex items-center gap-3 p-2 bg-gray-50 dark:bg-slate-700/40 rounded-lg">
+      {getWeatherIcon()}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 text-xs text-gray-700 dark:text-slate-300">
+          <span className="flex items-center gap-1">
+            <Thermometer className="w-3 h-3" />
+            {weather.temperature != null ? `${Math.round(weather.temperature)}°C` : "--"}
+          </span>
+          {weather.wind_speed != null && (
+            <span className="flex items-center gap-1">
+              <Wind className="w-3 h-3" />
+              {Math.round(weather.wind_speed)} m/s
+            </span>
+          )}
+          {weather.rain_probability != null && weather.rain_probability > 0 && (
+            <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+              <CloudRain className="w-3 h-3" />
+              {weather.rain_probability}%
+            </span>
+          )}
+        </div>
+        <div className="text-[10px] text-gray-500 dark:text-slate-400 mt-0.5">
+          {weather.description || "Conditions normales"}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {getImpactBadge()}
+      </div>
+    </div>
   );
 }
 
@@ -156,6 +226,7 @@ export function RAGContext({
 
   const homeContext = ragContext.home_context;
   const awayContext = ragContext.away_context;
+  const weather = ragContext.weather;
 
   // Check if there's any meaningful context to display
   const hasHomeContext = homeContext && (
@@ -166,8 +237,9 @@ export function RAGContext({
     (awayContext.recent_news && awayContext.recent_news.length > 0) ||
     (awayContext.injuries && awayContext.injuries.length > 0)
   );
+  const hasWeather = weather && weather.available;
 
-  if (!hasHomeContext && !hasAwayContext) {
+  if (!hasHomeContext && !hasAwayContext && !hasWeather) {
     return (
       <div className={cn("flex items-center gap-2 py-2 text-xs text-gray-500 dark:text-slate-400", className)}>
         <Info className="w-3.5 h-3.5" />
@@ -199,6 +271,11 @@ export function RAGContext({
           </span>
         )}
       </div>
+
+      {/* Weather Section */}
+      {hasWeather && weather && (
+        <WeatherSection weather={weather} />
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {hasHomeContext && (

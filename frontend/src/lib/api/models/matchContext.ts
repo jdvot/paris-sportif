@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { TeamContext } from './teamContext';
+import type { WeatherInfo } from './weatherInfo';
 
 /**
  * Full match context from RAG enrichment.
@@ -19,6 +20,7 @@ export interface MatchContext {
   away_context: TeamContext;
   is_derby?: boolean;
   match_importance?: string;
+  weather?: WeatherInfo | null;
   combined_analysis?: string | null;
   enriched_at: string;
   sources_used?: string[];

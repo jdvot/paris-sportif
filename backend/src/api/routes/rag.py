@@ -11,11 +11,24 @@ from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
 
 from src.prediction_engine.rag_enrichment import get_rag_enrichment
+from src.data.data_enrichment import get_data_enrichment
 from src.auth import PremiumUser, PREMIUM_RESPONSES
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+class WeatherInfo(BaseModel):
+    """Weather information for match day."""
+    available: bool = False
+    temperature: Optional[float] = None
+    feels_like: Optional[float] = None
+    humidity: Optional[int] = None
+    description: Optional[str] = None
+    wind_speed: Optional[float] = None
+    rain_probability: Optional[float] = None
+    impact: Optional[str] = None
 
 
 class TeamContext(BaseModel):
@@ -41,6 +54,9 @@ class MatchContext(BaseModel):
     # Match factors
     is_derby: bool = False
     match_importance: str = "normal"  # low, normal, high, critical
+
+    # Weather
+    weather: Optional[WeatherInfo] = None
 
     # Combined analysis
     combined_analysis: Optional[str] = None
@@ -152,6 +168,27 @@ async def enrich_match(
         home_injuries = extract_titles(home_ctx.get("injuries", []), "type")
         away_injuries = extract_titles(away_ctx.get("injuries", []), "type")
 
+        # Fetch weather data
+        weather_info = None
+        try:
+            data_enrichment = get_data_enrichment()
+            weather_data = await data_enrichment.weather_client.get_match_weather(
+                home_team, parsed_date
+            )
+            if weather_data.get("available"):
+                weather_info = WeatherInfo(
+                    available=True,
+                    temperature=weather_data.get("temperature"),
+                    feels_like=weather_data.get("feels_like"),
+                    humidity=weather_data.get("humidity"),
+                    description=weather_data.get("description"),
+                    wind_speed=weather_data.get("wind_speed"),
+                    rain_probability=weather_data.get("rain_probability"),
+                    impact=weather_data.get("impact"),
+                )
+        except Exception as e:
+            logger.warning(f"Weather fetch failed: {e}")
+
         # Build response
         return MatchContext(
             home_team=home_team,
@@ -174,9 +211,10 @@ async def enrich_match(
             ),
             is_derby=match_ctx.get("is_derby", False),
             match_importance=match_ctx.get("importance", "normal"),
+            weather=weather_info,
             combined_analysis=None,  # Not generated in base enrichment
             enriched_at=datetime.now(),
-            sources_used=["groq_llm", "public_data"],
+            sources_used=["groq_llm", "public_data", "open_meteo"],
         )
 
     except Exception as e:
