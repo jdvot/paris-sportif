@@ -1,8 +1,19 @@
 import { updateSession } from "@/lib/supabase/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Routes that DON'T require authentication (public)
-const PUBLIC_ROUTES = ["/auth/login", "/auth/signup", "/auth/forgot-password", "/auth/callback", "/auth/confirm"];
+// Routes that DON'T require authentication (public pages)
+const PUBLIC_ROUTES = [
+  "/auth/login",
+  "/auth/signup",
+  "/auth/forgot-password",
+  "/auth/callback",
+  "/auth/confirm",
+  "/",           // Home page - public pour démonstration
+  "/matches",    // Liste des matchs - public
+  "/standings",  // Classements - public
+  "/picks",      // Picks basiques - public (picks/all est premium)
+  "/plans",      // Page des abonnements - public
+];
 
 // Routes that require premium role
 const PREMIUM_ROUTES = ["/analysis", "/picks/all"];
@@ -14,12 +25,15 @@ export async function middleware(request: NextRequest) {
   const { supabaseResponse, user, supabase } = await updateSession(request);
   const pathname = request.nextUrl.pathname;
 
-  // Allow public routes (auth pages only)
-  const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
+  // Check if route is public
+  const isAuthRoute = pathname.startsWith("/auth/");
+  const isPublicRoute = PUBLIC_ROUTES.some((route) =>
+    route === "/" ? pathname === "/" : pathname.startsWith(route)
+  );
 
   if (isPublicRoute) {
-    // Redirect authenticated users away from auth pages to home
-    if (user) {
+    // Redirect authenticated users away from auth pages only (not other public pages)
+    if (user && isAuthRoute && !pathname.includes("/callback") && !pathname.includes("/confirm")) {
       return NextResponse.redirect(new URL("/", request.url));
     }
     return supabaseResponse;

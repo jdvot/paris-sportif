@@ -44,8 +44,8 @@ export function CompetitionFilter({
           "w-full sm:w-auto flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium",
           "transition-smooth border",
           isOpen
-            ? "bg-primary-500/20 border-primary-500/50 text-primary-300"
-            : "bg-dark-800/50 border-dark-700 hover:border-dark-600 text-white"
+            ? "bg-primary-500/20 border-primary-500/50 text-primary-600 dark:text-primary-300"
+            : "bg-gray-100 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600 text-gray-900 dark:text-white"
         )}
       >
         <Filter className="w-4 h-4 flex-shrink-0" />
@@ -67,12 +67,12 @@ export function CompetitionFilter({
 
       {/* Filter Panel */}
       {isOpen && (
-        <div className="bg-dark-800/60 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-4 animate-scale-in">
+        <div className="bg-white dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4 animate-scale-in">
           {/* Filter Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
             {competitions.map((comp) => {
               const isSelected = selected.includes(comp.id);
-              const colorGradient = COMPETITION_COLORS[comp.id] || "from-dark-600 to-dark-700";
+              const colorGradient = COMPETITION_COLORS[comp.id] || "from-gray-500 to-gray-600 dark:from-slate-600 dark:to-slate-700";
 
               return (
                 <button
@@ -83,7 +83,7 @@ export function CompetitionFilter({
                     "border overflow-hidden",
                     isSelected
                       ? `bg-gradient-to-br ${colorGradient} border-current text-white shadow-lg`
-                      : "bg-dark-700/30 border-dark-600 text-dark-300 hover:border-dark-500 hover:text-white"
+                      : "bg-gray-100 dark:bg-slate-700/30 border-gray-300 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:border-gray-400 dark:hover:border-slate-500 hover:text-gray-900 dark:hover:text-white"
                   )}
                 >
                   {/* Hover glow effect */}
@@ -108,8 +108,8 @@ export function CompetitionFilter({
 
           {/* Actions */}
           {selected.length > 0 && (
-            <div className="flex items-center justify-between pt-3 border-t border-dark-600/50">
-              <span className="text-xs sm:text-sm text-dark-400">
+            <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-slate-600/50">
+              <span className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">
                 {selected.length} compétition{selected.length > 1 ? "s" : ""} sélectionnée{selected.length > 1 ? "s" : ""}
               </span>
               <button

@@ -81,10 +81,10 @@ export default function PicksPage() {
     <div className="space-y-4 sm:space-y-6">
       {/* Header Section */}
       <section className="text-center py-6 sm:py-8 px-4">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-3 sm:mb-4">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
           Tous les Picks
         </h1>
-        <p className="text-dark-300 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto">
+        <p className="text-gray-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto">
           Consultez l'historique complet de nos predictions avec filtres par
           date et competition. Analysez nos picks en details et suivez leur
           performance.
@@ -92,11 +92,11 @@ export default function PicksPage() {
       </section>
 
       {/* Date Navigation */}
-      <section className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
+      <section className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
           <button
             onClick={handlePreviousDay}
-            className="px-3 sm:px-4 py-2 text-dark-300 hover:text-white hover:bg-dark-700/50 rounded-lg transition-colors text-sm sm:text-base"
+            className="px-3 sm:px-4 py-2 text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700/50 rounded-lg transition-colors text-sm sm:text-base"
           >
             ← Jour precedent
           </button>
@@ -108,9 +108,9 @@ export default function PicksPage() {
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               max={format(addDays(new Date(), MAX_FUTURE_DAYS), "yyyy-MM-dd")}
-              className="bg-dark-700 border border-dark-600 text-white px-3 sm:px-4 py-2 rounded-lg focus:outline-none focus:border-primary-500 text-sm flex-1 sm:flex-none"
+              className="bg-gray-100 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white px-3 sm:px-4 py-2 rounded-lg focus:outline-none focus:border-primary-500 text-sm flex-1 sm:flex-none"
             />
-            <span className="text-dark-400 text-xs sm:text-sm">
+            <span className="text-gray-500 dark:text-slate-400 text-xs sm:text-sm">
               ({format(parseISO(selectedDate), "EEEE", { locale: fr })})
             </span>
           </div>
@@ -121,8 +121,8 @@ export default function PicksPage() {
             className={cn(
               "px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base",
               canGoNext
-                ? "text-dark-300 hover:text-white hover:bg-dark-700/50"
-                : "text-dark-600 cursor-not-allowed"
+                ? "text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700/50"
+                : "text-gray-400 dark:text-slate-600 cursor-not-allowed"
             )}
           >
             Jour suivant →
@@ -144,15 +144,15 @@ export default function PicksPage() {
 
       {/* Results Info */}
       <section className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-4 sm:px-0">
-        <h2 className="text-lg sm:text-2xl font-bold text-white">
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
           {filteredPicks.length} Pick{filteredPicks.length !== 1 ? "s" : ""}
           {selectedCompetitions.length > 0 && (
-            <span className="text-xs sm:text-sm text-dark-400 ml-2 block sm:inline">
+            <span className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 ml-2 block sm:inline">
               ({selectedCompetitions.join(", ")})
             </span>
           )}
         </h2>
-        <span className="text-dark-400 text-xs sm:text-sm">
+        <span className="text-gray-500 dark:text-slate-400 text-xs sm:text-sm">
           Mis a jour: {format(parseISO(selectedDate), "d MMMM yyyy", { locale: fr })}
         </span>
       </section>
@@ -170,10 +170,10 @@ export default function PicksPage() {
       {!isLoading && error ? (
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 sm:p-8 lg:p-12 text-center mx-4 sm:mx-0">
           <AlertTriangle className="w-10 sm:w-12 h-10 sm:h-12 text-red-400 mx-auto mb-3 sm:mb-4" />
-          <h3 className="text-base sm:text-lg font-semibold text-white mb-2">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
             Erreur de chargement
           </h3>
-          <p className="text-dark-400 mb-3 sm:mb-4 text-sm sm:text-base">
+          <p className="text-gray-500 dark:text-slate-400 mb-3 sm:mb-4 text-sm sm:text-base">
             {(() => {
               const errorMsg = error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string'
                 ? (error as any).message
@@ -192,12 +192,12 @@ export default function PicksPage() {
 
       {/* No Results */}
       {!isLoading && !error && filteredPicks.length === 0 ? (
-        <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-8 sm:p-12 text-center mx-4 sm:mx-0">
+        <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-8 sm:p-12 text-center mx-4 sm:mx-0">
           <AlertTriangle className="w-10 sm:w-12 h-10 sm:h-12 text-yellow-400 mx-auto mb-3 sm:mb-4" />
-          <h3 className="text-base sm:text-lg font-semibold text-white mb-2">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
             Aucun pick disponible
           </h3>
-          <p className="text-dark-400 text-sm sm:text-base">
+          <p className="text-gray-500 dark:text-slate-400 text-sm sm:text-base">
             {selectedCompetitions.length > 0
               ? "Aucun pick ne correspond aux competitions selectionnees."
               : "Aucun pick disponible pour cette date."}

@@ -170,8 +170,8 @@ export default function MatchesPage() {
     <div className="space-y-6 sm:space-y-8">
       {/* Header */}
       <section className="text-center py-6 sm:py-8 px-4">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 sm:mb-3">Tous les Matchs</h1>
-        <p className="text-dark-300 text-sm sm:text-base">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-3">Tous les Matchs</h1>
+        <p className="text-gray-600 dark:text-slate-300 text-sm sm:text-base">
           Explorez les matchs a venir et trouvez les meilleures opportunites de
           paris
         </p>
@@ -190,7 +190,7 @@ export default function MatchesPage() {
               className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-sm sm:text-base transition-all ${
                 dateRange === range
                   ? "bg-primary-500 text-white"
-                  : "bg-dark-800 text-dark-300 hover:bg-dark-700"
+                  : "bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700"
               }`}
             >
               {range === "today" && "Aujourd'hui"}
@@ -203,7 +203,7 @@ export default function MatchesPage() {
 
         {/* Competition Filters */}
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-dark-300">
+          <div className="flex items-center gap-2 text-gray-600 dark:text-slate-300">
             <Filter className="w-4 h-4" />
             <span className="text-xs sm:text-sm font-medium">Competitions</span>
           </div>
@@ -214,8 +214,8 @@ export default function MatchesPage() {
                 onClick={() => toggleCompetition(code)}
                 className={`px-3 sm:px-4 py-1 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                   selectedCompetitions.includes(code)
-                    ? "bg-primary-500/20 text-primary-300 border border-primary-500"
-                    : "bg-dark-800 text-dark-300 border border-dark-700 hover:bg-dark-700"
+                    ? "bg-primary-500/20 text-primary-600 dark:text-primary-300 border border-primary-500"
+                    : "bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700 hover:bg-gray-200 dark:hover:bg-slate-700"
                 }`}
               >
                 {competitionLabels[code] || code}
@@ -245,13 +245,13 @@ export default function MatchesPage() {
                 onChange={(e) => setShowFinished(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-5 h-5 border-2 border-dark-500 rounded bg-dark-800 peer-checked:bg-primary-500 peer-checked:border-primary-500 transition-all">
+              <div className="w-5 h-5 border-2 border-gray-400 dark:border-slate-500 rounded bg-gray-100 dark:bg-slate-800 peer-checked:bg-primary-500 peer-checked:border-primary-500 transition-all">
                 {showFinished && (
                   <CheckCircle2 className="w-4 h-4 text-white absolute top-0.5 left-0.5" />
                 )}
               </div>
             </div>
-            <span className="text-xs sm:text-sm text-dark-300 group-hover:text-white transition-colors">
+            <span className="text-xs sm:text-sm text-gray-600 dark:text-slate-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
               Inclure les matchs terminés
             </span>
           </label>
@@ -259,19 +259,19 @@ export default function MatchesPage() {
       </section>
 
       {/* Matches Summary */}
-      <section className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-3 sm:py-4 border-b border-dark-700 gap-2 px-4 sm:px-0">
+      <section className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-3 sm:py-4 border-b border-gray-200 dark:border-slate-700 gap-2 px-4 sm:px-0">
         <div>
-          <h2 className="text-base sm:text-lg font-semibold text-white">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
             {filteredMatches.length} Match{filteredMatches.length > 1 ? "s" : ""}
           </h2>
-          <p className="text-xs sm:text-sm text-dark-400">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">
             {datesToDisplay.length} jour{datesToDisplay.length > 1 ? "s" : ""}
           </p>
         </div>
         {isLoading && (
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-primary-500 rounded-full animate-pulse" />
-            <span className="text-xs sm:text-sm text-dark-400">Chargement...</span>
+            <span className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">Chargement...</span>
           </div>
         )}
       </section>
@@ -280,10 +280,10 @@ export default function MatchesPage() {
       {error ? (
         <section className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 sm:p-8 lg:p-12 text-center mx-4 sm:mx-0">
           <Calendar className="w-10 sm:w-12 h-10 sm:h-12 text-red-400 mx-auto mb-3 sm:mb-4" />
-          <h3 className="text-base sm:text-lg font-semibold text-white mb-2">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
             Erreur de chargement
           </h3>
-          <p className="text-dark-400 mb-3 sm:mb-4 text-sm sm:text-base">
+          <p className="text-gray-500 dark:text-slate-400 mb-3 sm:mb-4 text-sm sm:text-base">
             {error instanceof Error ? error.message : "Impossible de charger les matchs."}
           </p>
           <button
@@ -300,11 +300,11 @@ export default function MatchesPage() {
       <section className="space-y-4 sm:space-y-6 px-4 sm:px-0">
         {datesToDisplay.length === 0 ? (
           <div className="text-center py-8 sm:py-12">
-            <Calendar className="w-10 sm:w-12 h-10 sm:h-12 text-dark-500 mx-auto mb-3 sm:mb-4" />
-            <h3 className="text-base sm:text-lg font-medium text-dark-300 mb-1">
+            <Calendar className="w-10 sm:w-12 h-10 sm:h-12 text-gray-400 dark:text-slate-500 mx-auto mb-3 sm:mb-4" />
+            <h3 className="text-base sm:text-lg font-medium text-gray-600 dark:text-slate-300 mb-1">
               Aucun match disponible
             </h3>
-            <p className="text-dark-400 text-sm">
+            <p className="text-gray-500 dark:text-slate-400 text-sm">
               Essayez de modifier vos filtres ou de selectionner une autre periode
             </p>
           </div>
@@ -318,20 +318,20 @@ export default function MatchesPage() {
             return (
               <div
                 key={dateKey}
-                className="bg-dark-800/50 border border-dark-700 rounded-xl overflow-hidden"
+                className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden"
               >
                 {/* Date Header */}
                 <button
                   onClick={() => toggleDate(dateKey)}
-                  className="w-full flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 hover:bg-dark-700/50 transition-colors"
+                  className="w-full flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
                 >
                   <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                     <Calendar className="w-4 sm:w-5 h-4 sm:h-5 text-primary-400 flex-shrink-0" />
                     <div className="text-left min-w-0">
-                      <h3 className="font-semibold text-white text-sm sm:text-base truncate">
+                      <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">
                         {format(date, "EEEE d MMMM yyyy", { locale: fr })}
                       </h3>
-                      <p className="text-xs sm:text-sm text-dark-400">
+                      <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">
                         {isToday && "Aujourd'hui"}
                         {isTomorrow && "Demain"}
                         {!isToday && !isTomorrow && format(date, "EEEE", { locale: fr })}
@@ -351,7 +351,7 @@ export default function MatchesPage() {
 
                 {/* Matches for this date */}
                 {isExpanded && (
-                  <div className="divide-y divide-dark-700">
+                  <div className="divide-y divide-gray-200 dark:divide-slate-700">
                     {groupedMatches[dateKey].map((match) => (
                       <MatchCard key={match.id} match={match} />
                     ))}
@@ -367,7 +367,7 @@ export default function MatchesPage() {
       {/* Load More Info */}
       {filteredMatches.length > 0 ? (
         <section className="text-center py-6 sm:py-8 px-4">
-          <p className="text-dark-400 text-xs sm:text-sm">
+          <p className="text-gray-500 dark:text-slate-400 text-xs sm:text-sm">
             {filteredMatches.length} matchs charges. Les donnees sont mises a
             jour en temps reel.
           </p>
@@ -386,7 +386,7 @@ function MatchCard({ match }: { match: MatchResponse }) {
   return (
     <Link
       href={`/match/${match.id}`}
-      className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 py-3 sm:py-4 hover:bg-dark-700/30 transition-colors group gap-2 sm:gap-4"
+      className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors group gap-2 sm:gap-4"
     >
       <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 w-full sm:w-auto">
         {/* Competition indicator */}
@@ -399,7 +399,7 @@ function MatchCard({ match }: { match: MatchResponse }) {
         {/* Match info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="font-semibold text-sm sm:text-base text-white group-hover:text-primary-300 transition-colors">
+            <h4 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-300 transition-colors">
               {homeTeamName}
             </h4>
             {isFinished && match.home_score !== null && match.away_score !== null ? (
@@ -407,18 +407,18 @@ function MatchCard({ match }: { match: MatchResponse }) {
                 {match.home_score} - {match.away_score}
               </span>
             ) : (
-              <span className="text-dark-400 text-sm">vs</span>
+              <span className="text-gray-500 dark:text-slate-400 text-sm">vs</span>
             )}
-            <h4 className="font-semibold text-sm sm:text-base text-white group-hover:text-primary-300 transition-colors">
+            <h4 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-300 transition-colors">
               {awayTeamName}
             </h4>
           </div>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className="text-xs font-medium text-dark-400 bg-dark-700/50 px-2 py-1 rounded">
+            <span className="text-xs font-medium text-gray-600 dark:text-slate-400 bg-gray-100 dark:bg-slate-700/50 px-2 py-1 rounded">
               {match.competition}
             </span>
             {match.matchday && (
-              <span className="text-xs text-dark-500">
+              <span className="text-xs text-gray-500 dark:text-slate-500">
                 Journee {match.matchday}
               </span>
             )}
@@ -434,14 +434,14 @@ function MatchCard({ match }: { match: MatchResponse }) {
       {/* Time and navigation */}
       <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0 w-full sm:w-auto justify-between sm:justify-end">
         <div className="text-right">
-          <p className="text-xs sm:text-sm font-medium text-white">
+          <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
             {format(matchDate, "HH:mm")}
           </p>
-          <p className="text-xs text-dark-400">
+          <p className="text-xs text-gray-500 dark:text-slate-400">
             {format(matchDate, "EEEE", { locale: fr })}
           </p>
         </div>
-        <ChevronRight className="w-4 sm:w-5 h-4 sm:h-5 text-dark-500 group-hover:text-primary-400 transition-colors flex-shrink-0" />
+        <ChevronRight className="w-4 sm:w-5 h-4 sm:h-5 text-gray-400 dark:text-slate-500 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors flex-shrink-0" />
       </div>
     </Link>
   );

@@ -30,7 +30,7 @@ export default function RootLayout({
             <main className="flex-1 container mx-auto px-4 py-8">
               {children}
             </main>
-            <footer className="border-t border-gray-200 dark:border-dark-700 py-6 text-center text-gray-600 dark:text-dark-400 text-sm">
+            <footer className="border-t border-gray-200 dark:border-slate-700 py-6 text-center text-gray-600 dark:text-slate-400 text-sm">
               <p>Paris Sportif - Predictions basees sur IA</p>
               <p className="mt-1 text-xs">
                 Avertissement: Les paris comportent des risques. Jouez
