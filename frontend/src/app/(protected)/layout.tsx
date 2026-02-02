@@ -1,11 +1,8 @@
-"use client";
-
-import { AuthGuard } from "@/components/AuthGuard";
-
 export default function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AuthGuard>{children}</AuthGuard>;
+  // Auth is now handled by AppShell in root layout
+  return <>{children}</>;
 }
