@@ -8,10 +8,9 @@ const PUBLIC_ROUTES = [
   "/auth/forgot-password",
   "/auth/callback",
   "/auth/confirm",
-  "/",           // Home page - public pour démonstration
-  "/matches",    // Liste des matchs - public
-  "/standings",  // Classements - public
-  "/plans",      // Page des abonnements - public
+  "/auth/error",
+  "/auth/reset-password",
+  "/plans",      // Page des abonnements - public (pour upgrade)
 ];
 
 // Routes that require premium role
@@ -31,9 +30,11 @@ export async function middleware(request: NextRequest) {
   );
 
   if (isPublicRoute) {
-    // Redirect authenticated users away from auth pages only (not other public pages)
-    if (user && isAuthRoute && !pathname.includes("/callback") && !pathname.includes("/confirm")) {
-      return NextResponse.redirect(new URL("/", request.url));
+    // Redirect authenticated users away from auth pages to their intended destination
+    if (user && isAuthRoute && !pathname.includes("/callback") && !pathname.includes("/confirm") && !pathname.includes("/error")) {
+      // Check if there's a 'next' parameter to redirect to
+      const nextUrl = request.nextUrl.searchParams.get("next") || "/picks";
+      return NextResponse.redirect(new URL(nextUrl, request.url));
     }
     return supabaseResponse;
   }
