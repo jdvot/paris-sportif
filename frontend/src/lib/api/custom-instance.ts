@@ -51,15 +51,25 @@ export const customInstance = async <T>(
   // Get auth token from Supabase
   const token = await getSupabaseToken();
 
-  const response = await fetch(fullUrl, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options?.headers,
-    },
-    body: options?.data ? JSON.stringify(options.data) : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(fullUrl, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...options?.headers,
+      },
+      body: options?.data ? JSON.stringify(options.data) : undefined,
+    });
+  } catch (error) {
+    // Re-throw AbortError as-is (React Query uses this for cancellation)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error;
+    }
+    // Network error
+    throw new ApiError("Erreur réseau. Vérifiez votre connexion.", 0);
+  }
 
   if (!response.ok) {
     if (response.status === 401) {
