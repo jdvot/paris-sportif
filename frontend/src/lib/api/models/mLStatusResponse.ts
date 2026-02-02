@@ -3,16 +3,17 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * ML system status response.
+ */
 export interface MLStatusResponse {
   models_trained: boolean;
   xgboost_available: boolean;
   random_forest_available: boolean;
-  /** @nullable */
-  data_age_days?: number | null;
-  /** @nullable */
-  last_training?: string | null;
+  data_age_days: number | null;
+  last_training: string | null;
   feature_state_loaded: boolean;
 }

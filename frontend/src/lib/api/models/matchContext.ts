@@ -3,10 +3,13 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 import type { TeamContext } from './teamContext';
 
+/**
+ * Full match context from RAG enrichment.
+ */
 export interface MatchContext {
   home_team: string;
   away_team: string;
@@ -16,7 +19,6 @@ export interface MatchContext {
   away_context: TeamContext;
   is_derby?: boolean;
   match_importance?: string;
-  /** @nullable */
   combined_analysis?: string | null;
   enriched_at: string;
   sources_used?: string[];

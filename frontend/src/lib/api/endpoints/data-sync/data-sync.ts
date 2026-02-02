@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 import {
   useMutation,
@@ -26,11 +26,14 @@ import type {
 
 import type {
   DbStatsResponse,
-  GetLastSyncInfo200,
-  GetLastSyncInfoParams,
-  SyncMatchesOnlyParams,
+  GetLastSyncInfoApiV1SyncLastGet200,
+  GetLastSyncInfoApiV1SyncLastGetParams,
+  HTTPErrorResponse,
+  HTTPValidationError,
+  SyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostParams,
+  SyncMatchesOnlyApiV1SyncMatchesPostParams,
   SyncResponse,
-  SyncWeeklyDataParams
+  SyncWeeklyDataApiV1SyncWeeklyPostParams
 } from '../../models';
 
 import { customInstance } from '../../custom-instance';
@@ -41,28 +44,44 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 /**
- * @summary Trigger weekly data synchronization
+ * Trigger weekly data synchronization.
+
+This should be called every Sunday evening (e.g., via cron job).
+Syncs matches for the next 7 days and all standings.
+
+Cron example: 0 20 * * 0 curl -X POST https://api/sync/weekly
+ * @summary Sync Weekly Data
  */
-export type syncWeeklyDataResponse200 = {
+export type syncWeeklyDataApiV1SyncWeeklyPostResponse200 = {
   data: SyncResponse
   status: 200
 }
 
-export type syncWeeklyDataResponse500 = {
-  data: void
-  status: 500
+export type syncWeeklyDataApiV1SyncWeeklyPostResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type syncWeeklyDataApiV1SyncWeeklyPostResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
+
+export type syncWeeklyDataApiV1SyncWeeklyPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
 }
     
-export type syncWeeklyDataResponseSuccess = (syncWeeklyDataResponse200) & {
+export type syncWeeklyDataApiV1SyncWeeklyPostResponseSuccess = (syncWeeklyDataApiV1SyncWeeklyPostResponse200) & {
   headers: Headers;
 };
-export type syncWeeklyDataResponseError = (syncWeeklyDataResponse500) & {
+export type syncWeeklyDataApiV1SyncWeeklyPostResponseError = (syncWeeklyDataApiV1SyncWeeklyPostResponse401 | syncWeeklyDataApiV1SyncWeeklyPostResponse403 | syncWeeklyDataApiV1SyncWeeklyPostResponse422) & {
   headers: Headers;
 };
 
-export type syncWeeklyDataResponse = (syncWeeklyDataResponseSuccess | syncWeeklyDataResponseError)
+export type syncWeeklyDataApiV1SyncWeeklyPostResponse = (syncWeeklyDataApiV1SyncWeeklyPostResponseSuccess | syncWeeklyDataApiV1SyncWeeklyPostResponseError)
 
-export const getSyncWeeklyDataUrl = (params?: SyncWeeklyDataParams,) => {
+export const getSyncWeeklyDataApiV1SyncWeeklyPostUrl = (params?: SyncWeeklyDataApiV1SyncWeeklyPostParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -77,9 +96,9 @@ export const getSyncWeeklyDataUrl = (params?: SyncWeeklyDataParams,) => {
   return stringifiedParams.length > 0 ? `/api/v1/sync/weekly?${stringifiedParams}` : `/api/v1/sync/weekly`
 }
 
-export const syncWeeklyData = async (params?: SyncWeeklyDataParams, options?: RequestInit): Promise<syncWeeklyDataResponse> => {
+export const syncWeeklyDataApiV1SyncWeeklyPost = async (params?: SyncWeeklyDataApiV1SyncWeeklyPostParams, options?: RequestInit): Promise<syncWeeklyDataApiV1SyncWeeklyPostResponse> => {
   
-  return customInstance<syncWeeklyDataResponse>(getSyncWeeklyDataUrl(params),
+  return customInstance<syncWeeklyDataApiV1SyncWeeklyPostResponse>(getSyncWeeklyDataApiV1SyncWeeklyPostUrl(params),
   {      
     ...options,
     method: 'POST'
@@ -91,11 +110,11 @@ export const syncWeeklyData = async (params?: SyncWeeklyDataParams, options?: Re
 
 
 
-export const getSyncWeeklyDataMutationOptions = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncWeeklyData>>, TError,{params?: SyncWeeklyDataParams}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof syncWeeklyData>>, TError,{params?: SyncWeeklyDataParams}, TContext> => {
+export const getSyncWeeklyDataApiV1SyncWeeklyPostMutationOptions = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncWeeklyDataApiV1SyncWeeklyPost>>, TError,{params?: SyncWeeklyDataApiV1SyncWeeklyPostParams}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncWeeklyDataApiV1SyncWeeklyPost>>, TError,{params?: SyncWeeklyDataApiV1SyncWeeklyPostParams}, TContext> => {
 
-const mutationKey = ['syncWeeklyData'];
+const mutationKey = ['syncWeeklyDataApiV1SyncWeeklyPost'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -105,10 +124,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncWeeklyData>>, {params?: SyncWeeklyDataParams}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncWeeklyDataApiV1SyncWeeklyPost>>, {params?: SyncWeeklyDataApiV1SyncWeeklyPostParams}> = (props) => {
           const {params} = props ?? {};
 
-          return  syncWeeklyData(params,requestOptions)
+          return  syncWeeklyDataApiV1SyncWeeklyPost(params,requestOptions)
         }
 
 
@@ -118,46 +137,57 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type SyncWeeklyDataMutationResult = NonNullable<Awaited<ReturnType<typeof syncWeeklyData>>>
+    export type SyncWeeklyDataApiV1SyncWeeklyPostMutationResult = NonNullable<Awaited<ReturnType<typeof syncWeeklyDataApiV1SyncWeeklyPost>>>
     
-    export type SyncWeeklyDataMutationError = void
+    export type SyncWeeklyDataApiV1SyncWeeklyPostMutationError = HTTPErrorResponse | HTTPValidationError
 
     /**
- * @summary Trigger weekly data synchronization
+ * @summary Sync Weekly Data
  */
-export const useSyncWeeklyData = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncWeeklyData>>, TError,{params?: SyncWeeklyDataParams}, TContext>, request?: SecondParameter<typeof customInstance>}
+export const useSyncWeeklyDataApiV1SyncWeeklyPost = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncWeeklyDataApiV1SyncWeeklyPost>>, TError,{params?: SyncWeeklyDataApiV1SyncWeeklyPostParams}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof syncWeeklyData>>,
+        Awaited<ReturnType<typeof syncWeeklyDataApiV1SyncWeeklyPost>>,
         TError,
-        {params?: SyncWeeklyDataParams},
+        {params?: SyncWeeklyDataApiV1SyncWeeklyPostParams},
         TContext
       > => {
-      return useMutation(getSyncWeeklyDataMutationOptions(options), queryClient);
+      return useMutation(getSyncWeeklyDataApiV1SyncWeeklyPostMutationOptions(options), queryClient);
     }
     /**
- * @summary Sync only matches (no standings)
+ * Sync only matches (no standings).
+ * @summary Sync Matches Only
  */
-export type syncMatchesOnlyResponse200 = {
+export type syncMatchesOnlyApiV1SyncMatchesPostResponse200 = {
   data: SyncResponse
   status: 200
 }
 
-export type syncMatchesOnlyResponse500 = {
-  data: void
-  status: 500
+export type syncMatchesOnlyApiV1SyncMatchesPostResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type syncMatchesOnlyApiV1SyncMatchesPostResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
+
+export type syncMatchesOnlyApiV1SyncMatchesPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
 }
     
-export type syncMatchesOnlyResponseSuccess = (syncMatchesOnlyResponse200) & {
+export type syncMatchesOnlyApiV1SyncMatchesPostResponseSuccess = (syncMatchesOnlyApiV1SyncMatchesPostResponse200) & {
   headers: Headers;
 };
-export type syncMatchesOnlyResponseError = (syncMatchesOnlyResponse500) & {
+export type syncMatchesOnlyApiV1SyncMatchesPostResponseError = (syncMatchesOnlyApiV1SyncMatchesPostResponse401 | syncMatchesOnlyApiV1SyncMatchesPostResponse403 | syncMatchesOnlyApiV1SyncMatchesPostResponse422) & {
   headers: Headers;
 };
 
-export type syncMatchesOnlyResponse = (syncMatchesOnlyResponseSuccess | syncMatchesOnlyResponseError)
+export type syncMatchesOnlyApiV1SyncMatchesPostResponse = (syncMatchesOnlyApiV1SyncMatchesPostResponseSuccess | syncMatchesOnlyApiV1SyncMatchesPostResponseError)
 
-export const getSyncMatchesOnlyUrl = (params?: SyncMatchesOnlyParams,) => {
+export const getSyncMatchesOnlyApiV1SyncMatchesPostUrl = (params?: SyncMatchesOnlyApiV1SyncMatchesPostParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -172,9 +202,9 @@ export const getSyncMatchesOnlyUrl = (params?: SyncMatchesOnlyParams,) => {
   return stringifiedParams.length > 0 ? `/api/v1/sync/matches?${stringifiedParams}` : `/api/v1/sync/matches`
 }
 
-export const syncMatchesOnly = async (params?: SyncMatchesOnlyParams, options?: RequestInit): Promise<syncMatchesOnlyResponse> => {
+export const syncMatchesOnlyApiV1SyncMatchesPost = async (params?: SyncMatchesOnlyApiV1SyncMatchesPostParams, options?: RequestInit): Promise<syncMatchesOnlyApiV1SyncMatchesPostResponse> => {
   
-  return customInstance<syncMatchesOnlyResponse>(getSyncMatchesOnlyUrl(params),
+  return customInstance<syncMatchesOnlyApiV1SyncMatchesPostResponse>(getSyncMatchesOnlyApiV1SyncMatchesPostUrl(params),
   {      
     ...options,
     method: 'POST'
@@ -186,11 +216,11 @@ export const syncMatchesOnly = async (params?: SyncMatchesOnlyParams, options?: 
 
 
 
-export const getSyncMatchesOnlyMutationOptions = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncMatchesOnly>>, TError,{params?: SyncMatchesOnlyParams}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof syncMatchesOnly>>, TError,{params?: SyncMatchesOnlyParams}, TContext> => {
+export const getSyncMatchesOnlyApiV1SyncMatchesPostMutationOptions = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncMatchesOnlyApiV1SyncMatchesPost>>, TError,{params?: SyncMatchesOnlyApiV1SyncMatchesPostParams}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncMatchesOnlyApiV1SyncMatchesPost>>, TError,{params?: SyncMatchesOnlyApiV1SyncMatchesPostParams}, TContext> => {
 
-const mutationKey = ['syncMatchesOnly'];
+const mutationKey = ['syncMatchesOnlyApiV1SyncMatchesPost'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -200,10 +230,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncMatchesOnly>>, {params?: SyncMatchesOnlyParams}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncMatchesOnlyApiV1SyncMatchesPost>>, {params?: SyncMatchesOnlyApiV1SyncMatchesPostParams}> = (props) => {
           const {params} = props ?? {};
 
-          return  syncMatchesOnly(params,requestOptions)
+          return  syncMatchesOnlyApiV1SyncMatchesPost(params,requestOptions)
         }
 
 
@@ -213,46 +243,52 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type SyncMatchesOnlyMutationResult = NonNullable<Awaited<ReturnType<typeof syncMatchesOnly>>>
+    export type SyncMatchesOnlyApiV1SyncMatchesPostMutationResult = NonNullable<Awaited<ReturnType<typeof syncMatchesOnlyApiV1SyncMatchesPost>>>
     
-    export type SyncMatchesOnlyMutationError = void
+    export type SyncMatchesOnlyApiV1SyncMatchesPostMutationError = HTTPErrorResponse | HTTPValidationError
 
     /**
- * @summary Sync only matches (no standings)
+ * @summary Sync Matches Only
  */
-export const useSyncMatchesOnly = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncMatchesOnly>>, TError,{params?: SyncMatchesOnlyParams}, TContext>, request?: SecondParameter<typeof customInstance>}
+export const useSyncMatchesOnlyApiV1SyncMatchesPost = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncMatchesOnlyApiV1SyncMatchesPost>>, TError,{params?: SyncMatchesOnlyApiV1SyncMatchesPostParams}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof syncMatchesOnly>>,
+        Awaited<ReturnType<typeof syncMatchesOnlyApiV1SyncMatchesPost>>,
         TError,
-        {params?: SyncMatchesOnlyParams},
+        {params?: SyncMatchesOnlyApiV1SyncMatchesPostParams},
         TContext
       > => {
-      return useMutation(getSyncMatchesOnlyMutationOptions(options), queryClient);
+      return useMutation(getSyncMatchesOnlyApiV1SyncMatchesPostMutationOptions(options), queryClient);
     }
     /**
- * @summary Sync only standings (no matches)
+ * Sync only standings (no matches).
+ * @summary Sync Standings Only
  */
-export type syncStandingsOnlyResponse200 = {
+export type syncStandingsOnlyApiV1SyncStandingsPostResponse200 = {
   data: SyncResponse
   status: 200
 }
 
-export type syncStandingsOnlyResponse500 = {
-  data: void
-  status: 500
+export type syncStandingsOnlyApiV1SyncStandingsPostResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type syncStandingsOnlyApiV1SyncStandingsPostResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
 }
     
-export type syncStandingsOnlyResponseSuccess = (syncStandingsOnlyResponse200) & {
+export type syncStandingsOnlyApiV1SyncStandingsPostResponseSuccess = (syncStandingsOnlyApiV1SyncStandingsPostResponse200) & {
   headers: Headers;
 };
-export type syncStandingsOnlyResponseError = (syncStandingsOnlyResponse500) & {
+export type syncStandingsOnlyApiV1SyncStandingsPostResponseError = (syncStandingsOnlyApiV1SyncStandingsPostResponse401 | syncStandingsOnlyApiV1SyncStandingsPostResponse403) & {
   headers: Headers;
 };
 
-export type syncStandingsOnlyResponse = (syncStandingsOnlyResponseSuccess | syncStandingsOnlyResponseError)
+export type syncStandingsOnlyApiV1SyncStandingsPostResponse = (syncStandingsOnlyApiV1SyncStandingsPostResponseSuccess | syncStandingsOnlyApiV1SyncStandingsPostResponseError)
 
-export const getSyncStandingsOnlyUrl = () => {
+export const getSyncStandingsOnlyApiV1SyncStandingsPostUrl = () => {
 
 
   
@@ -260,9 +296,9 @@ export const getSyncStandingsOnlyUrl = () => {
   return `/api/v1/sync/standings`
 }
 
-export const syncStandingsOnly = async ( options?: RequestInit): Promise<syncStandingsOnlyResponse> => {
+export const syncStandingsOnlyApiV1SyncStandingsPost = async ( options?: RequestInit): Promise<syncStandingsOnlyApiV1SyncStandingsPostResponse> => {
   
-  return customInstance<syncStandingsOnlyResponse>(getSyncStandingsOnlyUrl(),
+  return customInstance<syncStandingsOnlyApiV1SyncStandingsPostResponse>(getSyncStandingsOnlyApiV1SyncStandingsPostUrl(),
   {      
     ...options,
     method: 'POST'
@@ -274,11 +310,11 @@ export const syncStandingsOnly = async ( options?: RequestInit): Promise<syncSta
 
 
 
-export const getSyncStandingsOnlyMutationOptions = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncStandingsOnly>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof syncStandingsOnly>>, TError,void, TContext> => {
+export const getSyncStandingsOnlyApiV1SyncStandingsPostMutationOptions = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncStandingsOnlyApiV1SyncStandingsPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncStandingsOnlyApiV1SyncStandingsPost>>, TError,void, TContext> => {
 
-const mutationKey = ['syncStandingsOnly'];
+const mutationKey = ['syncStandingsOnlyApiV1SyncStandingsPost'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -288,10 +324,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncStandingsOnly>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncStandingsOnlyApiV1SyncStandingsPost>>, void> = () => {
           
 
-          return  syncStandingsOnly(requestOptions)
+          return  syncStandingsOnlyApiV1SyncStandingsPost(requestOptions)
         }
 
 
@@ -301,39 +337,52 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type SyncStandingsOnlyMutationResult = NonNullable<Awaited<ReturnType<typeof syncStandingsOnly>>>
+    export type SyncStandingsOnlyApiV1SyncStandingsPostMutationResult = NonNullable<Awaited<ReturnType<typeof syncStandingsOnlyApiV1SyncStandingsPost>>>
     
-    export type SyncStandingsOnlyMutationError = void
+    export type SyncStandingsOnlyApiV1SyncStandingsPostMutationError = HTTPErrorResponse
 
     /**
- * @summary Sync only standings (no matches)
+ * @summary Sync Standings Only
  */
-export const useSyncStandingsOnly = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncStandingsOnly>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+export const useSyncStandingsOnlyApiV1SyncStandingsPost = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncStandingsOnlyApiV1SyncStandingsPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof syncStandingsOnly>>,
+        Awaited<ReturnType<typeof syncStandingsOnlyApiV1SyncStandingsPost>>,
         TError,
         void,
         TContext
       > => {
-      return useMutation(getSyncStandingsOnlyMutationOptions(options), queryClient);
+      return useMutation(getSyncStandingsOnlyApiV1SyncStandingsPostMutationOptions(options), queryClient);
     }
     /**
- * @summary Get database sync status and statistics
+ * Get database sync status and statistics.
+ * @summary Get Sync Status
  */
-export type getSyncStatusResponse200 = {
+export type getSyncStatusApiV1SyncStatusGetResponse200 = {
   data: DbStatsResponse
   status: 200
 }
+
+export type getSyncStatusApiV1SyncStatusGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getSyncStatusApiV1SyncStatusGetResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
     
-export type getSyncStatusResponseSuccess = (getSyncStatusResponse200) & {
+export type getSyncStatusApiV1SyncStatusGetResponseSuccess = (getSyncStatusApiV1SyncStatusGetResponse200) & {
   headers: Headers;
 };
-;
+export type getSyncStatusApiV1SyncStatusGetResponseError = (getSyncStatusApiV1SyncStatusGetResponse401 | getSyncStatusApiV1SyncStatusGetResponse403) & {
+  headers: Headers;
+};
 
-export type getSyncStatusResponse = (getSyncStatusResponseSuccess)
+export type getSyncStatusApiV1SyncStatusGetResponse = (getSyncStatusApiV1SyncStatusGetResponseSuccess | getSyncStatusApiV1SyncStatusGetResponseError)
 
-export const getGetSyncStatusUrl = () => {
+export const getGetSyncStatusApiV1SyncStatusGetUrl = () => {
 
 
   
@@ -341,9 +390,9 @@ export const getGetSyncStatusUrl = () => {
   return `/api/v1/sync/status`
 }
 
-export const getSyncStatus = async ( options?: RequestInit): Promise<getSyncStatusResponse> => {
+export const getSyncStatusApiV1SyncStatusGet = async ( options?: RequestInit): Promise<getSyncStatusApiV1SyncStatusGetResponse> => {
   
-  return customInstance<getSyncStatusResponse>(getGetSyncStatusUrl(),
+  return customInstance<getSyncStatusApiV1SyncStatusGetResponse>(getGetSyncStatusApiV1SyncStatusGetUrl(),
   {      
     ...options,
     method: 'GET'
@@ -356,69 +405,69 @@ export const getSyncStatus = async ( options?: RequestInit): Promise<getSyncStat
 
 
 
-export const getGetSyncStatusQueryKey = () => {
+export const getGetSyncStatusApiV1SyncStatusGetQueryKey = () => {
     return [
     `/api/v1/sync/status`
     ] as const;
     }
 
     
-export const getGetSyncStatusQueryOptions = <TData = Awaited<ReturnType<typeof getSyncStatus>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSyncStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getGetSyncStatusApiV1SyncStatusGetQueryOptions = <TData = Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>, TError = HTTPErrorResponse>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetSyncStatusQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetSyncStatusApiV1SyncStatusGetQueryKey();
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSyncStatus>>> = ({ signal }) => getSyncStatus({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>> = ({ signal }) => getSyncStatusApiV1SyncStatusGet({ signal, ...requestOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSyncStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type GetSyncStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getSyncStatus>>>
-export type GetSyncStatusQueryError = unknown
+export type GetSyncStatusApiV1SyncStatusGetQueryResult = NonNullable<Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>>
+export type GetSyncStatusApiV1SyncStatusGetQueryError = HTTPErrorResponse
 
 
-export function useGetSyncStatus<TData = Awaited<ReturnType<typeof getSyncStatus>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSyncStatus>>, TError, TData>> & Pick<
+export function useGetSyncStatusApiV1SyncStatusGet<TData = Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>, TError = HTTPErrorResponse>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getSyncStatus>>,
+          Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>,
           TError,
-          Awaited<ReturnType<typeof getSyncStatus>>
+          Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetSyncStatus<TData = Awaited<ReturnType<typeof getSyncStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSyncStatus>>, TError, TData>> & Pick<
+export function useGetSyncStatusApiV1SyncStatusGet<TData = Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getSyncStatus>>,
+          Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>,
           TError,
-          Awaited<ReturnType<typeof getSyncStatus>>
+          Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetSyncStatus<TData = Awaited<ReturnType<typeof getSyncStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSyncStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useGetSyncStatusApiV1SyncStatusGet<TData = Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get database sync status and statistics
+ * @summary Get Sync Status
  */
 
-export function useGetSyncStatus<TData = Awaited<ReturnType<typeof getSyncStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSyncStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useGetSyncStatusApiV1SyncStatusGet<TData = Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSyncStatusApiV1SyncStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetSyncStatusQueryOptions(options)
+  const queryOptions = getGetSyncStatusApiV1SyncStatusGetQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -429,21 +478,39 @@ export function useGetSyncStatus<TData = Awaited<ReturnType<typeof getSyncStatus
 
 
 /**
- * @summary Get info about the last successful sync
+ * Get info about the last successful sync.
+ * @summary Get Last Sync Info
  */
-export type getLastSyncInfoResponse200 = {
-  data: GetLastSyncInfo200
+export type getLastSyncInfoApiV1SyncLastGetResponse200 = {
+  data: GetLastSyncInfoApiV1SyncLastGet200
   status: 200
 }
+
+export type getLastSyncInfoApiV1SyncLastGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getLastSyncInfoApiV1SyncLastGetResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
+
+export type getLastSyncInfoApiV1SyncLastGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
     
-export type getLastSyncInfoResponseSuccess = (getLastSyncInfoResponse200) & {
+export type getLastSyncInfoApiV1SyncLastGetResponseSuccess = (getLastSyncInfoApiV1SyncLastGetResponse200) & {
   headers: Headers;
 };
-;
+export type getLastSyncInfoApiV1SyncLastGetResponseError = (getLastSyncInfoApiV1SyncLastGetResponse401 | getLastSyncInfoApiV1SyncLastGetResponse403 | getLastSyncInfoApiV1SyncLastGetResponse422) & {
+  headers: Headers;
+};
 
-export type getLastSyncInfoResponse = (getLastSyncInfoResponseSuccess)
+export type getLastSyncInfoApiV1SyncLastGetResponse = (getLastSyncInfoApiV1SyncLastGetResponseSuccess | getLastSyncInfoApiV1SyncLastGetResponseError)
 
-export const getGetLastSyncInfoUrl = (params?: GetLastSyncInfoParams,) => {
+export const getGetLastSyncInfoApiV1SyncLastGetUrl = (params?: GetLastSyncInfoApiV1SyncLastGetParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -458,9 +525,9 @@ export const getGetLastSyncInfoUrl = (params?: GetLastSyncInfoParams,) => {
   return stringifiedParams.length > 0 ? `/api/v1/sync/last?${stringifiedParams}` : `/api/v1/sync/last`
 }
 
-export const getLastSyncInfo = async (params?: GetLastSyncInfoParams, options?: RequestInit): Promise<getLastSyncInfoResponse> => {
+export const getLastSyncInfoApiV1SyncLastGet = async (params?: GetLastSyncInfoApiV1SyncLastGetParams, options?: RequestInit): Promise<getLastSyncInfoApiV1SyncLastGetResponse> => {
   
-  return customInstance<getLastSyncInfoResponse>(getGetLastSyncInfoUrl(params),
+  return customInstance<getLastSyncInfoApiV1SyncLastGetResponse>(getGetLastSyncInfoApiV1SyncLastGetUrl(params),
   {      
     ...options,
     method: 'GET'
@@ -473,69 +540,69 @@ export const getLastSyncInfo = async (params?: GetLastSyncInfoParams, options?: 
 
 
 
-export const getGetLastSyncInfoQueryKey = (params?: GetLastSyncInfoParams,) => {
+export const getGetLastSyncInfoApiV1SyncLastGetQueryKey = (params?: GetLastSyncInfoApiV1SyncLastGetParams,) => {
     return [
     `/api/v1/sync/last`, ...(params ? [params] : [])
     ] as const;
     }
 
     
-export const getGetLastSyncInfoQueryOptions = <TData = Awaited<ReturnType<typeof getLastSyncInfo>>, TError = unknown>(params?: GetLastSyncInfoParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLastSyncInfo>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getGetLastSyncInfoApiV1SyncLastGetQueryOptions = <TData = Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>, TError = HTTPErrorResponse | HTTPValidationError>(params?: GetLastSyncInfoApiV1SyncLastGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetLastSyncInfoQueryKey(params);
+  const queryKey =  queryOptions?.queryKey ?? getGetLastSyncInfoApiV1SyncLastGetQueryKey(params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLastSyncInfo>>> = ({ signal }) => getLastSyncInfo(params, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>> = ({ signal }) => getLastSyncInfoApiV1SyncLastGet(params, { signal, ...requestOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLastSyncInfo>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type GetLastSyncInfoQueryResult = NonNullable<Awaited<ReturnType<typeof getLastSyncInfo>>>
-export type GetLastSyncInfoQueryError = unknown
+export type GetLastSyncInfoApiV1SyncLastGetQueryResult = NonNullable<Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>>
+export type GetLastSyncInfoApiV1SyncLastGetQueryError = HTTPErrorResponse | HTTPValidationError
 
 
-export function useGetLastSyncInfo<TData = Awaited<ReturnType<typeof getLastSyncInfo>>, TError = unknown>(
- params: undefined |  GetLastSyncInfoParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLastSyncInfo>>, TError, TData>> & Pick<
+export function useGetLastSyncInfoApiV1SyncLastGet<TData = Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: undefined |  GetLastSyncInfoApiV1SyncLastGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getLastSyncInfo>>,
+          Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>,
           TError,
-          Awaited<ReturnType<typeof getLastSyncInfo>>
+          Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetLastSyncInfo<TData = Awaited<ReturnType<typeof getLastSyncInfo>>, TError = unknown>(
- params?: GetLastSyncInfoParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLastSyncInfo>>, TError, TData>> & Pick<
+export function useGetLastSyncInfoApiV1SyncLastGet<TData = Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetLastSyncInfoApiV1SyncLastGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getLastSyncInfo>>,
+          Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>,
           TError,
-          Awaited<ReturnType<typeof getLastSyncInfo>>
+          Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetLastSyncInfo<TData = Awaited<ReturnType<typeof getLastSyncInfo>>, TError = unknown>(
- params?: GetLastSyncInfoParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLastSyncInfo>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useGetLastSyncInfoApiV1SyncLastGet<TData = Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetLastSyncInfoApiV1SyncLastGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get info about the last successful sync
+ * @summary Get Last Sync Info
  */
 
-export function useGetLastSyncInfo<TData = Awaited<ReturnType<typeof getLastSyncInfo>>, TError = unknown>(
- params?: GetLastSyncInfoParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLastSyncInfo>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useGetLastSyncInfoApiV1SyncLastGet<TData = Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetLastSyncInfoApiV1SyncLastGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLastSyncInfoApiV1SyncLastGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetLastSyncInfoQueryOptions(params,options)
+  const queryOptions = getGetLastSyncInfoApiV1SyncLastGetQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -545,3 +612,115 @@ export function useGetLastSyncInfo<TData = Awaited<ReturnType<typeof getLastSync
 
 
 
+/**
+ * Sync recent finished matches and verify predictions against actual results.
+
+This endpoint:
+1. Fetches matches from the past N days to get final scores
+2. Updates local database with match results
+3. Verifies predictions against actual outcomes
+ * @summary Sync And Verify Predictions
+ */
+export type syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponse200 = {
+  data: SyncResponse
+  status: 200
+}
+
+export type syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
+
+export type syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponseSuccess = (syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponse200) & {
+  headers: Headers;
+};
+export type syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponseError = (syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponse401 | syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponse403 | syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponse422) & {
+  headers: Headers;
+};
+
+export type syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponse = (syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponseSuccess | syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponseError)
+
+export const getSyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostUrl = (params?: SyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/sync/verify-predictions?${stringifiedParams}` : `/api/v1/sync/verify-predictions`
+}
+
+export const syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPost = async (params?: SyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostParams, options?: RequestInit): Promise<syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponse> => {
+  
+  return customInstance<syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostResponse>(getSyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostUrl(params),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+);}
+
+
+
+
+export const getSyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostMutationOptions = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPost>>, TError,{params?: SyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostParams}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPost>>, TError,{params?: SyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostParams}, TContext> => {
+
+const mutationKey = ['syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPost'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPost>>, {params?: SyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostParams}> = (props) => {
+          const {params} = props ?? {};
+
+          return  syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPost(params,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostMutationResult = NonNullable<Awaited<ReturnType<typeof syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPost>>>
+    
+    export type SyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostMutationError = HTTPErrorResponse | HTTPValidationError
+
+    /**
+ * @summary Sync And Verify Predictions
+ */
+export const useSyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPost = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPost>>, TError,{params?: SyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostParams}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof syncAndVerifyPredictionsApiV1SyncVerifyPredictionsPost>>,
+        TError,
+        {params?: SyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostParams},
+        TContext
+      > => {
+      return useMutation(getSyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostMutationOptions(options), queryClient);
+    }
+    

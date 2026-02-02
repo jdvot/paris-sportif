@@ -3,11 +3,14 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 import type { MatchResponseStatus } from './matchResponseStatus';
 import type { TeamInfo } from './teamInfo';
 
+/**
+ * Match response model.
+ */
 export interface MatchResponse {
   id: number;
   external_id: string;
@@ -17,10 +20,7 @@ export interface MatchResponse {
   competition_code: string;
   match_date: string;
   status: MatchResponseStatus;
-  /** @nullable */
   home_score?: number | null;
-  /** @nullable */
   away_score?: number | null;
-  /** @nullable */
   matchday?: number | null;
 }

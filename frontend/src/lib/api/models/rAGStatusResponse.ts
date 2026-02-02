@@ -3,13 +3,15 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * RAG system status.
+ */
 export interface RAGStatusResponse {
   enabled: boolean;
   groq_configured: boolean;
-  /** @nullable */
   last_enrichment?: string | null;
-  total_enrichments: number;
+  total_enrichments?: number;
 }

@@ -3,14 +3,16 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Team standing in league table.
+ */
 export interface StandingTeamResponse {
   position: number;
   team_id: number;
   team_name: string;
-  /** @nullable */
   team_logo_url?: string | null;
   played: number;
   won: number;

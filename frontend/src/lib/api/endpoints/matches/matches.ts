@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 import {
   useQuery
@@ -25,6 +25,8 @@ import type {
   GetMatchesParams,
   GetTeamFormParams,
   GetUpcomingMatchesParams,
+  HTTPErrorResponse,
+  HTTPValidationError,
   HeadToHeadResponse,
   MatchListResponse,
   MatchResponse,
@@ -40,19 +42,41 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 /**
- * @summary Get list of matches with optional filters
+ * Get list of matches with optional filters.
+
+Competition codes:
+- PL: Premier League
+- PD: La Liga
+- BL1: Bundesliga
+- SA: Serie A
+- FL1: Ligue 1
+- CL: Champions League
+- EL: Europa League
+ * @summary Get Matches
  */
 export type getMatchesResponse200 = {
   data: MatchListResponse
   status: 200
 }
+
+export type getMatchesResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getMatchesResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
     
 export type getMatchesResponseSuccess = (getMatchesResponse200) & {
   headers: Headers;
 };
-;
+export type getMatchesResponseError = (getMatchesResponse401 | getMatchesResponse422) & {
+  headers: Headers;
+};
 
-export type getMatchesResponse = (getMatchesResponseSuccess)
+export type getMatchesResponse = (getMatchesResponseSuccess | getMatchesResponseError)
 
 export const getGetMatchesUrl = (params?: GetMatchesParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -91,7 +115,7 @@ export const getGetMatchesQueryKey = (params?: GetMatchesParams,) => {
     }
 
     
-export const getGetMatchesQueryOptions = <TData = Awaited<ReturnType<typeof getMatches>>, TError = unknown>(params?: GetMatchesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMatches>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getGetMatchesQueryOptions = <TData = Awaited<ReturnType<typeof getMatches>>, TError = HTTPErrorResponse | HTTPValidationError>(params?: GetMatchesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMatches>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -110,10 +134,10 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetMatchesQueryResult = NonNullable<Awaited<ReturnType<typeof getMatches>>>
-export type GetMatchesQueryError = unknown
+export type GetMatchesQueryError = HTTPErrorResponse | HTTPValidationError
 
 
-export function useGetMatches<TData = Awaited<ReturnType<typeof getMatches>>, TError = unknown>(
+export function useGetMatches<TData = Awaited<ReturnType<typeof getMatches>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params: undefined |  GetMatchesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMatches>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getMatches>>,
@@ -123,7 +147,7 @@ export function useGetMatches<TData = Awaited<ReturnType<typeof getMatches>>, TE
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetMatches<TData = Awaited<ReturnType<typeof getMatches>>, TError = unknown>(
+export function useGetMatches<TData = Awaited<ReturnType<typeof getMatches>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: GetMatchesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMatches>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getMatches>>,
@@ -133,15 +157,15 @@ export function useGetMatches<TData = Awaited<ReturnType<typeof getMatches>>, TE
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetMatches<TData = Awaited<ReturnType<typeof getMatches>>, TError = unknown>(
+export function useGetMatches<TData = Awaited<ReturnType<typeof getMatches>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: GetMatchesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMatches>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get list of matches with optional filters
+ * @summary Get Matches
  */
 
-export function useGetMatches<TData = Awaited<ReturnType<typeof getMatches>>, TError = unknown>(
+export function useGetMatches<TData = Awaited<ReturnType<typeof getMatches>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: GetMatchesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMatches>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
@@ -157,19 +181,32 @@ export function useGetMatches<TData = Awaited<ReturnType<typeof getMatches>>, TE
 
 
 /**
- * @summary Get upcoming matches for the next N days
+ * Get upcoming matches for the next N days.
+ * @summary Get Upcoming Matches
  */
 export type getUpcomingMatchesResponse200 = {
   data: MatchListResponse
   status: 200
 }
+
+export type getUpcomingMatchesResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getUpcomingMatchesResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
     
 export type getUpcomingMatchesResponseSuccess = (getUpcomingMatchesResponse200) & {
   headers: Headers;
 };
-;
+export type getUpcomingMatchesResponseError = (getUpcomingMatchesResponse401 | getUpcomingMatchesResponse422) & {
+  headers: Headers;
+};
 
-export type getUpcomingMatchesResponse = (getUpcomingMatchesResponseSuccess)
+export type getUpcomingMatchesResponse = (getUpcomingMatchesResponseSuccess | getUpcomingMatchesResponseError)
 
 export const getGetUpcomingMatchesUrl = (params?: GetUpcomingMatchesParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -208,7 +245,7 @@ export const getGetUpcomingMatchesQueryKey = (params?: GetUpcomingMatchesParams,
     }
 
     
-export const getGetUpcomingMatchesQueryOptions = <TData = Awaited<ReturnType<typeof getUpcomingMatches>>, TError = unknown>(params?: GetUpcomingMatchesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUpcomingMatches>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getGetUpcomingMatchesQueryOptions = <TData = Awaited<ReturnType<typeof getUpcomingMatches>>, TError = HTTPErrorResponse | HTTPValidationError>(params?: GetUpcomingMatchesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUpcomingMatches>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -227,10 +264,10 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetUpcomingMatchesQueryResult = NonNullable<Awaited<ReturnType<typeof getUpcomingMatches>>>
-export type GetUpcomingMatchesQueryError = unknown
+export type GetUpcomingMatchesQueryError = HTTPErrorResponse | HTTPValidationError
 
 
-export function useGetUpcomingMatches<TData = Awaited<ReturnType<typeof getUpcomingMatches>>, TError = unknown>(
+export function useGetUpcomingMatches<TData = Awaited<ReturnType<typeof getUpcomingMatches>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params: undefined |  GetUpcomingMatchesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUpcomingMatches>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getUpcomingMatches>>,
@@ -240,7 +277,7 @@ export function useGetUpcomingMatches<TData = Awaited<ReturnType<typeof getUpcom
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetUpcomingMatches<TData = Awaited<ReturnType<typeof getUpcomingMatches>>, TError = unknown>(
+export function useGetUpcomingMatches<TData = Awaited<ReturnType<typeof getUpcomingMatches>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: GetUpcomingMatchesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUpcomingMatches>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getUpcomingMatches>>,
@@ -250,15 +287,15 @@ export function useGetUpcomingMatches<TData = Awaited<ReturnType<typeof getUpcom
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetUpcomingMatches<TData = Awaited<ReturnType<typeof getUpcomingMatches>>, TError = unknown>(
+export function useGetUpcomingMatches<TData = Awaited<ReturnType<typeof getUpcomingMatches>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: GetUpcomingMatchesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUpcomingMatches>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get upcoming matches for the next N days
+ * @summary Get Upcoming Matches
  */
 
-export function useGetUpcomingMatches<TData = Awaited<ReturnType<typeof getUpcomingMatches>>, TError = unknown>(
+export function useGetUpcomingMatches<TData = Awaited<ReturnType<typeof getUpcomingMatches>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: GetUpcomingMatchesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUpcomingMatches>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
@@ -274,19 +311,32 @@ export function useGetUpcomingMatches<TData = Awaited<ReturnType<typeof getUpcom
 
 
 /**
- * @summary Get details for a specific match
+ * Get details for a specific match.
+ * @summary Get Match
  */
 export type getMatchResponse200 = {
   data: MatchResponse
   status: 200
 }
+
+export type getMatchResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getMatchResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
     
 export type getMatchResponseSuccess = (getMatchResponse200) & {
   headers: Headers;
 };
-;
+export type getMatchResponseError = (getMatchResponse401 | getMatchResponse422) & {
+  headers: Headers;
+};
 
-export type getMatchResponse = (getMatchResponseSuccess)
+export type getMatchResponse = (getMatchResponseSuccess | getMatchResponseError)
 
 export const getGetMatchUrl = (matchId: number,) => {
 
@@ -318,7 +368,7 @@ export const getGetMatchQueryKey = (matchId: number,) => {
     }
 
     
-export const getGetMatchQueryOptions = <TData = Awaited<ReturnType<typeof getMatch>>, TError = unknown>(matchId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMatch>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getGetMatchQueryOptions = <TData = Awaited<ReturnType<typeof getMatch>>, TError = HTTPErrorResponse | HTTPValidationError>(matchId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMatch>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -337,10 +387,10 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetMatchQueryResult = NonNullable<Awaited<ReturnType<typeof getMatch>>>
-export type GetMatchQueryError = unknown
+export type GetMatchQueryError = HTTPErrorResponse | HTTPValidationError
 
 
-export function useGetMatch<TData = Awaited<ReturnType<typeof getMatch>>, TError = unknown>(
+export function useGetMatch<TData = Awaited<ReturnType<typeof getMatch>>, TError = HTTPErrorResponse | HTTPValidationError>(
  matchId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMatch>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getMatch>>,
@@ -350,7 +400,7 @@ export function useGetMatch<TData = Awaited<ReturnType<typeof getMatch>>, TError
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetMatch<TData = Awaited<ReturnType<typeof getMatch>>, TError = unknown>(
+export function useGetMatch<TData = Awaited<ReturnType<typeof getMatch>>, TError = HTTPErrorResponse | HTTPValidationError>(
  matchId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMatch>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getMatch>>,
@@ -360,15 +410,15 @@ export function useGetMatch<TData = Awaited<ReturnType<typeof getMatch>>, TError
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetMatch<TData = Awaited<ReturnType<typeof getMatch>>, TError = unknown>(
+export function useGetMatch<TData = Awaited<ReturnType<typeof getMatch>>, TError = HTTPErrorResponse | HTTPValidationError>(
  matchId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMatch>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get details for a specific match
+ * @summary Get Match
  */
 
-export function useGetMatch<TData = Awaited<ReturnType<typeof getMatch>>, TError = unknown>(
+export function useGetMatch<TData = Awaited<ReturnType<typeof getMatch>>, TError = HTTPErrorResponse | HTTPValidationError>(
  matchId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMatch>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
@@ -384,19 +434,32 @@ export function useGetMatch<TData = Awaited<ReturnType<typeof getMatch>>, TError
 
 
 /**
- * @summary Get head-to-head history for teams in a match
+ * Get head-to-head history for teams in a match.
+ * @summary Get Head To Head
  */
 export type getHeadToHeadResponse200 = {
   data: HeadToHeadResponse
   status: 200
 }
+
+export type getHeadToHeadResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getHeadToHeadResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
     
 export type getHeadToHeadResponseSuccess = (getHeadToHeadResponse200) & {
   headers: Headers;
 };
-;
+export type getHeadToHeadResponseError = (getHeadToHeadResponse401 | getHeadToHeadResponse422) & {
+  headers: Headers;
+};
 
-export type getHeadToHeadResponse = (getHeadToHeadResponseSuccess)
+export type getHeadToHeadResponse = (getHeadToHeadResponseSuccess | getHeadToHeadResponseError)
 
 export const getGetHeadToHeadUrl = (matchId: number,
     params?: GetHeadToHeadParams,) => {
@@ -438,7 +501,7 @@ export const getGetHeadToHeadQueryKey = (matchId: number,
     }
 
     
-export const getGetHeadToHeadQueryOptions = <TData = Awaited<ReturnType<typeof getHeadToHead>>, TError = unknown>(matchId: number,
+export const getGetHeadToHeadQueryOptions = <TData = Awaited<ReturnType<typeof getHeadToHead>>, TError = HTTPErrorResponse | HTTPValidationError>(matchId: number,
     params?: GetHeadToHeadParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHeadToHead>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
@@ -458,10 +521,10 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetHeadToHeadQueryResult = NonNullable<Awaited<ReturnType<typeof getHeadToHead>>>
-export type GetHeadToHeadQueryError = unknown
+export type GetHeadToHeadQueryError = HTTPErrorResponse | HTTPValidationError
 
 
-export function useGetHeadToHead<TData = Awaited<ReturnType<typeof getHeadToHead>>, TError = unknown>(
+export function useGetHeadToHead<TData = Awaited<ReturnType<typeof getHeadToHead>>, TError = HTTPErrorResponse | HTTPValidationError>(
  matchId: number,
     params: undefined |  GetHeadToHeadParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHeadToHead>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
@@ -472,7 +535,7 @@ export function useGetHeadToHead<TData = Awaited<ReturnType<typeof getHeadToHead
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetHeadToHead<TData = Awaited<ReturnType<typeof getHeadToHead>>, TError = unknown>(
+export function useGetHeadToHead<TData = Awaited<ReturnType<typeof getHeadToHead>>, TError = HTTPErrorResponse | HTTPValidationError>(
  matchId: number,
     params?: GetHeadToHeadParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHeadToHead>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
@@ -483,16 +546,16 @@ export function useGetHeadToHead<TData = Awaited<ReturnType<typeof getHeadToHead
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetHeadToHead<TData = Awaited<ReturnType<typeof getHeadToHead>>, TError = unknown>(
+export function useGetHeadToHead<TData = Awaited<ReturnType<typeof getHeadToHead>>, TError = HTTPErrorResponse | HTTPValidationError>(
  matchId: number,
     params?: GetHeadToHeadParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHeadToHead>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get head-to-head history for teams in a match
+ * @summary Get Head To Head
  */
 
-export function useGetHeadToHead<TData = Awaited<ReturnType<typeof getHeadToHead>>, TError = unknown>(
+export function useGetHeadToHead<TData = Awaited<ReturnType<typeof getHeadToHead>>, TError = HTTPErrorResponse | HTTPValidationError>(
  matchId: number,
     params?: GetHeadToHeadParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHeadToHead>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
@@ -509,19 +572,32 @@ export function useGetHeadToHead<TData = Awaited<ReturnType<typeof getHeadToHead
 
 
 /**
- * @summary Get recent form for a team
+ * Get recent form for a team.
+ * @summary Get Team Form
  */
 export type getTeamFormResponse200 = {
   data: TeamFormResponse
   status: 200
 }
+
+export type getTeamFormResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getTeamFormResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
     
 export type getTeamFormResponseSuccess = (getTeamFormResponse200) & {
   headers: Headers;
 };
-;
+export type getTeamFormResponseError = (getTeamFormResponse401 | getTeamFormResponse422) & {
+  headers: Headers;
+};
 
-export type getTeamFormResponse = (getTeamFormResponseSuccess)
+export type getTeamFormResponse = (getTeamFormResponseSuccess | getTeamFormResponseError)
 
 export const getGetTeamFormUrl = (teamId: number,
     params?: GetTeamFormParams,) => {
@@ -563,7 +639,7 @@ export const getGetTeamFormQueryKey = (teamId: number,
     }
 
     
-export const getGetTeamFormQueryOptions = <TData = Awaited<ReturnType<typeof getTeamForm>>, TError = unknown>(teamId: number,
+export const getGetTeamFormQueryOptions = <TData = Awaited<ReturnType<typeof getTeamForm>>, TError = HTTPErrorResponse | HTTPValidationError>(teamId: number,
     params?: GetTeamFormParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamForm>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
@@ -583,10 +659,10 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetTeamFormQueryResult = NonNullable<Awaited<ReturnType<typeof getTeamForm>>>
-export type GetTeamFormQueryError = unknown
+export type GetTeamFormQueryError = HTTPErrorResponse | HTTPValidationError
 
 
-export function useGetTeamForm<TData = Awaited<ReturnType<typeof getTeamForm>>, TError = unknown>(
+export function useGetTeamForm<TData = Awaited<ReturnType<typeof getTeamForm>>, TError = HTTPErrorResponse | HTTPValidationError>(
  teamId: number,
     params: undefined |  GetTeamFormParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamForm>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
@@ -597,7 +673,7 @@ export function useGetTeamForm<TData = Awaited<ReturnType<typeof getTeamForm>>, 
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetTeamForm<TData = Awaited<ReturnType<typeof getTeamForm>>, TError = unknown>(
+export function useGetTeamForm<TData = Awaited<ReturnType<typeof getTeamForm>>, TError = HTTPErrorResponse | HTTPValidationError>(
  teamId: number,
     params?: GetTeamFormParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamForm>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
@@ -608,16 +684,16 @@ export function useGetTeamForm<TData = Awaited<ReturnType<typeof getTeamForm>>, 
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetTeamForm<TData = Awaited<ReturnType<typeof getTeamForm>>, TError = unknown>(
+export function useGetTeamForm<TData = Awaited<ReturnType<typeof getTeamForm>>, TError = HTTPErrorResponse | HTTPValidationError>(
  teamId: number,
     params?: GetTeamFormParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamForm>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get recent form for a team
+ * @summary Get Team Form
  */
 
-export function useGetTeamForm<TData = Awaited<ReturnType<typeof getTeamForm>>, TError = unknown>(
+export function useGetTeamForm<TData = Awaited<ReturnType<typeof getTeamForm>>, TError = HTTPErrorResponse | HTTPValidationError>(
  teamId: number,
     params?: GetTeamFormParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamForm>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
@@ -634,22 +710,35 @@ export function useGetTeamForm<TData = Awaited<ReturnType<typeof getTeamForm>>, 
 
 
 /**
- * @summary Get current league standings for a competition
+ * Get current league standings for a competition.
+
+Competition codes:
+- PL: Premier League
+- PD: La Liga
+- BL1: Bundesliga
+- SA: Serie A
+- FL1: Ligue 1
+ * @summary Get Standings
  */
 export type getStandingsResponse200 = {
   data: StandingsResponse
   status: 200
 }
 
-export type getStandingsResponse400 = {
-  data: void
-  status: 400
+export type getStandingsResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getStandingsResponse422 = {
+  data: HTTPValidationError
+  status: 422
 }
     
 export type getStandingsResponseSuccess = (getStandingsResponse200) & {
   headers: Headers;
 };
-export type getStandingsResponseError = (getStandingsResponse400) & {
+export type getStandingsResponseError = (getStandingsResponse401 | getStandingsResponse422) & {
   headers: Headers;
 };
 
@@ -685,7 +774,7 @@ export const getGetStandingsQueryKey = (competitionCode: string,) => {
     }
 
     
-export const getGetStandingsQueryOptions = <TData = Awaited<ReturnType<typeof getStandings>>, TError = void>(competitionCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStandings>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getGetStandingsQueryOptions = <TData = Awaited<ReturnType<typeof getStandings>>, TError = HTTPErrorResponse | HTTPValidationError>(competitionCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStandings>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -704,10 +793,10 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetStandingsQueryResult = NonNullable<Awaited<ReturnType<typeof getStandings>>>
-export type GetStandingsQueryError = void
+export type GetStandingsQueryError = HTTPErrorResponse | HTTPValidationError
 
 
-export function useGetStandings<TData = Awaited<ReturnType<typeof getStandings>>, TError = void>(
+export function useGetStandings<TData = Awaited<ReturnType<typeof getStandings>>, TError = HTTPErrorResponse | HTTPValidationError>(
  competitionCode: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStandings>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getStandings>>,
@@ -717,7 +806,7 @@ export function useGetStandings<TData = Awaited<ReturnType<typeof getStandings>>
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetStandings<TData = Awaited<ReturnType<typeof getStandings>>, TError = void>(
+export function useGetStandings<TData = Awaited<ReturnType<typeof getStandings>>, TError = HTTPErrorResponse | HTTPValidationError>(
  competitionCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStandings>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getStandings>>,
@@ -727,15 +816,15 @@ export function useGetStandings<TData = Awaited<ReturnType<typeof getStandings>>
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetStandings<TData = Awaited<ReturnType<typeof getStandings>>, TError = void>(
+export function useGetStandings<TData = Awaited<ReturnType<typeof getStandings>>, TError = HTTPErrorResponse | HTTPValidationError>(
  competitionCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStandings>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get current league standings for a competition
+ * @summary Get Standings
  */
 
-export function useGetStandings<TData = Awaited<ReturnType<typeof getStandings>>, TError = void>(
+export function useGetStandings<TData = Awaited<ReturnType<typeof getStandings>>, TError = HTTPErrorResponse | HTTPValidationError>(
  competitionCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStandings>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {

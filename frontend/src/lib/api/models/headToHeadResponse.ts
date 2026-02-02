@@ -3,10 +3,13 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 import type { HeadToHeadMatch } from './headToHeadMatch';
 
+/**
+ * Head-to-head response.
+ */
 export interface HeadToHeadResponse {
   matches: HeadToHeadMatch[];
   home_wins: number;

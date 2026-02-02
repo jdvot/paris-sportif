@@ -221,7 +221,7 @@ def _convert_api_match(api_match: MatchData) -> MatchResponse:
     )
 
 
-@router.get("", response_model=MatchListResponse, responses=AUTH_RESPONSES)
+@router.get("", response_model=MatchListResponse, responses=AUTH_RESPONSES, operation_id="getMatches")
 async def get_matches(
     user: AuthenticatedUser,
     competition: str | None = Query(None, description="Filter by competition code (e.g., PL, PD, BL1)"),
@@ -328,7 +328,7 @@ async def get_matches(
         )
 
 
-@router.get("/upcoming", responses=AUTH_RESPONSES)
+@router.get("/upcoming", responses=AUTH_RESPONSES, operation_id="getUpcomingMatches")
 async def get_upcoming_matches(
     user: AuthenticatedUser,
     days: int = Query(2, ge=1, le=7, description="Number of days ahead"),
@@ -363,7 +363,7 @@ async def get_upcoming_matches(
         )
 
 
-@router.get("/{match_id}", response_model=MatchResponse, responses=AUTH_RESPONSES)
+@router.get("/{match_id}", response_model=MatchResponse, responses=AUTH_RESPONSES, operation_id="getMatch")
 async def get_match(match_id: int, user: AuthenticatedUser) -> MatchResponse:
     """Get details for a specific match."""
     try:
@@ -385,7 +385,7 @@ async def get_match(match_id: int, user: AuthenticatedUser) -> MatchResponse:
         return mock
 
 
-@router.get("/{match_id}/head-to-head", response_model=HeadToHeadResponse, responses=AUTH_RESPONSES)
+@router.get("/{match_id}/head-to-head", response_model=HeadToHeadResponse, responses=AUTH_RESPONSES, operation_id="getHeadToHead")
 async def get_head_to_head(
     match_id: int,
     user: AuthenticatedUser,
@@ -453,7 +453,7 @@ async def get_head_to_head(
         )
 
 
-@router.get("/teams/{team_id}/form", response_model=TeamFormResponse, responses=AUTH_RESPONSES)
+@router.get("/teams/{team_id}/form", response_model=TeamFormResponse, responses=AUTH_RESPONSES, operation_id="getTeamForm")
 async def get_team_form(
     team_id: int,
     user: AuthenticatedUser,
@@ -548,7 +548,7 @@ async def get_team_form(
         )
 
 
-@router.get("/standings/{competition_code}", response_model=StandingsResponse, responses=AUTH_RESPONSES)
+@router.get("/standings/{competition_code}", response_model=StandingsResponse, responses=AUTH_RESPONSES, operation_id="getStandings")
 async def get_standings(
     competition_code: str,
     user: AuthenticatedUser,

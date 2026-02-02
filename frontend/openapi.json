@@ -1,57 +1,30 @@
 {
-  "openapi": "3.0.3",
+  "openapi": "3.1.0",
   "info": {
     "title": "Paris Sportif API",
-    "version": "1.0.0",
-    "description": "API de predictions de paris sportifs sur le football europeen"
+    "description": "API de predictions de paris sportifs sur le football europeen",
+    "version": "0.1.0"
   },
-  "servers": [
-    { "url": "http://localhost:8000", "description": "Local development" },
-    { "url": "https://paris-sportif-api.onrender.com", "description": "Production" }
-  ],
   "paths": {
-    "/": {
-      "get": {
-        "tags": ["Root"],
-        "summary": "Root endpoint",
-        "operationId": "getRoot",
-        "responses": {
-          "200": {
-            "description": "API information",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "name": { "type": "string" },
-                    "version": { "type": "string" },
-                    "docs": { "type": "string" }
-                  },
-                  "required": ["name", "version", "docs"]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/health": {
       "get": {
-        "tags": ["Health"],
-        "summary": "Basic health check",
-        "operationId": "healthCheck",
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health Check",
+        "description": "Basic health check.",
+        "operationId": "health_check_health_get",
         "responses": {
           "200": {
-            "description": "Service health",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": { "type": "string" },
-                    "version": { "type": "string" }
+                  "additionalProperties": {
+                    "type": "string"
                   },
-                  "required": ["status", "version"]
+                  "type": "object",
+                  "title": "Response Health Check Health Get"
                 }
               }
             }
@@ -61,24 +34,30 @@
     },
     "/health/ready": {
       "get": {
-        "tags": ["Health"],
-        "summary": "Readiness check including dependencies",
-        "operationId": "readinessCheck",
+        "tags": [
+          "Health"
+        ],
+        "summary": "Readiness Check",
+        "description": "Readiness check including dependencies.",
+        "operationId": "readiness_check_health_ready_get",
         "responses": {
           "200": {
-            "description": "Readiness status",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": { "type": "string" },
-                    "database": { "type": "boolean" },
-                    "redis": { "type": "boolean" },
-                    "football_api": { "type": "boolean" },
-                    "llm_api": { "type": "boolean" }
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "boolean"
+                      }
+                    ]
                   },
-                  "required": ["status", "database", "redis", "football_api", "llm_api"]
+                  "type": "object",
+                  "title": "Response Readiness Check Health Ready Get"
                 }
               }
             }
@@ -88,56 +67,147 @@
     },
     "/api/v1/matches": {
       "get": {
-        "tags": ["Matches"],
-        "summary": "Get list of matches with optional filters",
+        "tags": [
+          "Matches"
+        ],
+        "summary": "Get Matches",
+        "description": "Get list of matches with optional filters.\n\nCompetition codes:\n- PL: Premier League\n- PD: La Liga\n- BL1: Bundesliga\n- SA: Serie A\n- FL1: Ligue 1\n- CL: Champions League\n- EL: Europa League",
         "operationId": "getMatches",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "competition",
             "in": "query",
             "required": false,
-            "schema": { "type": "string" },
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by competition code (e.g., PL, PD, BL1)",
+              "title": "Competition"
+            },
             "description": "Filter by competition code (e.g., PL, PD, BL1)"
           },
           {
             "name": "date_from",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "format": "date" },
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start date filter",
+              "title": "Date From"
+            },
             "description": "Start date filter"
           },
           {
             "name": "date_to",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "format": "date" },
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End date filter",
+              "title": "Date To"
+            },
             "description": "End date filter"
           },
           {
             "name": "status",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "enum": ["scheduled", "live", "finished"] }
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "scheduled",
+                    "live",
+                    "finished"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
           },
           {
             "name": "page",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "default": 1, "minimum": 1 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
           },
           {
             "name": "per_page",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "default": 20, "minimum": 1, "maximum": 100 }
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Per Page"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Match list response",
+            "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/MatchListResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/MatchListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -146,30 +216,77 @@
     },
     "/api/v1/matches/upcoming": {
       "get": {
-        "tags": ["Matches"],
-        "summary": "Get upcoming matches for the next N days",
+        "tags": [
+          "Matches"
+        ],
+        "summary": "Get Upcoming Matches",
+        "description": "Get upcoming matches for the next N days.",
         "operationId": "getUpcomingMatches",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "days",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "default": 2, "minimum": 1, "maximum": 7 },
+            "schema": {
+              "type": "integer",
+              "maximum": 7,
+              "minimum": 1,
+              "description": "Number of days ahead",
+              "default": 2,
+              "title": "Days"
+            },
             "description": "Number of days ahead"
           },
           {
             "name": "competition",
             "in": "query",
             "required": false,
-            "schema": { "type": "string" }
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Competition"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Upcoming matches",
+            "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/MatchListResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/MatchListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -178,24 +295,56 @@
     },
     "/api/v1/matches/{match_id}": {
       "get": {
-        "tags": ["Matches"],
-        "summary": "Get details for a specific match",
+        "tags": [
+          "Matches"
+        ],
+        "summary": "Get Match",
+        "description": "Get details for a specific match.",
         "operationId": "getMatch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "match_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "integer" },
-            "description": "Match ID"
+            "schema": {
+              "type": "integer",
+              "title": "Match Id"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Match details",
+            "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/MatchResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -204,29 +353,68 @@
     },
     "/api/v1/matches/{match_id}/head-to-head": {
       "get": {
-        "tags": ["Matches"],
-        "summary": "Get head-to-head history for teams in a match",
+        "tags": [
+          "Matches"
+        ],
+        "summary": "Get Head To Head",
+        "description": "Get head-to-head history for teams in a match.",
         "operationId": "getHeadToHead",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "match_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "integer" }
+            "schema": {
+              "type": "integer",
+              "title": "Match Id"
+            }
           },
           {
             "name": "limit",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "default": 10, "minimum": 1, "maximum": 20 }
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 10,
+              "title": "Limit"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Head-to-head history",
+            "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HeadToHeadResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/HeadToHeadResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -235,29 +423,68 @@
     },
     "/api/v1/matches/teams/{team_id}/form": {
       "get": {
-        "tags": ["Matches"],
-        "summary": "Get recent form for a team",
+        "tags": [
+          "Matches"
+        ],
+        "summary": "Get Team Form",
+        "description": "Get recent form for a team.",
         "operationId": "getTeamForm",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "team_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "integer" }
+            "schema": {
+              "type": "integer",
+              "title": "Team Id"
+            }
           },
           {
             "name": "matches_count",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "default": 5, "minimum": 3, "maximum": 10 }
+            "schema": {
+              "type": "integer",
+              "maximum": 10,
+              "minimum": 3,
+              "default": 5,
+              "title": "Matches Count"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Team form data",
+            "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TeamFormResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TeamFormResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -266,161 +493,1000 @@
     },
     "/api/v1/matches/standings/{competition_code}": {
       "get": {
-        "tags": ["Matches"],
-        "summary": "Get current league standings for a competition",
+        "tags": [
+          "Matches"
+        ],
+        "summary": "Get Standings",
+        "description": "Get current league standings for a competition.\n\nCompetition codes:\n- PL: Premier League\n- PD: La Liga\n- BL1: Bundesliga\n- SA: Serie A\n- FL1: Ligue 1",
         "operationId": "getStandings",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "competition_code",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
-            "description": "Competition code (PL, PD, BL1, SA, FL1)"
+            "schema": {
+              "type": "string",
+              "title": "Competition Code"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "League standings",
+            "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/StandingsResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/StandingsResponse"
+                }
               }
             }
           },
-          "400": {
-            "description": "Invalid competition code"
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/predictions/daily": {
       "get": {
-        "tags": ["Predictions"],
-        "summary": "Get the 5 best picks for the specified date",
+        "tags": [
+          "Predictions"
+        ],
+        "summary": "Get Daily Picks",
+        "description": "Get the 5 best picks for the specified date ONLY.\n\nSelection criteria:\n- Minimum 5% value vs bookmaker odds\n- Minimum 60% confidence\n- Diversified across competitions\n\nUses database caching to persist predictions across server restarts.",
         "operationId": "getDailyPicks",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "date",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "format": "date" },
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Date in YYYY-MM-DD format, defaults to today",
+              "title": "Date"
+            },
             "description": "Date in YYYY-MM-DD format, defaults to today"
           }
         ],
         "responses": {
           "200": {
-            "description": "Daily picks",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/DailyPicksResponse" }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded"
-          },
-          "502": {
-            "description": "Error fetching matches"
-          }
-        }
-      }
-    },
-    "/api/v1/predictions/{match_id}": {
-      "get": {
-        "tags": ["Predictions"],
-        "summary": "Get detailed prediction for a specific match",
-        "operationId": "getPrediction",
-        "parameters": [
-          {
-            "name": "match_id",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "integer" }
-          },
-          {
-            "name": "include_model_details",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "boolean", "default": false },
-            "description": "Include individual model contributions"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Prediction details",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/PredictionResponse" }
-              }
-            }
-          },
-          "404": {
-            "description": "Match not found"
-          },
-          "429": {
-            "description": "Rate limit exceeded"
-          }
-        }
-      }
-    },
-    "/api/v1/predictions/{match_id}/refresh": {
-      "post": {
-        "tags": ["Predictions"],
-        "summary": "Force refresh a prediction (admin only)",
-        "operationId": "refreshPrediction",
-        "parameters": [
-          {
-            "name": "match_id",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "integer" }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Prediction refresh queued",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": { "type": "string" },
-                    "match_id": { "type": "string" }
-                  },
-                  "required": ["status", "match_id"]
+                  "$ref": "#/components/schemas/DailyPicksResponse"
                 }
               }
             }
           },
-          "404": {
-            "description": "Match not found"
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
           },
-          "429": {
-            "description": "Rate limit exceeded"
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/predictions/stats": {
       "get": {
-        "tags": ["Predictions"],
-        "summary": "Get historical prediction performance statistics",
+        "tags": [
+          "Predictions"
+        ],
+        "summary": "Get Prediction Stats",
+        "description": "Get historical prediction performance statistics.",
         "operationId": "getPredictionStats",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "days",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "default": 30, "minimum": 7, "maximum": 365 },
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 7,
+              "description": "Number of days to analyze",
+              "default": 30,
+              "title": "Days"
+            },
             "description": "Number of days to analyze"
           }
         ],
         "responses": {
           "200": {
-            "description": "Prediction statistics",
+            "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/PredictionStatsResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionStatsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/predictions/{match_id}": {
+      "get": {
+        "tags": [
+          "Predictions"
+        ],
+        "summary": "Get Prediction",
+        "description": "Get detailed prediction for a specific match.",
+        "operationId": "getPrediction",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "match_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Match Id"
+            }
+          },
+          {
+            "name": "include_model_details",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include individual model contributions",
+              "default": false,
+              "title": "Include Model Details"
+            },
+            "description": "Include individual model contributions"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/predictions/{match_id}/refresh": {
+      "post": {
+        "tags": [
+          "Predictions"
+        ],
+        "summary": "Refresh Prediction",
+        "description": "Force refresh a prediction (admin only).",
+        "operationId": "refreshPrediction",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "match_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Match Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Refreshprediction"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/debug/api-status": {
+      "get": {
+        "tags": [
+          "Debug"
+        ],
+        "summary": "Debug Api Status",
+        "description": "Debug endpoint to verify football-data.org API configuration.\n\nReturns detailed information about:\n- API key configuration\n- HTTP header status\n- Live API connectivity test",
+        "operationId": "debug_api_status_api_v1_debug_api_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Debug Api Status Api V1 Debug Api Status Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Droits administrateur requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ml/status": {
+      "get": {
+        "tags": [
+          "Machine Learning"
+        ],
+        "summary": "Get Ml Status",
+        "description": "Get current ML system status.\n\nReturns information about:\n- Whether models are trained and available\n- Age of training data\n- Feature engineering state",
+        "operationId": "get_ml_status_api_v1_ml_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MLStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Droits administrateur requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ml/collect": {
+      "post": {
+        "tags": [
+          "Machine Learning"
+        ],
+        "summary": "Collect Data",
+        "description": "Start data collection in background.\n\nCollects historical match data from football-data.org API.\nThis is a long-running task that runs in the background.",
+        "operationId": "collect_data_api_v1_ml_collect_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Droits administrateur requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ml/train": {
+      "post": {
+        "tags": [
+          "Machine Learning"
+        ],
+        "summary": "Train Models",
+        "description": "Start model training in background.\n\nTrains XGBoost and Random Forest models on collected data.\nRequires data to be collected first.",
+        "operationId": "train_models_api_v1_ml_train_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Droits administrateur requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ml/run-full": {
+      "post": {
+        "tags": [
+          "Machine Learning"
+        ],
+        "summary": "Run Full Pipeline",
+        "description": "Run full ML pipeline in background.\n\nExecutes:\n1. Data collection from API\n2. Model training on collected data\n3. Model reloading for inference\n\nThis is a long-running task (5-15 minutes depending on API rate limits).",
+        "operationId": "run_full_pipeline_api_v1_ml_run_full_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Droits administrateur requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/ml/pipeline-status": {
+      "get": {
+        "tags": [
+          "Machine Learning"
+        ],
+        "summary": "Get Pipeline Status",
+        "description": "Get current pipeline execution status.\n\nReturns whether a pipeline task is running and the result of the last run.",
+        "operationId": "get_pipeline_status_api_v1_ml_pipeline_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Droits administrateur requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sync/weekly": {
+      "post": {
+        "tags": [
+          "Data Sync"
+        ],
+        "summary": "Sync Weekly Data",
+        "description": "Trigger weekly data synchronization.\n\nThis should be called every Sunday evening (e.g., via cron job).\nSyncs matches for the next 7 days and all standings.\n\nCron example: 0 20 * * 0 curl -X POST https://api/sync/weekly",
+        "operationId": "sync_weekly_data_api_v1_sync_weekly_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 14,
+              "minimum": 1,
+              "description": "Number of days to sync",
+              "default": 7,
+              "title": "Days"
+            },
+            "description": "Number of days to sync"
+          },
+          {
+            "name": "include_standings",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Also sync standings",
+              "default": true,
+              "title": "Include Standings"
+            },
+            "description": "Also sync standings"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Droits administrateur requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sync/matches": {
+      "post": {
+        "tags": [
+          "Data Sync"
+        ],
+        "summary": "Sync Matches Only",
+        "description": "Sync only matches (no standings).",
+        "operationId": "sync_matches_only_api_v1_sync_matches_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 14,
+              "minimum": 1,
+              "description": "Number of days to sync",
+              "default": 7,
+              "title": "Days"
+            },
+            "description": "Number of days to sync"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Droits administrateur requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sync/standings": {
+      "post": {
+        "tags": [
+          "Data Sync"
+        ],
+        "summary": "Sync Standings Only",
+        "description": "Sync only standings (no matches).",
+        "operationId": "sync_standings_only_api_v1_sync_standings_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Droits administrateur requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sync/status": {
+      "get": {
+        "tags": [
+          "Data Sync"
+        ],
+        "summary": "Get Sync Status",
+        "description": "Get database sync status and statistics.",
+        "operationId": "get_sync_status_api_v1_sync_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DbStatsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Droits administrateur requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sync/last": {
+      "get": {
+        "tags": [
+          "Data Sync"
+        ],
+        "summary": "Get Last Sync Info",
+        "description": "Get info about the last successful sync.",
+        "operationId": "get_last_sync_info_api_v1_sync_last_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sync_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Type of sync to check",
+              "default": "weekly",
+              "title": "Sync Type"
+            },
+            "description": "Type of sync to check"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Last Sync Info Api V1 Sync Last Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Droits administrateur requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sync/verify-predictions": {
+      "post": {
+        "tags": [
+          "Data Sync"
+        ],
+        "summary": "Sync And Verify Predictions",
+        "description": "Sync recent finished matches and verify predictions against actual results.\n\nThis endpoint:\n1. Fetches matches from the past N days to get final scores\n2. Updates local database with match results\n3. Verifies predictions against actual outcomes",
+        "operationId": "sync_and_verify_predictions_api_v1_sync_verify_predictions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "past_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 30,
+              "minimum": 1,
+              "description": "Days to look back for finished matches",
+              "default": 7,
+              "title": "Past Days"
+            },
+            "description": "Days to look back for finished matches"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Droits administrateur requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -429,396 +1495,793 @@
     },
     "/api/v1/rag/status": {
       "get": {
-        "tags": ["RAG Enrichment"],
-        "summary": "Get RAG system status",
-        "operationId": "getRagStatus",
+        "tags": [
+          "RAG Enrichment"
+        ],
+        "summary": "Get Rag Status",
+        "description": "Get RAG system status.",
+        "operationId": "get_rag_status_api_v1_rag_status_get",
         "responses": {
           "200": {
-            "description": "RAG status",
+            "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/RAGStatusResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/RAGStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Abonnement premium requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/rag/enrich": {
       "get": {
-        "tags": ["RAG Enrichment"],
-        "summary": "Enrich a match with contextual information using RAG",
-        "operationId": "enrichMatch",
+        "tags": [
+          "RAG Enrichment"
+        ],
+        "summary": "Enrich Match",
+        "description": "Enrich a match with contextual information using RAG.\n\nThis endpoint fetches news, injuries, sentiment analysis,\nand other contextual data for a match.",
+        "operationId": "enrich_match_api_v1_rag_enrich_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "home_team",
             "in": "query",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string",
+              "description": "Home team name",
+              "title": "Home Team"
+            },
             "description": "Home team name"
           },
           {
             "name": "away_team",
             "in": "query",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string",
+              "description": "Away team name",
+              "title": "Away Team"
+            },
             "description": "Away team name"
           },
           {
             "name": "competition",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "default": "PL" },
+            "schema": {
+              "type": "string",
+              "description": "Competition code (PL, SA, etc.)",
+              "default": "PL",
+              "title": "Competition"
+            },
             "description": "Competition code (PL, SA, etc.)"
           },
           {
             "name": "match_date",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "format": "date" },
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Match date in YYYY-MM-DD format",
+              "title": "Match Date"
+            },
             "description": "Match date in YYYY-MM-DD format"
           }
         ],
         "responses": {
           "200": {
-            "description": "Match context",
+            "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/MatchContext" }
+                "schema": {
+                  "$ref": "#/components/schemas/MatchContext"
+                }
               }
             }
           },
-          "500": {
-            "description": "Failed to enrich match"
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Abonnement premium requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/rag/analyze": {
       "post": {
-        "tags": ["RAG Enrichment"],
-        "summary": "Generate a detailed analysis of match context using LLM",
-        "operationId": "analyzeMatchContext",
+        "tags": [
+          "RAG Enrichment"
+        ],
+        "summary": "Analyze Match Context",
+        "description": "Generate a detailed analysis of match context using LLM.\n\nThis is a more intensive analysis than the basic enrichment.",
+        "operationId": "analyze_match_context_api_v1_rag_analyze_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "home_team",
             "in": "query",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string",
+              "description": "Home team name",
+              "title": "Home Team"
+            },
+            "description": "Home team name"
           },
           {
             "name": "away_team",
             "in": "query",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string",
+              "description": "Away team name",
+              "title": "Away Team"
+            },
+            "description": "Away team name"
           },
           {
             "name": "competition",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "default": "PL" }
+            "schema": {
+              "type": "string",
+              "description": "Competition code",
+              "default": "PL",
+              "title": "Competition"
+            },
+            "description": "Competition code"
           },
           {
             "name": "additional_context",
             "in": "query",
             "required": false,
-            "schema": { "type": "string" }
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Additional context to include",
+              "title": "Additional Context"
+            },
+            "description": "Additional context to include"
           }
         ],
         "responses": {
           "200": {
-            "description": "Analysis result",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": {
-                    "home_team": { "type": "string" },
-                    "away_team": { "type": "string" },
-                    "competition": { "type": "string" },
-                    "analysis": { "type": "string" },
-                    "generated_at": { "type": "string", "format": "date-time" }
+                  "additionalProperties": true,
+                  "title": "Response Analyze Match Context Api V1 Rag Analyze Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/enrichment/full": {
+      "get": {
+        "tags": [
+          "Data Enrichment"
+        ],
+        "summary": "Get Full Enrichment",
+        "description": "Get full enrichment data for a match including:\n- Team form (last 5 matches)\n- xG estimates\n- Bookmaker odds\n- Weather forecast\n- H2H history\n- Standings context",
+        "operationId": "get_full_enrichment_api_v1_enrichment_full_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "home_team",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Home team name",
+              "title": "Home Team"
+            },
+            "description": "Home team name"
+          },
+          {
+            "name": "away_team",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Away team name",
+              "title": "Away Team"
+            },
+            "description": "Away team name"
+          },
+          {
+            "name": "competition",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Competition code",
+              "default": "PL",
+              "title": "Competition"
+            },
+            "description": "Competition code"
+          },
+          {
+            "name": "match_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Match date YYYY-MM-DD",
+              "title": "Match Date"
+            },
+            "description": "Match date YYYY-MM-DD"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FullEnrichmentResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Abonnement premium requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/enrichment/odds": {
+      "get": {
+        "tags": [
+          "Data Enrichment"
+        ],
+        "summary": "Get Match Odds",
+        "description": "Get bookmaker odds for a specific match.",
+        "operationId": "get_match_odds_api_v1_enrichment_odds_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "home_team",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Home team name",
+              "title": "Home Team"
+            },
+            "description": "Home team name"
+          },
+          {
+            "name": "away_team",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Away team name",
+              "title": "Away Team"
+            },
+            "description": "Away team name"
+          },
+          {
+            "name": "competition",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Competition code",
+              "default": "PL",
+              "title": "Competition"
+            },
+            "description": "Competition code"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Match Odds Api V1 Enrichment Odds Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Abonnement premium requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/enrichment/weather": {
+      "get": {
+        "tags": [
+          "Data Enrichment"
+        ],
+        "summary": "Get Match Weather",
+        "description": "Get weather forecast for match day.",
+        "operationId": "get_match_weather_api_v1_enrichment_weather_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "home_team",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Home team name",
+              "title": "Home Team"
+            },
+            "description": "Home team name"
+          },
+          {
+            "name": "match_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Match date YYYY-MM-DD",
+              "title": "Match Date"
+            },
+            "description": "Match date YYYY-MM-DD"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Match Weather Api V1 Enrichment Weather Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Abonnement premium requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/enrichment/h2h": {
+      "get": {
+        "tags": [
+          "Data Enrichment"
+        ],
+        "summary": "Get H2H",
+        "description": "Get head-to-head history between two teams.",
+        "operationId": "get_h2h_api_v1_enrichment_h2h_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "home_team",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Home team name",
+              "title": "Home Team"
+            },
+            "description": "Home team name"
+          },
+          {
+            "name": "away_team",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Away team name",
+              "title": "Away Team"
+            },
+            "description": "Away team name"
+          },
+          {
+            "name": "competition",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Competition code",
+              "default": "PL",
+              "title": "Competition"
+            },
+            "description": "Competition code"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get H2H Api V1 Enrichment H2H Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Abonnement premium requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/enrichment/form/{team_name}": {
+      "get": {
+        "tags": [
+          "Data Enrichment"
+        ],
+        "summary": "Get Team Form",
+        "description": "Get recent form for a team.",
+        "operationId": "get_team_form_api_v1_enrichment_form__team_name__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Name"
+            }
+          },
+          {
+            "name": "competition",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Competition code",
+              "default": "PL",
+              "title": "Competition"
+            },
+            "description": "Competition code"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Team Form Api V1 Enrichment Form  Team Name  Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Abonnement premium requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/enrichment/status": {
+      "get": {
+        "tags": [
+          "Data Enrichment"
+        ],
+        "summary": "Get Enrichment Status",
+        "description": "Get status of all enrichment data sources.",
+        "operationId": "get_enrichment_status_api_v1_enrichment_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Enrichment Status Api V1 Enrichment Status Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification requise - Token manquant ou invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Acc\u00e8s refus\u00e9 - Abonnement premium requis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Root",
+        "description": "Root endpoint.",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
                   },
-                  "required": ["home_team", "away_team", "competition", "analysis", "generated_at"]
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Failed to generate analysis"
-          }
-        }
-      }
-    },
-    "/api/v1/debug/api-status": {
-      "get": {
-        "tags": ["Debug"],
-        "summary": "Debug endpoint to verify football-data.org API configuration",
-        "operationId": "debugApiStatus",
-        "responses": {
-          "200": {
-            "description": "API status information",
-            "content": {
-              "application/json": {
-                "schema": {
                   "type": "object",
-                  "properties": {
-                    "football_api": {
-                      "type": "object",
-                      "properties": {
-                        "base_url": { "type": "string" },
-                        "api_key_configured": { "type": "boolean" },
-                        "api_key_length": { "type": "integer" },
-                        "api_key_preview": { "type": "string" },
-                        "client_headers": {
-                          "type": "object",
-                          "properties": {
-                            "configured": { "type": "boolean" },
-                            "x_auth_token_present": { "type": "boolean" }
-                          }
-                        },
-                        "connectivity_test": {
-                          "type": "object",
-                          "properties": {
-                            "status": { "type": "string" },
-                            "http_status_code": { "type": "integer", "nullable": true },
-                            "error": { "type": "string", "nullable": true }
-                          }
-                        }
-                      }
-                    },
-                    "settings": {
-                      "type": "object",
-                      "properties": {
-                        "app_env": { "type": "string" },
-                        "app_version": { "type": "string" },
-                        "debug_mode": { "type": "boolean" },
-                        "log_level": { "type": "string" }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/ml/status": {
-      "get": {
-        "tags": ["Machine Learning"],
-        "summary": "Get current ML system status",
-        "operationId": "getMlStatus",
-        "responses": {
-          "200": {
-            "description": "ML system status",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/MLStatusResponse" }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/ml/collect": {
-      "post": {
-        "tags": ["Machine Learning"],
-        "summary": "Start data collection in background",
-        "operationId": "collectData",
-        "responses": {
-          "200": {
-            "description": "Data collection started",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/PipelineResponse" }
-              }
-            }
-          },
-          "409": {
-            "description": "A pipeline task is already running"
-          }
-        }
-      }
-    },
-    "/api/v1/ml/train": {
-      "post": {
-        "tags": ["Machine Learning"],
-        "summary": "Start model training in background",
-        "operationId": "trainModels",
-        "responses": {
-          "200": {
-            "description": "Model training started",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/PipelineResponse" }
-              }
-            }
-          },
-          "409": {
-            "description": "A pipeline task is already running"
-          }
-        }
-      }
-    },
-    "/api/v1/ml/run-full": {
-      "post": {
-        "tags": ["Machine Learning"],
-        "summary": "Run full ML pipeline in background",
-        "operationId": "runFullPipeline",
-        "responses": {
-          "200": {
-            "description": "Full ML pipeline started",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/PipelineResponse" }
-              }
-            }
-          },
-          "409": {
-            "description": "A pipeline task is already running"
-          }
-        }
-      }
-    },
-    "/api/v1/ml/pipeline-status": {
-      "get": {
-        "tags": ["Machine Learning"],
-        "summary": "Get current pipeline execution status",
-        "operationId": "getPipelineStatus",
-        "responses": {
-          "200": {
-            "description": "Pipeline status",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/PipelineResponse" }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/sync/weekly": {
-      "post": {
-        "tags": ["Data Sync"],
-        "summary": "Trigger weekly data synchronization",
-        "operationId": "syncWeeklyData",
-        "parameters": [
-          {
-            "name": "days",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "integer", "default": 7, "minimum": 1, "maximum": 14 },
-            "description": "Number of days to sync"
-          },
-          {
-            "name": "include_standings",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "boolean", "default": true },
-            "description": "Also sync standings"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Sync completed",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/SyncResponse" }
-              }
-            }
-          },
-          "500": {
-            "description": "Sync failed"
-          }
-        }
-      }
-    },
-    "/api/v1/sync/matches": {
-      "post": {
-        "tags": ["Data Sync"],
-        "summary": "Sync only matches (no standings)",
-        "operationId": "syncMatchesOnly",
-        "parameters": [
-          {
-            "name": "days",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "integer", "default": 7, "minimum": 1, "maximum": 14 }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Matches synced",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/SyncResponse" }
-              }
-            }
-          },
-          "500": {
-            "description": "Sync failed"
-          }
-        }
-      }
-    },
-    "/api/v1/sync/standings": {
-      "post": {
-        "tags": ["Data Sync"],
-        "summary": "Sync only standings (no matches)",
-        "operationId": "syncStandingsOnly",
-        "responses": {
-          "200": {
-            "description": "Standings synced",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/SyncResponse" }
-              }
-            }
-          },
-          "500": {
-            "description": "Sync failed"
-          }
-        }
-      }
-    },
-    "/api/v1/sync/status": {
-      "get": {
-        "tags": ["Data Sync"],
-        "summary": "Get database sync status and statistics",
-        "operationId": "getSyncStatus",
-        "responses": {
-          "200": {
-            "description": "Sync status",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/DbStatsResponse" }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/sync/last": {
-      "get": {
-        "tags": ["Data Sync"],
-        "summary": "Get info about the last successful sync",
-        "operationId": "getLastSyncInfo",
-        "parameters": [
-          {
-            "name": "sync_type",
-            "in": "query",
-            "required": false,
-            "schema": { "type": "string", "default": "weekly" }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Last sync info",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
+                  "title": "Response Root  Get"
                 }
               }
             }
@@ -829,287 +2292,1636 @@
   },
   "components": {
     "schemas": {
-      "TeamInfo": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "integer" },
-          "name": { "type": "string" },
-          "short_name": { "type": "string" },
-          "logo_url": { "type": "string", "nullable": true },
-          "elo_rating": { "type": "number", "default": 1500.0 }
-        },
-        "required": ["id", "name", "short_name"]
-      },
-      "MatchResponse": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "integer" },
-          "external_id": { "type": "string" },
-          "home_team": { "$ref": "#/components/schemas/TeamInfo" },
-          "away_team": { "$ref": "#/components/schemas/TeamInfo" },
-          "competition": { "type": "string" },
-          "competition_code": { "type": "string" },
-          "match_date": { "type": "string", "format": "date-time" },
-          "status": { "type": "string", "enum": ["scheduled", "live", "finished", "postponed"] },
-          "home_score": { "type": "integer", "nullable": true },
-          "away_score": { "type": "integer", "nullable": true },
-          "matchday": { "type": "integer", "nullable": true }
-        },
-        "required": ["id", "external_id", "home_team", "away_team", "competition", "competition_code", "match_date", "status"]
-      },
-      "MatchListResponse": {
-        "type": "object",
-        "properties": {
-          "matches": { "type": "array", "items": { "$ref": "#/components/schemas/MatchResponse" } },
-          "total": { "type": "integer" },
-          "page": { "type": "integer" },
-          "per_page": { "type": "integer" }
-        },
-        "required": ["matches", "total", "page", "per_page"]
-      },
-      "TeamFormMatch": {
-        "type": "object",
-        "properties": {
-          "opponent": { "type": "string" },
-          "result": { "type": "string", "enum": ["W", "D", "L"] },
-          "score": { "type": "string" },
-          "home_away": { "type": "string", "enum": ["H", "A"] },
-          "date": { "type": "string", "format": "date-time" }
-        },
-        "required": ["opponent", "result", "score", "home_away", "date"]
-      },
-      "TeamFormResponse": {
-        "type": "object",
-        "properties": {
-          "team_id": { "type": "integer" },
-          "team_name": { "type": "string" },
-          "last_matches": { "type": "array", "items": { "$ref": "#/components/schemas/TeamFormMatch" } },
-          "form_string": { "type": "string" },
-          "points_last_5": { "type": "integer" },
-          "goals_scored_avg": { "type": "number" },
-          "goals_conceded_avg": { "type": "number" },
-          "clean_sheets": { "type": "integer" },
-          "xg_for_avg": { "type": "number", "nullable": true },
-          "xg_against_avg": { "type": "number", "nullable": true }
-        },
-        "required": ["team_id", "team_name", "last_matches", "form_string", "points_last_5", "goals_scored_avg", "goals_conceded_avg", "clean_sheets"]
-      },
-      "StandingTeamResponse": {
-        "type": "object",
-        "properties": {
-          "position": { "type": "integer" },
-          "team_id": { "type": "integer" },
-          "team_name": { "type": "string" },
-          "team_logo_url": { "type": "string", "nullable": true },
-          "played": { "type": "integer" },
-          "won": { "type": "integer" },
-          "drawn": { "type": "integer" },
-          "lost": { "type": "integer" },
-          "goals_for": { "type": "integer" },
-          "goals_against": { "type": "integer" },
-          "goal_difference": { "type": "integer" },
-          "points": { "type": "integer" }
-        },
-        "required": ["position", "team_id", "team_name", "played", "won", "drawn", "lost", "goals_for", "goals_against", "goal_difference", "points"]
-      },
-      "StandingsResponse": {
-        "type": "object",
-        "properties": {
-          "competition_code": { "type": "string" },
-          "competition_name": { "type": "string" },
-          "standings": { "type": "array", "items": { "$ref": "#/components/schemas/StandingTeamResponse" } },
-          "last_updated": { "type": "string", "format": "date-time", "nullable": true }
-        },
-        "required": ["competition_code", "competition_name", "standings"]
-      },
-      "HeadToHeadMatch": {
-        "type": "object",
-        "properties": {
-          "date": { "type": "string", "format": "date-time" },
-          "home_team": { "type": "string" },
-          "away_team": { "type": "string" },
-          "home_score": { "type": "integer" },
-          "away_score": { "type": "integer" },
-          "competition": { "type": "string" }
-        },
-        "required": ["date", "home_team", "away_team", "home_score", "away_score", "competition"]
-      },
-      "HeadToHeadResponse": {
-        "type": "object",
-        "properties": {
-          "matches": { "type": "array", "items": { "$ref": "#/components/schemas/HeadToHeadMatch" } },
-          "home_wins": { "type": "integer" },
-          "draws": { "type": "integer" },
-          "away_wins": { "type": "integer" },
-          "avg_goals": { "type": "number" },
-          "total_matches": { "type": "integer" }
-        },
-        "required": ["matches", "home_wins", "draws", "away_wins", "avg_goals", "total_matches"]
-      },
-      "PredictionProbabilities": {
-        "type": "object",
-        "properties": {
-          "home_win": { "type": "number", "minimum": 0, "maximum": 1 },
-          "draw": { "type": "number", "minimum": 0, "maximum": 1 },
-          "away_win": { "type": "number", "minimum": 0, "maximum": 1 }
-        },
-        "required": ["home_win", "draw", "away_win"]
-      },
-      "ModelContributions": {
-        "type": "object",
-        "properties": {
-          "poisson": { "$ref": "#/components/schemas/PredictionProbabilities" },
-          "xgboost": { "$ref": "#/components/schemas/PredictionProbabilities" },
-          "xg_model": { "$ref": "#/components/schemas/PredictionProbabilities" },
-          "elo": { "$ref": "#/components/schemas/PredictionProbabilities" }
-        },
-        "required": ["poisson", "xgboost", "xg_model", "elo"]
-      },
-      "LLMAdjustments": {
-        "type": "object",
-        "properties": {
-          "injury_impact_home": { "type": "number", "minimum": -0.3, "maximum": 0.0 },
-          "injury_impact_away": { "type": "number", "minimum": -0.3, "maximum": 0.0 },
-          "sentiment_home": { "type": "number", "minimum": -0.1, "maximum": 0.1 },
-          "sentiment_away": { "type": "number", "minimum": -0.1, "maximum": 0.1 },
-          "tactical_edge": { "type": "number", "minimum": -0.05, "maximum": 0.05 },
-          "total_adjustment": { "type": "number", "minimum": -0.5, "maximum": 0.5 },
-          "reasoning": { "type": "string" }
-        },
-        "required": ["reasoning"]
-      },
-      "PredictionResponse": {
-        "type": "object",
-        "properties": {
-          "match_id": { "type": "integer" },
-          "home_team": { "type": "string" },
-          "away_team": { "type": "string" },
-          "competition": { "type": "string" },
-          "match_date": { "type": "string", "format": "date-time" },
-          "probabilities": { "$ref": "#/components/schemas/PredictionProbabilities" },
-          "recommended_bet": { "type": "string", "enum": ["home_win", "draw", "away_win"] },
-          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-          "value_score": { "type": "number" },
-          "explanation": { "type": "string" },
-          "key_factors": { "type": "array", "items": { "type": "string" } },
-          "risk_factors": { "type": "array", "items": { "type": "string" } },
-          "model_contributions": { "$ref": "#/components/schemas/ModelContributions", "nullable": true },
-          "llm_adjustments": { "$ref": "#/components/schemas/LLMAdjustments", "nullable": true },
-          "created_at": { "type": "string", "format": "date-time" },
-          "is_daily_pick": { "type": "boolean", "default": false }
-        },
-        "required": ["match_id", "home_team", "away_team", "competition", "match_date", "probabilities", "recommended_bet", "confidence", "value_score", "explanation", "key_factors", "risk_factors", "created_at"]
-      },
       "DailyPickResponse": {
-        "type": "object",
         "properties": {
-          "rank": { "type": "integer", "minimum": 1, "maximum": 5 },
-          "prediction": { "$ref": "#/components/schemas/PredictionResponse" },
-          "pick_score": { "type": "number" }
+          "rank": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rank"
+          },
+          "prediction": {
+            "$ref": "#/components/schemas/PredictionResponse"
+          },
+          "pick_score": {
+            "type": "number",
+            "title": "Pick Score",
+            "description": "Combined value \u00d7 confidence score"
+          }
         },
-        "required": ["rank", "prediction", "pick_score"]
+        "type": "object",
+        "required": [
+          "rank",
+          "prediction",
+          "pick_score"
+        ],
+        "title": "DailyPickResponse",
+        "description": "Daily pick with additional info."
       },
       "DailyPicksResponse": {
-        "type": "object",
         "properties": {
-          "date": { "type": "string", "format": "date" },
-          "picks": { "type": "array", "items": { "$ref": "#/components/schemas/DailyPickResponse" } },
-          "total_matches_analyzed": { "type": "integer" }
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "picks": {
+            "items": {
+              "$ref": "#/components/schemas/DailyPickResponse"
+            },
+            "type": "array",
+            "title": "Picks"
+          },
+          "total_matches_analyzed": {
+            "type": "integer",
+            "title": "Total Matches Analyzed"
+          }
         },
-        "required": ["date", "picks", "total_matches_analyzed"]
-      },
-      "PredictionStatsResponse": {
         "type": "object",
-        "properties": {
-          "total_predictions": { "type": "integer" },
-          "correct_predictions": { "type": "integer" },
-          "accuracy": { "type": "number" },
-          "roi_simulated": { "type": "number" },
-          "by_competition": { "type": "object" },
-          "by_bet_type": { "type": "object" },
-          "last_updated": { "type": "string", "format": "date-time" }
-        },
-        "required": ["total_predictions", "correct_predictions", "accuracy", "roi_simulated", "by_competition", "by_bet_type", "last_updated"]
-      },
-      "RAGStatusResponse": {
-        "type": "object",
-        "properties": {
-          "enabled": { "type": "boolean" },
-          "groq_configured": { "type": "boolean" },
-          "last_enrichment": { "type": "string", "format": "date-time", "nullable": true },
-          "total_enrichments": { "type": "integer" }
-        },
-        "required": ["enabled", "groq_configured", "total_enrichments"]
-      },
-      "TeamContext": {
-        "type": "object",
-        "properties": {
-          "team_name": { "type": "string" },
-          "recent_news": { "type": "array", "items": { "type": "string" } },
-          "injuries": { "type": "array", "items": { "type": "string" } },
-          "sentiment_score": { "type": "number", "minimum": -1.0, "maximum": 1.0 },
-          "sentiment_label": { "type": "string" }
-        },
-        "required": ["team_name"]
-      },
-      "MatchContext": {
-        "type": "object",
-        "properties": {
-          "home_team": { "type": "string" },
-          "away_team": { "type": "string" },
-          "competition": { "type": "string" },
-          "match_date": { "type": "string", "format": "date-time" },
-          "home_context": { "$ref": "#/components/schemas/TeamContext" },
-          "away_context": { "$ref": "#/components/schemas/TeamContext" },
-          "is_derby": { "type": "boolean", "default": false },
-          "match_importance": { "type": "string", "default": "normal" },
-          "combined_analysis": { "type": "string", "nullable": true },
-          "enriched_at": { "type": "string", "format": "date-time" },
-          "sources_used": { "type": "array", "items": { "type": "string" } }
-        },
-        "required": ["home_team", "away_team", "competition", "match_date", "home_context", "away_context", "enriched_at"]
-      },
-      "MLStatusResponse": {
-        "type": "object",
-        "properties": {
-          "models_trained": { "type": "boolean" },
-          "xgboost_available": { "type": "boolean" },
-          "random_forest_available": { "type": "boolean" },
-          "data_age_days": { "type": "integer", "nullable": true },
-          "last_training": { "type": "string", "format": "date-time", "nullable": true },
-          "feature_state_loaded": { "type": "boolean" }
-        },
-        "required": ["models_trained", "xgboost_available", "random_forest_available", "feature_state_loaded"]
-      },
-      "PipelineResponse": {
-        "type": "object",
-        "properties": {
-          "message": { "type": "string" },
-          "status": { "type": "string" },
-          "task_id": { "type": "string", "nullable": true }
-        },
-        "required": ["message", "status"]
-      },
-      "SyncResponse": {
-        "type": "object",
-        "properties": {
-          "status": { "type": "string" },
-          "message": { "type": "string" },
-          "matches_synced": { "type": "integer", "default": 0 },
-          "standings_synced": { "type": "integer", "default": 0 },
-          "errors": { "type": "array", "items": { "type": "string" } }
-        },
-        "required": ["status", "message"]
+        "required": [
+          "date",
+          "picks",
+          "total_matches_analyzed"
+        ],
+        "title": "DailyPicksResponse",
+        "description": "Response for daily picks endpoint."
       },
       "DbStatsResponse": {
-        "type": "object",
         "properties": {
-          "total_matches": { "type": "integer" },
-          "competitions_with_standings": { "type": "integer" },
-          "last_match_sync": { "type": "string", "nullable": true },
-          "last_standings_sync": { "type": "string", "nullable": true }
+          "total_matches": {
+            "type": "integer",
+            "title": "Total Matches"
+          },
+          "competitions_with_standings": {
+            "type": "integer",
+            "title": "Competitions With Standings"
+          },
+          "last_match_sync": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Match Sync"
+          },
+          "last_standings_sync": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Standings Sync"
+          }
         },
-        "required": ["total_matches", "competitions_with_standings"]
+        "type": "object",
+        "required": [
+          "total_matches",
+          "competitions_with_standings",
+          "last_match_sync",
+          "last_standings_sync"
+        ],
+        "title": "DbStatsResponse",
+        "description": "Database statistics response."
+      },
+      "FormData": {
+        "properties": {
+          "last_5": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Last 5",
+            "default": []
+          },
+          "points": {
+            "type": "integer",
+            "title": "Points",
+            "default": 0
+          },
+          "goals_scored": {
+            "type": "integer",
+            "title": "Goals Scored",
+            "default": 0
+          },
+          "goals_conceded": {
+            "type": "integer",
+            "title": "Goals Conceded",
+            "default": 0
+          },
+          "clean_sheets": {
+            "type": "integer",
+            "title": "Clean Sheets",
+            "default": 0
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins",
+            "default": 0
+          },
+          "draws": {
+            "type": "integer",
+            "title": "Draws",
+            "default": 0
+          },
+          "losses": {
+            "type": "integer",
+            "title": "Losses",
+            "default": 0
+          },
+          "form_rating": {
+            "type": "number",
+            "title": "Form Rating",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "title": "FormData",
+        "description": "Team form data."
+      },
+      "FullEnrichmentResponse": {
+        "properties": {
+          "home_team": {
+            "type": "string",
+            "title": "Home Team"
+          },
+          "away_team": {
+            "type": "string",
+            "title": "Away Team"
+          },
+          "competition": {
+            "type": "string",
+            "title": "Competition"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "home_form": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FormData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "away_form": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FormData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "home_xg_estimate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XGEstimate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "away_xg_estimate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XGEstimate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "odds": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OddsData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "weather": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WeatherData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "h2h": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/H2HData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "standings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StandingsContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "home_team",
+          "away_team",
+          "competition",
+          "timestamp"
+        ],
+        "title": "FullEnrichmentResponse",
+        "description": "Full enrichment data for a match."
+      },
+      "H2HData": {
+        "properties": {
+          "total_matches": {
+            "type": "integer",
+            "title": "Total Matches",
+            "default": 0
+          },
+          "home_wins": {
+            "type": "integer",
+            "title": "Home Wins",
+            "default": 0
+          },
+          "away_wins": {
+            "type": "integer",
+            "title": "Away Wins",
+            "default": 0
+          },
+          "draws": {
+            "type": "integer",
+            "title": "Draws",
+            "default": 0
+          },
+          "home_goals": {
+            "type": "integer",
+            "title": "Home Goals",
+            "default": 0
+          },
+          "away_goals": {
+            "type": "integer",
+            "title": "Away Goals",
+            "default": 0
+          },
+          "recent_results": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recent Results",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "H2HData",
+        "description": "Head-to-head data."
+      },
+      "HTTPErrorResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "HTTPErrorResponse",
+        "description": "Standard HTTP error response."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HeadToHeadMatch": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Date"
+          },
+          "home_team": {
+            "type": "string",
+            "title": "Home Team"
+          },
+          "away_team": {
+            "type": "string",
+            "title": "Away Team"
+          },
+          "home_score": {
+            "type": "integer",
+            "title": "Home Score"
+          },
+          "away_score": {
+            "type": "integer",
+            "title": "Away Score"
+          },
+          "competition": {
+            "type": "string",
+            "title": "Competition"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "home_team",
+          "away_team",
+          "home_score",
+          "away_score",
+          "competition"
+        ],
+        "title": "HeadToHeadMatch",
+        "description": "A match in head-to-head history."
+      },
+      "HeadToHeadResponse": {
+        "properties": {
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/HeadToHeadMatch"
+            },
+            "type": "array",
+            "title": "Matches"
+          },
+          "home_wins": {
+            "type": "integer",
+            "title": "Home Wins"
+          },
+          "draws": {
+            "type": "integer",
+            "title": "Draws"
+          },
+          "away_wins": {
+            "type": "integer",
+            "title": "Away Wins"
+          },
+          "avg_goals": {
+            "type": "number",
+            "title": "Avg Goals"
+          },
+          "total_matches": {
+            "type": "integer",
+            "title": "Total Matches"
+          }
+        },
+        "type": "object",
+        "required": [
+          "matches",
+          "home_wins",
+          "draws",
+          "away_wins",
+          "avg_goals",
+          "total_matches"
+        ],
+        "title": "HeadToHeadResponse",
+        "description": "Head-to-head response."
+      },
+      "LLMAdjustments": {
+        "properties": {
+          "injury_impact_home": {
+            "type": "number",
+            "maximum": 0.0,
+            "minimum": -0.3,
+            "title": "Injury Impact Home",
+            "default": 0.0
+          },
+          "injury_impact_away": {
+            "type": "number",
+            "maximum": 0.0,
+            "minimum": -0.3,
+            "title": "Injury Impact Away",
+            "default": 0.0
+          },
+          "sentiment_home": {
+            "type": "number",
+            "maximum": 0.1,
+            "minimum": -0.1,
+            "title": "Sentiment Home",
+            "default": 0.0
+          },
+          "sentiment_away": {
+            "type": "number",
+            "maximum": 0.1,
+            "minimum": -0.1,
+            "title": "Sentiment Away",
+            "default": 0.0
+          },
+          "tactical_edge": {
+            "type": "number",
+            "maximum": 0.05,
+            "minimum": -0.05,
+            "title": "Tactical Edge",
+            "default": 0.0
+          },
+          "total_adjustment": {
+            "type": "number",
+            "maximum": 0.5,
+            "minimum": -0.5,
+            "title": "Total Adjustment",
+            "default": 0.0
+          },
+          "reasoning": {
+            "type": "string",
+            "title": "Reasoning",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "LLMAdjustments",
+        "description": "LLM-derived adjustment factors."
+      },
+      "MLStatusResponse": {
+        "properties": {
+          "models_trained": {
+            "type": "boolean",
+            "title": "Models Trained"
+          },
+          "xgboost_available": {
+            "type": "boolean",
+            "title": "Xgboost Available"
+          },
+          "random_forest_available": {
+            "type": "boolean",
+            "title": "Random Forest Available"
+          },
+          "data_age_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Age Days"
+          },
+          "last_training": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Training"
+          },
+          "feature_state_loaded": {
+            "type": "boolean",
+            "title": "Feature State Loaded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "models_trained",
+          "xgboost_available",
+          "random_forest_available",
+          "data_age_days",
+          "last_training",
+          "feature_state_loaded"
+        ],
+        "title": "MLStatusResponse",
+        "description": "ML system status response."
+      },
+      "MatchContext": {
+        "properties": {
+          "home_team": {
+            "type": "string",
+            "title": "Home Team"
+          },
+          "away_team": {
+            "type": "string",
+            "title": "Away Team"
+          },
+          "competition": {
+            "type": "string",
+            "title": "Competition"
+          },
+          "match_date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Match Date"
+          },
+          "home_context": {
+            "$ref": "#/components/schemas/TeamContext"
+          },
+          "away_context": {
+            "$ref": "#/components/schemas/TeamContext"
+          },
+          "is_derby": {
+            "type": "boolean",
+            "title": "Is Derby",
+            "default": false
+          },
+          "match_importance": {
+            "type": "string",
+            "title": "Match Importance",
+            "default": "normal"
+          },
+          "combined_analysis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Combined Analysis"
+          },
+          "enriched_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Enriched At"
+          },
+          "sources_used": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources Used",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "home_team",
+          "away_team",
+          "competition",
+          "match_date",
+          "home_context",
+          "away_context",
+          "enriched_at"
+        ],
+        "title": "MatchContext",
+        "description": "Full match context from RAG enrichment."
+      },
+      "MatchListResponse": {
+        "properties": {
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/MatchResponse"
+            },
+            "type": "array",
+            "title": "Matches"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "per_page": {
+            "type": "integer",
+            "title": "Per Page"
+          }
+        },
+        "type": "object",
+        "required": [
+          "matches",
+          "total",
+          "page",
+          "per_page"
+        ],
+        "title": "MatchListResponse",
+        "description": "List of matches response."
+      },
+      "MatchResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "external_id": {
+            "type": "string",
+            "title": "External Id"
+          },
+          "home_team": {
+            "$ref": "#/components/schemas/TeamInfo"
+          },
+          "away_team": {
+            "$ref": "#/components/schemas/TeamInfo"
+          },
+          "competition": {
+            "type": "string",
+            "title": "Competition"
+          },
+          "competition_code": {
+            "type": "string",
+            "title": "Competition Code"
+          },
+          "match_date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Match Date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "scheduled",
+              "live",
+              "finished",
+              "postponed"
+            ],
+            "title": "Status"
+          },
+          "home_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Score"
+          },
+          "away_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Away Score"
+          },
+          "matchday": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matchday"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "external_id",
+          "home_team",
+          "away_team",
+          "competition",
+          "competition_code",
+          "match_date",
+          "status"
+        ],
+        "title": "MatchResponse",
+        "description": "Match response model."
+      },
+      "ModelContributions": {
+        "properties": {
+          "poisson": {
+            "$ref": "#/components/schemas/PredictionProbabilities"
+          },
+          "xgboost": {
+            "$ref": "#/components/schemas/PredictionProbabilities"
+          },
+          "xg_model": {
+            "$ref": "#/components/schemas/PredictionProbabilities"
+          },
+          "elo": {
+            "$ref": "#/components/schemas/PredictionProbabilities"
+          }
+        },
+        "type": "object",
+        "required": [
+          "poisson",
+          "xgboost",
+          "xg_model",
+          "elo"
+        ],
+        "title": "ModelContributions",
+        "description": "Individual model contributions to the prediction."
+      },
+      "OddsData": {
+        "properties": {
+          "home_win": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Win"
+          },
+          "draw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draw"
+          },
+          "away_win": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Away Win"
+          },
+          "bookmakers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Bookmakers",
+            "default": []
+          },
+          "value_detected": {
+            "type": "boolean",
+            "title": "Value Detected",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "OddsData",
+        "description": "Bookmaker odds data."
+      },
+      "PipelineResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "status"
+        ],
+        "title": "PipelineResponse",
+        "description": "Pipeline execution response."
+      },
+      "PredictionProbabilities": {
+        "properties": {
+          "home_win": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Home Win",
+            "description": "Probability of home win"
+          },
+          "draw": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Draw",
+            "description": "Probability of draw"
+          },
+          "away_win": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Away Win",
+            "description": "Probability of away win"
+          }
+        },
+        "type": "object",
+        "required": [
+          "home_win",
+          "draw",
+          "away_win"
+        ],
+        "title": "PredictionProbabilities",
+        "description": "Match outcome probabilities."
+      },
+      "PredictionResponse": {
+        "properties": {
+          "match_id": {
+            "type": "integer",
+            "title": "Match Id"
+          },
+          "home_team": {
+            "type": "string",
+            "title": "Home Team"
+          },
+          "away_team": {
+            "type": "string",
+            "title": "Away Team"
+          },
+          "competition": {
+            "type": "string",
+            "title": "Competition"
+          },
+          "match_date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Match Date"
+          },
+          "probabilities": {
+            "$ref": "#/components/schemas/PredictionProbabilities"
+          },
+          "recommended_bet": {
+            "type": "string",
+            "enum": [
+              "home_win",
+              "draw",
+              "away_win"
+            ],
+            "title": "Recommended Bet"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          },
+          "value_score": {
+            "type": "number",
+            "title": "Value Score",
+            "description": "Value vs bookmaker odds"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "key_factors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Key Factors"
+          },
+          "risk_factors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Risk Factors"
+          },
+          "model_contributions": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelContributions"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "llm_adjustments": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LLMAdjustments"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "is_daily_pick": {
+            "type": "boolean",
+            "title": "Is Daily Pick",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "match_id",
+          "home_team",
+          "away_team",
+          "competition",
+          "match_date",
+          "probabilities",
+          "recommended_bet",
+          "confidence",
+          "value_score",
+          "explanation",
+          "key_factors",
+          "risk_factors",
+          "created_at"
+        ],
+        "title": "PredictionResponse",
+        "description": "Full prediction response for a match."
+      },
+      "PredictionStatsResponse": {
+        "properties": {
+          "total_predictions": {
+            "type": "integer",
+            "title": "Total Predictions"
+          },
+          "correct_predictions": {
+            "type": "integer",
+            "title": "Correct Predictions"
+          },
+          "accuracy": {
+            "type": "number",
+            "title": "Accuracy"
+          },
+          "roi_simulated": {
+            "type": "number",
+            "title": "Roi Simulated"
+          },
+          "by_competition": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "By Competition"
+          },
+          "by_bet_type": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "By Bet Type"
+          },
+          "last_updated": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Updated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_predictions",
+          "correct_predictions",
+          "accuracy",
+          "roi_simulated",
+          "by_competition",
+          "by_bet_type",
+          "last_updated"
+        ],
+        "title": "PredictionStatsResponse",
+        "description": "Historical prediction performance stats."
+      },
+      "RAGStatusResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "groq_configured": {
+            "type": "boolean",
+            "title": "Groq Configured"
+          },
+          "last_enrichment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Enrichment"
+          },
+          "total_enrichments": {
+            "type": "integer",
+            "title": "Total Enrichments",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "groq_configured"
+        ],
+        "title": "RAGStatusResponse",
+        "description": "RAG system status."
+      },
+      "StandingTeamResponse": {
+        "properties": {
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "team_id": {
+            "type": "integer",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "title": "Team Name"
+          },
+          "team_logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Logo Url"
+          },
+          "played": {
+            "type": "integer",
+            "title": "Played"
+          },
+          "won": {
+            "type": "integer",
+            "title": "Won"
+          },
+          "drawn": {
+            "type": "integer",
+            "title": "Drawn"
+          },
+          "lost": {
+            "type": "integer",
+            "title": "Lost"
+          },
+          "goals_for": {
+            "type": "integer",
+            "title": "Goals For"
+          },
+          "goals_against": {
+            "type": "integer",
+            "title": "Goals Against"
+          },
+          "goal_difference": {
+            "type": "integer",
+            "title": "Goal Difference"
+          },
+          "points": {
+            "type": "integer",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "position",
+          "team_id",
+          "team_name",
+          "played",
+          "won",
+          "drawn",
+          "lost",
+          "goals_for",
+          "goals_against",
+          "goal_difference",
+          "points"
+        ],
+        "title": "StandingTeamResponse",
+        "description": "Team standing in league table."
+      },
+      "StandingsContext": {
+        "properties": {
+          "home_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Position"
+          },
+          "away_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Away Position"
+          },
+          "home_points": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Points"
+          },
+          "away_points": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Away Points"
+          },
+          "position_diff": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Diff"
+          },
+          "context_note": {
+            "type": "string",
+            "title": "Context Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "StandingsContext",
+        "description": "Standings context."
+      },
+      "StandingsResponse": {
+        "properties": {
+          "competition_code": {
+            "type": "string",
+            "title": "Competition Code"
+          },
+          "competition_name": {
+            "type": "string",
+            "title": "Competition Name"
+          },
+          "standings": {
+            "items": {
+              "$ref": "#/components/schemas/StandingTeamResponse"
+            },
+            "type": "array",
+            "title": "Standings"
+          },
+          "last_updated": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Updated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "competition_code",
+          "competition_name",
+          "standings"
+        ],
+        "title": "StandingsResponse",
+        "description": "League standings response."
+      },
+      "SyncResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "matches_synced": {
+            "type": "integer",
+            "title": "Matches Synced",
+            "default": 0
+          },
+          "standings_synced": {
+            "type": "integer",
+            "title": "Standings Synced",
+            "default": 0
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "SyncResponse",
+        "description": "Response for sync operations."
+      },
+      "TeamContext": {
+        "properties": {
+          "team_name": {
+            "type": "string",
+            "title": "Team Name"
+          },
+          "recent_news": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recent News",
+            "default": []
+          },
+          "injuries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Injuries",
+            "default": []
+          },
+          "sentiment_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Sentiment Score",
+            "default": 0.0
+          },
+          "sentiment_label": {
+            "type": "string",
+            "title": "Sentiment Label",
+            "default": "neutral"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_name"
+        ],
+        "title": "TeamContext",
+        "description": "Team context information."
+      },
+      "TeamFormMatch": {
+        "properties": {
+          "opponent": {
+            "type": "string",
+            "title": "Opponent"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "W",
+              "D",
+              "L"
+            ],
+            "title": "Result"
+          },
+          "score": {
+            "type": "string",
+            "title": "Score"
+          },
+          "home_away": {
+            "type": "string",
+            "enum": [
+              "H",
+              "A"
+            ],
+            "title": "Home Away"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "opponent",
+          "result",
+          "score",
+          "home_away",
+          "date"
+        ],
+        "title": "TeamFormMatch",
+        "description": "A match in team form history."
+      },
+      "TeamFormResponse": {
+        "properties": {
+          "team_id": {
+            "type": "integer",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "title": "Team Name"
+          },
+          "last_matches": {
+            "items": {
+              "$ref": "#/components/schemas/TeamFormMatch"
+            },
+            "type": "array",
+            "title": "Last Matches"
+          },
+          "form_string": {
+            "type": "string",
+            "title": "Form String"
+          },
+          "points_last_5": {
+            "type": "integer",
+            "title": "Points Last 5"
+          },
+          "goals_scored_avg": {
+            "type": "number",
+            "title": "Goals Scored Avg"
+          },
+          "goals_conceded_avg": {
+            "type": "number",
+            "title": "Goals Conceded Avg"
+          },
+          "clean_sheets": {
+            "type": "integer",
+            "title": "Clean Sheets"
+          },
+          "xg_for_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xg For Avg"
+          },
+          "xg_against_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xg Against Avg"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "team_name",
+          "last_matches",
+          "form_string",
+          "points_last_5",
+          "goals_scored_avg",
+          "goals_conceded_avg",
+          "clean_sheets"
+        ],
+        "title": "TeamFormResponse",
+        "description": "Team recent form response."
+      },
+      "TeamInfo": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "short_name": {
+            "type": "string",
+            "title": "Short Name"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "elo_rating": {
+            "type": "number",
+            "title": "Elo Rating",
+            "default": 1500.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "short_name"
+        ],
+        "title": "TeamInfo",
+        "description": "Team information in a match."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WeatherData": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available",
+            "default": false
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "feels_like": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feels Like"
+          },
+          "humidity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Humidity"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "wind_speed": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wind Speed"
+          },
+          "rain_probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rain Probability"
+          },
+          "impact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impact"
+          }
+        },
+        "type": "object",
+        "title": "WeatherData",
+        "description": "Match weather data."
+      },
+      "XGEstimate": {
+        "properties": {
+          "estimated_xg": {
+            "type": "number",
+            "title": "Estimated Xg",
+            "default": 0.0
+          },
+          "estimated_xga": {
+            "type": "number",
+            "title": "Estimated Xga",
+            "default": 0.0
+          },
+          "offensive_rating": {
+            "type": "number",
+            "title": "Offensive Rating",
+            "default": 0.0
+          },
+          "defensive_rating": {
+            "type": "number",
+            "title": "Defensive Rating",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "title": "XGEstimate",
+        "description": "Estimated xG metrics."
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
       }
     }
   }

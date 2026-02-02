@@ -3,14 +3,16 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Team information in a match.
+ */
 export interface TeamInfo {
   id: number;
   name: string;
   short_name: string;
-  /** @nullable */
   logo_url?: string | null;
   elo_rating?: number;
 }

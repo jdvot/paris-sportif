@@ -3,24 +3,23 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
-import type { GetMatchesStatus } from './getMatchesStatus';
 
 export type GetMatchesParams = {
 /**
  * Filter by competition code (e.g., PL, PD, BL1)
  */
-competition?: string;
+competition?: string | null;
 /**
  * Start date filter
  */
-date_from?: string;
+date_from?: string | null;
 /**
  * End date filter
  */
-date_to?: string;
-status?: GetMatchesStatus;
+date_to?: string | null;
+status?: 'scheduled' | 'live' | 'finished' | null;
 /**
  * @minimum 1
  */

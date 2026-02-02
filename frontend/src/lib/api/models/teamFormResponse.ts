@@ -3,10 +3,13 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 import type { TeamFormMatch } from './teamFormMatch';
 
+/**
+ * Team recent form response.
+ */
 export interface TeamFormResponse {
   team_id: number;
   team_name: string;
@@ -16,8 +19,6 @@ export interface TeamFormResponse {
   goals_scored_avg: number;
   goals_conceded_avg: number;
   clean_sheets: number;
-  /** @nullable */
   xg_for_avg?: number | null;
-  /** @nullable */
   xg_against_avg?: number | null;
 }

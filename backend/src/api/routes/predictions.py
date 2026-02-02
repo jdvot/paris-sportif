@@ -471,7 +471,7 @@ async def _generate_prediction_from_api_match(
     )
 
 
-@router.get("/daily", response_model=DailyPicksResponse, responses=AUTH_RESPONSES)
+@router.get("/daily", response_model=DailyPicksResponse, responses=AUTH_RESPONSES, operation_id="getDailyPicks")
 async def get_daily_picks(
     user: AuthenticatedUser,
     query_date: str | None = Query(None, alias="date", description="Date in YYYY-MM-DD format, defaults to today"),
@@ -628,7 +628,7 @@ async def get_daily_picks(
         )
 
 
-@router.get("/stats", response_model=PredictionStatsResponse, responses=AUTH_RESPONSES)
+@router.get("/stats", response_model=PredictionStatsResponse, responses=AUTH_RESPONSES, operation_id="getPredictionStats")
 async def get_prediction_stats(
     user: AuthenticatedUser,
     days: int = Query(30, ge=7, le=365, description="Number of days to analyze"),
@@ -777,7 +777,7 @@ def _generate_fallback_prediction(
     )
 
 
-@router.get("/{match_id}", response_model=PredictionResponse, responses=AUTH_RESPONSES)
+@router.get("/{match_id}", response_model=PredictionResponse, responses=AUTH_RESPONSES, operation_id="getPrediction")
 async def get_prediction(
     match_id: int,
     user: AuthenticatedUser,
@@ -815,7 +815,7 @@ async def get_prediction(
         return _generate_fallback_prediction(match_id, include_model_details)
 
 
-@router.post("/{match_id}/refresh", responses=AUTH_RESPONSES)
+@router.post("/{match_id}/refresh", responses=AUTH_RESPONSES, operation_id="refreshPrediction")
 async def refresh_prediction(match_id: int, user: AuthenticatedUser) -> dict[str, str]:
     """Force refresh a prediction (admin only)."""
     try:

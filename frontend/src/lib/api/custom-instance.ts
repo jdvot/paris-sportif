@@ -1,19 +1,21 @@
 /**
  * Custom fetch instance for Orval-generated API hooks
  * Handles API requests with proper base URL, error handling, and authentication
- *
- * Orval generates calls like: customInstance<T>(url, { method: 'GET', signal })
- * So we support both (url, options) and (config) formats
  */
+
+import { getSupabaseToken } from "./auth-helper";
 
 /**
  * Custom API Error class with HTTP status code
  * Used for detecting auth errors in React Query global error handler
  */
 export class ApiError extends Error {
-  constructor(message: string, public status: number) {
+  status: number;
+
+  constructor(message: string, status: number) {
     super(message);
     this.name = 'ApiError';
+    this.status = status;
   }
 }
 
@@ -24,50 +26,18 @@ const API_BASE_URL = typeof window !== 'undefined'
   : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
 
 /**
- * Get auth token from Supabase session (browser only)
- */
-async function getAuthToken(): Promise<string | null> {
-  if (typeof window === "undefined") {
-    return null; // Server-side, no token
-  }
-
-  try {
-    // Dynamic import to avoid SSR issues
-    const { createClient } = await import("@/lib/supabase/client");
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token || null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Custom instance for Orval - handles fetch requests
- *
- * @param urlOrConfig - Either a URL string or a config object
- * @param options - Optional RequestInit when first param is URL
  */
 export const customInstance = async <T>(
-  urlOrConfig: string | { url: string; method?: string; headers?: Record<string, string>; params?: Record<string, unknown>; data?: unknown; signal?: AbortSignal },
+  url: string,
   options?: RequestInit & { params?: Record<string, unknown>; data?: unknown },
 ): Promise<T> => {
-  // Determine if first arg is URL string or config object
-  const isUrlString = typeof urlOrConfig === 'string';
-
-  const url = isUrlString ? urlOrConfig : urlOrConfig.url;
-  const method = isUrlString ? (options?.method || 'GET') : (urlOrConfig.method || 'GET');
-  const headers = isUrlString ? options?.headers : urlOrConfig.headers;
-  const params = isUrlString ? options?.params : urlOrConfig.params;
-  const data = isUrlString ? options?.data : urlOrConfig.data;
-  const signal = isUrlString ? options?.signal : urlOrConfig.signal;
-
   let fullUrl = `${API_BASE_URL}${url}`;
 
-  // Build query parameters from params object
-  if (params) {
+  // Build query parameters
+  if (options?.params) {
     const searchParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
+    Object.entries(options.params).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         searchParams.append(key, String(value));
       }
@@ -78,22 +48,20 @@ export const customInstance = async <T>(
     }
   }
 
-  // Get auth token
-  const token = await getAuthToken();
+  // Get auth token from Supabase
+  const token = await getSupabaseToken();
 
   const response = await fetch(fullUrl, {
-    method,
+    ...options,
     headers: {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
-      ...headers,
+      ...options?.headers,
     },
-    body: data ? JSON.stringify(data) : undefined,
-    signal,
+    body: options?.data ? JSON.stringify(options.data) : undefined,
   });
 
   if (!response.ok) {
-    // Handle auth errors specifically with typed ApiError
     if (response.status === 401) {
       throw new ApiError("Authentification requise. Veuillez vous connecter.", 401);
     }
@@ -106,27 +74,19 @@ export const customInstance = async <T>(
       const errorData = await response.json();
       errorMessage = errorData.detail || errorData.message || errorMessage;
     } catch {
-      // Use default error message
+      // Use default
     }
     throw new ApiError(errorMessage, response.status);
   }
 
-  // Handle empty responses
   const text = await response.text();
   if (!text) {
-    return {
-      data: {},
-      status: response.status,
-    } as T;
+    return { data: {}, status: response.status } as T;
   }
 
   try {
     const jsonData = JSON.parse(text);
-    // Wrap in Orval expected format
-    return {
-      data: jsonData,
-      status: response.status,
-    } as T;
+    return { data: jsonData, status: response.status } as T;
   } catch {
     throw new Error(`Invalid JSON response from ${url}`);
   }

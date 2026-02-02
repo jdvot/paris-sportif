@@ -13,7 +13,7 @@ export default defineConfig({
       httpClient: 'fetch',
       override: {
         mutator: {
-          path: 'src/lib/api/custom-instance.ts',
+          path: './src/lib/api/custom-instance.ts',
           name: 'customInstance',
         },
         // Use camelCase for property names in generated types

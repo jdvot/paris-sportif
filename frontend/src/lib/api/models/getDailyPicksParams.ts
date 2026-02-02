@@ -3,12 +3,12 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 
 export type GetDailyPicksParams = {
 /**
  * Date in YYYY-MM-DD format, defaults to today
  */
-date?: string;
+date?: string | null;
 };

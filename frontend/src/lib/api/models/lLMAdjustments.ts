@@ -3,9 +3,12 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * LLM-derived adjustment factors.
+ */
 export interface LLMAdjustments {
   /**
    * @minimum -0.3
@@ -37,5 +40,5 @@ export interface LLMAdjustments {
    * @maximum 0.5
    */
   total_adjustment?: number;
-  reasoning: string;
+  reasoning?: string;
 }

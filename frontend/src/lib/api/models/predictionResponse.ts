@@ -3,13 +3,16 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 import type { LLMAdjustments } from './lLMAdjustments';
 import type { ModelContributions } from './modelContributions';
 import type { PredictionProbabilities } from './predictionProbabilities';
 import type { PredictionResponseRecommendedBet } from './predictionResponseRecommendedBet';
 
+/**
+ * Full prediction response for a match.
+ */
 export interface PredictionResponse {
   match_id: number;
   home_team: string;
@@ -23,6 +26,7 @@ export interface PredictionResponse {
    * @maximum 1
    */
   confidence: number;
+  /** Value vs bookmaker odds */
   value_score: number;
   explanation: string;
   key_factors: string[];

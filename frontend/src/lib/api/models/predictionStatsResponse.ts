@@ -3,11 +3,14 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 import type { PredictionStatsResponseByBetType } from './predictionStatsResponseByBetType';
 import type { PredictionStatsResponseByCompetition } from './predictionStatsResponseByCompetition';
 
+/**
+ * Historical prediction performance stats.
+ */
 export interface PredictionStatsResponse {
   total_predictions: number;
   correct_predictions: number;

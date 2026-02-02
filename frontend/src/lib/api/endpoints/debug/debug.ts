@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 import {
   useQuery
@@ -21,7 +21,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  DebugApiStatus200
+  DebugApiStatusApiV1DebugApiStatusGet200,
+  HTTPErrorResponse
 } from '../../models';
 
 import { customInstance } from '../../custom-instance';
@@ -32,21 +33,39 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 /**
- * @summary Debug endpoint to verify football-data.org API configuration
+ * Debug endpoint to verify football-data.org API configuration.
+
+Returns detailed information about:
+- API key configuration
+- HTTP header status
+- Live API connectivity test
+ * @summary Debug Api Status
  */
-export type debugApiStatusResponse200 = {
-  data: DebugApiStatus200
+export type debugApiStatusApiV1DebugApiStatusGetResponse200 = {
+  data: DebugApiStatusApiV1DebugApiStatusGet200
   status: 200
 }
+
+export type debugApiStatusApiV1DebugApiStatusGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type debugApiStatusApiV1DebugApiStatusGetResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
     
-export type debugApiStatusResponseSuccess = (debugApiStatusResponse200) & {
+export type debugApiStatusApiV1DebugApiStatusGetResponseSuccess = (debugApiStatusApiV1DebugApiStatusGetResponse200) & {
   headers: Headers;
 };
-;
+export type debugApiStatusApiV1DebugApiStatusGetResponseError = (debugApiStatusApiV1DebugApiStatusGetResponse401 | debugApiStatusApiV1DebugApiStatusGetResponse403) & {
+  headers: Headers;
+};
 
-export type debugApiStatusResponse = (debugApiStatusResponseSuccess)
+export type debugApiStatusApiV1DebugApiStatusGetResponse = (debugApiStatusApiV1DebugApiStatusGetResponseSuccess | debugApiStatusApiV1DebugApiStatusGetResponseError)
 
-export const getDebugApiStatusUrl = () => {
+export const getDebugApiStatusApiV1DebugApiStatusGetUrl = () => {
 
 
   
@@ -54,9 +73,9 @@ export const getDebugApiStatusUrl = () => {
   return `/api/v1/debug/api-status`
 }
 
-export const debugApiStatus = async ( options?: RequestInit): Promise<debugApiStatusResponse> => {
+export const debugApiStatusApiV1DebugApiStatusGet = async ( options?: RequestInit): Promise<debugApiStatusApiV1DebugApiStatusGetResponse> => {
   
-  return customInstance<debugApiStatusResponse>(getDebugApiStatusUrl(),
+  return customInstance<debugApiStatusApiV1DebugApiStatusGetResponse>(getDebugApiStatusApiV1DebugApiStatusGetUrl(),
   {      
     ...options,
     method: 'GET'
@@ -69,69 +88,69 @@ export const debugApiStatus = async ( options?: RequestInit): Promise<debugApiSt
 
 
 
-export const getDebugApiStatusQueryKey = () => {
+export const getDebugApiStatusApiV1DebugApiStatusGetQueryKey = () => {
     return [
     `/api/v1/debug/api-status`
     ] as const;
     }
 
     
-export const getDebugApiStatusQueryOptions = <TData = Awaited<ReturnType<typeof debugApiStatus>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof debugApiStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getDebugApiStatusApiV1DebugApiStatusGetQueryOptions = <TData = Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>, TError = HTTPErrorResponse>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getDebugApiStatusQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getDebugApiStatusApiV1DebugApiStatusGetQueryKey();
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof debugApiStatus>>> = ({ signal }) => debugApiStatus({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>> = ({ signal }) => debugApiStatusApiV1DebugApiStatusGet({ signal, ...requestOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof debugApiStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type DebugApiStatusQueryResult = NonNullable<Awaited<ReturnType<typeof debugApiStatus>>>
-export type DebugApiStatusQueryError = unknown
+export type DebugApiStatusApiV1DebugApiStatusGetQueryResult = NonNullable<Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>>
+export type DebugApiStatusApiV1DebugApiStatusGetQueryError = HTTPErrorResponse
 
 
-export function useDebugApiStatus<TData = Awaited<ReturnType<typeof debugApiStatus>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof debugApiStatus>>, TError, TData>> & Pick<
+export function useDebugApiStatusApiV1DebugApiStatusGet<TData = Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>, TError = HTTPErrorResponse>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof debugApiStatus>>,
+          Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>,
           TError,
-          Awaited<ReturnType<typeof debugApiStatus>>
+          Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useDebugApiStatus<TData = Awaited<ReturnType<typeof debugApiStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof debugApiStatus>>, TError, TData>> & Pick<
+export function useDebugApiStatusApiV1DebugApiStatusGet<TData = Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof debugApiStatus>>,
+          Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>,
           TError,
-          Awaited<ReturnType<typeof debugApiStatus>>
+          Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useDebugApiStatus<TData = Awaited<ReturnType<typeof debugApiStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof debugApiStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useDebugApiStatusApiV1DebugApiStatusGet<TData = Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Debug endpoint to verify football-data.org API configuration
+ * @summary Debug Api Status
  */
 
-export function useDebugApiStatus<TData = Awaited<ReturnType<typeof debugApiStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof debugApiStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useDebugApiStatusApiV1DebugApiStatusGet<TData = Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof debugApiStatusApiV1DebugApiStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getDebugApiStatusQueryOptions(options)
+  const queryOptions = getDebugApiStatusApiV1DebugApiStatusGetQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

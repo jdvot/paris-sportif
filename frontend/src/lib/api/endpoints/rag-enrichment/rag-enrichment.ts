@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 import {
   useMutation,
@@ -25,9 +25,11 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  AnalyzeMatchContext200,
-  AnalyzeMatchContextParams,
-  EnrichMatchParams,
+  AnalyzeMatchContextApiV1RagAnalyzePost200,
+  AnalyzeMatchContextApiV1RagAnalyzePostParams,
+  EnrichMatchApiV1RagEnrichGetParams,
+  HTTPErrorResponse,
+  HTTPValidationError,
   MatchContext,
   RAGStatusResponse
 } from '../../models';
@@ -40,21 +42,34 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 /**
- * @summary Get RAG system status
+ * Get RAG system status.
+ * @summary Get Rag Status
  */
-export type getRagStatusResponse200 = {
+export type getRagStatusApiV1RagStatusGetResponse200 = {
   data: RAGStatusResponse
   status: 200
 }
+
+export type getRagStatusApiV1RagStatusGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getRagStatusApiV1RagStatusGetResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
     
-export type getRagStatusResponseSuccess = (getRagStatusResponse200) & {
+export type getRagStatusApiV1RagStatusGetResponseSuccess = (getRagStatusApiV1RagStatusGetResponse200) & {
   headers: Headers;
 };
-;
+export type getRagStatusApiV1RagStatusGetResponseError = (getRagStatusApiV1RagStatusGetResponse401 | getRagStatusApiV1RagStatusGetResponse403) & {
+  headers: Headers;
+};
 
-export type getRagStatusResponse = (getRagStatusResponseSuccess)
+export type getRagStatusApiV1RagStatusGetResponse = (getRagStatusApiV1RagStatusGetResponseSuccess | getRagStatusApiV1RagStatusGetResponseError)
 
-export const getGetRagStatusUrl = () => {
+export const getGetRagStatusApiV1RagStatusGetUrl = () => {
 
 
   
@@ -62,9 +77,9 @@ export const getGetRagStatusUrl = () => {
   return `/api/v1/rag/status`
 }
 
-export const getRagStatus = async ( options?: RequestInit): Promise<getRagStatusResponse> => {
+export const getRagStatusApiV1RagStatusGet = async ( options?: RequestInit): Promise<getRagStatusApiV1RagStatusGetResponse> => {
   
-  return customInstance<getRagStatusResponse>(getGetRagStatusUrl(),
+  return customInstance<getRagStatusApiV1RagStatusGetResponse>(getGetRagStatusApiV1RagStatusGetUrl(),
   {      
     ...options,
     method: 'GET'
@@ -77,69 +92,69 @@ export const getRagStatus = async ( options?: RequestInit): Promise<getRagStatus
 
 
 
-export const getGetRagStatusQueryKey = () => {
+export const getGetRagStatusApiV1RagStatusGetQueryKey = () => {
     return [
     `/api/v1/rag/status`
     ] as const;
     }
 
     
-export const getGetRagStatusQueryOptions = <TData = Awaited<ReturnType<typeof getRagStatus>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRagStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getGetRagStatusApiV1RagStatusGetQueryOptions = <TData = Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>, TError = HTTPErrorResponse>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetRagStatusQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetRagStatusApiV1RagStatusGetQueryKey();
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRagStatus>>> = ({ signal }) => getRagStatus({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>> = ({ signal }) => getRagStatusApiV1RagStatusGet({ signal, ...requestOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRagStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type GetRagStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getRagStatus>>>
-export type GetRagStatusQueryError = unknown
+export type GetRagStatusApiV1RagStatusGetQueryResult = NonNullable<Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>>
+export type GetRagStatusApiV1RagStatusGetQueryError = HTTPErrorResponse
 
 
-export function useGetRagStatus<TData = Awaited<ReturnType<typeof getRagStatus>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRagStatus>>, TError, TData>> & Pick<
+export function useGetRagStatusApiV1RagStatusGet<TData = Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>, TError = HTTPErrorResponse>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getRagStatus>>,
+          Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>,
           TError,
-          Awaited<ReturnType<typeof getRagStatus>>
+          Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetRagStatus<TData = Awaited<ReturnType<typeof getRagStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRagStatus>>, TError, TData>> & Pick<
+export function useGetRagStatusApiV1RagStatusGet<TData = Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getRagStatus>>,
+          Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>,
           TError,
-          Awaited<ReturnType<typeof getRagStatus>>
+          Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetRagStatus<TData = Awaited<ReturnType<typeof getRagStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRagStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useGetRagStatusApiV1RagStatusGet<TData = Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get RAG system status
+ * @summary Get Rag Status
  */
 
-export function useGetRagStatus<TData = Awaited<ReturnType<typeof getRagStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRagStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useGetRagStatusApiV1RagStatusGet<TData = Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRagStatusApiV1RagStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetRagStatusQueryOptions(options)
+  const queryOptions = getGetRagStatusApiV1RagStatusGetQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -150,28 +165,42 @@ export function useGetRagStatus<TData = Awaited<ReturnType<typeof getRagStatus>>
 
 
 /**
- * @summary Enrich a match with contextual information using RAG
+ * Enrich a match with contextual information using RAG.
+
+This endpoint fetches news, injuries, sentiment analysis,
+and other contextual data for a match.
+ * @summary Enrich Match
  */
-export type enrichMatchResponse200 = {
+export type enrichMatchApiV1RagEnrichGetResponse200 = {
   data: MatchContext
   status: 200
 }
 
-export type enrichMatchResponse500 = {
-  data: void
-  status: 500
+export type enrichMatchApiV1RagEnrichGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type enrichMatchApiV1RagEnrichGetResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
+
+export type enrichMatchApiV1RagEnrichGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
 }
     
-export type enrichMatchResponseSuccess = (enrichMatchResponse200) & {
+export type enrichMatchApiV1RagEnrichGetResponseSuccess = (enrichMatchApiV1RagEnrichGetResponse200) & {
   headers: Headers;
 };
-export type enrichMatchResponseError = (enrichMatchResponse500) & {
+export type enrichMatchApiV1RagEnrichGetResponseError = (enrichMatchApiV1RagEnrichGetResponse401 | enrichMatchApiV1RagEnrichGetResponse403 | enrichMatchApiV1RagEnrichGetResponse422) & {
   headers: Headers;
 };
 
-export type enrichMatchResponse = (enrichMatchResponseSuccess | enrichMatchResponseError)
+export type enrichMatchApiV1RagEnrichGetResponse = (enrichMatchApiV1RagEnrichGetResponseSuccess | enrichMatchApiV1RagEnrichGetResponseError)
 
-export const getEnrichMatchUrl = (params: EnrichMatchParams,) => {
+export const getEnrichMatchApiV1RagEnrichGetUrl = (params: EnrichMatchApiV1RagEnrichGetParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -186,9 +215,9 @@ export const getEnrichMatchUrl = (params: EnrichMatchParams,) => {
   return stringifiedParams.length > 0 ? `/api/v1/rag/enrich?${stringifiedParams}` : `/api/v1/rag/enrich`
 }
 
-export const enrichMatch = async (params: EnrichMatchParams, options?: RequestInit): Promise<enrichMatchResponse> => {
+export const enrichMatchApiV1RagEnrichGet = async (params: EnrichMatchApiV1RagEnrichGetParams, options?: RequestInit): Promise<enrichMatchApiV1RagEnrichGetResponse> => {
   
-  return customInstance<enrichMatchResponse>(getEnrichMatchUrl(params),
+  return customInstance<enrichMatchApiV1RagEnrichGetResponse>(getEnrichMatchApiV1RagEnrichGetUrl(params),
   {      
     ...options,
     method: 'GET'
@@ -201,69 +230,69 @@ export const enrichMatch = async (params: EnrichMatchParams, options?: RequestIn
 
 
 
-export const getEnrichMatchQueryKey = (params?: EnrichMatchParams,) => {
+export const getEnrichMatchApiV1RagEnrichGetQueryKey = (params?: EnrichMatchApiV1RagEnrichGetParams,) => {
     return [
     `/api/v1/rag/enrich`, ...(params ? [params] : [])
     ] as const;
     }
 
     
-export const getEnrichMatchQueryOptions = <TData = Awaited<ReturnType<typeof enrichMatch>>, TError = void>(params: EnrichMatchParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof enrichMatch>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getEnrichMatchApiV1RagEnrichGetQueryOptions = <TData = Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>, TError = HTTPErrorResponse | HTTPValidationError>(params: EnrichMatchApiV1RagEnrichGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getEnrichMatchQueryKey(params);
+  const queryKey =  queryOptions?.queryKey ?? getEnrichMatchApiV1RagEnrichGetQueryKey(params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof enrichMatch>>> = ({ signal }) => enrichMatch(params, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>> = ({ signal }) => enrichMatchApiV1RagEnrichGet(params, { signal, ...requestOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof enrichMatch>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type EnrichMatchQueryResult = NonNullable<Awaited<ReturnType<typeof enrichMatch>>>
-export type EnrichMatchQueryError = void
+export type EnrichMatchApiV1RagEnrichGetQueryResult = NonNullable<Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>>
+export type EnrichMatchApiV1RagEnrichGetQueryError = HTTPErrorResponse | HTTPValidationError
 
 
-export function useEnrichMatch<TData = Awaited<ReturnType<typeof enrichMatch>>, TError = void>(
- params: EnrichMatchParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof enrichMatch>>, TError, TData>> & Pick<
+export function useEnrichMatchApiV1RagEnrichGet<TData = Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: EnrichMatchApiV1RagEnrichGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof enrichMatch>>,
+          Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>,
           TError,
-          Awaited<ReturnType<typeof enrichMatch>>
+          Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useEnrichMatch<TData = Awaited<ReturnType<typeof enrichMatch>>, TError = void>(
- params: EnrichMatchParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof enrichMatch>>, TError, TData>> & Pick<
+export function useEnrichMatchApiV1RagEnrichGet<TData = Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: EnrichMatchApiV1RagEnrichGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof enrichMatch>>,
+          Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>,
           TError,
-          Awaited<ReturnType<typeof enrichMatch>>
+          Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useEnrichMatch<TData = Awaited<ReturnType<typeof enrichMatch>>, TError = void>(
- params: EnrichMatchParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof enrichMatch>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useEnrichMatchApiV1RagEnrichGet<TData = Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: EnrichMatchApiV1RagEnrichGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Enrich a match with contextual information using RAG
+ * @summary Enrich Match
  */
 
-export function useEnrichMatch<TData = Awaited<ReturnType<typeof enrichMatch>>, TError = void>(
- params: EnrichMatchParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof enrichMatch>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useEnrichMatchApiV1RagEnrichGet<TData = Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: EnrichMatchApiV1RagEnrichGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof enrichMatchApiV1RagEnrichGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getEnrichMatchQueryOptions(params,options)
+  const queryOptions = getEnrichMatchApiV1RagEnrichGetQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -274,28 +303,31 @@ export function useEnrichMatch<TData = Awaited<ReturnType<typeof enrichMatch>>, 
 
 
 /**
- * @summary Generate a detailed analysis of match context using LLM
+ * Generate a detailed analysis of match context using LLM.
+
+This is a more intensive analysis than the basic enrichment.
+ * @summary Analyze Match Context
  */
-export type analyzeMatchContextResponse200 = {
-  data: AnalyzeMatchContext200
+export type analyzeMatchContextApiV1RagAnalyzePostResponse200 = {
+  data: AnalyzeMatchContextApiV1RagAnalyzePost200
   status: 200
 }
 
-export type analyzeMatchContextResponse500 = {
-  data: void
-  status: 500
+export type analyzeMatchContextApiV1RagAnalyzePostResponse422 = {
+  data: HTTPValidationError
+  status: 422
 }
     
-export type analyzeMatchContextResponseSuccess = (analyzeMatchContextResponse200) & {
+export type analyzeMatchContextApiV1RagAnalyzePostResponseSuccess = (analyzeMatchContextApiV1RagAnalyzePostResponse200) & {
   headers: Headers;
 };
-export type analyzeMatchContextResponseError = (analyzeMatchContextResponse500) & {
+export type analyzeMatchContextApiV1RagAnalyzePostResponseError = (analyzeMatchContextApiV1RagAnalyzePostResponse422) & {
   headers: Headers;
 };
 
-export type analyzeMatchContextResponse = (analyzeMatchContextResponseSuccess | analyzeMatchContextResponseError)
+export type analyzeMatchContextApiV1RagAnalyzePostResponse = (analyzeMatchContextApiV1RagAnalyzePostResponseSuccess | analyzeMatchContextApiV1RagAnalyzePostResponseError)
 
-export const getAnalyzeMatchContextUrl = (params: AnalyzeMatchContextParams,) => {
+export const getAnalyzeMatchContextApiV1RagAnalyzePostUrl = (params: AnalyzeMatchContextApiV1RagAnalyzePostParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -310,9 +342,9 @@ export const getAnalyzeMatchContextUrl = (params: AnalyzeMatchContextParams,) =>
   return stringifiedParams.length > 0 ? `/api/v1/rag/analyze?${stringifiedParams}` : `/api/v1/rag/analyze`
 }
 
-export const analyzeMatchContext = async (params: AnalyzeMatchContextParams, options?: RequestInit): Promise<analyzeMatchContextResponse> => {
+export const analyzeMatchContextApiV1RagAnalyzePost = async (params: AnalyzeMatchContextApiV1RagAnalyzePostParams, options?: RequestInit): Promise<analyzeMatchContextApiV1RagAnalyzePostResponse> => {
   
-  return customInstance<analyzeMatchContextResponse>(getAnalyzeMatchContextUrl(params),
+  return customInstance<analyzeMatchContextApiV1RagAnalyzePostResponse>(getAnalyzeMatchContextApiV1RagAnalyzePostUrl(params),
   {      
     ...options,
     method: 'POST'
@@ -324,11 +356,11 @@ export const analyzeMatchContext = async (params: AnalyzeMatchContextParams, opt
 
 
 
-export const getAnalyzeMatchContextMutationOptions = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof analyzeMatchContext>>, TError,{params: AnalyzeMatchContextParams}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof analyzeMatchContext>>, TError,{params: AnalyzeMatchContextParams}, TContext> => {
+export const getAnalyzeMatchContextApiV1RagAnalyzePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof analyzeMatchContextApiV1RagAnalyzePost>>, TError,{params: AnalyzeMatchContextApiV1RagAnalyzePostParams}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof analyzeMatchContextApiV1RagAnalyzePost>>, TError,{params: AnalyzeMatchContextApiV1RagAnalyzePostParams}, TContext> => {
 
-const mutationKey = ['analyzeMatchContext'];
+const mutationKey = ['analyzeMatchContextApiV1RagAnalyzePost'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -338,10 +370,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof analyzeMatchContext>>, {params: AnalyzeMatchContextParams}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof analyzeMatchContextApiV1RagAnalyzePost>>, {params: AnalyzeMatchContextApiV1RagAnalyzePostParams}> = (props) => {
           const {params} = props ?? {};
 
-          return  analyzeMatchContext(params,requestOptions)
+          return  analyzeMatchContextApiV1RagAnalyzePost(params,requestOptions)
         }
 
 
@@ -351,21 +383,21 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type AnalyzeMatchContextMutationResult = NonNullable<Awaited<ReturnType<typeof analyzeMatchContext>>>
+    export type AnalyzeMatchContextApiV1RagAnalyzePostMutationResult = NonNullable<Awaited<ReturnType<typeof analyzeMatchContextApiV1RagAnalyzePost>>>
     
-    export type AnalyzeMatchContextMutationError = void
+    export type AnalyzeMatchContextApiV1RagAnalyzePostMutationError = HTTPValidationError
 
     /**
- * @summary Generate a detailed analysis of match context using LLM
+ * @summary Analyze Match Context
  */
-export const useAnalyzeMatchContext = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof analyzeMatchContext>>, TError,{params: AnalyzeMatchContextParams}, TContext>, request?: SecondParameter<typeof customInstance>}
+export const useAnalyzeMatchContextApiV1RagAnalyzePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof analyzeMatchContextApiV1RagAnalyzePost>>, TError,{params: AnalyzeMatchContextApiV1RagAnalyzePostParams}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof analyzeMatchContext>>,
+        Awaited<ReturnType<typeof analyzeMatchContextApiV1RagAnalyzePost>>,
         TError,
-        {params: AnalyzeMatchContextParams},
+        {params: AnalyzeMatchContextApiV1RagAnalyzePostParams},
         TContext
       > => {
-      return useMutation(getAnalyzeMatchContextMutationOptions(options), queryClient);
+      return useMutation(getAnalyzeMatchContextApiV1RagAnalyzePostMutationOptions(options), queryClient);
     }
     

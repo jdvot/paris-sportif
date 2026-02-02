@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 import {
   useMutation,
@@ -25,6 +25,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  HTTPErrorResponse,
   MLStatusResponse,
   PipelineResponse
 } from '../../models';
@@ -37,21 +38,39 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 /**
- * @summary Get current ML system status
+ * Get current ML system status.
+
+Returns information about:
+- Whether models are trained and available
+- Age of training data
+- Feature engineering state
+ * @summary Get Ml Status
  */
-export type getMlStatusResponse200 = {
+export type getMlStatusApiV1MlStatusGetResponse200 = {
   data: MLStatusResponse
   status: 200
 }
+
+export type getMlStatusApiV1MlStatusGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getMlStatusApiV1MlStatusGetResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
     
-export type getMlStatusResponseSuccess = (getMlStatusResponse200) & {
+export type getMlStatusApiV1MlStatusGetResponseSuccess = (getMlStatusApiV1MlStatusGetResponse200) & {
   headers: Headers;
 };
-;
+export type getMlStatusApiV1MlStatusGetResponseError = (getMlStatusApiV1MlStatusGetResponse401 | getMlStatusApiV1MlStatusGetResponse403) & {
+  headers: Headers;
+};
 
-export type getMlStatusResponse = (getMlStatusResponseSuccess)
+export type getMlStatusApiV1MlStatusGetResponse = (getMlStatusApiV1MlStatusGetResponseSuccess | getMlStatusApiV1MlStatusGetResponseError)
 
-export const getGetMlStatusUrl = () => {
+export const getGetMlStatusApiV1MlStatusGetUrl = () => {
 
 
   
@@ -59,9 +78,9 @@ export const getGetMlStatusUrl = () => {
   return `/api/v1/ml/status`
 }
 
-export const getMlStatus = async ( options?: RequestInit): Promise<getMlStatusResponse> => {
+export const getMlStatusApiV1MlStatusGet = async ( options?: RequestInit): Promise<getMlStatusApiV1MlStatusGetResponse> => {
   
-  return customInstance<getMlStatusResponse>(getGetMlStatusUrl(),
+  return customInstance<getMlStatusApiV1MlStatusGetResponse>(getGetMlStatusApiV1MlStatusGetUrl(),
   {      
     ...options,
     method: 'GET'
@@ -74,69 +93,69 @@ export const getMlStatus = async ( options?: RequestInit): Promise<getMlStatusRe
 
 
 
-export const getGetMlStatusQueryKey = () => {
+export const getGetMlStatusApiV1MlStatusGetQueryKey = () => {
     return [
     `/api/v1/ml/status`
     ] as const;
     }
 
     
-export const getGetMlStatusQueryOptions = <TData = Awaited<ReturnType<typeof getMlStatus>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMlStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getGetMlStatusApiV1MlStatusGetQueryOptions = <TData = Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>, TError = HTTPErrorResponse>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetMlStatusQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetMlStatusApiV1MlStatusGetQueryKey();
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMlStatus>>> = ({ signal }) => getMlStatus({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>> = ({ signal }) => getMlStatusApiV1MlStatusGet({ signal, ...requestOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMlStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type GetMlStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getMlStatus>>>
-export type GetMlStatusQueryError = unknown
+export type GetMlStatusApiV1MlStatusGetQueryResult = NonNullable<Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>>
+export type GetMlStatusApiV1MlStatusGetQueryError = HTTPErrorResponse
 
 
-export function useGetMlStatus<TData = Awaited<ReturnType<typeof getMlStatus>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMlStatus>>, TError, TData>> & Pick<
+export function useGetMlStatusApiV1MlStatusGet<TData = Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>, TError = HTTPErrorResponse>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getMlStatus>>,
+          Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>,
           TError,
-          Awaited<ReturnType<typeof getMlStatus>>
+          Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetMlStatus<TData = Awaited<ReturnType<typeof getMlStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMlStatus>>, TError, TData>> & Pick<
+export function useGetMlStatusApiV1MlStatusGet<TData = Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getMlStatus>>,
+          Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>,
           TError,
-          Awaited<ReturnType<typeof getMlStatus>>
+          Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetMlStatus<TData = Awaited<ReturnType<typeof getMlStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMlStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useGetMlStatusApiV1MlStatusGet<TData = Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get current ML system status
+ * @summary Get Ml Status
  */
 
-export function useGetMlStatus<TData = Awaited<ReturnType<typeof getMlStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMlStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useGetMlStatusApiV1MlStatusGet<TData = Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMlStatusApiV1MlStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetMlStatusQueryOptions(options)
+  const queryOptions = getGetMlStatusApiV1MlStatusGetQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -147,28 +166,37 @@ export function useGetMlStatus<TData = Awaited<ReturnType<typeof getMlStatus>>, 
 
 
 /**
- * @summary Start data collection in background
+ * Start data collection in background.
+
+Collects historical match data from football-data.org API.
+This is a long-running task that runs in the background.
+ * @summary Collect Data
  */
-export type collectDataResponse200 = {
+export type collectDataApiV1MlCollectPostResponse200 = {
   data: PipelineResponse
   status: 200
 }
 
-export type collectDataResponse409 = {
-  data: void
-  status: 409
+export type collectDataApiV1MlCollectPostResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type collectDataApiV1MlCollectPostResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
 }
     
-export type collectDataResponseSuccess = (collectDataResponse200) & {
+export type collectDataApiV1MlCollectPostResponseSuccess = (collectDataApiV1MlCollectPostResponse200) & {
   headers: Headers;
 };
-export type collectDataResponseError = (collectDataResponse409) & {
+export type collectDataApiV1MlCollectPostResponseError = (collectDataApiV1MlCollectPostResponse401 | collectDataApiV1MlCollectPostResponse403) & {
   headers: Headers;
 };
 
-export type collectDataResponse = (collectDataResponseSuccess | collectDataResponseError)
+export type collectDataApiV1MlCollectPostResponse = (collectDataApiV1MlCollectPostResponseSuccess | collectDataApiV1MlCollectPostResponseError)
 
-export const getCollectDataUrl = () => {
+export const getCollectDataApiV1MlCollectPostUrl = () => {
 
 
   
@@ -176,9 +204,9 @@ export const getCollectDataUrl = () => {
   return `/api/v1/ml/collect`
 }
 
-export const collectData = async ( options?: RequestInit): Promise<collectDataResponse> => {
+export const collectDataApiV1MlCollectPost = async ( options?: RequestInit): Promise<collectDataApiV1MlCollectPostResponse> => {
   
-  return customInstance<collectDataResponse>(getCollectDataUrl(),
+  return customInstance<collectDataApiV1MlCollectPostResponse>(getCollectDataApiV1MlCollectPostUrl(),
   {      
     ...options,
     method: 'POST'
@@ -190,11 +218,11 @@ export const collectData = async ( options?: RequestInit): Promise<collectDataRe
 
 
 
-export const getCollectDataMutationOptions = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof collectData>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof collectData>>, TError,void, TContext> => {
+export const getCollectDataApiV1MlCollectPostMutationOptions = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof collectDataApiV1MlCollectPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof collectDataApiV1MlCollectPost>>, TError,void, TContext> => {
 
-const mutationKey = ['collectData'];
+const mutationKey = ['collectDataApiV1MlCollectPost'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -204,10 +232,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof collectData>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof collectDataApiV1MlCollectPost>>, void> = () => {
           
 
-          return  collectData(requestOptions)
+          return  collectDataApiV1MlCollectPost(requestOptions)
         }
 
 
@@ -217,46 +245,55 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type CollectDataMutationResult = NonNullable<Awaited<ReturnType<typeof collectData>>>
+    export type CollectDataApiV1MlCollectPostMutationResult = NonNullable<Awaited<ReturnType<typeof collectDataApiV1MlCollectPost>>>
     
-    export type CollectDataMutationError = void
+    export type CollectDataApiV1MlCollectPostMutationError = HTTPErrorResponse
 
     /**
- * @summary Start data collection in background
+ * @summary Collect Data
  */
-export const useCollectData = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof collectData>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+export const useCollectDataApiV1MlCollectPost = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof collectDataApiV1MlCollectPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof collectData>>,
+        Awaited<ReturnType<typeof collectDataApiV1MlCollectPost>>,
         TError,
         void,
         TContext
       > => {
-      return useMutation(getCollectDataMutationOptions(options), queryClient);
+      return useMutation(getCollectDataApiV1MlCollectPostMutationOptions(options), queryClient);
     }
     /**
- * @summary Start model training in background
+ * Start model training in background.
+
+Trains XGBoost and Random Forest models on collected data.
+Requires data to be collected first.
+ * @summary Train Models
  */
-export type trainModelsResponse200 = {
+export type trainModelsApiV1MlTrainPostResponse200 = {
   data: PipelineResponse
   status: 200
 }
 
-export type trainModelsResponse409 = {
-  data: void
-  status: 409
+export type trainModelsApiV1MlTrainPostResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type trainModelsApiV1MlTrainPostResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
 }
     
-export type trainModelsResponseSuccess = (trainModelsResponse200) & {
+export type trainModelsApiV1MlTrainPostResponseSuccess = (trainModelsApiV1MlTrainPostResponse200) & {
   headers: Headers;
 };
-export type trainModelsResponseError = (trainModelsResponse409) & {
+export type trainModelsApiV1MlTrainPostResponseError = (trainModelsApiV1MlTrainPostResponse401 | trainModelsApiV1MlTrainPostResponse403) & {
   headers: Headers;
 };
 
-export type trainModelsResponse = (trainModelsResponseSuccess | trainModelsResponseError)
+export type trainModelsApiV1MlTrainPostResponse = (trainModelsApiV1MlTrainPostResponseSuccess | trainModelsApiV1MlTrainPostResponseError)
 
-export const getTrainModelsUrl = () => {
+export const getTrainModelsApiV1MlTrainPostUrl = () => {
 
 
   
@@ -264,9 +301,9 @@ export const getTrainModelsUrl = () => {
   return `/api/v1/ml/train`
 }
 
-export const trainModels = async ( options?: RequestInit): Promise<trainModelsResponse> => {
+export const trainModelsApiV1MlTrainPost = async ( options?: RequestInit): Promise<trainModelsApiV1MlTrainPostResponse> => {
   
-  return customInstance<trainModelsResponse>(getTrainModelsUrl(),
+  return customInstance<trainModelsApiV1MlTrainPostResponse>(getTrainModelsApiV1MlTrainPostUrl(),
   {      
     ...options,
     method: 'POST'
@@ -278,11 +315,11 @@ export const trainModels = async ( options?: RequestInit): Promise<trainModelsRe
 
 
 
-export const getTrainModelsMutationOptions = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof trainModels>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof trainModels>>, TError,void, TContext> => {
+export const getTrainModelsApiV1MlTrainPostMutationOptions = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof trainModelsApiV1MlTrainPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof trainModelsApiV1MlTrainPost>>, TError,void, TContext> => {
 
-const mutationKey = ['trainModels'];
+const mutationKey = ['trainModelsApiV1MlTrainPost'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -292,10 +329,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof trainModels>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof trainModelsApiV1MlTrainPost>>, void> = () => {
           
 
-          return  trainModels(requestOptions)
+          return  trainModelsApiV1MlTrainPost(requestOptions)
         }
 
 
@@ -305,46 +342,59 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type TrainModelsMutationResult = NonNullable<Awaited<ReturnType<typeof trainModels>>>
+    export type TrainModelsApiV1MlTrainPostMutationResult = NonNullable<Awaited<ReturnType<typeof trainModelsApiV1MlTrainPost>>>
     
-    export type TrainModelsMutationError = void
+    export type TrainModelsApiV1MlTrainPostMutationError = HTTPErrorResponse
 
     /**
- * @summary Start model training in background
+ * @summary Train Models
  */
-export const useTrainModels = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof trainModels>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+export const useTrainModelsApiV1MlTrainPost = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof trainModelsApiV1MlTrainPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof trainModels>>,
+        Awaited<ReturnType<typeof trainModelsApiV1MlTrainPost>>,
         TError,
         void,
         TContext
       > => {
-      return useMutation(getTrainModelsMutationOptions(options), queryClient);
+      return useMutation(getTrainModelsApiV1MlTrainPostMutationOptions(options), queryClient);
     }
     /**
- * @summary Run full ML pipeline in background
+ * Run full ML pipeline in background.
+
+Executes:
+1. Data collection from API
+2. Model training on collected data
+3. Model reloading for inference
+
+This is a long-running task (5-15 minutes depending on API rate limits).
+ * @summary Run Full Pipeline
  */
-export type runFullPipelineResponse200 = {
+export type runFullPipelineApiV1MlRunFullPostResponse200 = {
   data: PipelineResponse
   status: 200
 }
 
-export type runFullPipelineResponse409 = {
-  data: void
-  status: 409
+export type runFullPipelineApiV1MlRunFullPostResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type runFullPipelineApiV1MlRunFullPostResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
 }
     
-export type runFullPipelineResponseSuccess = (runFullPipelineResponse200) & {
+export type runFullPipelineApiV1MlRunFullPostResponseSuccess = (runFullPipelineApiV1MlRunFullPostResponse200) & {
   headers: Headers;
 };
-export type runFullPipelineResponseError = (runFullPipelineResponse409) & {
+export type runFullPipelineApiV1MlRunFullPostResponseError = (runFullPipelineApiV1MlRunFullPostResponse401 | runFullPipelineApiV1MlRunFullPostResponse403) & {
   headers: Headers;
 };
 
-export type runFullPipelineResponse = (runFullPipelineResponseSuccess | runFullPipelineResponseError)
+export type runFullPipelineApiV1MlRunFullPostResponse = (runFullPipelineApiV1MlRunFullPostResponseSuccess | runFullPipelineApiV1MlRunFullPostResponseError)
 
-export const getRunFullPipelineUrl = () => {
+export const getRunFullPipelineApiV1MlRunFullPostUrl = () => {
 
 
   
@@ -352,9 +402,9 @@ export const getRunFullPipelineUrl = () => {
   return `/api/v1/ml/run-full`
 }
 
-export const runFullPipeline = async ( options?: RequestInit): Promise<runFullPipelineResponse> => {
+export const runFullPipelineApiV1MlRunFullPost = async ( options?: RequestInit): Promise<runFullPipelineApiV1MlRunFullPostResponse> => {
   
-  return customInstance<runFullPipelineResponse>(getRunFullPipelineUrl(),
+  return customInstance<runFullPipelineApiV1MlRunFullPostResponse>(getRunFullPipelineApiV1MlRunFullPostUrl(),
   {      
     ...options,
     method: 'POST'
@@ -366,11 +416,11 @@ export const runFullPipeline = async ( options?: RequestInit): Promise<runFullPi
 
 
 
-export const getRunFullPipelineMutationOptions = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runFullPipeline>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof runFullPipeline>>, TError,void, TContext> => {
+export const getRunFullPipelineApiV1MlRunFullPostMutationOptions = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runFullPipelineApiV1MlRunFullPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof runFullPipelineApiV1MlRunFullPost>>, TError,void, TContext> => {
 
-const mutationKey = ['runFullPipeline'];
+const mutationKey = ['runFullPipelineApiV1MlRunFullPost'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -380,10 +430,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runFullPipeline>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runFullPipelineApiV1MlRunFullPost>>, void> = () => {
           
 
-          return  runFullPipeline(requestOptions)
+          return  runFullPipelineApiV1MlRunFullPost(requestOptions)
         }
 
 
@@ -393,39 +443,54 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type RunFullPipelineMutationResult = NonNullable<Awaited<ReturnType<typeof runFullPipeline>>>
+    export type RunFullPipelineApiV1MlRunFullPostMutationResult = NonNullable<Awaited<ReturnType<typeof runFullPipelineApiV1MlRunFullPost>>>
     
-    export type RunFullPipelineMutationError = void
+    export type RunFullPipelineApiV1MlRunFullPostMutationError = HTTPErrorResponse
 
     /**
- * @summary Run full ML pipeline in background
+ * @summary Run Full Pipeline
  */
-export const useRunFullPipeline = <TError = void,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runFullPipeline>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+export const useRunFullPipelineApiV1MlRunFullPost = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runFullPipelineApiV1MlRunFullPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof runFullPipeline>>,
+        Awaited<ReturnType<typeof runFullPipelineApiV1MlRunFullPost>>,
         TError,
         void,
         TContext
       > => {
-      return useMutation(getRunFullPipelineMutationOptions(options), queryClient);
+      return useMutation(getRunFullPipelineApiV1MlRunFullPostMutationOptions(options), queryClient);
     }
     /**
- * @summary Get current pipeline execution status
+ * Get current pipeline execution status.
+
+Returns whether a pipeline task is running and the result of the last run.
+ * @summary Get Pipeline Status
  */
-export type getPipelineStatusResponse200 = {
+export type getPipelineStatusApiV1MlPipelineStatusGetResponse200 = {
   data: PipelineResponse
   status: 200
 }
+
+export type getPipelineStatusApiV1MlPipelineStatusGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getPipelineStatusApiV1MlPipelineStatusGetResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
     
-export type getPipelineStatusResponseSuccess = (getPipelineStatusResponse200) & {
+export type getPipelineStatusApiV1MlPipelineStatusGetResponseSuccess = (getPipelineStatusApiV1MlPipelineStatusGetResponse200) & {
   headers: Headers;
 };
-;
+export type getPipelineStatusApiV1MlPipelineStatusGetResponseError = (getPipelineStatusApiV1MlPipelineStatusGetResponse401 | getPipelineStatusApiV1MlPipelineStatusGetResponse403) & {
+  headers: Headers;
+};
 
-export type getPipelineStatusResponse = (getPipelineStatusResponseSuccess)
+export type getPipelineStatusApiV1MlPipelineStatusGetResponse = (getPipelineStatusApiV1MlPipelineStatusGetResponseSuccess | getPipelineStatusApiV1MlPipelineStatusGetResponseError)
 
-export const getGetPipelineStatusUrl = () => {
+export const getGetPipelineStatusApiV1MlPipelineStatusGetUrl = () => {
 
 
   
@@ -433,9 +498,9 @@ export const getGetPipelineStatusUrl = () => {
   return `/api/v1/ml/pipeline-status`
 }
 
-export const getPipelineStatus = async ( options?: RequestInit): Promise<getPipelineStatusResponse> => {
+export const getPipelineStatusApiV1MlPipelineStatusGet = async ( options?: RequestInit): Promise<getPipelineStatusApiV1MlPipelineStatusGetResponse> => {
   
-  return customInstance<getPipelineStatusResponse>(getGetPipelineStatusUrl(),
+  return customInstance<getPipelineStatusApiV1MlPipelineStatusGetResponse>(getGetPipelineStatusApiV1MlPipelineStatusGetUrl(),
   {      
     ...options,
     method: 'GET'
@@ -448,69 +513,69 @@ export const getPipelineStatus = async ( options?: RequestInit): Promise<getPipe
 
 
 
-export const getGetPipelineStatusQueryKey = () => {
+export const getGetPipelineStatusApiV1MlPipelineStatusGetQueryKey = () => {
     return [
     `/api/v1/ml/pipeline-status`
     ] as const;
     }
 
     
-export const getGetPipelineStatusQueryOptions = <TData = Awaited<ReturnType<typeof getPipelineStatus>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPipelineStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getGetPipelineStatusApiV1MlPipelineStatusGetQueryOptions = <TData = Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>, TError = HTTPErrorResponse>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetPipelineStatusQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetPipelineStatusApiV1MlPipelineStatusGetQueryKey();
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPipelineStatus>>> = ({ signal }) => getPipelineStatus({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>> = ({ signal }) => getPipelineStatusApiV1MlPipelineStatusGet({ signal, ...requestOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPipelineStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type GetPipelineStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getPipelineStatus>>>
-export type GetPipelineStatusQueryError = unknown
+export type GetPipelineStatusApiV1MlPipelineStatusGetQueryResult = NonNullable<Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>>
+export type GetPipelineStatusApiV1MlPipelineStatusGetQueryError = HTTPErrorResponse
 
 
-export function useGetPipelineStatus<TData = Awaited<ReturnType<typeof getPipelineStatus>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPipelineStatus>>, TError, TData>> & Pick<
+export function useGetPipelineStatusApiV1MlPipelineStatusGet<TData = Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>, TError = HTTPErrorResponse>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getPipelineStatus>>,
+          Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>,
           TError,
-          Awaited<ReturnType<typeof getPipelineStatus>>
+          Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetPipelineStatus<TData = Awaited<ReturnType<typeof getPipelineStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPipelineStatus>>, TError, TData>> & Pick<
+export function useGetPipelineStatusApiV1MlPipelineStatusGet<TData = Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getPipelineStatus>>,
+          Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>,
           TError,
-          Awaited<ReturnType<typeof getPipelineStatus>>
+          Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetPipelineStatus<TData = Awaited<ReturnType<typeof getPipelineStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPipelineStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useGetPipelineStatusApiV1MlPipelineStatusGet<TData = Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get current pipeline execution status
+ * @summary Get Pipeline Status
  */
 
-export function useGetPipelineStatus<TData = Awaited<ReturnType<typeof getPipelineStatus>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPipelineStatus>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useGetPipelineStatusApiV1MlPipelineStatusGet<TData = Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPipelineStatusApiV1MlPipelineStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetPipelineStatusQueryOptions(options)
+  const queryOptions = getGetPipelineStatusApiV1MlPipelineStatusGetQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 import {
   useMutation,
@@ -29,6 +29,8 @@ import type {
   GetDailyPicksParams,
   GetPredictionParams,
   GetPredictionStatsParams,
+  HTTPErrorResponse,
+  HTTPValidationError,
   PredictionResponse,
   PredictionStatsResponse,
   RefreshPrediction200
@@ -42,27 +44,35 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 /**
- * @summary Get the 5 best picks for the specified date
+ * Get the 5 best picks for the specified date ONLY.
+
+Selection criteria:
+- Minimum 5% value vs bookmaker odds
+- Minimum 60% confidence
+- Diversified across competitions
+
+Uses database caching to persist predictions across server restarts.
+ * @summary Get Daily Picks
  */
 export type getDailyPicksResponse200 = {
   data: DailyPicksResponse
   status: 200
 }
 
-export type getDailyPicksResponse429 = {
-  data: void
-  status: 429
+export type getDailyPicksResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
 }
 
-export type getDailyPicksResponse502 = {
-  data: void
-  status: 502
+export type getDailyPicksResponse422 = {
+  data: HTTPValidationError
+  status: 422
 }
     
 export type getDailyPicksResponseSuccess = (getDailyPicksResponse200) & {
   headers: Headers;
 };
-export type getDailyPicksResponseError = (getDailyPicksResponse429 | getDailyPicksResponse502) & {
+export type getDailyPicksResponseError = (getDailyPicksResponse401 | getDailyPicksResponse422) & {
   headers: Headers;
 };
 
@@ -105,7 +115,7 @@ export const getGetDailyPicksQueryKey = (params?: GetDailyPicksParams,) => {
     }
 
     
-export const getGetDailyPicksQueryOptions = <TData = Awaited<ReturnType<typeof getDailyPicks>>, TError = void>(params?: GetDailyPicksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyPicks>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getGetDailyPicksQueryOptions = <TData = Awaited<ReturnType<typeof getDailyPicks>>, TError = HTTPErrorResponse | HTTPValidationError>(params?: GetDailyPicksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyPicks>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -124,10 +134,10 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetDailyPicksQueryResult = NonNullable<Awaited<ReturnType<typeof getDailyPicks>>>
-export type GetDailyPicksQueryError = void
+export type GetDailyPicksQueryError = HTTPErrorResponse | HTTPValidationError
 
 
-export function useGetDailyPicks<TData = Awaited<ReturnType<typeof getDailyPicks>>, TError = void>(
+export function useGetDailyPicks<TData = Awaited<ReturnType<typeof getDailyPicks>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params: undefined |  GetDailyPicksParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyPicks>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getDailyPicks>>,
@@ -137,7 +147,7 @@ export function useGetDailyPicks<TData = Awaited<ReturnType<typeof getDailyPicks
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetDailyPicks<TData = Awaited<ReturnType<typeof getDailyPicks>>, TError = void>(
+export function useGetDailyPicks<TData = Awaited<ReturnType<typeof getDailyPicks>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: GetDailyPicksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyPicks>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getDailyPicks>>,
@@ -147,15 +157,15 @@ export function useGetDailyPicks<TData = Awaited<ReturnType<typeof getDailyPicks
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetDailyPicks<TData = Awaited<ReturnType<typeof getDailyPicks>>, TError = void>(
+export function useGetDailyPicks<TData = Awaited<ReturnType<typeof getDailyPicks>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: GetDailyPicksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyPicks>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get the 5 best picks for the specified date
+ * @summary Get Daily Picks
  */
 
-export function useGetDailyPicks<TData = Awaited<ReturnType<typeof getDailyPicks>>, TError = void>(
+export function useGetDailyPicks<TData = Awaited<ReturnType<typeof getDailyPicks>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: GetDailyPicksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyPicks>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
@@ -171,27 +181,158 @@ export function useGetDailyPicks<TData = Awaited<ReturnType<typeof getDailyPicks
 
 
 /**
- * @summary Get detailed prediction for a specific match
+ * Get historical prediction performance statistics.
+ * @summary Get Prediction Stats
+ */
+export type getPredictionStatsResponse200 = {
+  data: PredictionStatsResponse
+  status: 200
+}
+
+export type getPredictionStatsResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getPredictionStatsResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getPredictionStatsResponseSuccess = (getPredictionStatsResponse200) & {
+  headers: Headers;
+};
+export type getPredictionStatsResponseError = (getPredictionStatsResponse401 | getPredictionStatsResponse422) & {
+  headers: Headers;
+};
+
+export type getPredictionStatsResponse = (getPredictionStatsResponseSuccess | getPredictionStatsResponseError)
+
+export const getGetPredictionStatsUrl = (params?: GetPredictionStatsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/predictions/stats?${stringifiedParams}` : `/api/v1/predictions/stats`
+}
+
+export const getPredictionStats = async (params?: GetPredictionStatsParams, options?: RequestInit): Promise<getPredictionStatsResponse> => {
+  
+  return customInstance<getPredictionStatsResponse>(getGetPredictionStatsUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getGetPredictionStatsQueryKey = (params?: GetPredictionStatsParams,) => {
+    return [
+    `/api/v1/predictions/stats`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+    
+export const getGetPredictionStatsQueryOptions = <TData = Awaited<ReturnType<typeof getPredictionStats>>, TError = HTTPErrorResponse | HTTPValidationError>(params?: GetPredictionStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionStats>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPredictionStatsQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPredictionStats>>> = ({ signal }) => getPredictionStats(params, { signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPredictionStats>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetPredictionStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getPredictionStats>>>
+export type GetPredictionStatsQueryError = HTTPErrorResponse | HTTPValidationError
+
+
+export function useGetPredictionStats<TData = Awaited<ReturnType<typeof getPredictionStats>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: undefined |  GetPredictionStatsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionStats>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPredictionStats>>,
+          TError,
+          Awaited<ReturnType<typeof getPredictionStats>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPredictionStats<TData = Awaited<ReturnType<typeof getPredictionStats>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetPredictionStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionStats>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPredictionStats>>,
+          TError,
+          Awaited<ReturnType<typeof getPredictionStats>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPredictionStats<TData = Awaited<ReturnType<typeof getPredictionStats>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetPredictionStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionStats>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Prediction Stats
+ */
+
+export function useGetPredictionStats<TData = Awaited<ReturnType<typeof getPredictionStats>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetPredictionStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionStats>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPredictionStatsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
+ * Get detailed prediction for a specific match.
+ * @summary Get Prediction
  */
 export type getPredictionResponse200 = {
   data: PredictionResponse
   status: 200
 }
 
-export type getPredictionResponse404 = {
-  data: void
-  status: 404
+export type getPredictionResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
 }
 
-export type getPredictionResponse429 = {
-  data: void
-  status: 429
+export type getPredictionResponse422 = {
+  data: HTTPValidationError
+  status: 422
 }
     
 export type getPredictionResponseSuccess = (getPredictionResponse200) & {
   headers: Headers;
 };
-export type getPredictionResponseError = (getPredictionResponse404 | getPredictionResponse429) & {
+export type getPredictionResponseError = (getPredictionResponse401 | getPredictionResponse422) & {
   headers: Headers;
 };
 
@@ -237,7 +378,7 @@ export const getGetPredictionQueryKey = (matchId: number,
     }
 
     
-export const getGetPredictionQueryOptions = <TData = Awaited<ReturnType<typeof getPrediction>>, TError = void>(matchId: number,
+export const getGetPredictionQueryOptions = <TData = Awaited<ReturnType<typeof getPrediction>>, TError = HTTPErrorResponse | HTTPValidationError>(matchId: number,
     params?: GetPredictionParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrediction>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
@@ -257,10 +398,10 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetPredictionQueryResult = NonNullable<Awaited<ReturnType<typeof getPrediction>>>
-export type GetPredictionQueryError = void
+export type GetPredictionQueryError = HTTPErrorResponse | HTTPValidationError
 
 
-export function useGetPrediction<TData = Awaited<ReturnType<typeof getPrediction>>, TError = void>(
+export function useGetPrediction<TData = Awaited<ReturnType<typeof getPrediction>>, TError = HTTPErrorResponse | HTTPValidationError>(
  matchId: number,
     params: undefined |  GetPredictionParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrediction>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
@@ -271,7 +412,7 @@ export function useGetPrediction<TData = Awaited<ReturnType<typeof getPrediction
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetPrediction<TData = Awaited<ReturnType<typeof getPrediction>>, TError = void>(
+export function useGetPrediction<TData = Awaited<ReturnType<typeof getPrediction>>, TError = HTTPErrorResponse | HTTPValidationError>(
  matchId: number,
     params?: GetPredictionParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrediction>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
@@ -282,16 +423,16 @@ export function useGetPrediction<TData = Awaited<ReturnType<typeof getPrediction
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetPrediction<TData = Awaited<ReturnType<typeof getPrediction>>, TError = void>(
+export function useGetPrediction<TData = Awaited<ReturnType<typeof getPrediction>>, TError = HTTPErrorResponse | HTTPValidationError>(
  matchId: number,
     params?: GetPredictionParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrediction>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get detailed prediction for a specific match
+ * @summary Get Prediction
  */
 
-export function useGetPrediction<TData = Awaited<ReturnType<typeof getPrediction>>, TError = void>(
+export function useGetPrediction<TData = Awaited<ReturnType<typeof getPrediction>>, TError = HTTPErrorResponse | HTTPValidationError>(
  matchId: number,
     params?: GetPredictionParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrediction>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
@@ -308,27 +449,28 @@ export function useGetPrediction<TData = Awaited<ReturnType<typeof getPrediction
 
 
 /**
- * @summary Force refresh a prediction (admin only)
+ * Force refresh a prediction (admin only).
+ * @summary Refresh Prediction
  */
 export type refreshPredictionResponse200 = {
   data: RefreshPrediction200
   status: 200
 }
 
-export type refreshPredictionResponse404 = {
-  data: void
-  status: 404
+export type refreshPredictionResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
 }
 
-export type refreshPredictionResponse429 = {
-  data: void
-  status: 429
+export type refreshPredictionResponse422 = {
+  data: HTTPValidationError
+  status: 422
 }
     
 export type refreshPredictionResponseSuccess = (refreshPredictionResponse200) & {
   headers: Headers;
 };
-export type refreshPredictionResponseError = (refreshPredictionResponse404 | refreshPredictionResponse429) & {
+export type refreshPredictionResponseError = (refreshPredictionResponse401 | refreshPredictionResponse422) & {
   headers: Headers;
 };
 
@@ -356,7 +498,7 @@ export const refreshPrediction = async (matchId: number, options?: RequestInit):
 
 
 
-export const getRefreshPredictionMutationOptions = <TError = void,
+export const getRefreshPredictionMutationOptions = <TError = HTTPErrorResponse | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshPrediction>>, TError,{matchId: number}, TContext>, request?: SecondParameter<typeof customInstance>}
 ): UseMutationOptions<Awaited<ReturnType<typeof refreshPrediction>>, TError,{matchId: number}, TContext> => {
 
@@ -385,12 +527,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type RefreshPredictionMutationResult = NonNullable<Awaited<ReturnType<typeof refreshPrediction>>>
     
-    export type RefreshPredictionMutationError = void
+    export type RefreshPredictionMutationError = HTTPErrorResponse | HTTPValidationError
 
     /**
- * @summary Force refresh a prediction (admin only)
+ * @summary Refresh Prediction
  */
-export const useRefreshPrediction = <TError = void,
+export const useRefreshPrediction = <TError = HTTPErrorResponse | HTTPValidationError,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshPrediction>>, TError,{matchId: number}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof refreshPrediction>>,
@@ -400,120 +542,4 @@ export const useRefreshPrediction = <TError = void,
       > => {
       return useMutation(getRefreshPredictionMutationOptions(options), queryClient);
     }
-    /**
- * @summary Get historical prediction performance statistics
- */
-export type getPredictionStatsResponse200 = {
-  data: PredictionStatsResponse
-  status: 200
-}
     
-export type getPredictionStatsResponseSuccess = (getPredictionStatsResponse200) & {
-  headers: Headers;
-};
-;
-
-export type getPredictionStatsResponse = (getPredictionStatsResponseSuccess)
-
-export const getGetPredictionStatsUrl = (params?: GetPredictionStatsParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/v1/predictions/stats?${stringifiedParams}` : `/api/v1/predictions/stats`
-}
-
-export const getPredictionStats = async (params?: GetPredictionStatsParams, options?: RequestInit): Promise<getPredictionStatsResponse> => {
-  
-  return customInstance<getPredictionStatsResponse>(getGetPredictionStatsUrl(params),
-  {      
-    ...options,
-    method: 'GET'
-    
-    
-  }
-);}
-
-
-
-
-
-export const getGetPredictionStatsQueryKey = (params?: GetPredictionStatsParams,) => {
-    return [
-    `/api/v1/predictions/stats`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-    
-export const getGetPredictionStatsQueryOptions = <TData = Awaited<ReturnType<typeof getPredictionStats>>, TError = unknown>(params?: GetPredictionStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionStats>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetPredictionStatsQueryKey(params);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPredictionStats>>> = ({ signal }) => getPredictionStats(params, { signal, ...requestOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPredictionStats>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
-}
-
-export type GetPredictionStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getPredictionStats>>>
-export type GetPredictionStatsQueryError = unknown
-
-
-export function useGetPredictionStats<TData = Awaited<ReturnType<typeof getPredictionStats>>, TError = unknown>(
- params: undefined |  GetPredictionStatsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionStats>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getPredictionStats>>,
-          TError,
-          Awaited<ReturnType<typeof getPredictionStats>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetPredictionStats<TData = Awaited<ReturnType<typeof getPredictionStats>>, TError = unknown>(
- params?: GetPredictionStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionStats>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getPredictionStats>>,
-          TError,
-          Awaited<ReturnType<typeof getPredictionStats>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetPredictionStats<TData = Awaited<ReturnType<typeof getPredictionStats>>, TError = unknown>(
- params?: GetPredictionStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionStats>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/**
- * @summary Get historical prediction performance statistics
- */
-
-export function useGetPredictionStats<TData = Awaited<ReturnType<typeof getPredictionStats>>, TError = unknown>(
- params?: GetPredictionStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionStats>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient 
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-
-  const queryOptions = getGetPredictionStatsQueryOptions(params,options)
-
-  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-
-
-

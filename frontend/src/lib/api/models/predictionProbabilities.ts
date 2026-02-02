@@ -3,21 +3,27 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Match outcome probabilities.
+ */
 export interface PredictionProbabilities {
   /**
+   * Probability of home win
    * @minimum 0
    * @maximum 1
    */
   home_win: number;
   /**
+   * Probability of draw
    * @minimum 0
    * @maximum 1
    */
   draw: number;
   /**
+   * Probability of away win
    * @minimum 0
    * @maximum 1
    */

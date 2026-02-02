@@ -3,10 +3,13 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 import type { PredictionResponse } from './predictionResponse';
 
+/**
+ * Daily pick with additional info.
+ */
 export interface DailyPickResponse {
   /**
    * @minimum 1
@@ -14,5 +17,6 @@ export interface DailyPickResponse {
    */
   rank: number;
   prediction: PredictionResponse;
+  /** Combined value × confidence score */
   pick_score: number;
 }

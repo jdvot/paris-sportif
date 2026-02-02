@@ -3,14 +3,15 @@
  * Do not edit manually.
  * Paris Sportif API
  * API de predictions de paris sportifs sur le football europeen
- * OpenAPI spec version: 1.0.0
+ * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Database statistics response.
+ */
 export interface DbStatsResponse {
   total_matches: number;
   competitions_with_standings: number;
-  /** @nullable */
-  last_match_sync?: string | null;
-  /** @nullable */
-  last_standings_sync?: string | null;
+  last_match_sync: string | null;
+  last_standings_sync: string | null;
 }
