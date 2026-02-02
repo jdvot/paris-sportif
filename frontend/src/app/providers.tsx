@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ApiError } from "@/lib/api/custom-instance";
 import { createClient } from "@/lib/supabase/client";
+import { setAuthToken, clearAuthToken } from "@/lib/auth/token-store";
 
 // Flag to prevent multiple redirects (reset on page load)
 let isRedirecting = false;
@@ -92,13 +93,28 @@ export function Providers({ children }: { children: React.ReactNode }) {
       })
   );
 
-  // Listen for auth state changes and invalidate queries when session changes
+  // Listen for auth state changes and update token store + invalidate queries
   // This is crucial for hydrating the session after OAuth callback
   useEffect(() => {
     const supabase = createClient();
 
+    // Get initial session and populate token store
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('[Providers] Initial session:', !!session);
+      if (session?.access_token) {
+        setAuthToken(session.access_token);
+      }
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('[Providers] Auth state changed:', event, !!session);
+
+      // Update token store with new token
+      if (session?.access_token) {
+        setAuthToken(session.access_token);
+      } else {
+        clearAuthToken();
+      }
 
       // When user signs in (including OAuth callback), invalidate all queries
       // so they refetch with the new auth token
@@ -107,9 +123,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         queryClient.invalidateQueries();
       }
 
-      // When user signs out, clear the cache
+      // When user signs out, clear the cache and token
       if (event === 'SIGNED_OUT') {
         console.log('[Providers] Clearing cache after sign out');
+        clearAuthToken();
         queryClient.clear();
       }
     });
