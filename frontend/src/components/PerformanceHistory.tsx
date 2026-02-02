@@ -187,9 +187,8 @@ export function PerformanceHistory() {
                   borderRadius: "8px",
                 }}
                 labelStyle={{ color: "#e2e8f0" }}
-                formatter={(value: any) => {
-                  if (typeof value === "number") return `${value.toFixed(1)}%`;
-                  return value;
+                formatter={(value: number) => {
+                  return `${value.toFixed(1)}%`;
                 }}
               />
               <Line
@@ -235,8 +234,8 @@ export function PerformanceHistory() {
                   borderRadius: "8px",
                 }}
                 labelStyle={{ color: "#e2e8f0" }}
-                formatter={(value: any, name: any) => {
-                  if (name === "accuracy") return `${(value as number).toFixed(1)}%`;
+                formatter={(value: number, name: string) => {
+                  if (name === "accuracy") return `${value.toFixed(1)}%`;
                   return value;
                 }}
               />

@@ -159,8 +159,8 @@ export function PerformanceStats() {
                   borderRadius: "8px",
                 }}
                 labelStyle={{ color: "#e2e8f0" }}
-                formatter={(value: any, name: any) => {
-                  if (name === "accuracy") return `${(value as number).toFixed(1)}%`;
+                formatter={(value: number, name: string) => {
+                  if (name === "accuracy") return `${value.toFixed(1)}%`;
                   return value;
                 }}
               />
@@ -203,7 +203,7 @@ export function PerformanceStats() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, value }: any) => `${name}: ${value}`}
+                  label={({ name, value }: { name: string; value: number }) => `${name}: ${value}`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
@@ -286,8 +286,8 @@ export function PerformanceStats() {
                   borderRadius: "8px",
                 }}
                 labelStyle={{ color: "#e2e8f0" }}
-                formatter={(value: any, name: any) => {
-                  if (name === "accuracy") return `${(value as number).toFixed(1)}%`;
+                formatter={(value: number, name: string) => {
+                  if (name === "accuracy") return `${value.toFixed(1)}%`;
                   return value;
                 }}
               />

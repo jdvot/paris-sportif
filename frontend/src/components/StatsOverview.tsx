@@ -334,7 +334,7 @@ export function StatsOverview() {
                     borderRadius: "8px",
                   }}
                   labelStyle={{ color: "#e2e8f0" }}
-                  formatter={(value: any) => `${(value as number).toFixed(1)}%`}
+                  formatter={(value: number) => `${value.toFixed(1)}%`}
                 />
                 <Line
                   type="monotone"
