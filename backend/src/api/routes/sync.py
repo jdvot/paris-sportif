@@ -23,7 +23,7 @@ from src.data.database import (
     verify_finished_matches,
 )
 from src.core.exceptions import FootballDataAPIError, RateLimitError
-from src.auth import AdminUser
+from src.auth import AdminUser, ADMIN_RESPONSES
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +140,7 @@ async def _sync_all_standings() -> tuple[int, list[str]]:
     return total_synced, errors
 
 
-@router.post("/weekly", response_model=SyncResponse)
+@router.post("/weekly", response_model=SyncResponse, responses=ADMIN_RESPONSES)
 async def sync_weekly_data(
     user: AdminUser,
     background_tasks: BackgroundTasks,
@@ -187,7 +187,7 @@ async def sync_weekly_data(
         raise HTTPException(status_code=500, detail=f"Sync failed: {error_msg}")
 
 
-@router.post("/matches", response_model=SyncResponse)
+@router.post("/matches", response_model=SyncResponse, responses=ADMIN_RESPONSES)
 async def sync_matches_only(
     user: AdminUser,
     days: int = Query(7, ge=1, le=14, description="Number of days to sync"),
@@ -209,7 +209,7 @@ async def sync_matches_only(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/standings", response_model=SyncResponse)
+@router.post("/standings", response_model=SyncResponse, responses=ADMIN_RESPONSES)
 async def sync_standings_only(user: AdminUser) -> SyncResponse:
     """Sync only standings (no matches)."""
     try:
@@ -228,14 +228,14 @@ async def sync_standings_only(user: AdminUser) -> SyncResponse:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/status", response_model=DbStatsResponse)
+@router.get("/status", response_model=DbStatsResponse, responses=ADMIN_RESPONSES)
 async def get_sync_status(user: AdminUser) -> DbStatsResponse:
     """Get database sync status and statistics."""
     stats = get_db_stats()
     return DbStatsResponse(**stats)
 
 
-@router.get("/last")
+@router.get("/last", responses=ADMIN_RESPONSES)
 async def get_last_sync_info(
     user: AdminUser,
     sync_type: str = Query("weekly", description="Type of sync to check"),
@@ -247,7 +247,7 @@ async def get_last_sync_info(
     return {"message": f"No successful {sync_type} sync found"}
 
 
-@router.post("/verify-predictions", response_model=SyncResponse)
+@router.post("/verify-predictions", response_model=SyncResponse, responses=ADMIN_RESPONSES)
 async def sync_and_verify_predictions(
     user: AdminUser,
     past_days: int = Query(7, ge=1, le=30, description="Days to look back for finished matches"),

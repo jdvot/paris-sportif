@@ -9,13 +9,13 @@ import logging
 
 from src.core.config import settings
 from src.data.sources.football_data import get_football_data_client
-from src.auth import AdminUser
+from src.auth import AdminUser, ADMIN_RESPONSES
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.get("/api-status")
+@router.get("/api-status", responses=ADMIN_RESPONSES)
 async def debug_api_status(user: AdminUser) -> dict:
     """
     Debug endpoint to verify football-data.org API configuration.

@@ -13,6 +13,12 @@ from src.auth.dependencies import (
     AdminUser,
     OptionalUser,
 )
+from src.auth.responses import (
+    HTTPErrorResponse,
+    AUTH_RESPONSES,
+    PREMIUM_RESPONSES,
+    ADMIN_RESPONSES,
+)
 
 __all__ = [
     "get_current_user",
@@ -24,4 +30,8 @@ __all__ = [
     "PremiumUser",
     "AdminUser",
     "OptionalUser",
+    "HTTPErrorResponse",
+    "AUTH_RESPONSES",
+    "PREMIUM_RESPONSES",
+    "ADMIN_RESPONSES",
 ]

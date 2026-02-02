@@ -17,7 +17,7 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from src.auth import AdminUser
+from src.auth import AdminUser, ADMIN_RESPONSES
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ _pipeline_status = {
 }
 
 
-@router.get("/status", response_model=MLStatusResponse)
+@router.get("/status", response_model=MLStatusResponse, responses=ADMIN_RESPONSES)
 async def get_ml_status(user: AdminUser) -> MLStatusResponse:
     """
     Get current ML system status.
@@ -87,7 +87,7 @@ async def get_ml_status(user: AdminUser) -> MLStatusResponse:
         )
 
 
-@router.post("/collect", response_model=PipelineResponse)
+@router.post("/collect", response_model=PipelineResponse, responses=ADMIN_RESPONSES)
 async def collect_data(user: AdminUser, background_tasks: BackgroundTasks) -> PipelineResponse:
     """
     Start data collection in background.
@@ -128,7 +128,7 @@ async def collect_data(user: AdminUser, background_tasks: BackgroundTasks) -> Pi
     )
 
 
-@router.post("/train", response_model=PipelineResponse)
+@router.post("/train", response_model=PipelineResponse, responses=ADMIN_RESPONSES)
 async def train_models(user: AdminUser, background_tasks: BackgroundTasks) -> PipelineResponse:
     """
     Start model training in background.
@@ -172,7 +172,7 @@ async def train_models(user: AdminUser, background_tasks: BackgroundTasks) -> Pi
     )
 
 
-@router.post("/run-full", response_model=PipelineResponse)
+@router.post("/run-full", response_model=PipelineResponse, responses=ADMIN_RESPONSES)
 async def run_full_pipeline(user: AdminUser, background_tasks: BackgroundTasks) -> PipelineResponse:
     """
     Run full ML pipeline in background.
@@ -216,7 +216,7 @@ async def run_full_pipeline(user: AdminUser, background_tasks: BackgroundTasks) 
     )
 
 
-@router.get("/pipeline-status", response_model=PipelineResponse)
+@router.get("/pipeline-status", response_model=PipelineResponse, responses=ADMIN_RESPONSES)
 async def get_pipeline_status(user: AdminUser) -> PipelineResponse:
     """
     Get current pipeline execution status.

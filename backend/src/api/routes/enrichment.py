@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from src.data.data_enrichment import get_data_enrichment
 from src.data.sources.football_data import get_football_data_client
-from src.auth import PremiumUser
+from src.auth import PremiumUser, PREMIUM_RESPONSES
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ class FullEnrichmentResponse(BaseModel):
     standings: Optional[StandingsContext] = None
 
 
-@router.get("/full", response_model=FullEnrichmentResponse)
+@router.get("/full", response_model=FullEnrichmentResponse, responses=PREMIUM_RESPONSES)
 async def get_full_enrichment(
     user: PremiumUser,
     home_team: str = Query(..., description="Home team name"),
@@ -223,7 +223,7 @@ async def get_full_enrichment(
         )
 
 
-@router.get("/odds")
+@router.get("/odds", responses=PREMIUM_RESPONSES)
 async def get_match_odds(
     user: PremiumUser,
     home_team: str = Query(..., description="Home team name"),
@@ -240,7 +240,7 @@ async def get_match_odds(
         return {"error": str(e), "available": False}
 
 
-@router.get("/weather")
+@router.get("/weather", responses=PREMIUM_RESPONSES)
 async def get_match_weather(
     user: PremiumUser,
     home_team: str = Query(..., description="Home team name"),
@@ -260,7 +260,7 @@ async def get_match_weather(
         return {"error": str(e), "available": False}
 
 
-@router.get("/h2h")
+@router.get("/h2h", responses=PREMIUM_RESPONSES)
 async def get_h2h(
     user: PremiumUser,
     home_team: str = Query(..., description="Home team name"),
@@ -309,7 +309,7 @@ async def get_h2h(
         return {"error": str(e), "total_matches": 0}
 
 
-@router.get("/form/{team_name}")
+@router.get("/form/{team_name}", responses=PREMIUM_RESPONSES)
 async def get_team_form(
     team_name: str,
     user: PremiumUser,
@@ -350,7 +350,7 @@ async def get_team_form(
         return {"error": str(e)}
 
 
-@router.get("/status")
+@router.get("/status", responses=PREMIUM_RESPONSES)
 async def get_enrichment_status(user: PremiumUser) -> dict:
     """Get status of all enrichment data sources."""
     import os

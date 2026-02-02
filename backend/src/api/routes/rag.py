@@ -11,7 +11,7 @@ from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
 
 from src.prediction_engine.rag_enrichment import get_rag_enrichment
-from src.auth import PremiumUser
+from src.auth import PremiumUser, PREMIUM_RESPONSES
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ class RAGStatusResponse(BaseModel):
     total_enrichments: int = 0
 
 
-@router.get("/status", response_model=RAGStatusResponse)
+@router.get("/status", response_model=RAGStatusResponse, responses=PREMIUM_RESPONSES)
 async def get_rag_status(user: PremiumUser) -> RAGStatusResponse:
     """Get RAG system status."""
     try:
@@ -77,7 +77,7 @@ async def get_rag_status(user: PremiumUser) -> RAGStatusResponse:
         )
 
 
-@router.get("/enrich", response_model=MatchContext)
+@router.get("/enrich", response_model=MatchContext, responses=PREMIUM_RESPONSES)
 async def enrich_match(
     user: PremiumUser,
     home_team: str = Query(..., description="Home team name"),
