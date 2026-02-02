@@ -355,9 +355,9 @@ async def get_enrichment_status() -> dict:
             "configured": bool(os.getenv("ODDS_API_KEY")),
             "description": "Bookmaker odds (500 req/month free)"
         },
-        "openweather": {
-            "configured": bool(os.getenv("OPENWEATHER_API_KEY")),
-            "description": "Match day weather (1000 req/day free)"
+        "open_meteo": {
+            "configured": True,  # Open-Meteo is always available, no API key needed
+            "description": "Match day weather (free, unlimited)"
         },
         "groq_llm": {
             "configured": bool(os.getenv("GROQ_API_KEY")),

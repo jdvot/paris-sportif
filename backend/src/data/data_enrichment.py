@@ -3,7 +3,7 @@
 Sources:
 1. Football-Data.org - Matches, standings, H2H (already integrated)
 2. The Odds API - Bookmaker odds for value detection
-3. OpenWeatherMap - Match day weather
+3. Open-Meteo - Match day weather (free, no API key required)
 4. Calculated stats - Form, xG approximation
 """
 
@@ -130,9 +130,9 @@ class OddsAPIClient:
 
 
 class WeatherClient:
-    """Client for OpenWeatherMap API - Free tier: 1000 requests/day."""
+    """Client for Open-Meteo API - Free, no API key required."""
 
-    BASE_URL = "https://api.openweathermap.org/data/2.5"
+    BASE_URL = "https://api.open-meteo.com/v1/forecast"
 
     # Stadium coordinates for major teams
     STADIUM_COORDS = {
@@ -143,37 +143,70 @@ class WeatherClient:
         "Manchester City": (53.4831, -2.2004),
         "Liverpool": (53.4308, -2.9609),
         "Tottenham": (51.6043, -0.0661),
+        "Newcastle": (54.9756, -1.6216),
+        "Aston Villa": (52.5092, -1.8847),
+        "Brighton": (50.8617, -0.0839),
+        "West Ham": (51.5387, -0.0166),
+        "Fulham": (51.4749, -0.2217),
+        "Crystal Palace": (51.3983, -0.0856),
+        "Brentford": (51.4907, -0.2888),
+        "Everton": (53.4387, -2.9663),
+        "Nottingham": (52.9399, -1.1327),
+        "Bournemouth": (50.7352, -1.8384),
+        "Wolves": (52.5903, -2.1306),
+        "Leicester": (52.6203, -1.1420),
+        "Leeds": (53.7778, -1.5722),
+        "Southampton": (50.9058, -1.3909),
         # La Liga
         "Real Madrid": (40.4530, -3.6883),
         "Barcelona": (41.3809, 2.1228),
         "Atletico Madrid": (40.4361, -3.5994),
+        "Sevilla": (37.3840, -5.9705),
+        "Real Betis": (37.3564, -5.9817),
+        "Valencia": (39.4747, -0.3583),
+        "Villarreal": (39.9441, -0.1037),
+        "Athletic": (43.2641, -2.9493),
+        "Real Sociedad": (43.3016, -1.9736),
         # Serie A
         "Juventus": (45.1096, 7.6413),
         "AC Milan": (45.4781, 9.1240),
         "Inter": (45.4781, 9.1240),
+        "Napoli": (40.8280, 14.1931),
+        "Roma": (41.9341, 12.4547),
+        "Lazio": (41.9341, 12.4547),
+        "Fiorentina": (43.7806, 11.2822),
+        "Atalanta": (45.7089, 9.6806),
         # Bundesliga
         "Bayern Munich": (48.2188, 11.6247),
         "Borussia Dortmund": (51.4926, 7.4519),
+        "RB Leipzig": (51.3458, 12.3486),
+        "Bayer Leverkusen": (51.0383, 7.0022),
+        "Eintracht Frankfurt": (50.0686, 8.6453),
+        "Union Berlin": (52.4575, 13.5681),
+        "Freiburg": (47.9893, 7.8931),
+        "Wolfsburg": (52.4322, 10.8039),
         # Ligue 1
         "PSG": (48.8414, 2.2530),
         "Paris Saint-Germain": (48.8414, 2.2530),
         "Marseille": (43.2699, 5.3959),
+        "Lyon": (45.7653, 4.9822),
+        "Monaco": (43.7277, 7.4157),
+        "Lille": (50.6119, 3.1303),
+        "Nice": (43.7050, 7.1925),
+        "Lens": (50.4328, 2.8147),
+        "Rennes": (48.1075, -1.7128),
     }
 
     def __init__(self, api_key: str | None = None):
-        self.api_key = api_key or os.getenv("OPENWEATHER_API_KEY", "")
-        if not self.api_key:
-            logger.info("OPENWEATHER_API_KEY not configured - weather features disabled")
+        # Open-Meteo doesn't need an API key - this param is kept for compatibility
+        pass
 
     async def get_match_weather(
         self,
         home_team: str,
         match_date: datetime
     ) -> dict[str, Any]:
-        """Get weather forecast for match day at stadium location."""
-        if not self.api_key:
-            return {"available": False}
-
+        """Get weather forecast for match day at stadium location using Open-Meteo."""
         # Find stadium coordinates
         coords = None
         for team_name, team_coords in self.STADIUM_COORDS.items():
@@ -187,56 +220,95 @@ class WeatherClient:
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                # Use 5-day forecast API
+                # Open-Meteo forecast API
                 response = await client.get(
-                    f"{self.BASE_URL}/forecast",
+                    self.BASE_URL,
                     params={
-                        "lat": coords[0],
-                        "lon": coords[1],
-                        "appid": self.api_key,
-                        "units": "metric",
+                        "latitude": coords[0],
+                        "longitude": coords[1],
+                        "hourly": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m",
+                        "forecast_days": 7,
+                        "timezone": "auto",
                     }
                 )
 
                 if response.status_code == 200:
                     data = response.json()
+                    hourly = data.get("hourly", {})
+                    times = hourly.get("time", [])
 
                     # Find forecast closest to match time
-                    match_ts = match_date.timestamp()
-                    closest_forecast = None
+                    match_date_str = match_date.strftime("%Y-%m-%dT%H:00")
+                    closest_idx = 0
                     min_diff = float('inf')
 
-                    for forecast in data.get("list", []):
-                        forecast_ts = forecast.get("dt", 0)
-                        diff = abs(forecast_ts - match_ts)
-                        if diff < min_diff:
-                            min_diff = diff
-                            closest_forecast = forecast
+                    for idx, time_str in enumerate(times):
+                        try:
+                            forecast_dt = datetime.fromisoformat(time_str)
+                            diff = abs((forecast_dt - match_date).total_seconds())
+                            if diff < min_diff:
+                                min_diff = diff
+                                closest_idx = idx
+                        except ValueError:
+                            continue
 
-                    if closest_forecast:
-                        weather = closest_forecast.get("weather", [{}])[0]
-                        main = closest_forecast.get("main", {})
-                        wind = closest_forecast.get("wind", {})
+                    if times and closest_idx < len(times):
+                        temp = hourly.get("temperature_2m", [None])[closest_idx]
+                        feels_like = hourly.get("apparent_temperature", [None])[closest_idx]
+                        humidity = hourly.get("relative_humidity_2m", [None])[closest_idx]
+                        precip_prob = hourly.get("precipitation_probability", [0])[closest_idx] or 0
+                        wind_speed = hourly.get("wind_speed_10m", [0])[closest_idx] or 0
+                        weather_code = hourly.get("weather_code", [0])[closest_idx] or 0
 
                         return {
                             "available": True,
-                            "temperature": main.get("temp"),
-                            "feels_like": main.get("feels_like"),
-                            "humidity": main.get("humidity"),
-                            "description": weather.get("description"),
-                            "wind_speed": wind.get("speed"),  # m/s
-                            "rain_probability": closest_forecast.get("pop", 0) * 100,
+                            "temperature": temp,
+                            "feels_like": feels_like,
+                            "humidity": humidity,
+                            "description": self._weather_code_to_description(weather_code),
+                            "wind_speed": round(wind_speed / 3.6, 1),  # Convert km/h to m/s
+                            "rain_probability": precip_prob,
                             "impact": self._assess_weather_impact(
-                                main.get("temp", 15),
-                                wind.get("speed", 0),
-                                closest_forecast.get("pop", 0)
+                                temp or 15,
+                                wind_speed / 3.6,  # Convert km/h to m/s
+                                precip_prob / 100  # Convert to 0-1 range
                             )
                         }
 
         except Exception as e:
-            logger.error(f"Error fetching weather: {e}")
+            logger.error(f"Error fetching weather from Open-Meteo: {e}")
 
         return {"available": False}
+
+    def _weather_code_to_description(self, code: int) -> str:
+        """Convert WMO weather code to description."""
+        codes = {
+            0: "Clear sky",
+            1: "Mainly clear",
+            2: "Partly cloudy",
+            3: "Overcast",
+            45: "Fog",
+            48: "Depositing rime fog",
+            51: "Light drizzle",
+            53: "Moderate drizzle",
+            55: "Dense drizzle",
+            61: "Slight rain",
+            63: "Moderate rain",
+            65: "Heavy rain",
+            71: "Slight snow",
+            73: "Moderate snow",
+            75: "Heavy snow",
+            77: "Snow grains",
+            80: "Slight rain showers",
+            81: "Moderate rain showers",
+            82: "Violent rain showers",
+            85: "Slight snow showers",
+            86: "Heavy snow showers",
+            95: "Thunderstorm",
+            96: "Thunderstorm with hail",
+            99: "Thunderstorm with heavy hail",
+        }
+        return codes.get(code, "Unknown")
 
     def _assess_weather_impact(self, temp: float, wind_speed: float, rain_prob: float) -> str:
         """Assess how weather might impact the match."""
