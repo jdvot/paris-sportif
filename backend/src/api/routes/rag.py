@@ -108,12 +108,26 @@ async def enrich_match(
         away_ctx = enrichment.get("away_context", {})
         match_ctx = enrichment.get("match_context", {})
 
-        # Convert sentiment string to float score
+        # Convert sentiment to float score (handle both string and float inputs)
         sentiment_map = {"positive": 0.8, "negative": 0.2, "neutral": 0.5}
-        home_sentiment_str = home_ctx.get("sentiment", "neutral")
-        home_sentiment_score = sentiment_map.get(home_sentiment_str, 0.5)
-        away_sentiment_str = away_ctx.get("sentiment", "neutral")
-        away_sentiment_score = sentiment_map.get(away_sentiment_str, 0.5)
+
+        def parse_sentiment(value) -> tuple[float, str]:
+            """Parse sentiment value, handling both string and numeric types."""
+            if isinstance(value, (int, float)):
+                # Already numeric, clamp to valid range
+                score = max(-1.0, min(1.0, float(value)))
+                label = "positive" if score > 0.3 else ("negative" if score < -0.3 else "neutral")
+                return score, label
+            elif isinstance(value, str):
+                label = value.lower()
+                score = sentiment_map.get(label, 0.5)
+                return score, label
+            return 0.5, "neutral"
+
+        home_sentiment_raw = home_ctx.get("sentiment", "neutral")
+        home_sentiment_score, home_sentiment_str = parse_sentiment(home_sentiment_raw)
+        away_sentiment_raw = away_ctx.get("sentiment", "neutral")
+        away_sentiment_score, away_sentiment_str = parse_sentiment(away_sentiment_raw)
 
         # Build response
         return MatchContext(

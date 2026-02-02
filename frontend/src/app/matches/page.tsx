@@ -79,6 +79,7 @@ export default function MatchesPage() {
     return {
       date_from: format(dateFrom, "yyyy-MM-dd"),
       date_to: format(dateTo, "yyyy-MM-dd"),
+      per_page: 100, // Fetch more matches to avoid pagination issues
       // Competition filtering is done client-side to support multi-select
     };
   }, [dateRange, today]);

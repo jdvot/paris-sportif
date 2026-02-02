@@ -106,7 +106,7 @@ def init_database():
             )
         """)
 
-        # Predictions table - stores generated predictions
+        # Predictions table - stores generated predictions with tracking
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS predictions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -125,6 +125,11 @@ def init_database():
                 recommendation TEXT,
                 explanation TEXT,
                 model_version TEXT,
+                actual_home_score INTEGER,
+                actual_away_score INTEGER,
+                actual_result TEXT,
+                was_correct INTEGER,
+                verified_at TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(match_id)
             )
@@ -472,6 +477,201 @@ def get_scheduled_matches_from_db(
         rows = cursor.fetchall()
 
         return [json.loads(row["raw_data"]) for row in rows]
+
+
+# ============== PREDICTION TRACKING ==============
+
+def verify_prediction(match_id: int, home_score: int, away_score: int) -> bool:
+    """
+    Verify a prediction against actual match result.
+    Updates the prediction record with actual scores and correctness.
+    """
+    try:
+        with db_session() as conn:
+            cursor = conn.cursor()
+
+            # Get the prediction
+            cursor.execute("SELECT * FROM predictions WHERE match_id = ?", (match_id,))
+            pred = cursor.fetchone()
+
+            if not pred:
+                logger.warning(f"No prediction found for match {match_id}")
+                return False
+
+            # Determine actual result
+            if home_score > away_score:
+                actual_result = "home_win"
+            elif away_score > home_score:
+                actual_result = "away_win"
+            else:
+                actual_result = "draw"
+
+            # Check if prediction was correct
+            recommendation = pred["recommendation"]
+            was_correct = 1 if recommendation == actual_result else 0
+
+            # Update the prediction
+            cursor.execute("""
+                UPDATE predictions SET
+                    actual_home_score = ?,
+                    actual_away_score = ?,
+                    actual_result = ?,
+                    was_correct = ?,
+                    verified_at = ?
+                WHERE match_id = ?
+            """, (
+                home_score,
+                away_score,
+                actual_result,
+                was_correct,
+                datetime.now().isoformat(),
+                match_id
+            ))
+
+            logger.info(f"Verified prediction for match {match_id}: {was_correct=}")
+            return True
+
+    except Exception as e:
+        logger.error(f"Error verifying prediction {match_id}: {e}")
+        return False
+
+
+def get_prediction_statistics(days: int = 30) -> dict:
+    """
+    Calculate prediction performance statistics.
+    Returns accuracy, ROI, and breakdowns by competition and bet type.
+    """
+    try:
+        with db_session() as conn:
+            cursor = conn.cursor()
+
+            # Get verified predictions from the last N days
+            cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+
+            cursor.execute("""
+                SELECT
+                    competition_code,
+                    recommendation,
+                    was_correct,
+                    confidence,
+                    home_win_prob,
+                    draw_prob,
+                    away_win_prob
+                FROM predictions
+                WHERE verified_at IS NOT NULL
+                AND verified_at >= ?
+            """, (cutoff_date,))
+
+            rows = cursor.fetchall()
+
+            if not rows:
+                return {
+                    "total_predictions": 0,
+                    "correct_predictions": 0,
+                    "accuracy": 0.0,
+                    "roi_simulated": 0.0,
+                    "by_competition": {},
+                    "by_bet_type": {},
+                }
+
+            total = len(rows)
+            correct = sum(1 for r in rows if r["was_correct"])
+            accuracy = correct / total if total > 0 else 0.0
+
+            # Calculate by competition
+            by_competition = {}
+            for row in rows:
+                comp = row["competition_code"] or "Unknown"
+                if comp not in by_competition:
+                    by_competition[comp] = {"total": 0, "correct": 0}
+                by_competition[comp]["total"] += 1
+                if row["was_correct"]:
+                    by_competition[comp]["correct"] += 1
+
+            # Add accuracy to each competition
+            for comp in by_competition:
+                t = by_competition[comp]["total"]
+                c = by_competition[comp]["correct"]
+                by_competition[comp]["accuracy"] = round(c / t * 100, 1) if t > 0 else 0.0
+
+            # Calculate by bet type
+            by_bet_type = {}
+            for row in rows:
+                bet = row["recommendation"] or "unknown"
+                if bet not in by_bet_type:
+                    by_bet_type[bet] = {"total": 0, "correct": 0}
+                by_bet_type[bet]["total"] += 1
+                if row["was_correct"]:
+                    by_bet_type[bet]["correct"] += 1
+
+            for bet in by_bet_type:
+                t = by_bet_type[bet]["total"]
+                c = by_bet_type[bet]["correct"]
+                by_bet_type[bet]["accuracy"] = round(c / t * 100, 1) if t > 0 else 0.0
+
+            # Simulated ROI (assuming flat bets at odds ~2.0)
+            # ROI = (profit / stake) * 100
+            # If correct, profit = stake * (odds - 1) ≈ stake * 1.0
+            # If wrong, profit = -stake
+            avg_odds = 2.0
+            total_stake = total
+            total_profit = correct * (avg_odds - 1) - (total - correct)
+            roi_simulated = (total_profit / total_stake * 100) if total_stake > 0 else 0.0
+
+            return {
+                "total_predictions": total,
+                "correct_predictions": correct,
+                "accuracy": round(accuracy * 100, 1),
+                "roi_simulated": round(roi_simulated, 1),
+                "by_competition": by_competition,
+                "by_bet_type": by_bet_type,
+            }
+
+    except Exception as e:
+        logger.error(f"Error getting prediction statistics: {e}")
+        return {
+            "total_predictions": 0,
+            "correct_predictions": 0,
+            "accuracy": 0.0,
+            "roi_simulated": 0.0,
+            "by_competition": {},
+            "by_bet_type": {},
+        }
+
+
+def verify_finished_matches() -> int:
+    """
+    Verify all predictions for finished matches that haven't been verified yet.
+    Returns the number of predictions verified.
+    """
+    try:
+        with db_session() as conn:
+            cursor = conn.cursor()
+
+            # Get predictions without verification that have finished matches
+            cursor.execute("""
+                SELECT p.match_id, m.home_score, m.away_score
+                FROM predictions p
+                JOIN matches m ON p.match_id = m.id
+                WHERE p.verified_at IS NULL
+                AND m.status = 'FINISHED'
+                AND m.home_score IS NOT NULL
+                AND m.away_score IS NOT NULL
+            """)
+
+            rows = cursor.fetchall()
+            verified_count = 0
+
+            for row in rows:
+                if verify_prediction(row["match_id"], row["home_score"], row["away_score"]):
+                    verified_count += 1
+
+            logger.info(f"Verified {verified_count} predictions")
+            return verified_count
+
+    except Exception as e:
+        logger.error(f"Error verifying finished matches: {e}")
+        return 0
 
 
 # ============== ML MODELS ==============
