@@ -43,11 +43,14 @@ export async function middleware(request: NextRequest) {
 
   // ALL other routes require authentication
   if (!user) {
+    console.log("[Middleware] No user for protected route:", pathname, "- redirecting to login");
     // Redirect to login with return URL
     const loginUrl = new URL("/auth/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
   }
+
+  console.log("[Middleware] User:", user.email, "accessing:", pathname);
 
   // Check role-based access for premium and admin routes
   if (
