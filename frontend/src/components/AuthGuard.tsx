@@ -9,6 +9,15 @@ interface AuthGuardProps {
 }
 
 /**
+ * Redirect to login with current path as ?next= parameter
+ */
+function redirectToLogin() {
+  const currentPath = window.location.pathname;
+  const loginUrl = `/auth/login?next=${encodeURIComponent(currentPath)}`;
+  window.location.replace(loginUrl);
+}
+
+/**
  * AuthGuard component that shows a fullscreen loader while checking authentication.
  * Redirects to login if the user is not authenticated.
  * Note: The middleware already handles server-side auth checks, so this is a client-side backup.
@@ -24,9 +33,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
       try {
         const supabase = createClient();
 
-        // Add timeout to prevent infinite loading
+        // Short timeout - don't block UI for too long
         const timeoutPromise = new Promise<null>((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error("Auth check timeout")), 5000);
+          timeoutId = setTimeout(() => reject(new Error("Auth check timeout")), 3000);
         });
 
         const sessionPromise = supabase.auth.getSession();
@@ -37,10 +46,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
         if (!isMounted) return;
 
         if (!result || !result.data?.session) {
-          // No session - redirect to login
+          // No session - redirect to login immediately
           console.log("[AuthGuard] No session, redirecting to login...");
           setAuthState("redirecting");
-          window.location.href = "/auth/login";
+          redirectToLogin();
           return;
         }
 
@@ -54,11 +63,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
           return;
         }
 
-        // On timeout or error, trust that middleware already checked auth
-        // and render children instead of blocking forever
-        console.warn("[AuthGuard] Auth check failed, trusting middleware:", err);
+        // On timeout, redirect to login (don't trust stale session)
+        console.warn("[AuthGuard] Auth check failed, redirecting:", err);
         if (isMounted) {
-          setAuthState("authenticated");
+          setAuthState("redirecting");
+          redirectToLogin();
         }
       }
     };
@@ -71,7 +80,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
       console.log("[AuthGuard] Auth state change:", event);
       if (event === "SIGNED_OUT" || !session) {
         setAuthState("redirecting");
-        window.location.href = "/auth/login";
+        redirectToLogin();
       }
     });
 
