@@ -140,17 +140,29 @@ export function StatsOverview() {
     );
   }
 
-  // Transform byCompetition data
-  const competitionStats = Object.entries(stats.byCompetition || {})
-    .map(([code, data]: [string, any]) => ({
-      name: COMPETITION_NAMES[code] || code,
-      code,
-      predictions: data.total || 0,
-      correct: data.correct || 0,
-      accuracy: (data.accuracy || 0) * 100,
-      trend: data.accuracy >= 0.55 ? "up" : data.accuracy < 0.50 ? "down" : "neutral",
-    }))
-    .sort((a, b) => b.predictions - a.predictions);
+  // Transform byCompetition data - if no data, use placeholder data
+  const hasRealData = Object.keys(stats.byCompetition || {}).length > 0;
+
+  // Use real data if available, otherwise show placeholder for 5 competitions
+  const competitionStats = hasRealData
+    ? Object.entries(stats.byCompetition)
+        .map(([code, data]: [string, any]) => ({
+          name: COMPETITION_NAMES[code] || code,
+          code,
+          predictions: data.total || 0,
+          correct: data.correct || 0,
+          accuracy: (data.accuracy || 0) * 100,
+          trend: data.accuracy >= 0.55 ? "up" : data.accuracy < 0.50 ? "down" : "neutral",
+        }))
+        .sort((a, b) => b.predictions - a.predictions)
+    : Object.entries(COMPETITION_NAMES).map(([code, name]) => ({
+        name,
+        code,
+        predictions: 0,
+        correct: 0,
+        accuracy: 0,
+        trend: "neutral" as const,
+      }));
 
   // Generate trend data for mini line chart
   const generateTrendData = () => {
@@ -230,6 +242,23 @@ export function StatsOverview() {
           </p>
         </div>
       </div>
+
+      {/* Info banner when no verified data */}
+      {!hasRealData && (
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-xl">📊</span>
+            </div>
+            <div>
+              <p className="text-amber-200 font-medium">Statistiques en cours de collecte</p>
+              <p className="text-amber-300/70 text-sm">
+                Les statistiques détaillées seront disponibles après vérification des prédictions.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Chart Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
