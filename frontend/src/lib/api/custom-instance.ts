@@ -51,6 +51,11 @@ export const customInstance = async <T>(
   // Get auth token from Supabase
   const token = await getSupabaseToken();
 
+  // Debug: log auth status for API requests
+  if (typeof window !== 'undefined') {
+    console.log('[API]', url, 'token:', token ? 'present' : 'MISSING');
+  }
+
   let response: Response;
   try {
     response = await fetch(fullUrl, {
