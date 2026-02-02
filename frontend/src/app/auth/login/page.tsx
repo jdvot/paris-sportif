@@ -5,13 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Sparkles } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { createClient } from "@/lib/supabase/client";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextUrl = searchParams.get("next") || "/picks";
-  const { signIn, signInWithGoogle } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +25,11 @@ function LoginForm() {
     setError(null);
     setIsSubmitting(true);
 
-    const { error } = await signIn(email, password);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
     if (error) {
       setError(error.message);
@@ -40,7 +43,15 @@ function LoginForm() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     setError(null);
-    const { error } = await signInWithGoogle();
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl)}`,
+      },
+    });
+
     if (error) {
       setError(error.message);
       setIsGoogleLoading(false);
