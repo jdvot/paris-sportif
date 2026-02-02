@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { format, subDays, addDays, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { AlertTriangle, Calendar } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, isAuthError } from "@/lib/utils";
 import { useGetDailyPicks } from "@/lib/api/endpoints/predictions/predictions";
 import { PredictionCardPremium } from "@/components/PredictionCardPremium";
 import { LoadingState } from "@/components/LoadingState";
@@ -166,8 +166,8 @@ export default function PicksPage() {
         />
       ) : null}
 
-      {/* Error State */}
-      {!isLoading && error ? (
+      {/* Error State - Skip for auth errors (global handler will redirect) */}
+      {!isLoading && error && !isAuthError(error) ? (
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 sm:p-8 lg:p-12 text-center mx-4 sm:mx-0">
           <AlertTriangle className="w-10 sm:w-12 h-10 sm:h-12 text-red-400 mx-auto mb-3 sm:mb-4" />
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">

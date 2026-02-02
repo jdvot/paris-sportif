@@ -59,3 +59,12 @@ export function getValueColor(value: number): string {
   if (value >= 0.05) return "text-yellow-400";
   return "text-dark-400";
 }
+
+/**
+ * Check if an error is an authentication error (401/403)
+ * Used to skip local error UI and let global handler redirect
+ */
+export function isAuthError(error: unknown): boolean {
+  const err = error as { status?: number; name?: string };
+  return err?.name === 'ApiError' && [401, 403].includes(err?.status || 0);
+}

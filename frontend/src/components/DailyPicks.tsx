@@ -2,7 +2,7 @@
 
 import { AlertCircle, CheckCircle } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn, isAuthError } from "@/lib/utils";
 import { LoadingState } from "@/components/LoadingState";
 import { useGetDailyPicks } from "@/lib/api/endpoints/predictions/predictions";
 import type { DailyPick, Prediction } from "@/lib/api/models";
@@ -26,13 +26,25 @@ export function DailyPicks() {
     );
   }
 
-  if (error) {
+  // Skip error UI for auth errors (global handler will redirect)
+  if (error && !isAuthError(error)) {
     return (
       <div className="bg-white dark:bg-slate-800/50 border border-red-200 dark:border-red-500/30 rounded-xl p-8 text-center">
         <AlertCircle className="w-12 h-12 text-red-500 dark:text-red-400 mx-auto mb-4" />
         <p className="text-gray-700 dark:text-slate-300">Impossible de charger les picks du jour</p>
         <p className="text-gray-500 dark:text-slate-500 text-sm mt-2">Verifiez que le backend est en cours d'execution</p>
       </div>
+    );
+  }
+
+  // Auth error - let global handler redirect, show loading state
+  if (error && isAuthError(error)) {
+    return (
+      <LoadingState
+        variant="picks"
+        count={5}
+        message="Redirection en cours..."
+      />
     );
   }
 

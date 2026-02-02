@@ -15,6 +15,7 @@ import { fr } from "date-fns/locale";
 import { useGetMatches } from "@/lib/api/endpoints/matches/matches";
 import type { MatchResponse, MatchListResponse } from "@/lib/api/models";
 import { LoadingState } from "@/components/LoadingState";
+import { isAuthError } from "@/lib/utils";
 
 const competitionColors: Record<string, string> = {
   PL: "bg-purple-500",
@@ -276,8 +277,8 @@ export default function MatchesPage() {
         )}
       </section>
 
-      {/* Error State */}
-      {error ? (
+      {/* Error State - Skip for auth errors (global handler will redirect) */}
+      {error && !isAuthError(error) ? (
         <section className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 sm:p-8 lg:p-12 text-center mx-4 sm:mx-0">
           <Calendar className="w-10 sm:w-12 h-10 sm:h-12 text-red-400 mx-auto mb-3 sm:mb-4" />
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -296,7 +297,7 @@ export default function MatchesPage() {
       ) : null}
 
       {/* Matches List Grouped by Date */}
-      {!error ? (
+      {!error || isAuthError(error) ? (
       <section className="space-y-4 sm:space-y-6 px-4 sm:px-0">
         {datesToDisplay.length === 0 ? (
           <div className="text-center py-8 sm:py-12">

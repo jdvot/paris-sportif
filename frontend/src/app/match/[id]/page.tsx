@@ -24,7 +24,7 @@ import {
   Clock,
   Target,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, isAuthError } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { PredictionCharts } from "@/components/PredictionCharts";
@@ -96,6 +96,12 @@ export default function MatchDetailPage() {
     return <LoadingState />;
   }
 
+  // Auth error - let global handler redirect, show nothing
+  if (matchError && isAuthError(matchError)) {
+    return null;
+  }
+
+  // Other errors or no match data
   if (matchError || !match) {
     return (
       <div className="space-y-4">
@@ -127,7 +133,7 @@ export default function MatchDetailPage() {
             </div>
           )}
 
-          {!predictionLoading && predictionError ? (
+          {!predictionLoading && predictionError && !isAuthError(predictionError) ? (
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 sm:p-6">
               <div className="flex items-center gap-3">
                 <AlertTriangle className="w-5 sm:w-6 h-5 sm:h-6 text-red-400 flex-shrink-0" />
