@@ -1,12 +1,13 @@
-"""Database module for storing football data locally.
+"""Database module for storing football data.
 
-Uses SQLite for persistent storage of matches and standings.
+Uses PostgreSQL in production (via DATABASE_URL) or SQLite locally.
 This reduces API calls and provides faster responses.
 """
 
 import sqlite3
 import json
 import logging
+import os
 from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Any
@@ -14,15 +15,75 @@ from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
-# Database file path
+# Check if we're using PostgreSQL (production) or SQLite (local)
+DATABASE_URL = os.environ.get("DATABASE_URL")
+USE_POSTGRES = DATABASE_URL is not None and DATABASE_URL.startswith("postgres")
+
+if USE_POSTGRES:
+    try:
+        import psycopg2
+        import psycopg2.extras
+        logger.info("Using PostgreSQL database")
+    except ImportError:
+        logger.warning("psycopg2 not installed, falling back to SQLite")
+        USE_POSTGRES = False
+
+# SQLite database file path (for local development)
 DB_PATH = Path(__file__).parent / "football_data.db"
 
 
 def get_db_connection():
-    """Get database connection."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Get database connection (PostgreSQL or SQLite)."""
+    if USE_POSTGRES:
+        conn = psycopg2.connect(DATABASE_URL)
+        return conn
+    else:
+        conn = sqlite3.connect(str(DB_PATH))
+        conn.row_factory = sqlite3.Row
+        return conn
+
+
+def dict_row_factory(cursor):
+    """Convert PostgreSQL rows to dict-like objects."""
+    if USE_POSTGRES:
+        columns = [col.name for col in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    return cursor.fetchall()
+
+
+def get_placeholder():
+    """Get the correct SQL placeholder for the database type."""
+    return "%s" if USE_POSTGRES else "?"
+
+
+def adapt_query(query: str) -> str:
+    """Convert SQLite query to PostgreSQL if needed."""
+    if USE_POSTGRES:
+        # Replace ? with %s for PostgreSQL
+        return query.replace("?", "%s")
+    return query
+
+
+def fetch_one_dict(cursor) -> dict | None:
+    """Fetch one row as a dictionary."""
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    if USE_POSTGRES:
+        columns = [col.name for col in cursor.description]
+        return dict(zip(columns, row))
+    return dict(row)
+
+
+def fetch_all_dict(cursor) -> list[dict]:
+    """Fetch all rows as dictionaries."""
+    rows = cursor.fetchall()
+    if USE_POSTGRES:
+        if not rows:
+            return []
+        columns = [col.name for col in cursor.description]
+        return [dict(zip(columns, row)) for row in rows]
+    return [dict(row) for row in rows]
 
 
 @contextmanager
@@ -41,116 +102,218 @@ def db_session():
 
 
 def init_database():
-    """Initialize database schema."""
+    """Initialize database schema (PostgreSQL or SQLite)."""
     with db_session() as conn:
         cursor = conn.cursor()
 
-        # Matches table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS matches (
-                id INTEGER PRIMARY KEY,
-                external_id TEXT UNIQUE,
-                home_team_id INTEGER,
-                home_team_name TEXT,
-                home_team_short TEXT,
-                home_team_logo TEXT,
-                away_team_id INTEGER,
-                away_team_name TEXT,
-                away_team_short TEXT,
-                away_team_logo TEXT,
-                competition_code TEXT,
-                competition_name TEXT,
-                match_date TEXT,
-                status TEXT,
-                matchday INTEGER,
-                home_score INTEGER,
-                away_score INTEGER,
-                raw_data TEXT,
-                synced_at TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+        if USE_POSTGRES:
+            # PostgreSQL schema
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS matches (
+                    id INTEGER PRIMARY KEY,
+                    external_id TEXT UNIQUE,
+                    home_team_id INTEGER,
+                    home_team_name TEXT,
+                    home_team_short TEXT,
+                    home_team_logo TEXT,
+                    away_team_id INTEGER,
+                    away_team_name TEXT,
+                    away_team_short TEXT,
+                    away_team_logo TEXT,
+                    competition_code TEXT,
+                    competition_name TEXT,
+                    match_date TEXT,
+                    status TEXT,
+                    matchday INTEGER,
+                    home_score INTEGER,
+                    away_score INTEGER,
+                    raw_data TEXT,
+                    synced_at TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
 
-        # Standings table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS standings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                competition_code TEXT,
-                position INTEGER,
-                team_id INTEGER,
-                team_name TEXT,
-                team_logo TEXT,
-                played INTEGER,
-                won INTEGER,
-                drawn INTEGER,
-                lost INTEGER,
-                goals_for INTEGER,
-                goals_against INTEGER,
-                goal_difference INTEGER,
-                points INTEGER,
-                synced_at TEXT,
-                UNIQUE(competition_code, team_id)
-            )
-        """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS standings (
+                    id SERIAL PRIMARY KEY,
+                    competition_code TEXT,
+                    position INTEGER,
+                    team_id INTEGER,
+                    team_name TEXT,
+                    team_logo TEXT,
+                    played INTEGER,
+                    won INTEGER,
+                    drawn INTEGER,
+                    lost INTEGER,
+                    goals_for INTEGER,
+                    goals_against INTEGER,
+                    goal_difference INTEGER,
+                    points INTEGER,
+                    synced_at TEXT,
+                    UNIQUE(competition_code, team_id)
+                )
+            """)
 
-        # Sync log table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS sync_log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                sync_type TEXT,
-                status TEXT,
-                records_synced INTEGER,
-                started_at TEXT,
-                completed_at TEXT,
-                error_message TEXT
-            )
-        """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS sync_log (
+                    id SERIAL PRIMARY KEY,
+                    sync_type TEXT,
+                    status TEXT,
+                    records_synced INTEGER,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    error_message TEXT
+                )
+            """)
 
-        # Predictions table - stores generated predictions with tracking
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS predictions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                match_id INTEGER,
-                match_external_id TEXT,
-                home_team TEXT,
-                away_team TEXT,
-                competition_code TEXT,
-                match_date TEXT,
-                home_win_prob REAL,
-                draw_prob REAL,
-                away_win_prob REAL,
-                predicted_home_goals REAL,
-                predicted_away_goals REAL,
-                confidence REAL,
-                recommendation TEXT,
-                explanation TEXT,
-                model_version TEXT,
-                actual_home_score INTEGER,
-                actual_away_score INTEGER,
-                actual_result TEXT,
-                was_correct INTEGER,
-                verified_at TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(match_id)
-            )
-        """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS predictions (
+                    id SERIAL PRIMARY KEY,
+                    match_id INTEGER UNIQUE,
+                    match_external_id TEXT,
+                    home_team TEXT,
+                    away_team TEXT,
+                    competition_code TEXT,
+                    match_date TEXT,
+                    home_win_prob REAL,
+                    draw_prob REAL,
+                    away_win_prob REAL,
+                    predicted_home_goals REAL,
+                    predicted_away_goals REAL,
+                    confidence REAL,
+                    recommendation TEXT,
+                    explanation TEXT,
+                    model_version TEXT,
+                    actual_home_score INTEGER,
+                    actual_away_score INTEGER,
+                    actual_result TEXT,
+                    was_correct INTEGER,
+                    verified_at TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
 
-        # ML models table - stores trained model metadata and binary
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS ml_models (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                model_name TEXT UNIQUE,
-                model_type TEXT,
-                version TEXT,
-                accuracy REAL,
-                training_samples INTEGER,
-                feature_columns TEXT,
-                model_binary BLOB,
-                scaler_binary BLOB,
-                trained_at TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS ml_models (
+                    id SERIAL PRIMARY KEY,
+                    model_name TEXT UNIQUE,
+                    model_type TEXT,
+                    version TEXT,
+                    accuracy REAL,
+                    training_samples INTEGER,
+                    feature_columns TEXT,
+                    model_binary BYTEA,
+                    scaler_binary BYTEA,
+                    trained_at TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            logger.info("PostgreSQL database initialized")
+
+        else:
+            # SQLite schema
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS matches (
+                    id INTEGER PRIMARY KEY,
+                    external_id TEXT UNIQUE,
+                    home_team_id INTEGER,
+                    home_team_name TEXT,
+                    home_team_short TEXT,
+                    home_team_logo TEXT,
+                    away_team_id INTEGER,
+                    away_team_name TEXT,
+                    away_team_short TEXT,
+                    away_team_logo TEXT,
+                    competition_code TEXT,
+                    competition_name TEXT,
+                    match_date TEXT,
+                    status TEXT,
+                    matchday INTEGER,
+                    home_score INTEGER,
+                    away_score INTEGER,
+                    raw_data TEXT,
+                    synced_at TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS standings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    competition_code TEXT,
+                    position INTEGER,
+                    team_id INTEGER,
+                    team_name TEXT,
+                    team_logo TEXT,
+                    played INTEGER,
+                    won INTEGER,
+                    drawn INTEGER,
+                    lost INTEGER,
+                    goals_for INTEGER,
+                    goals_against INTEGER,
+                    goal_difference INTEGER,
+                    points INTEGER,
+                    synced_at TEXT,
+                    UNIQUE(competition_code, team_id)
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS sync_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sync_type TEXT,
+                    status TEXT,
+                    records_synced INTEGER,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    error_message TEXT
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS predictions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    match_id INTEGER,
+                    match_external_id TEXT,
+                    home_team TEXT,
+                    away_team TEXT,
+                    competition_code TEXT,
+                    match_date TEXT,
+                    home_win_prob REAL,
+                    draw_prob REAL,
+                    away_win_prob REAL,
+                    predicted_home_goals REAL,
+                    predicted_away_goals REAL,
+                    confidence REAL,
+                    recommendation TEXT,
+                    explanation TEXT,
+                    model_version TEXT,
+                    actual_home_score INTEGER,
+                    actual_away_score INTEGER,
+                    actual_result TEXT,
+                    was_correct INTEGER,
+                    verified_at TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(match_id)
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS ml_models (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    model_name TEXT UNIQUE,
+                    model_type TEXT,
+                    version TEXT,
+                    accuracy REAL,
+                    training_samples INTEGER,
+                    feature_columns TEXT,
+                    model_binary BLOB,
+                    scaler_binary BLOB,
+                    trained_at TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
 
         # Create indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(match_date)")
@@ -174,15 +337,7 @@ def save_match(match_data: dict) -> bool:
             score = match_data.get("score", {}) or {}
             full_time = score.get("fullTime", {}) or {}
 
-            cursor.execute("""
-                INSERT OR REPLACE INTO matches (
-                    id, external_id,
-                    home_team_id, home_team_name, home_team_short, home_team_logo,
-                    away_team_id, away_team_name, away_team_short, away_team_logo,
-                    competition_code, competition_name, match_date, status, matchday,
-                    home_score, away_score, raw_data, synced_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
+            values = (
                 match_data.get("id"),
                 f"{competition.get('code')}_{match_data.get('id')}",
                 home_team.get("id"),
@@ -202,7 +357,34 @@ def save_match(match_data: dict) -> bool:
                 full_time.get("away"),
                 json.dumps(match_data),
                 datetime.now().isoformat()
-            ))
+            )
+
+            if USE_POSTGRES:
+                cursor.execute("""
+                    INSERT INTO matches (
+                        id, external_id,
+                        home_team_id, home_team_name, home_team_short, home_team_logo,
+                        away_team_id, away_team_name, away_team_short, away_team_logo,
+                        competition_code, competition_name, match_date, status, matchday,
+                        home_score, away_score, raw_data, synced_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id) DO UPDATE SET
+                        status = EXCLUDED.status,
+                        home_score = EXCLUDED.home_score,
+                        away_score = EXCLUDED.away_score,
+                        raw_data = EXCLUDED.raw_data,
+                        synced_at = EXCLUDED.synced_at
+                """, values)
+            else:
+                cursor.execute("""
+                    INSERT OR REPLACE INTO matches (
+                        id, external_id,
+                        home_team_id, home_team_name, home_team_short, home_team_logo,
+                        away_team_id, away_team_name, away_team_short, away_team_logo,
+                        competition_code, competition_name, match_date, status, matchday,
+                        home_score, away_score, raw_data, synced_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, values)
 
             return True
     except Exception as e:
@@ -261,20 +443,23 @@ def save_standings(competition_code: str, standings: list[dict]) -> int:
             cursor = conn.cursor()
 
             # Delete old standings for this competition
-            cursor.execute("DELETE FROM standings WHERE competition_code = ?", (competition_code,))
+            del_query = adapt_query("DELETE FROM standings WHERE competition_code = ?")
+            cursor.execute(del_query, (competition_code,))
 
             synced_at = datetime.now().isoformat()
             saved = 0
 
+            insert_query = adapt_query("""
+                INSERT INTO standings (
+                    competition_code, position, team_id, team_name, team_logo,
+                    played, won, drawn, lost, goals_for, goals_against,
+                    goal_difference, points, synced_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """)
+
             for standing in standings:
                 team = standing.get("team", {})
-                cursor.execute("""
-                    INSERT INTO standings (
-                        competition_code, position, team_id, team_name, team_logo,
-                        played, won, drawn, lost, goals_for, goals_against,
-                        goal_difference, points, synced_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
+                cursor.execute(insert_query, (
                     competition_code,
                     standing.get("position"),
                     team.get("id"),
@@ -303,13 +488,14 @@ def get_standings_from_db(competition_code: str) -> list[dict]:
     """Get standings from database."""
     with db_session() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        query = adapt_query("""
             SELECT * FROM standings
             WHERE competition_code = ?
             ORDER BY position ASC
-        """, (competition_code,))
+        """)
+        cursor.execute(query, (competition_code,))
 
-        rows = cursor.fetchall()
+        rows = fetch_all_dict(cursor)
 
         return [{
             "position": row["position"],
@@ -333,10 +519,11 @@ def log_sync(sync_type: str, status: str, records: int, error: str | None = None
     """Log a sync operation."""
     with db_session() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        query = adapt_query("""
             INSERT INTO sync_log (sync_type, status, records_synced, started_at, completed_at, error_message)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (
+        """)
+        cursor.execute(query, (
             sync_type,
             status,
             records,
@@ -350,16 +537,14 @@ def get_last_sync(sync_type: str) -> dict | None:
     """Get last sync info for a sync type."""
     with db_session() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        query = adapt_query("""
             SELECT * FROM sync_log
             WHERE sync_type = ? AND status = 'success'
             ORDER BY completed_at DESC LIMIT 1
-        """, (sync_type,))
+        """)
+        cursor.execute(query, (sync_type,))
 
-        row = cursor.fetchone()
-        if row:
-            return dict(row)
-        return None
+        return fetch_one_dict(cursor)
 
 
 def get_db_stats() -> dict:
@@ -368,16 +553,20 @@ def get_db_stats() -> dict:
         cursor = conn.cursor()
 
         cursor.execute("SELECT COUNT(*) as count FROM matches")
-        match_count = cursor.fetchone()["count"]
+        row = fetch_one_dict(cursor)
+        match_count = row["count"] if row else 0
 
         cursor.execute("SELECT COUNT(DISTINCT competition_code) as count FROM standings")
-        standings_count = cursor.fetchone()["count"]
+        row = fetch_one_dict(cursor)
+        standings_count = row["count"] if row else 0
 
         cursor.execute("SELECT MAX(synced_at) as last_sync FROM matches")
-        last_match_sync = cursor.fetchone()["last_sync"]
+        row = fetch_one_dict(cursor)
+        last_match_sync = row["last_sync"] if row else None
 
         cursor.execute("SELECT MAX(synced_at) as last_sync FROM standings")
-        last_standings_sync = cursor.fetchone()["last_sync"]
+        row = fetch_one_dict(cursor)
+        last_standings_sync = row["last_sync"] if row else None
 
         return {
             "total_matches": match_count,
@@ -394,14 +583,8 @@ def save_prediction(prediction: dict) -> bool:
     try:
         with db_session() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                INSERT OR REPLACE INTO predictions (
-                    match_id, match_external_id, home_team, away_team,
-                    competition_code, match_date, home_win_prob, draw_prob,
-                    away_win_prob, predicted_home_goals, predicted_away_goals,
-                    confidence, recommendation, explanation, model_version, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
+
+            values = (
                 prediction.get("match_id"),
                 prediction.get("match_external_id"),
                 prediction.get("home_team"),
@@ -418,7 +601,34 @@ def save_prediction(prediction: dict) -> bool:
                 prediction.get("explanation"),
                 prediction.get("model_version", "v1"),
                 datetime.now().isoformat()
-            ))
+            )
+
+            if USE_POSTGRES:
+                cursor.execute("""
+                    INSERT INTO predictions (
+                        match_id, match_external_id, home_team, away_team,
+                        competition_code, match_date, home_win_prob, draw_prob,
+                        away_win_prob, predicted_home_goals, predicted_away_goals,
+                        confidence, recommendation, explanation, model_version, created_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (match_id) DO UPDATE SET
+                        home_win_prob = EXCLUDED.home_win_prob,
+                        draw_prob = EXCLUDED.draw_prob,
+                        away_win_prob = EXCLUDED.away_win_prob,
+                        confidence = EXCLUDED.confidence,
+                        recommendation = EXCLUDED.recommendation,
+                        explanation = EXCLUDED.explanation,
+                        created_at = EXCLUDED.created_at
+                """, values)
+            else:
+                cursor.execute("""
+                    INSERT OR REPLACE INTO predictions (
+                        match_id, match_external_id, home_team, away_team,
+                        competition_code, match_date, home_win_prob, draw_prob,
+                        away_win_prob, predicted_home_goals, predicted_away_goals,
+                        confidence, recommendation, explanation, model_version, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, values)
             return True
     except Exception as e:
         logger.error(f"Error saving prediction: {e}")
@@ -429,22 +639,21 @@ def get_prediction_from_db(match_id: int) -> dict | None:
     """Get a prediction by match ID."""
     with db_session() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM predictions WHERE match_id = ?", (match_id,))
-        row = cursor.fetchone()
-        if row:
-            return dict(row)
-        return None
+        query = adapt_query("SELECT * FROM predictions WHERE match_id = ?")
+        cursor.execute(query, (match_id,))
+        return fetch_one_dict(cursor)
 
 
 def get_predictions_by_date(target_date: date) -> list[dict]:
     """Get all predictions for a specific date."""
     with db_session() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        query = adapt_query("""
             SELECT * FROM predictions
             WHERE DATE(match_date) = ?
             ORDER BY confidence DESC
-        """, (target_date.isoformat(),))
+        """)
+        cursor.execute(query, (target_date.isoformat(),))
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
 
@@ -491,8 +700,9 @@ def verify_prediction(match_id: int, home_score: int, away_score: int) -> bool:
             cursor = conn.cursor()
 
             # Get the prediction
-            cursor.execute("SELECT * FROM predictions WHERE match_id = ?", (match_id,))
-            pred = cursor.fetchone()
+            query = adapt_query("SELECT * FROM predictions WHERE match_id = ?")
+            cursor.execute(query, (match_id,))
+            pred = fetch_one_dict(cursor)
 
             if not pred:
                 logger.warning(f"No prediction found for match {match_id}")
@@ -511,7 +721,7 @@ def verify_prediction(match_id: int, home_score: int, away_score: int) -> bool:
             was_correct = 1 if recommendation == actual_result else 0
 
             # Update the prediction
-            cursor.execute("""
+            update_query = adapt_query("""
                 UPDATE predictions SET
                     actual_home_score = ?,
                     actual_away_score = ?,
@@ -519,7 +729,8 @@ def verify_prediction(match_id: int, home_score: int, away_score: int) -> bool:
                     was_correct = ?,
                     verified_at = ?
                 WHERE match_id = ?
-            """, (
+            """)
+            cursor.execute(update_query, (
                 home_score,
                 away_score,
                 actual_result,
@@ -548,7 +759,7 @@ def get_prediction_statistics(days: int = 30) -> dict:
             # Get verified predictions from the last N days
             cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
 
-            cursor.execute("""
+            query = adapt_query("""
                 SELECT
                     competition_code,
                     recommendation,
@@ -560,9 +771,10 @@ def get_prediction_statistics(days: int = 30) -> dict:
                 FROM predictions
                 WHERE verified_at IS NOT NULL
                 AND verified_at >= ?
-            """, (cutoff_date,))
+            """)
+            cursor.execute(query, (cutoff_date,))
 
-            rows = cursor.fetchall()
+            rows = fetch_all_dict(cursor)
 
             if not rows:
                 return {
@@ -650,16 +862,17 @@ def get_all_predictions_stats(days: int = 30) -> dict:
 
             cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
 
-            cursor.execute("""
+            query = adapt_query("""
                 SELECT
                     competition_code,
                     recommendation,
                     confidence
                 FROM predictions
                 WHERE created_at >= ?
-            """, (cutoff_date,))
+            """)
+            cursor.execute(query, (cutoff_date,))
 
-            rows = cursor.fetchall()
+            rows = fetch_all_dict(cursor)
 
             if not rows:
                 return {
@@ -721,7 +934,7 @@ def verify_finished_matches() -> int:
                 AND m.away_score IS NOT NULL
             """)
 
-            rows = cursor.fetchall()
+            rows = fetch_all_dict(cursor)
             verified_count = 0
 
             for row in rows:

@@ -16,6 +16,7 @@ dependencies = [
     "asyncpg>=0.30.0",
     "alembic>=1.14.0",
     "redis>=5.2.0",
+    "psycopg2-binary>=2.9.0",  # PostgreSQL driver for sync operations
 
     # HTTP Client
     "httpx>=0.28.0",
