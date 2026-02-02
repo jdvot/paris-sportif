@@ -12,14 +12,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   // Memoized auth error handler
   const handleAuthError = useCallback((error: unknown) => {
-    if (error instanceof ApiError) {
-      if (error.status === 401) {
+    // Check for ApiError by instance or by property (for minified code compatibility)
+    const apiError = error as { status?: number; name?: string };
+    const isApiError = error instanceof ApiError ||
+      (apiError?.name === 'ApiError' && typeof apiError?.status === 'number');
+
+    if (isApiError && apiError.status) {
+      if (apiError.status === 401) {
         // Session expired - sign out and redirect to login
         const supabase = createClient();
         supabase.auth.signOut().then(() => {
           router.push("/auth/login");
         });
-      } else if (error.status === 403) {
+      } else if (apiError.status === 403) {
         // Premium access required - redirect to plans
         router.push("/plans");
       }
