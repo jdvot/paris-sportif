@@ -11,7 +11,6 @@ const PUBLIC_ROUTES = [
   "/",           // Home page - public pour démonstration
   "/matches",    // Liste des matchs - public
   "/standings",  // Classements - public
-  "/picks",      // Picks basiques - public (picks/all est premium)
   "/plans",      // Page des abonnements - public
 ];
 
