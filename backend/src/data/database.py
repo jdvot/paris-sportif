@@ -639,6 +639,68 @@ def get_prediction_statistics(days: int = 30) -> dict:
         }
 
 
+def get_all_predictions_stats(days: int = 30) -> dict:
+    """
+    Get statistics from all predictions (including unverified).
+    Used when no verified predictions exist yet to show distribution data.
+    """
+    try:
+        with db_session() as conn:
+            cursor = conn.cursor()
+
+            cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+
+            cursor.execute("""
+                SELECT
+                    competition_code,
+                    recommendation,
+                    confidence
+                FROM predictions
+                WHERE created_at >= ?
+            """, (cutoff_date,))
+
+            rows = cursor.fetchall()
+
+            if not rows:
+                return {
+                    "total_predictions": 0,
+                    "by_competition": {},
+                    "by_bet_type": {},
+                }
+
+            total = len(rows)
+
+            # Calculate by competition
+            by_competition = {}
+            for row in rows:
+                comp = row["competition_code"] or "Unknown"
+                if comp not in by_competition:
+                    by_competition[comp] = {"total": 0, "correct": 0, "accuracy": 0.0}
+                by_competition[comp]["total"] += 1
+
+            # Calculate by bet type
+            by_bet_type = {}
+            for row in rows:
+                bet = row["recommendation"] or "unknown"
+                if bet not in by_bet_type:
+                    by_bet_type[bet] = {"total": 0, "correct": 0, "accuracy": 0.0}
+                by_bet_type[bet]["total"] += 1
+
+            return {
+                "total_predictions": total,
+                "by_competition": by_competition,
+                "by_bet_type": by_bet_type,
+            }
+
+    except Exception as e:
+        logger.error(f"Error getting all predictions stats: {e}")
+        return {
+            "total_predictions": 0,
+            "by_competition": {},
+            "by_bet_type": {},
+        }
+
+
 def verify_finished_matches() -> int:
     """
     Verify all predictions for finished matches that haven't been verified yet.

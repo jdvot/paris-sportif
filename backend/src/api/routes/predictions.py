@@ -630,13 +630,27 @@ async def get_prediction_stats(
     days: int = Query(30, ge=7, le=365, description="Number of days to analyze"),
 ) -> PredictionStatsResponse:
     """Get historical prediction performance statistics."""
-    from src.data.database import get_prediction_statistics, verify_finished_matches
+    from src.data.database import get_prediction_statistics, verify_finished_matches, get_all_predictions_stats
 
     # First, verify any finished matches that haven't been verified
     verify_finished_matches()
 
     # Get the statistics
     stats = get_prediction_statistics(days)
+
+    # If no verified predictions, generate simulated stats from unverified predictions
+    if stats["total_predictions"] == 0:
+        simulated_stats = get_all_predictions_stats(days)
+        if simulated_stats["total_predictions"] > 0:
+            return PredictionStatsResponse(
+                total_predictions=simulated_stats["total_predictions"],
+                correct_predictions=0,  # Not yet verified
+                accuracy=0.0,  # Will be calculated after verification
+                roi_simulated=0.0,
+                by_competition=simulated_stats["by_competition"],
+                by_bet_type=simulated_stats["by_bet_type"],
+                last_updated=datetime.now(),
+            )
 
     return PredictionStatsResponse(
         total_predictions=stats["total_predictions"],

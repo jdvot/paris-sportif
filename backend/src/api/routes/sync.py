@@ -19,6 +19,7 @@ from src.data.database import (
     get_db_stats,
     get_matches_from_db,
     get_standings_from_db,
+    verify_finished_matches,
 )
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 
@@ -44,10 +45,12 @@ class DbStatsResponse(BaseModel):
     last_standings_sync: str | None
 
 
-async def _sync_matches_for_week(days: int = 7) -> tuple[int, list[str]]:
-    """Sync matches for the next N days."""
+async def _sync_matches_for_week(days: int = 7, include_past_days: int = 3) -> tuple[int, list[str]]:
+    """Sync matches for the next N days and past N days for score verification."""
     client = get_football_data_client()
     today = date.today()
+    # Include past days to get finished match scores
+    date_from = today - timedelta(days=include_past_days)
     date_to = today + timedelta(days=days)
 
     total_synced = 0
@@ -56,10 +59,10 @@ async def _sync_matches_for_week(days: int = 7) -> tuple[int, list[str]]:
     # Sync each competition separately to stay within rate limits
     for comp_code in COMPETITIONS.keys():
         try:
-            logger.info(f"Syncing matches for {comp_code}...")
+            logger.info(f"Syncing matches for {comp_code} ({date_from} to {date_to})...")
             matches = await client.get_matches(
                 competition=comp_code,
-                date_from=today,
+                date_from=date_from,
                 date_to=date_to,
             )
 
@@ -237,3 +240,72 @@ async def get_last_sync_info(
     if last:
         return dict(last)
     return {"message": f"No successful {sync_type} sync found"}
+
+
+@router.post("/verify-predictions", response_model=SyncResponse)
+async def sync_and_verify_predictions(
+    past_days: int = Query(7, ge=1, le=30, description="Days to look back for finished matches"),
+) -> SyncResponse:
+    """
+    Sync recent finished matches and verify predictions against actual results.
+
+    This endpoint:
+    1. Fetches matches from the past N days to get final scores
+    2. Updates local database with match results
+    3. Verifies predictions against actual outcomes
+    """
+    try:
+        client = get_football_data_client()
+        today = date.today()
+        date_from = today - timedelta(days=past_days)
+
+        total_synced = 0
+        verified_count = 0
+        errors = []
+
+        # Sync each competition
+        for comp_code in COMPETITIONS.keys():
+            try:
+                logger.info(f"Syncing finished matches for {comp_code}...")
+                matches = await client.get_matches(
+                    competition=comp_code,
+                    date_from=date_from,
+                    date_to=today,
+                    status="FINISHED",
+                )
+
+                # Save to database
+                matches_dict = [m.model_dump() for m in matches]
+                synced = save_matches(matches_dict)
+                total_synced += synced
+
+            except RateLimitError as e:
+                error_msg = f"Rate limit for {comp_code}: {e}"
+                logger.warning(error_msg)
+                errors.append(error_msg)
+                import asyncio
+                await asyncio.sleep(15)
+
+            except Exception as e:
+                error_msg = f"Error syncing {comp_code}: {e}"
+                logger.error(error_msg)
+                errors.append(error_msg)
+
+        # Now verify predictions
+        verified_count = verify_finished_matches()
+
+        status = "success" if not errors else "partial"
+        log_sync("verify", status, verified_count)
+
+        return SyncResponse(
+            status=status,
+            message=f"Synced {total_synced} finished matches, verified {verified_count} predictions",
+            matches_synced=total_synced,
+            standings_synced=verified_count,  # Reusing field for verified count
+            errors=errors,
+        )
+
+    except Exception as e:
+        error_msg = str(e)
+        log_sync("verify", "error", 0, error_msg)
+        raise HTTPException(status_code=500, detail=f"Verification failed: {error_msg}")
