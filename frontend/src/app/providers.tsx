@@ -31,11 +31,9 @@ function handleAuthError(status: number) {
     const supabase = createClient();
     supabase.auth.signOut().catch(() => {});
     window.location.replace(loginUrl);
-  } else if (status === 403) {
-    console.log('[Auth] 403 detected, redirecting to plans...');
-    isRedirecting = true;
-    window.location.replace("/plans");
   }
+  // 403 errors are handled locally by components (e.g., showing upgrade prompts)
+  // No global redirect for 403
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {

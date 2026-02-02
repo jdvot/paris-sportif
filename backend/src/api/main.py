@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.api.routes import matches, predictions, health, debug, ml, sync, rag, enrichment
+from src.api.routes import matches, predictions, health, debug, ml, sync, rag, enrichment, users, admin
 from src.core.config import settings
 from src.core.exceptions import ParisportifError
 
@@ -114,6 +114,16 @@ app.include_router(
     enrichment.router,
     prefix=f"{settings.api_v1_prefix}/enrichment",
     tags=["Data Enrichment"],
+)
+app.include_router(
+    users.router,
+    prefix=f"{settings.api_v1_prefix}/users",
+    tags=["Users"],
+)
+app.include_router(
+    admin.router,
+    prefix=f"{settings.api_v1_prefix}/admin",
+    tags=["Admin"],
 )
 
 
