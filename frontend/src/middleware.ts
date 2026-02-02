@@ -31,22 +31,11 @@ export async function middleware(request: NextRequest) {
 
   if (isPublicRoute) {
     // Redirect authenticated users away from auth pages to their intended destination
-    // But avoid redirect loops by checking if user just came from protected route
     if (user && isAuthRoute && !pathname.includes("/callback") && !pathname.includes("/confirm") && !pathname.includes("/error") && !pathname.includes("/reset-password")) {
       // Check if there's a 'next' parameter to redirect to
       const nextUrl = request.nextUrl.searchParams.get("next") || "/picks";
 
-      // Prevent redirect loop: don't redirect if referer suggests a loop
-      const referer = request.headers.get("referer");
-      if (referer) {
-        const refererUrl = new URL(referer);
-        // If coming from the same next URL, don't redirect (loop detected)
-        if (refererUrl.pathname === nextUrl) {
-          console.log("[Middleware] Loop detected, staying on login page");
-          return supabaseResponse;
-        }
-      }
-
+      console.log("[Middleware] User authenticated on auth page, redirecting to:", nextUrl);
       return NextResponse.redirect(new URL(nextUrl, request.url));
     }
     return supabaseResponse;
