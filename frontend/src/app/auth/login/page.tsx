@@ -255,7 +255,7 @@ function LoginForm() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isSubmitting || loading}
+              disabled={isSubmitting}
               className="w-full py-3.5 px-4 bg-gradient-to-r from-primary-500 to-emerald-500 hover:from-primary-600 hover:to-emerald-600 text-white font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-primary-500/25 hover:shadow-xl hover:shadow-primary-500/30 hover:-translate-y-0.5"
             >
               {isSubmitting ? (
