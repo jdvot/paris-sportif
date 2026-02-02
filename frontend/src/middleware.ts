@@ -1,8 +1,8 @@
 import { updateSession } from "@/lib/supabase/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Routes that require authentication
-const PROTECTED_ROUTES = ["/profile", "/history", "/alerts"];
+// Routes that DON'T require authentication (public)
+const PUBLIC_ROUTES = ["/auth/login", "/auth/signup", "/auth/forgot-password", "/auth/callback", "/auth/confirm"];
 
 // Routes that require premium role
 const PREMIUM_ROUTES = ["/analysis", "/picks/all"];
@@ -10,64 +10,54 @@ const PREMIUM_ROUTES = ["/analysis", "/picks/all"];
 // Routes that require admin role
 const ADMIN_ROUTES = ["/admin", "/sync"];
 
-// Routes that should redirect to home if authenticated
-const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
-
-// Public routes that don't need any checks
-const PUBLIC_ROUTES = ["/", "/matches", "/standings", "/picks", "/auth"];
-
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, user, supabase } = await updateSession(request);
   const pathname = request.nextUrl.pathname;
 
-  // Allow public routes
-  if (PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
-    // But redirect authenticated users away from auth pages
-    if (user && AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
+  // Allow public routes (auth pages only)
+  const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
+
+  if (isPublicRoute) {
+    // Redirect authenticated users away from auth pages to home
+    if (user) {
       return NextResponse.redirect(new URL("/", request.url));
     }
     return supabaseResponse;
   }
 
-  // Check authentication for protected routes
+  // ALL other routes require authentication
+  if (!user) {
+    // Redirect to login with return URL
+    const loginUrl = new URL("/auth/login", request.url);
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Check role-based access for premium and admin routes
   if (
-    PROTECTED_ROUTES.some((route) => pathname.startsWith(route)) ||
     PREMIUM_ROUTES.some((route) => pathname.startsWith(route)) ||
     ADMIN_ROUTES.some((route) => pathname.startsWith(route))
   ) {
-    if (!user) {
-      // Redirect to login with return URL
-      const loginUrl = new URL("/auth/login", request.url);
-      loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
+    // Fetch user profile to get role
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    const role = profile?.role || "free";
+
+    // Check premium routes
+    if (PREMIUM_ROUTES.some((route) => pathname.startsWith(route))) {
+      if (role === "free") {
+        return NextResponse.redirect(new URL("/upgrade", request.url));
+      }
     }
 
-    // Check role-based access for premium and admin routes
-    if (
-      PREMIUM_ROUTES.some((route) => pathname.startsWith(route)) ||
-      ADMIN_ROUTES.some((route) => pathname.startsWith(route))
-    ) {
-      // Fetch user profile to get role
-      const { data: profile } = await supabase
-        .from("user_profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      const role = profile?.role || "free";
-
-      // Check premium routes
-      if (PREMIUM_ROUTES.some((route) => pathname.startsWith(route))) {
-        if (role === "free") {
-          return NextResponse.redirect(new URL("/upgrade", request.url));
-        }
-      }
-
-      // Check admin routes
-      if (ADMIN_ROUTES.some((route) => pathname.startsWith(route))) {
-        if (role !== "admin") {
-          return NextResponse.redirect(new URL("/", request.url));
-        }
+    // Check admin routes
+    if (ADMIN_ROUTES.some((route) => pathname.startsWith(route))) {
+      if (role !== "admin") {
+        return NextResponse.redirect(new URL("/", request.url));
       }
     }
   }

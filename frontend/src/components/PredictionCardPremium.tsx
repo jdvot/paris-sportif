@@ -71,10 +71,10 @@ export function PredictionCardPremium({
     <div
       className={cn(
         "group relative overflow-hidden rounded-xl border transition-smooth",
-        "bg-gradient-to-br from-dark-800/80 to-dark-900/60",
-        "border-dark-700 hover:border-primary-500/50",
+        "bg-white dark:bg-gradient-to-br dark:from-slate-800/80 dark:to-slate-900/60",
+        "border-gray-200 dark:border-slate-700 hover:border-primary-400 dark:hover:border-primary-500/50",
         "animate-stagger-in",
-        isTopPick && "border-primary-500/50 bg-gradient-to-br from-primary-950/40 to-dark-900/60"
+        isTopPick && "border-primary-400 dark:border-primary-500/50 bg-gradient-to-br from-primary-50 dark:from-primary-950/40 to-white dark:to-slate-900/60"
       )}
       style={{ animationDelay: `${index * 50}ms` } as React.CSSProperties}
     >
@@ -84,7 +84,7 @@ export function PredictionCardPremium({
       {/* Main Content */}
       <div className="relative z-10">
         {/* Header with rank and match info */}
-        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-dark-700/50">
+        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-slate-700/50">
           <div className="flex items-start justify-between gap-3">
             {/* Left: Rank and Match Info */}
             <div className="flex items-start gap-2 sm:gap-4 flex-1 min-w-0">
@@ -96,7 +96,7 @@ export function PredictionCardPremium({
               {/* Match Details */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-bold text-white leading-tight text-sm sm:text-base">
+                  <h3 className="font-bold text-gray-900 dark:text-white leading-tight text-sm sm:text-base">
                     <span className="hidden sm:inline">{prediction.home_team} vs {prediction.away_team}</span>
                     <span className="sm:hidden">
                       {prediction.home_team.split(" ")[0]} vs {prediction.away_team.split(" ")[0]}
@@ -109,7 +109,7 @@ export function PredictionCardPremium({
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 mt-1 text-[10px] sm:text-xs text-dark-400 flex-wrap">
+                <div className="flex items-center gap-1.5 mt-1 text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 flex-wrap">
                   <span>•</span>
                   <span>{format(matchDate, "d MMM, HH:mm", { locale: fr })}</span>
                 </div>
@@ -121,14 +121,14 @@ export function PredictionCardPremium({
               <div className={cn(
                 "inline-flex flex-col items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg",
                 "bg-gradient-to-br",
-                confidence >= 0.7 ? "from-primary-500/20 to-primary-600/10" :
-                confidence >= 0.6 ? "from-yellow-500/20 to-yellow-600/10" :
-                "from-orange-500/20 to-orange-600/10"
+                confidence >= 0.7 ? "from-primary-100 dark:from-primary-500/20 to-primary-200 dark:to-primary-600/10" :
+                confidence >= 0.6 ? "from-yellow-100 dark:from-yellow-500/20 to-yellow-200 dark:to-yellow-600/10" :
+                "from-orange-100 dark:from-orange-500/20 to-orange-200 dark:to-orange-600/10"
               )}>
-                <span className="text-xs sm:text-xs font-bold text-primary-300">
+                <span className="text-xs sm:text-xs font-bold text-primary-700 dark:text-primary-300">
                   {Math.round(confidence * 100)}%
                 </span>
-                <span className="text-[10px] text-dark-400">confiance</span>
+                <span className="text-[10px] text-gray-500 dark:text-slate-400">confiance</span>
               </div>
             </div>
           </div>
@@ -161,29 +161,29 @@ export function PredictionCardPremium({
           <div className={cn(
             "flex items-center gap-2 p-2 sm:p-3 rounded-lg border-2 transition-smooth",
             "bg-gradient-to-r",
-            confidence >= 0.7 ? "from-primary-500/15 to-emerald-500/10 border-primary-500/50" :
-            confidence >= 0.6 ? "from-yellow-500/15 to-orange-500/10 border-yellow-500/50" :
-            "from-orange-500/15 to-red-500/10 border-orange-500/50"
+            confidence >= 0.7 ? "from-primary-100 dark:from-primary-500/15 to-emerald-100 dark:to-emerald-500/10 border-primary-400 dark:border-primary-500/50" :
+            confidence >= 0.6 ? "from-yellow-100 dark:from-yellow-500/15 to-orange-100 dark:to-orange-500/10 border-yellow-400 dark:border-yellow-500/50" :
+            "from-orange-100 dark:from-orange-500/15 to-red-100 dark:to-red-500/10 border-orange-400 dark:border-orange-500/50"
           )}>
             <CheckCircle className={cn(
               "w-4 sm:w-5 h-4 sm:h-5 flex-shrink-0",
-              confidence >= 0.7 ? "text-primary-400" :
-              confidence >= 0.6 ? "text-yellow-400" :
-              "text-orange-400"
+              confidence >= 0.7 ? "text-primary-600 dark:text-primary-400" :
+              confidence >= 0.6 ? "text-yellow-600 dark:text-yellow-400" :
+              "text-orange-600 dark:text-orange-400"
             )} />
             <div className="flex-1 min-w-0">
               <span className={cn(
                 "font-semibold text-xs sm:text-sm block",
-                confidence >= 0.7 ? "text-primary-300" :
-                confidence >= 0.6 ? "text-yellow-300" :
-                "text-orange-300"
+                confidence >= 0.7 ? "text-primary-700 dark:text-primary-300" :
+                confidence >= 0.6 ? "text-yellow-700 dark:text-yellow-300" :
+                "text-orange-700 dark:text-orange-300"
               )}>
                 <span className="hidden sm:inline">{betLabel}</span>
                 <span className="sm:hidden">{shortBetLabel}</span>
               </span>
             </div>
             <div className="flex-shrink-0 text-right">
-              <span className="text-[10px] sm:text-xs font-bold text-primary-400">
+              <span className="text-[10px] sm:text-xs font-bold text-primary-600 dark:text-primary-400">
                 {confidence >= 0.75 && "🔥"}
                 {confidence >= 0.65 && confidence < 0.75 && "⚡"}
                 {confidence < 0.65 && "📊"}
@@ -193,26 +193,26 @@ export function PredictionCardPremium({
 
           {/* Explanation */}
           {prediction.explanation && (
-            <p className="text-dark-300 text-[11px] sm:text-sm leading-relaxed line-clamp-2 sm:line-clamp-none">
+            <p className="text-gray-600 dark:text-slate-300 text-[11px] sm:text-sm leading-relaxed line-clamp-2 sm:line-clamp-none">
               {prediction.explanation}
             </p>
           )}
 
           {/* Value Score Indicator */}
-          <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-dark-700/40 border border-dark-600/50">
+          <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-slate-700/40 border border-gray-200 dark:border-slate-600/50">
             <div className="flex items-center gap-1.5">
-              <TrendingUp className="w-4 h-4 text-accent-400 flex-shrink-0" />
-              <span className="text-xs sm:text-sm text-dark-300">Value</span>
+              <TrendingUp className="w-4 h-4 text-cyan-600 dark:text-accent-400 flex-shrink-0" />
+              <span className="text-xs sm:text-sm text-gray-600 dark:text-slate-300">Value</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-xs sm:text-sm font-bold text-accent-400">
+              <span className="text-xs sm:text-sm font-bold text-cyan-600 dark:text-accent-400">
                 +{Math.round(valueScore * 100)}%
               </span>
               <span className={cn(
                 "text-xs font-medium px-1.5 py-0.5 rounded-full",
-                valueScore >= 0.15 ? "bg-primary-500/30 text-primary-300" :
-                valueScore >= 0.08 ? "bg-green-500/30 text-green-300" :
-                "bg-yellow-500/30 text-yellow-300"
+                valueScore >= 0.15 ? "bg-primary-200 dark:bg-primary-500/30 text-primary-700 dark:text-primary-300" :
+                valueScore >= 0.08 ? "bg-green-200 dark:bg-green-500/30 text-green-700 dark:text-green-300" :
+                "bg-yellow-200 dark:bg-yellow-500/30 text-yellow-700 dark:text-yellow-300"
               )}>
                 {valueTier}
               </span>
@@ -222,14 +222,14 @@ export function PredictionCardPremium({
           {/* Key Factors */}
           {prediction.key_factors && prediction.key_factors.length > 0 && (
             <div>
-              <p className="text-[10px] sm:text-xs font-semibold text-dark-300 mb-1.5 sm:mb-2 flex items-center gap-1">
+              <p className="text-[10px] sm:text-xs font-semibold text-gray-600 dark:text-slate-300 mb-1.5 sm:mb-2 flex items-center gap-1">
                 <span>✓ Points positifs</span>
               </p>
               <div className="flex flex-wrap gap-1 sm:gap-2">
                 {prediction.key_factors.slice(0, 4).map((factor, i) => (
                   <span
                     key={i}
-                    className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-primary-500/20 border border-primary-500/40 rounded text-[10px] sm:text-xs text-primary-300 hover:bg-primary-500/30 transition-smooth"
+                    className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-primary-100 dark:bg-primary-500/20 border border-primary-300 dark:border-primary-500/40 rounded text-[10px] sm:text-xs text-primary-700 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-500/30 transition-smooth"
                   >
                     +{factor}
                   </span>
@@ -241,7 +241,7 @@ export function PredictionCardPremium({
           {/* Risk Factors */}
           {prediction.risk_factors && prediction.risk_factors.length > 0 && (
             <div>
-              <p className="text-[10px] sm:text-xs font-semibold text-dark-300 mb-1.5 sm:mb-2 flex items-center gap-1">
+              <p className="text-[10px] sm:text-xs font-semibold text-gray-600 dark:text-slate-300 mb-1.5 sm:mb-2 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
                 <span>Risques à surveiller</span>
               </p>
@@ -249,7 +249,7 @@ export function PredictionCardPremium({
                 {prediction.risk_factors.slice(0, 3).map((factor, i) => (
                   <span
                     key={i}
-                    className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-orange-500/20 border border-orange-500/40 rounded text-[10px] sm:text-xs text-orange-300 hover:bg-orange-500/30 transition-smooth"
+                    className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-orange-100 dark:bg-orange-500/20 border border-orange-300 dark:border-orange-500/40 rounded text-[10px] sm:text-xs text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-500/30 transition-smooth"
                   >
                     ⚠ {factor}
                   </span>
@@ -261,22 +261,22 @@ export function PredictionCardPremium({
 
         {/* Footer with confidence tier info */}
         <div className={cn(
-          "px-3 sm:px-6 py-2 sm:py-3 border-t border-dark-700/50 bg-dark-900/50 text-[10px] sm:text-xs",
+          "px-3 sm:px-6 py-2 sm:py-3 border-t border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-900/50 text-[10px] sm:text-xs",
           "flex items-center justify-between"
         )}>
           <div className="flex items-center gap-1.5">
-            <span className="text-dark-400">Confiance:</span>
+            <span className="text-gray-500 dark:text-slate-400">Confiance:</span>
             <span className={cn(
               "font-bold px-1.5 py-0.5 rounded-full",
-              confidence >= 0.75 ? "bg-primary-500/30 text-primary-300" :
-              confidence >= 0.65 ? "bg-blue-500/30 text-blue-300" :
-              confidence >= 0.55 ? "bg-yellow-500/30 text-yellow-300" :
-              "bg-orange-500/30 text-orange-300"
+              confidence >= 0.75 ? "bg-primary-200 dark:bg-primary-500/30 text-primary-700 dark:text-primary-300" :
+              confidence >= 0.65 ? "bg-blue-200 dark:bg-blue-500/30 text-blue-700 dark:text-blue-300" :
+              confidence >= 0.55 ? "bg-yellow-200 dark:bg-yellow-500/30 text-yellow-700 dark:text-yellow-300" :
+              "bg-orange-200 dark:bg-orange-500/30 text-orange-700 dark:text-orange-300"
             )}>
               {confidenceTier.level}
             </span>
           </div>
-          <div className="text-dark-500">
+          <div className="text-gray-500 dark:text-slate-500">
             Pick #{pick.rank}
           </div>
         </div>
@@ -307,23 +307,23 @@ function ProbBarEnhanced({
       <div className="flex justify-between text-[10px] sm:text-xs mb-1 gap-1">
         <span className={cn(
           "truncate font-medium",
-          isRecommended ? "text-primary-400" : "text-dark-400"
+          isRecommended ? "text-primary-600 dark:text-primary-400" : "text-gray-500 dark:text-slate-400"
         )}>
           <span className="hidden sm:inline">{label.length > 12 ? label.slice(0, 12) + "…" : label}</span>
           <span className="sm:hidden">{getShortLabel(label)}</span>
         </span>
         <span className={cn(
           "flex-shrink-0 font-bold",
-          isRecommended ? "text-primary-400" : "text-dark-400"
+          isRecommended ? "text-primary-600 dark:text-primary-400" : "text-gray-500 dark:text-slate-400"
         )}>
           {Math.round(prob * 100)}%
         </span>
       </div>
-      <div className="h-1.5 sm:h-2 bg-dark-700 rounded-full overflow-hidden">
+      <div className="h-1.5 sm:h-2 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
         <div
           className={cn(
             "h-full rounded-full transition-all duration-500",
-            isRecommended ? "bg-gradient-to-r from-primary-500 to-emerald-500" : "bg-dark-600"
+            isRecommended ? "bg-gradient-to-r from-primary-500 to-emerald-500" : "bg-gray-300 dark:bg-slate-600"
           )}
           style={{ width: `${prob * 100}%` }}
         />

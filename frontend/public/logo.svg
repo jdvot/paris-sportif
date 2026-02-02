@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <!-- Background circle with gradient -->
+  <circle cx="24" cy="24" r="23" fill="url(#bg-gradient)" />
+  <circle cx="24" cy="24" r="21" fill="url(#inner-gradient)" />
+
+  <!-- Football hexagon pattern (subtle) -->
+  <g opacity="0.12" fill="white">
+    <polygon points="24,6 30,10 30,18 24,22 18,18 18,10" />
+    <polygon points="36,14 42,18 42,26 36,30 30,26 30,18" />
+    <polygon points="36,30 42,34 42,42 36,46 30,42 30,34" />
+    <polygon points="12,14 18,18 18,26 12,30 6,26 6,18" />
+  </g>
+
+  <!-- AI Brain/Analysis icon combined with football -->
+  <g transform="translate(12, 12)">
+    <!-- Football stylized -->
+    <circle cx="12" cy="12" r="10" stroke="white" stroke-width="1.5" fill="none" opacity="0.9"/>
+
+    <!-- Analysis chart bars -->
+    <rect x="6" y="14" width="3" height="6" rx="1" fill="white" opacity="0.95"/>
+    <rect x="10.5" y="10" width="3" height="10" rx="1" fill="white"/>
+    <rect x="15" y="6" width="3" height="14" rx="1" fill="url(#bar-gradient)"/>
+
+    <!-- Upward trend arrow -->
+    <path d="M5 8 L12 5 L19 2" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M16 2 L19 2 L19 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+
+  <!-- Outer ring accent -->
+  <circle cx="24" cy="24" r="22" stroke="url(#ring-gradient)" stroke-width="1" fill="none" opacity="0.5"/>
+
+  <!-- Gradients -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="50%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+    <linearGradient id="inner-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <linearGradient id="bar-gradient" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#bbf7d0"/>
+    </linearGradient>
+    <linearGradient id="ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#6ee7b7"/>
+    </linearGradient>
+  </defs>
+</svg>

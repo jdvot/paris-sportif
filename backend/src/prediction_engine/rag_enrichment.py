@@ -65,15 +65,17 @@ class RAGEnrichment:
             "form_notes": "",
             "sentiment": "neutral",
             "key_info": [],
+            "recent_form": [],
         }
 
         try:
             # Run multiple fetches in parallel
             news_task = self._fetch_team_news(team_name)
             injuries_task = self._fetch_team_injuries(team_name)
+            form_task = self._fetch_team_form(team_name)
 
-            news, injuries = await asyncio.gather(
-                news_task, injuries_task,
+            news, injuries, form_data = await asyncio.gather(
+                news_task, injuries_task, form_task,
                 return_exceptions=True
             )
 
@@ -81,10 +83,17 @@ class RAGEnrichment:
                 context["news"] = news
             if not isinstance(injuries, Exception):
                 context["injuries"] = injuries
+            if not isinstance(form_data, Exception):
+                context["recent_form"] = form_data.get("results", [])
+                context["form_notes"] = form_data.get("summary", "")
 
             # Analyze sentiment if we have news
             if context["news"] and self.groq_client:
                 context["sentiment"] = await self._analyze_sentiment(team_name, context["news"])
+
+            # Generate key info from all sources
+            if self.groq_client and (context["news"] or context["injuries"] or context["recent_form"]):
+                context["key_info"] = await self._extract_key_info(team_name, context)
 
         except Exception as e:
             logger.error(f"Error getting team context for {team_name}: {e}")
@@ -92,18 +101,37 @@ class RAGEnrichment:
         return context
 
     async def _fetch_team_news(self, team_name: str, limit: int = 5) -> list[dict]:
-        """Fetch recent news about a team."""
+        """Fetch recent news about a team from Google News RSS."""
         news = []
 
         try:
-            # Use a simple approach - could be enhanced with actual news APIs
-            # For now, return placeholder indicating no external news API configured
-            logger.info(f"News fetch for {team_name} - external API not configured")
+            # Use Google News RSS (free, no API key required)
+            search_term = team_name.replace(" ", "+")
+            rss_url = f"https://news.google.com/rss/search?q={search_term}+football&hl=fr&gl=FR&ceid=FR:fr"
 
-            # Could integrate with:
-            # - NewsAPI (free tier: 100 req/day)
-            # - Google News RSS
-            # - Team official Twitter/X feeds
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(rss_url)
+
+                if response.status_code == 200:
+                    # Parse RSS XML
+                    import xml.etree.ElementTree as ET
+                    root = ET.fromstring(response.text)
+
+                    items = root.findall(".//item")[:limit]
+                    for item in items:
+                        title_elem = item.find("title")
+                        pub_date_elem = item.find("pubDate")
+                        link_elem = item.find("link")
+
+                        if title_elem is not None:
+                            news.append({
+                                "title": title_elem.text,
+                                "date": pub_date_elem.text if pub_date_elem is not None else None,
+                                "url": link_elem.text if link_elem is not None else None,
+                                "source": "Google News"
+                            })
+
+                    logger.info(f"Fetched {len(news)} news items for {team_name}")
 
         except Exception as e:
             logger.error(f"Error fetching news for {team_name}: {e}")
@@ -111,21 +139,119 @@ class RAGEnrichment:
         return news
 
     async def _fetch_team_injuries(self, team_name: str) -> list[dict]:
-        """Fetch injury/suspension information for a team."""
+        """Fetch injury/suspension information for a team from football-data.org."""
         injuries = []
 
         try:
-            # Could integrate with:
-            # - Transfermarkt (unofficial scraping)
-            # - FotMob API
-            # - Team official announcements
+            # Use football-data.org API if available (includes squad info)
+            # Or fallback to searching Google News for injury news
+            search_term = f"{team_name.replace(' ', '+')}+blessure+injury"
+            rss_url = f"https://news.google.com/rss/search?q={search_term}&hl=fr&gl=FR&ceid=FR:fr"
 
-            logger.info(f"Injuries fetch for {team_name} - external API not configured")
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(rss_url)
+
+                if response.status_code == 200:
+                    import xml.etree.ElementTree as ET
+                    root = ET.fromstring(response.text)
+
+                    items = root.findall(".//item")[:3]  # Limited to recent injury news
+                    for item in items:
+                        title_elem = item.find("title")
+                        if title_elem is not None and any(kw in title_elem.text.lower() for kw in ["bless", "injur", "absent", "forfait", "out"]):
+                            injuries.append({
+                                "player": "Info from news",
+                                "type": title_elem.text[:100],
+                                "source": "Google News",
+                                "status": "uncertain"
+                            })
+
+                    logger.info(f"Fetched {len(injuries)} injury items for {team_name}")
 
         except Exception as e:
             logger.error(f"Error fetching injuries for {team_name}: {e}")
 
         return injuries
+
+    async def _fetch_team_form(self, team_name: str) -> dict[str, Any]:
+        """Fetch recent form/results for a team."""
+        form_data = {"results": [], "summary": ""}
+
+        try:
+            # Search for recent match results via Google News
+            search_term = f"{team_name.replace(' ', '+')}+résultat+score+match"
+            rss_url = f"https://news.google.com/rss/search?q={search_term}&hl=fr&gl=FR&ceid=FR:fr"
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(rss_url)
+
+                if response.status_code == 200:
+                    import xml.etree.ElementTree as ET
+                    root = ET.fromstring(response.text)
+
+                    items = root.findall(".//item")[:5]
+                    for item in items:
+                        title_elem = item.find("title")
+                        if title_elem is not None:
+                            title = title_elem.text
+                            # Look for score patterns (e.g., "2-1", "0-0")
+                            import re
+                            score_match = re.search(r'\b(\d+)\s*[-:]\s*(\d+)\b', title)
+                            if score_match:
+                                form_data["results"].append({
+                                    "headline": title[:100],
+                                    "score": f"{score_match.group(1)}-{score_match.group(2)}"
+                                })
+
+                    # Generate summary
+                    if form_data["results"]:
+                        wins = sum(1 for r in form_data["results"] if "-" in r.get("headline", "").lower() and team_name.lower() in r.get("headline", "").lower())
+                        form_data["summary"] = f"{len(form_data['results'])} recent results found"
+
+                    logger.info(f"Fetched form data for {team_name}: {len(form_data['results'])} results")
+
+        except Exception as e:
+            logger.error(f"Error fetching form for {team_name}: {e}")
+
+        return form_data
+
+    async def _extract_key_info(self, team_name: str, context: dict) -> list[str]:
+        """Extract key insights from all context data using LLM."""
+        if not self.groq_client:
+            return []
+
+        try:
+            # Build context summary
+            news_titles = [n.get("title", "")[:80] for n in context.get("news", [])[:3]]
+            injuries = [i.get("type", "")[:60] for i in context.get("injuries", [])[:2]]
+            form = context.get("form_notes", "")
+
+            if not news_titles and not injuries:
+                return []
+
+            prompt = f"""Extract 2-3 key facts about {team_name} football team from this information.
+Be concise (max 15 words per fact). Focus on: injuries, transfers, form, morale.
+
+Recent news: {news_titles}
+Injury reports: {injuries}
+Form: {form}
+
+Reply with bullet points only, in French:"""
+
+            response = self.groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                max_tokens=150,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            result = response.choices[0].message.content.strip()
+            # Parse bullet points
+            key_info = [line.strip().lstrip("•-").strip() for line in result.split("\n") if line.strip()]
+            return key_info[:3]
+
+        except Exception as e:
+            logger.error(f"Error extracting key info: {e}")
+            return []
 
     async def _analyze_sentiment(self, team_name: str, news: list[dict]) -> str:
         """Analyze sentiment from news articles using Groq."""
@@ -274,11 +400,30 @@ Reply with exactly one word: positive, negative, or neutral"""
             away_ctx = enrichment.get("away_context", {})
             match_ctx = enrichment.get("match_context", {})
 
+            # Add key info from both teams
+            if home_ctx.get("key_info"):
+                context_parts.append(f"Infos clés {home_team}: {'; '.join(home_ctx['key_info'])}")
+
+            if away_ctx.get("key_info"):
+                context_parts.append(f"Infos clés {away_team}: {'; '.join(away_ctx['key_info'])}")
+
+            # Add sentiment analysis
+            home_sentiment = home_ctx.get("sentiment", "neutral")
+            away_sentiment = away_ctx.get("sentiment", "neutral")
+            if home_sentiment != "neutral" or away_sentiment != "neutral":
+                context_parts.append(f"Sentiment presse: {home_team}={home_sentiment}, {away_team}={away_sentiment}")
+
+            # Add recent form notes
+            if home_ctx.get("form_notes"):
+                context_parts.append(f"Forme {home_team}: {home_ctx['form_notes']}")
+            if away_ctx.get("form_notes"):
+                context_parts.append(f"Forme {away_team}: {away_ctx['form_notes']}")
+
             if home_ctx.get("injuries"):
-                context_parts.append(f"Blessures {home_team}: {', '.join([i.get('player', '') for i in home_ctx['injuries']])}")
+                context_parts.append(f"Blessures {home_team}: {', '.join([i.get('type', '')[:50] for i in home_ctx['injuries'][:2]])}")
 
             if away_ctx.get("injuries"):
-                context_parts.append(f"Blessures {away_team}: {', '.join([i.get('player', '') for i in away_ctx['injuries']])}")
+                context_parts.append(f"Blessures {away_team}: {', '.join([i.get('type', '')[:50] for i in away_ctx['injuries'][:2]])}")
 
             if match_ctx.get("is_derby"):
                 context_parts.append("Match: Derby local (rivalité historique)")

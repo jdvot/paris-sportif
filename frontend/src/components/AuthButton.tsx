@@ -42,7 +42,7 @@ export function AuthButton() {
   // Loading state
   if (loading) {
     return (
-      <div className="w-8 h-8 rounded-full bg-dark-700 animate-pulse" />
+      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-slate-700 animate-pulse" />
     );
   }
 
@@ -51,7 +51,7 @@ export function AuthButton() {
     return (
       <Link
         href="/auth/login"
-        className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-primary-500 to-emerald-500 hover:from-primary-600 hover:to-emerald-600 text-white text-sm font-medium rounded-lg transition-all"
+        className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-primary-500 to-emerald-500 hover:from-primary-600 hover:to-emerald-600 text-gray-900 dark:text-white text-sm font-medium rounded-lg transition-all"
       >
         <User className="w-4 h-4" />
         <span className="hidden sm:inline">Connexion</span>
@@ -64,14 +64,25 @@ export function AuthButton() {
   const avatarUrl = profile?.avatar_url;
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="flex items-center gap-2">
+      {/* Logout Button - Always Visible */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg transition-colors",
-          "bg-dark-800 hover:bg-dark-700 border border-dark-600"
-        )}
+        onClick={handleSignOut}
+        className="p-2 rounded-lg text-gray-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+        title="Déconnexion"
       >
+        <LogOut className="w-5 h-5" />
+      </button>
+
+      {/* User Menu Dropdown */}
+      <div className="relative" ref={dropdownRef}>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={cn(
+            "flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg transition-colors",
+            "bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 border border-gray-300 dark:border-slate-600"
+          )}
+        >
         {/* Avatar */}
         <div className="relative">
           {avatarUrl ? (
@@ -82,14 +93,14 @@ export function AuthButton() {
             />
           ) : (
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary-500 to-emerald-500 flex items-center justify-center">
-              <span className="text-white text-sm font-medium">
+              <span className="text-gray-900 dark:text-white text-sm font-medium">
                 {displayName[0].toUpperCase()}
               </span>
             </div>
           )}
           {/* Role badge */}
           {isPremium && (
-            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-dark-800 flex items-center justify-center">
+            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center">
               {isAdmin ? (
                 <Shield className="w-2.5 h-2.5 text-red-400" />
               ) : (
@@ -100,25 +111,25 @@ export function AuthButton() {
         </div>
 
         {/* Name (desktop only) */}
-        <span className="hidden sm:block text-sm font-medium text-white max-w-[100px] truncate">
+        <span className="hidden sm:block text-sm font-medium text-gray-900 dark:text-white max-w-[100px] truncate">
           {displayName}
         </span>
 
         <ChevronDown
           className={cn(
-            "w-4 h-4 text-dark-400 transition-transform",
+            "w-4 h-4 text-gray-600 dark:text-slate-400 transition-transform",
             isOpen && "rotate-180"
           )}
         />
       </button>
 
-      {/* Dropdown Menu */}
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 bg-dark-800 border border-dark-600 rounded-xl shadow-xl overflow-hidden z-50">
+        {/* Dropdown Menu */}
+        {isOpen && (
+          <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl shadow-xl overflow-hidden z-50">
           {/* User Info */}
-          <div className="px-4 py-3 border-b border-dark-600">
-            <p className="text-sm font-medium text-white truncate">{displayName}</p>
-            <p className="text-xs text-dark-400 truncate">{user?.email}</p>
+          <div className="px-4 py-3 border-b border-gray-300 dark:border-slate-600">
+            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{displayName}</p>
+            <p className="text-xs text-gray-600 dark:text-slate-400 truncate">{user?.email}</p>
             <div className="mt-2 flex items-center gap-1.5">
               <span
                 className={cn(
@@ -127,7 +138,7 @@ export function AuthButton() {
                     ? "bg-red-500/20 text-red-400"
                     : role === "premium"
                     ? "bg-yellow-500/20 text-yellow-400"
-                    : "bg-dark-600 text-dark-300"
+                    : "bg-dark-600 text-gray-700 dark:text-slate-300"
                 )}
               >
                 {role === "admin" ? "Admin" : role === "premium" ? "Premium" : "Free"}
@@ -140,7 +151,7 @@ export function AuthButton() {
             <Link
               href="/profile"
               onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 text-sm text-dark-200 hover:bg-dark-700 transition-colors"
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:bg-slate-700 transition-colors"
             >
               <User className="w-4 h-4" />
               Mon profil
@@ -150,7 +161,7 @@ export function AuthButton() {
               <Link
                 href="/upgrade"
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-yellow-400 hover:bg-dark-700 transition-colors"
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-yellow-400 hover:bg-gray-200 dark:bg-slate-700 transition-colors"
               >
                 <Crown className="w-4 h-4" />
                 Passer Premium
@@ -161,7 +172,7 @@ export function AuthButton() {
               <Link
                 href="/admin"
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-dark-700 transition-colors"
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-gray-200 dark:bg-slate-700 transition-colors"
               >
                 <Shield className="w-4 h-4" />
                 Administration
@@ -171,7 +182,7 @@ export function AuthButton() {
             <Link
               href="/settings"
               onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 text-sm text-dark-200 hover:bg-dark-700 transition-colors"
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:bg-slate-700 transition-colors"
             >
               <Settings className="w-4 h-4" />
               Parametres
@@ -179,17 +190,18 @@ export function AuthButton() {
           </div>
 
           {/* Sign Out */}
-          <div className="border-t border-dark-600 py-1">
+          <div className="border-t border-gray-300 dark:border-slate-600 py-1">
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-dark-700 transition-colors"
+              className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-gray-200 dark:bg-slate-700 transition-colors"
             >
               <LogOut className="w-4 h-4" />
               Deconnexion
             </button>
           </div>
         </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

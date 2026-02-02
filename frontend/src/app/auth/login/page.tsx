@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -97,24 +98,29 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center px-6 py-12 bg-dark-900">
+      <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center px-6 py-12 bg-gray-50 dark:bg-dark-900">
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
             <Link href="/" className="inline-flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-primary-500/30">
-                <span className="text-2xl">⚽</span>
+              <div className="w-12 h-12 relative">
+                <Image
+                  src="/logo.svg"
+                  alt="Paris Sportif"
+                  fill
+                  className="object-contain"
+                />
               </div>
-              <span className="text-2xl font-bold text-white">Paris Sportif</span>
+              <span className="text-2xl font-bold text-gray-900 dark:text-white">Paris Sportif</span>
             </Link>
           </div>
 
           {/* Form Header */}
           <div className="mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
               Content de vous revoir !
             </h2>
-            <p className="text-dark-400">
+            <p className="text-gray-600 dark:text-gray-600 dark:text-dark-400">
               Connectez-vous pour acceder a vos predictions
             </p>
           </div>
@@ -138,10 +144,10 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-dark-700"></div>
+              <div className="w-full border-t border-gray-300 dark:border-dark-700"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-dark-900 text-dark-500">ou avec votre email</span>
+              <span className="px-4 bg-gray-50 dark:bg-dark-900 text-gray-500 dark:text-dark-500">ou avec votre email</span>
             </div>
           </div>
 
@@ -158,11 +164,11 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-dark-300 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-dark-300 mb-2">
                 Adresse email
               </label>
               <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500 group-focus-within:text-primary-400 transition-colors" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-dark-500 group-focus-within:text-primary-400 transition-colors" />
                 <input
                   id="email"
                   type="email"
@@ -171,18 +177,18 @@ export default function LoginPage() {
                   placeholder="votre@email.com"
                   required
                   autoComplete="email"
-                  className="w-full pl-12 pr-4 py-3.5 bg-dark-800 border border-dark-700 rounded-xl text-white placeholder-dark-500 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                  className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-dark-500 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-dark-300 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-dark-300 mb-2">
                 Mot de passe
               </label>
               <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500 group-focus-within:text-primary-400 transition-colors" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-dark-500 group-focus-within:text-primary-400 transition-colors" />
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -191,12 +197,12 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   required
                   autoComplete="current-password"
-                  className="w-full pl-12 pr-12 py-3.5 bg-dark-800 border border-dark-700 rounded-xl text-white placeholder-dark-500 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                  className="w-full pl-12 pr-12 py-3.5 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-dark-500 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-dark-500 hover:text-dark-300 transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-dark-500 hover:text-gray-700 dark:text-dark-300 transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -213,7 +219,7 @@ export default function LoginPage() {
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-5 h-5 bg-dark-800 border border-dark-600 rounded-md peer-checked:bg-primary-500 peer-checked:border-primary-500 transition-all flex items-center justify-center">
+                  <div className="w-5 h-5 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-600 rounded-md peer-checked:bg-primary-500 peer-checked:border-primary-500 transition-all flex items-center justify-center">
                     {rememberMe && (
                       <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -221,7 +227,7 @@ export default function LoginPage() {
                     )}
                   </div>
                 </div>
-                <span className="text-sm text-dark-400 group-hover:text-dark-300 transition-colors">
+                <span className="text-sm text-gray-600 dark:text-dark-400 group-hover:text-gray-700 dark:text-dark-300 transition-colors">
                   Se souvenir de moi
                 </span>
               </label>
@@ -254,7 +260,7 @@ export default function LoginPage() {
           </form>
 
           {/* Sign Up Link */}
-          <p className="mt-8 text-center text-dark-400">
+          <p className="mt-8 text-center text-gray-600 dark:text-dark-400">
             Nouveau sur Paris Sportif ?{" "}
             <Link
               href="/auth/signup"
@@ -265,13 +271,13 @@ export default function LoginPage() {
           </p>
 
           {/* Footer */}
-          <p className="mt-8 text-center text-xs text-dark-600">
+          <p className="mt-8 text-center text-xs text-gray-500 dark:text-dark-600">
             En vous connectant, vous acceptez nos{" "}
-            <Link href="/terms" className="text-dark-500 hover:text-dark-400 underline">
+            <Link href="/terms" className="text-gray-400 dark:text-dark-500 hover:text-gray-600 dark:text-dark-400 underline">
               Conditions d&apos;utilisation
             </Link>{" "}
             et notre{" "}
-            <Link href="/privacy" className="text-dark-500 hover:text-dark-400 underline">
+            <Link href="/privacy" className="text-gray-400 dark:text-dark-500 hover:text-gray-600 dark:text-dark-400 underline">
               Politique de confidentialite
             </Link>
           </p>
