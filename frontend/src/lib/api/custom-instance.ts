@@ -1,6 +1,6 @@
 /**
  * Custom fetch instance for Orval-generated API hooks
- * Handles API requests with proper base URL and error handling
+ * Handles API requests with proper base URL, error handling, and authentication
  *
  * Orval generates calls like: customInstance<T>(url, { method: 'GET', signal })
  * So we support both (url, options) and (config) formats
@@ -11,6 +11,25 @@
 const API_BASE_URL = typeof window !== 'undefined'
   ? ''
   : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
+
+/**
+ * Get auth token from Supabase session (browser only)
+ */
+async function getAuthToken(): Promise<string | null> {
+  if (typeof window === "undefined") {
+    return null; // Server-side, no token
+  }
+
+  try {
+    // Dynamic import to avoid SSR issues
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Custom instance for Orval - handles fetch requests
@@ -48,10 +67,14 @@ export const customInstance = async <T>(
     }
   }
 
+  // Get auth token
+  const token = await getAuthToken();
+
   const response = await fetch(fullUrl, {
     method,
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
       ...headers,
     },
     body: data ? JSON.stringify(data) : undefined,
@@ -59,6 +82,14 @@ export const customInstance = async <T>(
   });
 
   if (!response.ok) {
+    // Handle auth errors specifically
+    if (response.status === 401) {
+      throw new Error("Authentification requise. Veuillez vous connecter.");
+    }
+    if (response.status === 403) {
+      throw new Error("Acces refuse. Abonnement premium requis.");
+    }
+
     let errorMessage = `API Error: ${response.status}`;
     try {
       const errorData = await response.json();

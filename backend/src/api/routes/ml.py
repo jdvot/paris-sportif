@@ -1,5 +1,7 @@
 """ML Pipeline API endpoints.
 
+Admin only endpoints.
+
 Provides endpoints for:
 - Checking ML model status
 - Running data collection
@@ -14,6 +16,8 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
+
+from src.auth import AdminUser
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -47,7 +51,7 @@ _pipeline_status = {
 
 
 @router.get("/status", response_model=MLStatusResponse)
-async def get_ml_status() -> MLStatusResponse:
+async def get_ml_status(user: AdminUser) -> MLStatusResponse:
     """
     Get current ML system status.
 
@@ -84,7 +88,7 @@ async def get_ml_status() -> MLStatusResponse:
 
 
 @router.post("/collect", response_model=PipelineResponse)
-async def collect_data(background_tasks: BackgroundTasks) -> PipelineResponse:
+async def collect_data(user: AdminUser, background_tasks: BackgroundTasks) -> PipelineResponse:
     """
     Start data collection in background.
 
@@ -125,7 +129,7 @@ async def collect_data(background_tasks: BackgroundTasks) -> PipelineResponse:
 
 
 @router.post("/train", response_model=PipelineResponse)
-async def train_models(background_tasks: BackgroundTasks) -> PipelineResponse:
+async def train_models(user: AdminUser, background_tasks: BackgroundTasks) -> PipelineResponse:
     """
     Start model training in background.
 
@@ -169,7 +173,7 @@ async def train_models(background_tasks: BackgroundTasks) -> PipelineResponse:
 
 
 @router.post("/run-full", response_model=PipelineResponse)
-async def run_full_pipeline(background_tasks: BackgroundTasks) -> PipelineResponse:
+async def run_full_pipeline(user: AdminUser, background_tasks: BackgroundTasks) -> PipelineResponse:
     """
     Run full ML pipeline in background.
 
@@ -213,7 +217,7 @@ async def run_full_pipeline(background_tasks: BackgroundTasks) -> PipelineRespon
 
 
 @router.get("/pipeline-status", response_model=PipelineResponse)
-async def get_pipeline_status() -> PipelineResponse:
+async def get_pipeline_status(user: AdminUser) -> PipelineResponse:
     """
     Get current pipeline execution status.
 

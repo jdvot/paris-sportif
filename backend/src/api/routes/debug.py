@@ -1,4 +1,7 @@
-"""Debug endpoints for diagnosing configuration and API connectivity."""
+"""Debug endpoints for diagnosing configuration and API connectivity.
+
+Admin only endpoints.
+"""
 
 from fastapi import APIRouter
 import httpx
@@ -6,13 +9,14 @@ import logging
 
 from src.core.config import settings
 from src.data.sources.football_data import get_football_data_client
+from src.auth import AdminUser
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 @router.get("/api-status")
-async def debug_api_status() -> dict:
+async def debug_api_status(user: AdminUser) -> dict:
     """
     Debug endpoint to verify football-data.org API configuration.
 

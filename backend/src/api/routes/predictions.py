@@ -5,6 +5,7 @@ Enhanced with advanced statistical models:
 - Advanced ELO: Dynamic K-factor and recent form
 - Multiple ensemble: Combines best approaches
 
+All endpoints require authentication.
 See /src/prediction_engine/ensemble_advanced.py for details.
 """
 
@@ -18,6 +19,7 @@ from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
 from groq import Groq
 
+from src.auth import AuthenticatedUser
 from src.data.sources.football_data import get_football_data_client, MatchData, COMPETITIONS
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 from src.core.config import settings
@@ -471,6 +473,7 @@ async def _generate_prediction_from_api_match(
 
 @router.get("/daily", response_model=DailyPicksResponse)
 async def get_daily_picks(
+    user: AuthenticatedUser,
     query_date: str | None = Query(None, alias="date", description="Date in YYYY-MM-DD format, defaults to today"),
 ) -> DailyPicksResponse:
     """
@@ -627,6 +630,7 @@ async def get_daily_picks(
 
 @router.get("/stats", response_model=PredictionStatsResponse)
 async def get_prediction_stats(
+    user: AuthenticatedUser,
     days: int = Query(30, ge=7, le=365, description="Number of days to analyze"),
 ) -> PredictionStatsResponse:
     """Get historical prediction performance statistics."""
@@ -776,6 +780,7 @@ def _generate_fallback_prediction(
 @router.get("/{match_id}", response_model=PredictionResponse)
 async def get_prediction(
     match_id: int,
+    user: AuthenticatedUser,
     include_model_details: bool = Query(False, description="Include individual model contributions"),
 ) -> PredictionResponse:
     """Get detailed prediction for a specific match."""
@@ -811,7 +816,7 @@ async def get_prediction(
 
 
 @router.post("/{match_id}/refresh")
-async def refresh_prediction(match_id: int) -> dict[str, str]:
+async def refresh_prediction(match_id: int, user: AuthenticatedUser) -> dict[str, str]:
     """Force refresh a prediction (admin only)."""
     try:
         # Verify match exists

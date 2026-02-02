@@ -1,5 +1,6 @@
 """Sync endpoints for weekly data synchronization.
 
+Admin only endpoints - require admin role.
 Run this every Sunday evening to sync data for the next 7 days.
 Can also be triggered manually.
 """
@@ -22,6 +23,7 @@ from src.data.database import (
     verify_finished_matches,
 )
 from src.core.exceptions import FootballDataAPIError, RateLimitError
+from src.auth import AdminUser
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +142,7 @@ async def _sync_all_standings() -> tuple[int, list[str]]:
 
 @router.post("/weekly", response_model=SyncResponse)
 async def sync_weekly_data(
+    user: AdminUser,
     background_tasks: BackgroundTasks,
     days: int = Query(7, ge=1, le=14, description="Number of days to sync"),
     include_standings: bool = Query(True, description="Also sync standings"),
@@ -186,6 +189,7 @@ async def sync_weekly_data(
 
 @router.post("/matches", response_model=SyncResponse)
 async def sync_matches_only(
+    user: AdminUser,
     days: int = Query(7, ge=1, le=14, description="Number of days to sync"),
 ) -> SyncResponse:
     """Sync only matches (no standings)."""
@@ -206,7 +210,7 @@ async def sync_matches_only(
 
 
 @router.post("/standings", response_model=SyncResponse)
-async def sync_standings_only() -> SyncResponse:
+async def sync_standings_only(user: AdminUser) -> SyncResponse:
     """Sync only standings (no matches)."""
     try:
         standings_synced, errors = await _sync_all_standings()
@@ -225,7 +229,7 @@ async def sync_standings_only() -> SyncResponse:
 
 
 @router.get("/status", response_model=DbStatsResponse)
-async def get_sync_status() -> DbStatsResponse:
+async def get_sync_status(user: AdminUser) -> DbStatsResponse:
     """Get database sync status and statistics."""
     stats = get_db_stats()
     return DbStatsResponse(**stats)
@@ -233,6 +237,7 @@ async def get_sync_status() -> DbStatsResponse:
 
 @router.get("/last")
 async def get_last_sync_info(
+    user: AdminUser,
     sync_type: str = Query("weekly", description="Type of sync to check"),
 ) -> dict:
     """Get info about the last successful sync."""
@@ -244,6 +249,7 @@ async def get_last_sync_info(
 
 @router.post("/verify-predictions", response_model=SyncResponse)
 async def sync_and_verify_predictions(
+    user: AdminUser,
     past_days: int = Query(7, ge=1, le=30, description="Days to look back for finished matches"),
 ) -> SyncResponse:
     """

@@ -1,15 +1,19 @@
-"""Match endpoints - Real data from football-data.org API with DB and mock fallback."""
+"""Match endpoints - Real data from football-data.org API with DB and mock fallback.
+
+All endpoints require authentication.
+"""
 
 from datetime import date, datetime, timedelta
 from typing import Literal
 import logging
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from src.data.sources.football_data import get_football_data_client, MatchData, COMPETITIONS
 from src.data.database import get_matches_from_db, get_standings_from_db
 from src.core.exceptions import FootballDataAPIError, RateLimitError
+from src.auth import AuthenticatedUser
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -219,6 +223,7 @@ def _convert_api_match(api_match: MatchData) -> MatchResponse:
 
 @router.get("", response_model=MatchListResponse)
 async def get_matches(
+    user: AuthenticatedUser,
     competition: str | None = Query(None, description="Filter by competition code (e.g., PL, PD, BL1)"),
     date_from: date | None = Query(None, description="Start date filter"),
     date_to: date | None = Query(None, description="End date filter"),
@@ -325,6 +330,7 @@ async def get_matches(
 
 @router.get("/upcoming")
 async def get_upcoming_matches(
+    user: AuthenticatedUser,
     days: int = Query(2, ge=1, le=7, description="Number of days ahead"),
     competition: str | None = Query(None),
 ) -> MatchListResponse:
@@ -358,7 +364,7 @@ async def get_upcoming_matches(
 
 
 @router.get("/{match_id}", response_model=MatchResponse)
-async def get_match(match_id: int) -> MatchResponse:
+async def get_match(match_id: int, user: AuthenticatedUser) -> MatchResponse:
     """Get details for a specific match."""
     try:
         client = get_football_data_client()
@@ -382,6 +388,7 @@ async def get_match(match_id: int) -> MatchResponse:
 @router.get("/{match_id}/head-to-head", response_model=HeadToHeadResponse)
 async def get_head_to_head(
     match_id: int,
+    user: AuthenticatedUser,
     limit: int = Query(10, ge=1, le=20),
 ) -> HeadToHeadResponse:
     """Get head-to-head history for teams in a match."""
@@ -449,6 +456,7 @@ async def get_head_to_head(
 @router.get("/teams/{team_id}/form", response_model=TeamFormResponse)
 async def get_team_form(
     team_id: int,
+    user: AuthenticatedUser,
     matches_count: int = Query(5, ge=3, le=10),
 ) -> TeamFormResponse:
     """Get recent form for a team."""
@@ -543,6 +551,7 @@ async def get_team_form(
 @router.get("/standings/{competition_code}", response_model=StandingsResponse)
 async def get_standings(
     competition_code: str,
+    user: AuthenticatedUser,
 ) -> StandingsResponse:
     """
     Get current league standings for a competition.

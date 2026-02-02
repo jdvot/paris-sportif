@@ -74,15 +74,38 @@ function transformMatchWithIds(apiMatch: ApiMatch): MatchWithTeamIds {
 }
 
 /**
- * Generic fetch wrapper with error handling
+ * Get auth token from Supabase session (browser only)
+ */
+async function getAuthToken(): Promise<string | null> {
+  if (typeof window === "undefined") {
+    return null; // Server-side, no token
+  }
+
+  try {
+    // Dynamic import to avoid SSR issues
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Generic fetch wrapper with error handling and authentication
  */
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
+
+  // Get auth token
+  const token = await getAuthToken();
 
   const response = await fetch(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
       ...options?.headers,
     },
   });
@@ -94,7 +117,16 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
     } catch {
       error = { message: `API error: ${response.status} ${response.statusText}` };
     }
-    throw new Error((error.message as string) || `API error: ${response.status}`);
+
+    // Handle auth errors specifically
+    if (response.status === 401) {
+      throw new Error("Authentification requise. Veuillez vous connecter.");
+    }
+    if (response.status === 403) {
+      throw new Error("Acces refuse. Abonnement premium requis.");
+    }
+
+    throw new Error((error.message as string) || (error.detail as string) || `API error: ${response.status}`);
   }
 
   // Handle empty responses

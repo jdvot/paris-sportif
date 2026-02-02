@@ -1,4 +1,7 @@
-"""Data enrichment API endpoints - All additional data for predictions."""
+"""Data enrichment API endpoints - All additional data for predictions.
+
+Premium endpoints - require premium or admin role.
+"""
 
 import logging
 from datetime import datetime, timedelta
@@ -9,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from src.data.data_enrichment import get_data_enrichment
 from src.data.sources.football_data import get_football_data_client
+from src.auth import PremiumUser
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +106,7 @@ class FullEnrichmentResponse(BaseModel):
 
 @router.get("/full", response_model=FullEnrichmentResponse)
 async def get_full_enrichment(
+    user: PremiumUser,
     home_team: str = Query(..., description="Home team name"),
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code"),
@@ -220,6 +225,7 @@ async def get_full_enrichment(
 
 @router.get("/odds")
 async def get_match_odds(
+    user: PremiumUser,
     home_team: str = Query(..., description="Home team name"),
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code"),
@@ -236,6 +242,7 @@ async def get_match_odds(
 
 @router.get("/weather")
 async def get_match_weather(
+    user: PremiumUser,
     home_team: str = Query(..., description="Home team name"),
     match_date: Optional[str] = Query(None, description="Match date YYYY-MM-DD"),
 ) -> dict:
@@ -255,6 +262,7 @@ async def get_match_weather(
 
 @router.get("/h2h")
 async def get_h2h(
+    user: PremiumUser,
     home_team: str = Query(..., description="Home team name"),
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code"),
@@ -304,6 +312,7 @@ async def get_h2h(
 @router.get("/form/{team_name}")
 async def get_team_form(
     team_name: str,
+    user: PremiumUser,
     competition: str = Query("PL", description="Competition code"),
 ) -> dict:
     """Get recent form for a team."""
@@ -342,7 +351,7 @@ async def get_team_form(
 
 
 @router.get("/status")
-async def get_enrichment_status() -> dict:
+async def get_enrichment_status(user: PremiumUser) -> dict:
     """Get status of all enrichment data sources."""
     import os
 

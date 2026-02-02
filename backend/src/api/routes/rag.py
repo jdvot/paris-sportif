@@ -1,4 +1,7 @@
-"""RAG (Retrieval Augmented Generation) endpoints for match context enrichment."""
+"""RAG (Retrieval Augmented Generation) endpoints for match context enrichment.
+
+Premium endpoints - require premium or admin role.
+"""
 
 import logging
 from datetime import datetime
@@ -8,6 +11,7 @@ from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
 
 from src.prediction_engine.rag_enrichment import get_rag_enrichment
+from src.auth import PremiumUser
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +59,7 @@ class RAGStatusResponse(BaseModel):
 
 
 @router.get("/status", response_model=RAGStatusResponse)
-async def get_rag_status() -> RAGStatusResponse:
+async def get_rag_status(user: PremiumUser) -> RAGStatusResponse:
     """Get RAG system status."""
     try:
         rag = get_rag_enrichment()
@@ -75,6 +79,7 @@ async def get_rag_status() -> RAGStatusResponse:
 
 @router.get("/enrich", response_model=MatchContext)
 async def enrich_match(
+    user: PremiumUser,
     home_team: str = Query(..., description="Home team name"),
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code (PL, SA, etc.)"),
@@ -199,6 +204,7 @@ def _get_sentiment_label(score: float) -> str:
 
 @router.post("/analyze")
 async def analyze_match_context(
+    user: PremiumUser,
     home_team: str = Query(..., description="Home team name"),
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code"),
