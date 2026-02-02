@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 
@@ -12,27 +11,35 @@ interface AuthGuardProps {
 /**
  * AuthGuard component that shows a fullscreen loader while checking authentication.
  * Redirects to login if the user is not authenticated.
- * This prevents users from seeing the dashboard content before auth is verified.
+ * Note: The middleware already handles server-side auth checks, so this is a client-side backup.
  */
 export function AuthGuard({ children }: AuthGuardProps) {
-  const router = useRouter();
   const [authState, setAuthState] = useState<"loading" | "authenticated" | "redirecting">("loading");
 
   useEffect(() => {
     let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
 
     const checkAuth = async () => {
       try {
         const supabase = createClient();
-        const { data: { session }, error } = await supabase.auth.getSession();
+
+        // Add timeout to prevent infinite loading
+        const timeoutPromise = new Promise<null>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error("Auth check timeout")), 5000);
+        });
+
+        const sessionPromise = supabase.auth.getSession();
+
+        const result = await Promise.race([sessionPromise, timeoutPromise]);
+        clearTimeout(timeoutId);
 
         if (!isMounted) return;
 
-        if (error || !session) {
+        if (!result || !result.data?.session) {
           // No session - redirect to login
           console.log("[AuthGuard] No session, redirecting to login...");
           setAuthState("redirecting");
-          // Use window.location for reliable redirect
           window.location.href = "/auth/login";
           return;
         }
@@ -41,10 +48,17 @@ export function AuthGuard({ children }: AuthGuardProps) {
         console.log("[AuthGuard] Session valid, user authenticated");
         setAuthState("authenticated");
       } catch (err) {
-        console.error("[AuthGuard] Error checking auth:", err);
+        // Ignore AbortError - this happens during normal navigation/unmount
+        if (err instanceof Error && err.name === "AbortError") {
+          console.log("[AuthGuard] Request aborted (normal during navigation)");
+          return;
+        }
+
+        // On timeout or error, trust that middleware already checked auth
+        // and render children instead of blocking forever
+        console.warn("[AuthGuard] Auth check failed, trusting middleware:", err);
         if (isMounted) {
-          setAuthState("redirecting");
-          window.location.href = "/auth/login";
+          setAuthState("authenticated");
         }
       }
     };
@@ -63,6 +77,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
     return () => {
       isMounted = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
