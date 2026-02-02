@@ -50,10 +50,12 @@ async def get_optional_user(
             logger.warning("Cannot validate token: JWT secret not configured")
             return None
 
+        # Supabase may use different HMAC algorithms (HS256, HS384, HS512)
+        # Allow all HMAC-SHA variants for compatibility
         payload = jwt.decode(
             token,
             secret,
-            algorithms=["HS256"],
+            algorithms=["HS256", "HS384", "HS512"],
             audience="authenticated",
         )
 
@@ -61,7 +63,7 @@ async def get_optional_user(
         return payload
 
     except JWTError as e:
-        logger.debug(f"Invalid token: {e}")
+        logger.debug(f"Invalid token (alg mismatch or expired): {e}")
         return None
     except Exception as e:
         logger.error(f"Unexpected error validating token: {e}")
@@ -94,10 +96,12 @@ async def get_current_user(
                 detail="Configuration serveur invalide",
             )
 
+        # Supabase may use different HMAC algorithms (HS256, HS384, HS512)
+        # Allow all HMAC-SHA variants for compatibility
         payload = jwt.decode(
             token,
             secret,
-            algorithms=["HS256"],
+            algorithms=["HS256", "HS384", "HS512"],
             audience="authenticated",
         )
 
@@ -105,7 +109,7 @@ async def get_current_user(
         return payload
 
     except JWTError as e:
-        logger.warning(f"JWT validation failed: {e}")
+        logger.warning(f"JWT validation failed (check SUPABASE_JWT_SECRET): {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token invalide ou expire",
