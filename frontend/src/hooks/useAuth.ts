@@ -42,14 +42,19 @@ export function useAuth() {
   );
 
   useEffect(() => {
+    let isMounted = true;
+
     const initAuth = async () => {
       try {
         const {
           data: { user },
         } = await supabase.auth.getUser();
 
+        if (!isMounted) return;
+
         if (user) {
           const profile = await fetchProfile(user.id);
+          if (!isMounted) return;
           setState({
             user,
             profile,
@@ -67,6 +72,7 @@ export function useAuth() {
           });
         }
       } catch (err) {
+        if (!isMounted) return;
         setState((prev) => ({
           ...prev,
           loading: false,
@@ -77,12 +83,17 @@ export function useAuth() {
 
     initAuth();
 
-    // Listen for auth changes
+    // Listen for auth changes - only for profile updates
+    // Token management is handled centrally by Providers
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+      if (!isMounted) return;
+
       if (event === "SIGNED_IN" && session?.user) {
+        // Fetch profile for the new user
         const profile = await fetchProfile(session.user.id);
+        if (!isMounted) return;
         setState({
           user: session.user,
           profile,
@@ -98,10 +109,17 @@ export function useAuth() {
           loading: false,
           error: null,
         });
+      } else if (event === "TOKEN_REFRESHED" && session?.user) {
+        // Token refreshed - update user object but profile likely unchanged
+        setState((prev) => ({
+          ...prev,
+          user: session.user,
+        }));
       }
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, [supabase, fetchProfile]);

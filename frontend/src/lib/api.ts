@@ -74,19 +74,19 @@ function transformMatchWithIds(apiMatch: ApiMatch): MatchWithTeamIds {
 }
 
 /**
- * Get auth token from Supabase session (browser only)
+ * Get auth token from the global token store
+ * Uses the cached token which is populated by onAuthStateChange in Providers
  */
-async function getAuthToken(): Promise<string | null> {
+async function getAuthTokenFromStore(): Promise<string | null> {
   if (typeof window === "undefined") {
     return null; // Server-side, no token
   }
 
   try {
-    // Dynamic import to avoid SSR issues
-    const { createClient } = await import("@/lib/supabase/client");
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token || null;
+    // Use the global token store instead of calling getSession()
+    // This avoids race conditions during initialization
+    const { getAuthToken } = await import("@/lib/auth/token-store");
+    return getAuthToken();
   } catch {
     return null;
   }
@@ -98,8 +98,8 @@ async function getAuthToken(): Promise<string | null> {
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
-  // Get auth token
-  const token = await getAuthToken();
+  // Get auth token from global store
+  const token = await getAuthTokenFromStore();
 
   const response = await fetch(url, {
     ...options,
