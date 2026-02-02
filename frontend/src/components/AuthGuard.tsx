@@ -16,23 +16,37 @@ interface AuthGuardProps {
  */
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authState, setAuthState] = useState<"loading" | "authenticated" | "redirecting">("loading");
 
   useEffect(() => {
+    let isMounted = true;
+
     const checkAuth = async () => {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const supabase = createClient();
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-      if (!session) {
-        // No session - redirect to login
-        router.replace("/auth/login");
-        return;
+        if (!isMounted) return;
+
+        if (error || !session) {
+          // No session - redirect to login
+          console.log("[AuthGuard] No session, redirecting to login...");
+          setAuthState("redirecting");
+          // Use window.location for reliable redirect
+          window.location.href = "/auth/login";
+          return;
+        }
+
+        // User is authenticated
+        console.log("[AuthGuard] Session valid, user authenticated");
+        setAuthState("authenticated");
+      } catch (err) {
+        console.error("[AuthGuard] Error checking auth:", err);
+        if (isMounted) {
+          setAuthState("redirecting");
+          window.location.href = "/auth/login";
+        }
       }
-
-      // User is authenticated
-      setIsAuthenticated(true);
-      setIsLoading(false);
     };
 
     checkAuth();
@@ -40,38 +54,27 @@ export function AuthGuard({ children }: AuthGuardProps) {
     // Listen for auth state changes
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("[AuthGuard] Auth state change:", event);
       if (event === "SIGNED_OUT" || !session) {
-        router.replace("/auth/login");
+        setAuthState("redirecting");
+        window.location.href = "/auth/login";
       }
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
-  }, [router]);
+  }, []);
 
-  // Show fullscreen loader while checking auth
-  if (isLoading) {
+  // Show fullscreen loader while checking auth or redirecting
+  if (authState === "loading" || authState === "redirecting") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-white dark:bg-slate-900">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary-500" />
           <p className="text-gray-600 dark:text-slate-400 text-sm">
-            Verification en cours...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Not authenticated - will redirect, show nothing
-  if (!isAuthenticated) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white dark:bg-slate-900">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary-500" />
-          <p className="text-gray-600 dark:text-slate-400 text-sm">
-            Redirection...
+            {authState === "loading" ? "Verification en cours..." : "Redirection..."}
           </p>
         </div>
       </div>
