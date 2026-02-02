@@ -6,6 +6,17 @@
  * So we support both (url, options) and (config) formats
  */
 
+/**
+ * Custom API Error class with HTTP status code
+ * Used for detecting auth errors in React Query global error handler
+ */
+export class ApiError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 // In browser: use relative URLs to leverage Next.js rewrites
 // On server: use full API URL for direct access
 const API_BASE_URL = typeof window !== 'undefined'
@@ -82,12 +93,12 @@ export const customInstance = async <T>(
   });
 
   if (!response.ok) {
-    // Handle auth errors specifically
+    // Handle auth errors specifically with typed ApiError
     if (response.status === 401) {
-      throw new Error("Authentification requise. Veuillez vous connecter.");
+      throw new ApiError("Authentification requise. Veuillez vous connecter.", 401);
     }
     if (response.status === 403) {
-      throw new Error("Acces refuse. Abonnement premium requis.");
+      throw new ApiError("Accès refusé. Abonnement premium requis.", 403);
     }
 
     let errorMessage = `API Error: ${response.status}`;
@@ -97,7 +108,7 @@ export const customInstance = async <T>(
     } catch {
       // Use default error message
     }
-    throw new Error(errorMessage);
+    throw new ApiError(errorMessage, response.status);
   }
 
   // Handle empty responses
