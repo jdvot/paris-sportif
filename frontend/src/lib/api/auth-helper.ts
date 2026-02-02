@@ -26,21 +26,32 @@ export async function getSupabaseToken(): Promise<string | null> {
   try {
     const supabase = await getSupabaseClient();
 
-    // First try getSession (faster, uses cached session)
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (sessionData.session?.access_token) {
-      console.log("[Auth] Token found from session");
-      return sessionData.session.access_token;
+    // Use getUser() instead of getSession() - it validates with the server
+    // and properly handles cookies that were just set (e.g., after OAuth)
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.log("[Auth] getUser error:", userError.message);
+      return null;
     }
 
-    // If no session, try refreshing (handles edge cases after OAuth)
-    const { data: refreshData, error } = await supabase.auth.refreshSession();
-    if (!error && refreshData.session?.access_token) {
-      console.log("[Auth] Token found after refresh");
-      return refreshData.session.access_token;
+    if (userData.user) {
+      // User is authenticated, get the session for the token
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session?.access_token) {
+        console.log("[Auth] Token found for user:", userData.user.email);
+        return sessionData.session.access_token;
+      }
+
+      // Session not in cache yet, try refresh
+      const { data: refreshData } = await supabase.auth.refreshSession();
+      if (refreshData.session?.access_token) {
+        console.log("[Auth] Token found after refresh");
+        return refreshData.session.access_token;
+      }
     }
 
-    console.log("[Auth] No token available");
+    console.log("[Auth] No authenticated user");
     return null;
   } catch (err) {
     console.error("[Auth] Error getting token:", err);
