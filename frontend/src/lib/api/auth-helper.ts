@@ -17,6 +17,10 @@ async function getSupabaseClient() {
 /**
  * Get auth token from Supabase session (browser only)
  * Uses dynamic import to avoid SSR issues
+ *
+ * IMPORTANT: This function uses getSession() which reads from local cache.
+ * It does NOT make network calls, so it won't be affected by AbortSignal.
+ * The session is kept fresh by onAuthStateChange listener in the app.
  */
 export async function getSupabaseToken(): Promise<string | null> {
   if (typeof window === "undefined") {
@@ -26,34 +30,21 @@ export async function getSupabaseToken(): Promise<string | null> {
   try {
     const supabase = await getSupabaseClient();
 
-    // Use getUser() instead of getSession() - it validates with the server
-    // and properly handles cookies that were just set (e.g., after OAuth)
-    const { data: userData, error: userError } = await supabase.auth.getUser();
+    // Use getSession() - reads from local storage/cache, no network call
+    // This is fast and won't be affected by AbortSignal from React Query
+    const { data: sessionData } = await supabase.auth.getSession();
 
-    if (userError) {
-      console.log("[Auth] getUser error:", userError.message);
-      return null;
+    if (sessionData.session?.access_token) {
+      return sessionData.session.access_token;
     }
 
-    if (userData.user) {
-      // User is authenticated, get the session for the token
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session?.access_token) {
-        console.log("[Auth] Token found for user:", userData.user.email);
-        return sessionData.session.access_token;
-      }
-
-      // Session not in cache yet, try refresh
-      const { data: refreshData } = await supabase.auth.refreshSession();
-      if (refreshData.session?.access_token) {
-        console.log("[Auth] Token found after refresh");
-        return refreshData.session.access_token;
-      }
-    }
-
-    console.log("[Auth] No authenticated user");
+    // No session in cache - user is not authenticated
     return null;
   } catch (err) {
+    // Re-throw AbortError so React Query can handle cancellation properly
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw err;
+    }
     console.error("[Auth] Error getting token:", err);
     return null;
   }

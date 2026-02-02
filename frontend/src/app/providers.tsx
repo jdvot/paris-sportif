@@ -92,6 +92,33 @@ export function Providers({ children }: { children: React.ReactNode }) {
       })
   );
 
+  // Listen for auth state changes and invalidate queries when session changes
+  // This is crucial for hydrating the session after OAuth callback
+  useEffect(() => {
+    const supabase = createClient();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[Providers] Auth state changed:', event, !!session);
+
+      // When user signs in (including OAuth callback), invalidate all queries
+      // so they refetch with the new auth token
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        console.log('[Providers] Invalidating queries after auth change');
+        queryClient.invalidateQueries();
+      }
+
+      // When user signs out, clear the cache
+      if (event === 'SIGNED_OUT') {
+        console.log('[Providers] Clearing cache after sign out');
+        queryClient.clear();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [queryClient]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
