@@ -3,7 +3,6 @@
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { ApiError } from "@/lib/api/custom-instance";
 import { createClient } from "@/lib/supabase/client";
 import { setAuthToken, clearAuthToken } from "@/lib/auth/token-store";
 
@@ -69,31 +68,31 @@ export function Providers({ children }: { children: React.ReactNode }) {
         queryCache: new QueryCache({
           onError: (error) => {
             // Ignore AbortError (React Query cancellation)
-            const err = error as { name?: string; status?: number };
+            const err = error as { name?: string; status?: number; message?: string };
             if (err?.name === 'AbortError') {
               return;
             }
 
-            // Check for ApiError by instance or by property (for minified code)
-            const isApiError = error instanceof ApiError ||
-              (err?.name === 'ApiError' && typeof err?.status === 'number');
+            console.log('[QueryCache] Error caught:', err?.name, err?.status, err?.message);
 
-            if (isApiError && err.status) {
+            // Check for auth error by status (works in minified code)
+            // ApiError has status property, other errors don't
+            if (typeof err?.status === 'number' && err.status > 0) {
               handleAuthError(err.status);
             }
           },
         }),
         mutationCache: new MutationCache({
           onError: (error) => {
-            const err = error as { name?: string; status?: number };
+            const err = error as { name?: string; status?: number; message?: string };
             if (err?.name === 'AbortError') {
               return;
             }
 
-            const isApiError = error instanceof ApiError ||
-              (err?.name === 'ApiError' && typeof err?.status === 'number');
+            console.log('[MutationCache] Error caught:', err?.name, err?.status, err?.message);
 
-            if (isApiError && err.status) {
+            // Check for auth error by status (works in minified code)
+            if (typeof err?.status === 'number' && err.status > 0) {
               handleAuthError(err.status);
             }
           },
