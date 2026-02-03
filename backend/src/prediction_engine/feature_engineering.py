@@ -7,16 +7,19 @@ It includes:
 - Momentum and recency-weighted features
 - Head-to-head historical statistics
 - Form trending indicators
+- Fatigue and fixture congestion metrics
 
 Features are designed to capture:
 1. Current capabilities (attack/defense strength)
 2. Recent momentum (recent form weighted by time)
 3. Historical matchups (h2h advantage)
 4. Interaction effects (e.g., strong attack vs weak defense)
+5. Physical fatigue from fixture congestion
 """
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
@@ -28,8 +31,9 @@ logger = logging.getLogger(__name__)
 class FeatureVector:
     """Structured feature vector for ML predictions.
 
-    Contains 7 base features and 7 computed interaction features.
+    Contains 7 base features, 4 fatigue features, and 7 computed interaction features.
     Interaction features capture non-linear relationships like attack vs defense matchups.
+    Fatigue features capture physical readiness based on fixture schedule.
     """
 
     # Base features (7)
@@ -41,6 +45,12 @@ class FeatureVector:
     recent_form_away: float
     head_to_head_home: float
 
+    # Fatigue features (4) - normalized to [0, 1]
+    home_rest_days: float = 0.5  # 0=fatigued (<=2 days), 1=well-rested (>=7 days)
+    away_rest_days: float = 0.5
+    home_fixture_congestion: float = 0.5  # 0=congested (5+ matches/14 days), 1=light schedule
+    away_fixture_congestion: float = 0.5
+
     # Interaction features (computed, with defaults for backwards compatibility)
     home_attack_vs_away_defense: float = 0.0
     away_attack_vs_home_defense: float = 0.0
@@ -49,6 +59,7 @@ class FeatureVector:
     form_advantage: float = 0.0
     home_total_strength: float = 0.5
     away_total_strength: float = 0.5
+    fatigue_advantage: float = 0.0  # Positive = home team more rested
 
     def compute_interactions(self) -> "FeatureVector":
         """Compute interaction features from base features.
@@ -56,6 +67,11 @@ class FeatureVector:
         Returns a new FeatureVector with interaction features populated.
         """
         eps = 0.01  # Avoid division by zero
+
+        # Compute fatigue advantage: combines rest days and fixture congestion
+        home_fatigue_score = (self.home_rest_days + self.home_fixture_congestion) / 2
+        away_fatigue_score = (self.away_rest_days + self.away_fixture_congestion) / 2
+        fatigue_adv = home_fatigue_score - away_fatigue_score
 
         return FeatureVector(
             # Copy base features
@@ -66,6 +82,11 @@ class FeatureVector:
             recent_form_home=self.recent_form_home,
             recent_form_away=self.recent_form_away,
             head_to_head_home=self.head_to_head_home,
+            # Copy fatigue features
+            home_rest_days=self.home_rest_days,
+            away_rest_days=self.away_rest_days,
+            home_fixture_congestion=self.home_fixture_congestion,
+            away_fixture_congestion=self.away_fixture_congestion,
             # Compute interaction features
             home_attack_vs_away_defense=self.home_attack * self.away_defense,
             away_attack_vs_home_defense=self.away_attack * self.home_defense,
@@ -74,14 +95,22 @@ class FeatureVector:
             form_advantage=self.recent_form_home - self.recent_form_away,
             home_total_strength=self.home_attack + (1 - self.home_defense),
             away_total_strength=self.away_attack + (1 - self.away_defense),
+            fatigue_advantage=fatigue_adv,
         )
 
-    def to_array(self, include_interactions: bool = False) -> np.ndarray:
+    def to_array(
+        self,
+        include_interactions: bool = False,
+        include_fatigue: bool = True,
+    ) -> np.ndarray:
         """Convert to numpy array for model input.
 
         Args:
-            include_interactions: If True, include 7 interaction features (14 total).
-                                 If False, return only 7 base features.
+            include_interactions: If True, include 8 interaction features.
+            include_fatigue: If True, include 4 fatigue features.
+
+        Returns:
+            numpy array with features in consistent order.
         """
         base_features = [
             self.home_attack,
@@ -93,8 +122,12 @@ class FeatureVector:
             self.head_to_head_home,
         ]
 
-        if not include_interactions:
-            return np.array(base_features)
+        fatigue_features = [
+            self.home_rest_days,
+            self.away_rest_days,
+            self.home_fixture_congestion,
+            self.away_fixture_congestion,
+        ]
 
         interaction_features = [
             self.home_attack_vs_away_defense,
@@ -104,16 +137,28 @@ class FeatureVector:
             self.form_advantage,
             self.home_total_strength,
             self.away_total_strength,
+            self.fatigue_advantage,
         ]
 
-        return np.array(base_features + interaction_features)
+        result = base_features
+        if include_fatigue:
+            result = result + fatigue_features
+        if include_interactions:
+            result = result + interaction_features
+
+        return np.array(result)
 
     @classmethod
-    def get_feature_names(cls, include_interactions: bool = False) -> list[str]:
+    def get_feature_names(
+        cls,
+        include_interactions: bool = False,
+        include_fatigue: bool = True,
+    ) -> list[str]:
         """Get ordered list of feature names.
 
         Args:
             include_interactions: If True, include interaction feature names.
+            include_fatigue: If True, include fatigue feature names.
         """
         base_names = [
             "home_attack",
@@ -125,8 +170,12 @@ class FeatureVector:
             "head_to_head_home",
         ]
 
-        if not include_interactions:
-            return base_names
+        fatigue_names = [
+            "home_rest_days",
+            "away_rest_days",
+            "home_fixture_congestion",
+            "away_fixture_congestion",
+        ]
 
         interaction_names = [
             "home_attack_vs_away_defense",
@@ -136,9 +185,16 @@ class FeatureVector:
             "form_advantage",
             "home_total_strength",
             "away_total_strength",
+            "fatigue_advantage",
         ]
 
-        return base_names + interaction_names
+        result = base_names
+        if include_fatigue:
+            result = result + fatigue_names
+        if include_interactions:
+            result = result + interaction_names
+
+        return result
 
 
 class FeatureEngineer:
@@ -155,6 +211,12 @@ class FeatureEngineer:
     DEFENSE_MAX = 3.5
     FORM_MIN = 0.0
     FORM_MAX = 100.0
+
+    # Fatigue thresholds
+    REST_DAYS_MIN = 2  # Minimum rest (fatigued)
+    REST_DAYS_MAX = 7  # Maximum useful rest
+    CONGESTION_WINDOW_DAYS = 14  # Window for fixture congestion
+    CONGESTION_MAX_MATCHES = 5  # Matches in window considered congested
 
     @staticmethod
     def normalize_attack_defense(
@@ -195,6 +257,120 @@ class FeatureEngineer:
         """
         form_value = np.clip(form_value, FeatureEngineer.FORM_MIN, FeatureEngineer.FORM_MAX)
         return form_value / FeatureEngineer.FORM_MAX
+
+    @staticmethod
+    def calculate_rest_days(
+        last_match_date: datetime | str | None,
+        current_match_date: datetime | str | None = None,
+    ) -> float:
+        """
+        Calculate normalized rest days score.
+
+        More rest = higher score (better physical condition).
+
+        Args:
+            last_match_date: Date of team's last match
+            current_match_date: Date of upcoming match (defaults to now)
+
+        Returns:
+            Normalized rest score in [0, 1] where:
+            - 0.0 = very fatigued (<=2 days rest)
+            - 0.5 = moderate (4-5 days)
+            - 1.0 = well-rested (>=7 days)
+        """
+        if last_match_date is None:
+            return 0.5  # Unknown, assume average
+
+        if isinstance(last_match_date, str):
+            try:
+                last_match_date = datetime.fromisoformat(last_match_date.replace("Z", "+00:00"))
+            except ValueError:
+                return 0.5
+
+        if current_match_date is None:
+            current_match_date = datetime.now()
+        elif isinstance(current_match_date, str):
+            try:
+                current_match_date = datetime.fromisoformat(current_match_date.replace("Z", "+00:00"))
+            except ValueError:
+                current_match_date = datetime.now()
+
+        # Handle timezone-naive comparison
+        if last_match_date.tzinfo is not None and current_match_date.tzinfo is None:
+            last_match_date = last_match_date.replace(tzinfo=None)
+        elif current_match_date.tzinfo is not None and last_match_date.tzinfo is None:
+            current_match_date = current_match_date.replace(tzinfo=None)
+
+        days_rest = (current_match_date - last_match_date).days
+
+        # Clamp and normalize
+        days_rest = np.clip(
+            days_rest,
+            FeatureEngineer.REST_DAYS_MIN,
+            FeatureEngineer.REST_DAYS_MAX,
+        )
+
+        return (days_rest - FeatureEngineer.REST_DAYS_MIN) / (
+            FeatureEngineer.REST_DAYS_MAX - FeatureEngineer.REST_DAYS_MIN
+        )
+
+    @staticmethod
+    def calculate_fixture_congestion(
+        recent_match_dates: list[datetime | str] | None,
+        current_match_date: datetime | str | None = None,
+        window_days: int | None = None,
+    ) -> float:
+        """
+        Calculate fixture congestion score.
+
+        Fewer matches in the window = higher score (less fatigue).
+
+        Args:
+            recent_match_dates: List of recent match dates for the team
+            current_match_date: Date of upcoming match
+            window_days: Days to look back (default: CONGESTION_WINDOW_DAYS)
+
+        Returns:
+            Normalized congestion score in [0, 1] where:
+            - 0.0 = very congested (5+ matches in 14 days)
+            - 0.5 = moderate (2-3 matches)
+            - 1.0 = light schedule (0-1 matches)
+        """
+        if not recent_match_dates:
+            return 0.5  # Unknown, assume average
+
+        if window_days is None:
+            window_days = FeatureEngineer.CONGESTION_WINDOW_DAYS
+
+        if current_match_date is None:
+            current_match_date = datetime.now()
+        elif isinstance(current_match_date, str):
+            try:
+                current_match_date = datetime.fromisoformat(current_match_date.replace("Z", "+00:00"))
+            except ValueError:
+                current_match_date = datetime.now()
+
+        window_start = current_match_date - timedelta(days=window_days)
+
+        # Count matches in the window
+        matches_in_window = 0
+        for match_date in recent_match_dates:
+            if isinstance(match_date, str):
+                try:
+                    match_date = datetime.fromisoformat(match_date.replace("Z", "+00:00"))
+                except ValueError:
+                    continue
+
+            # Handle timezone
+            if match_date.tzinfo is not None and window_start.tzinfo is None:
+                match_date = match_date.replace(tzinfo=None)
+
+            if window_start <= match_date < current_match_date:
+                matches_in_window += 1
+
+        # Normalize: 0 matches = 1.0, CONGESTION_MAX_MATCHES+ = 0.0
+        congestion_score = 1.0 - (matches_in_window / FeatureEngineer.CONGESTION_MAX_MATCHES)
+        return float(np.clip(congestion_score, 0.0, 1.0))
 
     @staticmethod
     def calculate_recent_form(
@@ -305,6 +481,12 @@ class FeatureEngineer:
         home_recent_results: list[tuple[int, int]] | None = None,
         away_recent_results: list[tuple[int, int]] | None = None,
         h2h_results: list[tuple[int, int]] | None = None,
+        # Fatigue parameters
+        home_last_match_date: datetime | str | None = None,
+        away_last_match_date: datetime | str | None = None,
+        home_recent_match_dates: list[datetime | str] | None = None,
+        away_recent_match_dates: list[datetime | str] | None = None,
+        current_match_date: datetime | str | None = None,
     ) -> FeatureVector:
         """
         Create engineered feature vector for ML models.
@@ -317,6 +499,11 @@ class FeatureEngineer:
             home_recent_results: Recent match results for home team
             away_recent_results: Recent match results for away team
             h2h_results: Head-to-head results (from home perspective)
+            home_last_match_date: Date of home team's last match (for rest days)
+            away_last_match_date: Date of away team's last match (for rest days)
+            home_recent_match_dates: List of home team's recent match dates (for congestion)
+            away_recent_match_dates: List of away team's recent match dates (for congestion)
+            current_match_date: Date of the upcoming match
 
         Returns:
             FeatureVector with engineered features
@@ -350,6 +537,24 @@ class FeatureEngineer:
         if h2h_results:
             h2h_home = FeatureEngineer.calculate_head_to_head(h2h_results, is_home=True)
 
+        # Calculate fatigue features
+        home_rest = FeatureEngineer.calculate_rest_days(
+            home_last_match_date,
+            current_match_date,
+        )
+        away_rest = FeatureEngineer.calculate_rest_days(
+            away_last_match_date,
+            current_match_date,
+        )
+        home_congestion = FeatureEngineer.calculate_fixture_congestion(
+            home_recent_match_dates,
+            current_match_date,
+        )
+        away_congestion = FeatureEngineer.calculate_fixture_congestion(
+            away_recent_match_dates,
+            current_match_date,
+        )
+
         base_features = FeatureVector(
             home_attack=norm_home_attack,
             home_defense=norm_home_defense,
@@ -358,6 +563,10 @@ class FeatureEngineer:
             recent_form_home=home_form_norm,
             recent_form_away=away_form_norm,
             head_to_head_home=h2h_home,
+            home_rest_days=home_rest,
+            away_rest_days=away_rest,
+            home_fixture_congestion=home_congestion,
+            away_fixture_congestion=away_congestion,
         )
 
         # Compute interaction features automatically
@@ -396,6 +605,7 @@ class FeatureEngineer:
     def augment_dataframe(
         df: pd.DataFrame,
         add_interactions: bool = True,
+        add_fatigue: bool = True,
     ) -> pd.DataFrame:
         """
         Augment a DataFrame with engineered features.
@@ -403,9 +613,14 @@ class FeatureEngineer:
         Assumes DataFrame has columns:
         - home_attack, home_defense, away_attack, away_defense
 
+        Optional columns for fatigue (if add_fatigue=True):
+        - home_last_match_date, away_last_match_date (for rest days)
+        - match_date (current match date for calculations)
+
         Args:
             df: DataFrame with match data
             add_interactions: Whether to add interaction features
+            add_fatigue: Whether to add fatigue features
 
         Returns:
             Augmented DataFrame with new feature columns
@@ -418,19 +633,54 @@ class FeatureEngineer:
             logger.warning(f"Missing required columns. Need: {required}")
             return df
 
-        # Create interaction features for each row
-        if add_interactions:
-            for idx, row in df.iterrows():
-                features = FeatureVector(
-                    home_attack=row["home_attack"],
-                    home_defense=row["home_defense"],
-                    away_attack=row["away_attack"],
-                    away_defense=row["away_defense"],
-                    recent_form_home=row.get("recent_form_home", 50.0),
-                    recent_form_away=row.get("recent_form_away", 50.0),
-                    head_to_head_home=row.get("head_to_head_home", 0.0),
-                )
+        # Create interaction and fatigue features for each row
+        for idx, row in df.iterrows():
+            # Get fatigue data if available
+            home_rest = 0.5
+            away_rest = 0.5
+            home_congestion = 0.5
+            away_congestion = 0.5
 
+            if add_fatigue:
+                current_date = row.get("match_date")
+                home_last = row.get("home_last_match_date")
+                away_last = row.get("away_last_match_date")
+
+                if home_last is not None:
+                    home_rest = FeatureEngineer.calculate_rest_days(home_last, current_date)
+                if away_last is not None:
+                    away_rest = FeatureEngineer.calculate_rest_days(away_last, current_date)
+
+                # Note: For congestion, we'd need a list of recent match dates per team
+                # which typically isn't in a simple DataFrame row. Use defaults.
+
+            features = FeatureVector(
+                home_attack=row["home_attack"],
+                home_defense=row["home_defense"],
+                away_attack=row["away_attack"],
+                away_defense=row["away_defense"],
+                recent_form_home=row.get("recent_form_home", 50.0),
+                recent_form_away=row.get("recent_form_away", 50.0),
+                head_to_head_home=row.get("head_to_head_home", 0.0),
+                home_rest_days=home_rest,
+                away_rest_days=away_rest,
+                home_fixture_congestion=home_congestion,
+                away_fixture_congestion=away_congestion,
+            )
+
+            if add_fatigue:
+                # Add fatigue features
+                df.at[idx, "home_rest_days"] = home_rest
+                df.at[idx, "away_rest_days"] = away_rest
+                df.at[idx, "home_fixture_congestion"] = home_congestion
+                df.at[idx, "away_fixture_congestion"] = away_congestion
+
+                # Calculate fatigue advantage
+                home_fatigue_score = (home_rest + home_congestion) / 2
+                away_fatigue_score = (away_rest + away_congestion) / 2
+                df.at[idx, "fatigue_advantage"] = home_fatigue_score - away_fatigue_score
+
+            if add_interactions:
                 interactions = FeatureEngineer.create_interaction_features(features)
                 for col, val in interactions.items():
                     if col not in df.columns:

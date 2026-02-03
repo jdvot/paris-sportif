@@ -246,13 +246,13 @@ class AdvancedEnsemblePredictor:
             away_adj, -self.MAX_LLM_ADJUSTMENT * 0.75, self.MAX_LLM_ADJUSTMENT * 0.75
         )
 
-        # Apply adjustments with conservative scaling
-        # Scale by 0.65 to keep LLM as a modifier, not override
-        scale_factor = 0.65
-        home_logit += home_adj * scale_factor
-        away_logit += away_adj * scale_factor
+        # Apply adjustments to log-odds directly
+        # Note: Adjustments are already calibrated in adjustments.py (score * confidence * 0.1)
+        # No additional scaling needed to avoid double-dampening
+        home_logit += home_adj
+        away_logit += away_adj
         # Draw logit adjustment (reduces draw probability when teams differ more)
-        draw_logit -= abs(home_adj - away_adj) * 0.25 * scale_factor
+        draw_logit -= abs(home_adj - away_adj) * 0.3
 
         # Convert back to probabilities
         home_prob = 1.0 / (1.0 + np.exp(-home_logit))

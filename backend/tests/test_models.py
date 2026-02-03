@@ -1125,7 +1125,7 @@ class TestFeatureVector:
     """Test cases for FeatureVector with interaction features."""
 
     def test_base_features(self):
-        """Test FeatureVector with base features only."""
+        """Test FeatureVector with base features only (no fatigue, no interactions)."""
         from src.prediction_engine.feature_engineering import FeatureVector
 
         fv = FeatureVector(
@@ -1138,10 +1138,17 @@ class TestFeatureVector:
             head_to_head_home=0.1,
         )
 
-        arr = fv.to_array(include_interactions=False)
+        # Without fatigue features (7 base only)
+        arr = fv.to_array(include_interactions=False, include_fatigue=False)
         assert arr.shape == (7,)
         assert arr[0] == 0.7  # home_attack
         assert arr[4] == 0.65  # recent_form_home
+
+        # With fatigue features (7 base + 4 fatigue = 11)
+        arr_with_fatigue = fv.to_array(include_interactions=False, include_fatigue=True)
+        assert arr_with_fatigue.shape == (11,)
+        assert arr_with_fatigue[0] == 0.7  # home_attack
+        assert arr_with_fatigue[7] == 0.5  # home_rest_days (default)
 
     def test_compute_interactions(self):
         """Test interaction feature computation."""
@@ -1179,24 +1186,40 @@ class TestFeatureVector:
             head_to_head_home=0.2,
         ).compute_interactions()
 
-        arr = fv.to_array(include_interactions=True)
-        assert arr.shape == (14,)
-        assert arr[0] == 0.8  # home_attack
-        assert arr[7] == pytest.approx(0.8 * 0.5)  # home_attack_vs_away_defense
-        assert arr[11] == pytest.approx(0.7 - 0.5)  # form_advantage
+        # Without fatigue: 7 base + 8 interactions = 15
+        arr_no_fatigue = fv.to_array(include_interactions=True, include_fatigue=False)
+        assert arr_no_fatigue.shape == (15,)
+        assert arr_no_fatigue[0] == 0.8  # home_attack
+        assert arr_no_fatigue[7] == pytest.approx(0.8 * 0.5)  # home_attack_vs_away_defense
+        assert arr_no_fatigue[11] == pytest.approx(0.7 - 0.5)  # form_advantage
+
+        # With fatigue (default): 7 base + 4 fatigue + 8 interactions = 19
+        arr_with_fatigue = fv.to_array(include_interactions=True, include_fatigue=True)
+        assert arr_with_fatigue.shape == (19,)
+        assert arr_with_fatigue[0] == 0.8  # home_attack
+        # Index 7-10 are fatigue features, 11+ are interactions
+        assert arr_with_fatigue[11] == pytest.approx(0.8 * 0.5)  # home_attack_vs_away_defense
 
     def test_get_feature_names(self):
         """Test get_feature_names class method."""
         from src.prediction_engine.feature_engineering import FeatureVector
 
-        base_names = FeatureVector.get_feature_names(include_interactions=False)
+        # Base only (no fatigue, no interactions): 7
+        base_names = FeatureVector.get_feature_names(include_interactions=False, include_fatigue=False)
         assert len(base_names) == 7
         assert "home_attack" in base_names
 
-        all_names = FeatureVector.get_feature_names(include_interactions=True)
-        assert len(all_names) == 14
+        # Base + fatigue (default, no interactions): 7 + 4 = 11
+        base_with_fatigue = FeatureVector.get_feature_names(include_interactions=False, include_fatigue=True)
+        assert len(base_with_fatigue) == 11
+        assert "home_rest_days" in base_with_fatigue
+
+        # All features: 7 base + 4 fatigue + 8 interactions = 19
+        all_names = FeatureVector.get_feature_names(include_interactions=True, include_fatigue=True)
+        assert len(all_names) == 19
         assert "home_attack_vs_away_defense" in all_names
         assert "form_advantage" in all_names
+        assert "fatigue_advantage" in all_names
 
     def test_engineer_features_computes_interactions(self):
         """Test that engineer_features computes interactions automatically."""
@@ -1212,6 +1235,106 @@ class TestFeatureVector:
         # Check that interactions are computed (non-default values)
         assert fv.home_attack_vs_away_defense != 0.0
         assert fv.form_advantage == 0.0  # No form data, so 0.5 - 0.5 = 0
+
+
+class TestFatigueFeatures:
+    """Test fatigue calculation methods."""
+
+    def test_calculate_rest_days_basic(self):
+        """Test rest days calculation with normal values."""
+        from datetime import datetime, timedelta
+        from src.prediction_engine.feature_engineering import FeatureEngineer
+
+        current = datetime(2024, 3, 10, 15, 0, 0)
+
+        # 2 days rest -> minimum (0.0)
+        last_match_2days = current - timedelta(days=2)
+        score = FeatureEngineer.calculate_rest_days(last_match_2days, current)
+        assert score == pytest.approx(0.0, abs=0.01)
+
+        # 7 days rest -> maximum (1.0)
+        last_match_7days = current - timedelta(days=7)
+        score = FeatureEngineer.calculate_rest_days(last_match_7days, current)
+        assert score == pytest.approx(1.0, abs=0.01)
+
+        # 4 days rest -> middle (0.4)
+        last_match_4days = current - timedelta(days=4)
+        score = FeatureEngineer.calculate_rest_days(last_match_4days, current)
+        assert score == pytest.approx(0.4, abs=0.01)
+
+    def test_calculate_rest_days_edge_cases(self):
+        """Test rest days with edge cases."""
+        from src.prediction_engine.feature_engineering import FeatureEngineer
+
+        # None input -> default 0.5
+        assert FeatureEngineer.calculate_rest_days(None) == 0.5
+
+        # String date parsing
+        score = FeatureEngineer.calculate_rest_days("2024-03-05", "2024-03-10")
+        assert score == pytest.approx(0.6, abs=0.01)  # 5 days
+
+        # Invalid string -> default 0.5
+        assert FeatureEngineer.calculate_rest_days("invalid-date") == 0.5
+
+    def test_calculate_fixture_congestion_basic(self):
+        """Test fixture congestion with normal values."""
+        from datetime import datetime, timedelta
+        from src.prediction_engine.feature_engineering import FeatureEngineer
+
+        current = datetime(2024, 3, 15, 15, 0, 0)
+
+        # No matches in window -> light schedule (1.0)
+        score = FeatureEngineer.calculate_fixture_congestion([], current)
+        assert score == 0.5  # Empty list returns default
+
+        # 1 match in 14 days -> light schedule (0.8)
+        dates_1match = [current - timedelta(days=7)]
+        score = FeatureEngineer.calculate_fixture_congestion(dates_1match, current)
+        assert score == pytest.approx(0.8, abs=0.01)
+
+        # 5 matches in 14 days -> congested (0.0)
+        dates_5matches = [current - timedelta(days=i * 2 + 1) for i in range(5)]  # 1,3,5,7,9 days ago
+        score = FeatureEngineer.calculate_fixture_congestion(dates_5matches, current)
+        assert score == pytest.approx(0.0, abs=0.01)
+
+    def test_calculate_fixture_congestion_edge_cases(self):
+        """Test fixture congestion with edge cases."""
+        from datetime import datetime, timedelta
+        from src.prediction_engine.feature_engineering import FeatureEngineer
+
+        current = datetime(2024, 3, 15, 15, 0, 0)
+
+        # None input -> default 0.5
+        assert FeatureEngineer.calculate_fixture_congestion(None) == 0.5
+
+        # Matches outside window should not count
+        dates_outside = [current - timedelta(days=20), current - timedelta(days=25)]
+        score = FeatureEngineer.calculate_fixture_congestion(dates_outside, current)
+        assert score == pytest.approx(1.0, abs=0.01)
+
+    def test_engineer_features_with_fatigue(self):
+        """Test engineer_features accepts fatigue parameters."""
+        from datetime import datetime, timedelta
+        from src.prediction_engine.feature_engineering import FeatureEngineer
+
+        current = datetime(2024, 3, 15, 15, 0, 0)
+        home_last = current - timedelta(days=7)  # Well rested
+        away_last = current - timedelta(days=3)  # Less rested
+
+        fv = FeatureEngineer.engineer_features(
+            home_attack=1.8,
+            home_defense=1.2,
+            away_attack=1.4,
+            away_defense=1.5,
+            home_last_match_date=home_last,
+            away_last_match_date=away_last,
+            current_match_date=current,
+        )
+
+        # Home team should have higher rest score
+        assert fv.home_rest_days > fv.away_rest_days
+        # Fatigue advantage should favor home team
+        assert fv.fatigue_advantage > 0
 
 
 class TestXGBoostModelInteractions:
