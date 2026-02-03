@@ -9,36 +9,34 @@ All endpoints require authentication.
 See /src/prediction_engine/ensemble_advanced.py for details.
 """
 
-import random
 import json
 import logging
-from datetime import datetime, timedelta, date
-from typing import Literal
+import random
+from datetime import datetime, timedelta
+from typing import Any, Literal
 
-from fastapi import APIRouter, Query, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Query
 from groq import Groq
+from pydantic import BaseModel, Field
 
-from src.auth import AuthenticatedUser, AUTH_RESPONSES
-from src.data.sources.football_data import get_football_data_client, MatchData, COMPETITIONS
-from src.core.exceptions import FootballDataAPIError, RateLimitError
+from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.config import settings
+from src.core.exceptions import FootballDataAPIError, RateLimitError
+from src.data.data_enrichment import get_data_enrichment
 from src.data.database import (
-    save_prediction,
-    get_prediction_from_db,
     get_predictions_by_date,
     get_scheduled_matches_from_db,
+    save_prediction,
 )
-from src.prediction_engine.ensemble_advanced import (
-    advanced_ensemble_predictor,
-    AdvancedLLMAdjustments,
-)
+from src.data.sources.football_data import MatchData, get_football_data_client
 from src.llm.prompts_advanced import (
     get_prediction_analysis_prompt,
 )
-from src.prediction_engine.rag_enrichment import get_rag_enrichment
+from src.prediction_engine.ensemble_advanced import (
+    advanced_ensemble_predictor,
+)
 from src.prediction_engine.multi_markets import get_multi_markets_prediction
-from src.data.data_enrichment import get_data_enrichment
+from src.prediction_engine.rag_enrichment import get_rag_enrichment
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +98,7 @@ class BTTSResponse(BaseModel):
     """Both Teams To Score response."""
 
     yes_prob: float = Field(..., ge=0, le=1, description="Probability both teams score")
-    no_prob: float = Field(..., ge=0, le=1, description="Probability at least one team doesn't score")
+    no_prob: float = Field(..., ge=0, le=1, description="Probability one team blanks")
     yes_odds: float | None = Field(None, description="Fair odds for BTTS Yes")
     no_odds: float | None = Field(None, description="Fair odds for BTTS No")
     recommended: str = Field("yes", description="Recommended bet: yes or no")
@@ -109,9 +107,9 @@ class BTTSResponse(BaseModel):
 class DoubleChanceResponse(BaseModel):
     """Double Chance market response."""
 
-    home_or_draw: float = Field(..., ge=0, le=1, alias="1X", description="Home win or Draw probability")
-    away_or_draw: float = Field(..., ge=0, le=1, alias="X2", description="Away win or Draw probability")
-    home_or_away: float = Field(..., ge=0, le=1, alias="12", description="Home or Away win probability")
+    home_or_draw: float = Field(..., ge=0, le=1, alias="1X", description="Home/Draw prob")
+    away_or_draw: float = Field(..., ge=0, le=1, alias="X2", description="Away/Draw prob")
+    home_or_away: float = Field(..., ge=0, le=1, alias="12", description="Home/Away prob")
     home_or_draw_odds: float | None = Field(None, description="Fair odds for 1X")
     away_or_draw_odds: float | None = Field(None, description="Fair odds for X2")
     home_or_away_odds: float | None = Field(None, description="Fair odds for 12")
@@ -198,8 +196,8 @@ class PredictionStatsResponse(BaseModel):
     correct_predictions: int
     accuracy: float
     roi_simulated: float
-    by_competition: dict[str, dict]
-    by_bet_type: dict[str, dict]
+    by_competition: dict[str, dict[str, Any]]
+    by_bet_type: dict[str, dict[str, Any]]
     last_updated: datetime
 
 
@@ -252,9 +250,20 @@ RISK_FACTORS_TEMPLATES = [
 ]
 
 EXPLANATIONS_TEMPLATES = {
-    "home_win": "Notre analyse privilégie {home} pour cette rencontre. L'équipe bénéficie d'un fort avantage du terrain combiné à une excellente forme actuelle. {away} reste compétitif mais devrait avoir du mal à créer des occasions décisives.",
-    "draw": "Un match équilibré où les deux équipes possèdent les atouts pour obtenir un résultat positif. Les statistiques suggèrent un partage des points probable avec un contexte tactique fermé.",
-    "away_win": "Malgré le déplacement, {away} dispose des arguments suffisants pour s'imposer. La qualité de leur jeu actuel pourrait faire la différence face à {home}.",
+    "home_win": (
+        "Notre analyse privilégie {home} pour cette rencontre. L'équipe bénéficie d'un "
+        "fort avantage du terrain combiné à une excellente forme actuelle. {away} reste "
+        "compétitif mais devrait avoir du mal à créer des occasions décisives."
+    ),
+    "draw": (
+        "Un match équilibré où les deux équipes possèdent les atouts pour obtenir un "
+        "résultat positif. Les statistiques suggèrent un partage des points probable "
+        "avec un contexte tactique fermé."
+    ),
+    "away_win": (
+        "Malgré le déplacement, {away} dispose des arguments suffisants pour s'imposer. "
+        "La qualité de leur jeu actuel pourrait faire la différence face à {home}."
+    ),
 }
 
 
@@ -266,7 +275,7 @@ def _get_groq_prediction(
     away_current_form: str = "",
     home_injuries: str = "",
     away_injuries: str = "",
-) -> dict | None:
+) -> dict[str, Any] | None:
     """
     Get match prediction from Groq API using advanced analysis prompt.
 
@@ -315,9 +324,13 @@ def _get_groq_prediction(
                 prediction_data = json.loads(json_str)
 
                 # Support both old and new formats
-                home_win = prediction_data.get("home_win_probability") or prediction_data.get("home_win", 0.33)
+                home_win = prediction_data.get("home_win_probability") or prediction_data.get(
+                    "home_win", 0.33
+                )
                 draw = prediction_data.get("draw_probability") or prediction_data.get("draw", 0.34)
-                away_win = prediction_data.get("away_win_probability") or prediction_data.get("away_win", 0.33)
+                away_win = prediction_data.get("away_win_probability") or prediction_data.get(
+                    "away_win", 0.33
+                )
 
                 # Validate probabilities sum to approximately 1.0
                 total = home_win + draw + away_win
@@ -339,7 +352,7 @@ def _get_groq_prediction(
                     }
                     return result
         except (json.JSONDecodeError, ValueError, AttributeError, TypeError) as e:
-            logger.warning(f"Failed to parse Groq response as JSON: {e}, Response was: {response_text[:200]}")
+            logger.warning(f"Failed to parse Groq response: {e}, Text: {response_text[:100]}")
             return None
 
         return None
@@ -388,7 +401,7 @@ def _get_recommended_bet(
     return "draw"
 
 
-def _get_team_stats_for_ml(home_team: str, away_team: str, match_id: int) -> dict:
+def _get_team_stats_for_ml(home_team: str, away_team: str, match_id: int) -> dict[str, Any]:
     """
     Get team statistics for ML ensemble prediction.
 
@@ -501,8 +514,14 @@ async def _generate_prediction_from_api_match(
         )
 
         # Map ensemble recommended_bet to API format
-        bet_map = {"home": "home_win", "draw": "draw", "away": "away_win"}
-        recommended_bet = bet_map.get(ensemble_result.recommended_bet, "draw")
+        bet_map: dict[str, Literal["home_win", "draw", "away_win"]] = {
+            "home": "home_win",
+            "draw": "draw",
+            "away": "away_win",
+        }
+        recommended_bet: Literal["home_win", "draw", "away_win"] = bet_map.get(
+            ensemble_result.recommended_bet, "draw"
+        )
 
     except Exception as e:
         logger.warning(f"Ensemble prediction failed, using fallback: {e}")
@@ -550,7 +569,8 @@ async def _generate_prediction_from_api_match(
         try:
             # Build real model contributions from ensemble
             contributions = {}
-            if hasattr(ensemble_result, 'model_contributions') and ensemble_result.model_contributions:
+            has_contribs = hasattr(ensemble_result, "model_contributions")
+            if has_contribs and ensemble_result.model_contributions:
                 for contrib in ensemble_result.model_contributions:
                     name_key = contrib.name.lower().replace(" ", "_").replace("-", "_")
                     contributions[name_key] = {
@@ -568,12 +588,12 @@ async def _generate_prediction_from_api_match(
                     away_win=contributions.get("poisson", {}).get("away_win", away_prob),
                 ),
                 xgboost=PredictionProbabilities(
-                    home_win=contributions.get("ml_(ensemble)", {}).get("home_win", home_prob) or
-                             contributions.get("ml_(xgboost)", {}).get("home_win", home_prob),
-                    draw=contributions.get("ml_(ensemble)", {}).get("draw", draw_prob) or
-                         contributions.get("ml_(xgboost)", {}).get("draw", draw_prob),
-                    away_win=contributions.get("ml_(ensemble)", {}).get("away_win", away_prob) or
-                             contributions.get("ml_(xgboost)", {}).get("away_win", away_prob),
+                    home_win=contributions.get("ml_(ensemble)", {}).get("home_win", home_prob)
+                    or contributions.get("ml_(xgboost)", {}).get("home_win", home_prob),
+                    draw=contributions.get("ml_(ensemble)", {}).get("draw", draw_prob)
+                    or contributions.get("ml_(xgboost)", {}).get("draw", draw_prob),
+                    away_win=contributions.get("ml_(ensemble)", {}).get("away_win", away_prob)
+                    or contributions.get("ml_(xgboost)", {}).get("away_win", away_prob),
                 ),
                 xg_model=PredictionProbabilities(
                     home_win=contributions.get("dixon_coles", {}).get("home_win", home_prob),
@@ -581,12 +601,12 @@ async def _generate_prediction_from_api_match(
                     away_win=contributions.get("dixon_coles", {}).get("away_win", away_prob),
                 ),
                 elo=PredictionProbabilities(
-                    home_win=contributions.get("advanced_elo", {}).get("home_win", home_prob) or
-                             contributions.get("basic_elo", {}).get("home_win", home_prob),
-                    draw=contributions.get("advanced_elo", {}).get("draw", draw_prob) or
-                         contributions.get("basic_elo", {}).get("draw", draw_prob),
-                    away_win=contributions.get("advanced_elo", {}).get("away_win", away_prob) or
-                             contributions.get("basic_elo", {}).get("away_win", away_prob),
+                    home_win=contributions.get("advanced_elo", {}).get("home_win", home_prob)
+                    or contributions.get("basic_elo", {}).get("home_win", home_prob),
+                    draw=contributions.get("advanced_elo", {}).get("draw", draw_prob)
+                    or contributions.get("basic_elo", {}).get("draw", draw_prob),
+                    away_win=contributions.get("advanced_elo", {}).get("away_win", away_prob)
+                    or contributions.get("basic_elo", {}).get("away_win", away_prob),
                 ),
             )
         except Exception as e:
@@ -668,8 +688,13 @@ async def _generate_prediction_from_api_match(
                 logger.warning(f"Failed to fetch real odds: {e}")
 
             # Get expected goals from ensemble result or estimate from probabilities
-            exp_home = getattr(ensemble_result, 'expected_home_goals', None) if 'ensemble_result' in dir() else None
-            exp_away = getattr(ensemble_result, 'expected_away_goals', None) if 'ensemble_result' in dir() else None
+            has_ensemble = "ensemble_result" in dir()
+            if has_ensemble:
+                exp_home = getattr(ensemble_result, "expected_home_goals", None)
+                exp_away = getattr(ensemble_result, "expected_away_goals", None)
+            else:
+                exp_home = None
+                exp_away = None
 
             # Fallback estimation if expected goals not available
             if exp_home is None or exp_away is None:
@@ -728,7 +753,7 @@ async def _generate_prediction_from_api_match(
                     no_odds=mm_prediction.btts.no_odds,
                     recommended=mm_prediction.btts.recommended,
                 ),
-                double_chance=DoubleChanceResponse(
+                double_chance=DoubleChanceResponse(  # type: ignore[call-arg]
                     home_or_draw=mm_prediction.double_chance.home_or_draw_prob,
                     away_or_draw=mm_prediction.double_chance.away_or_draw_prob,
                     home_or_away=mm_prediction.double_chance.home_or_away_prob,
@@ -775,10 +800,15 @@ async def _generate_prediction_from_api_match(
     )
 
 
-@router.get("/daily", response_model=DailyPicksResponse, responses=AUTH_RESPONSES, operation_id="getDailyPicks")
+@router.get(
+    "/daily",
+    response_model=DailyPicksResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getDailyPicks",
+)
 async def get_daily_picks(
     user: AuthenticatedUser,
-    query_date: str | None = Query(None, alias="date", description="Date in YYYY-MM-DD format, defaults to today"),
+    query_date: str | None = Query(None, alias="date", description="Date YYYY-MM-DD"),
 ) -> DailyPicksResponse:
     """
     Get the 5 best picks for the specified date ONLY.
@@ -801,11 +831,12 @@ async def get_daily_picks(
             # Convert cached predictions to response format
             all_predictions = []
             for cached in cached_predictions:
+                comp_code = cached["competition_code"]
                 pred = PredictionResponse(
                     match_id=cached["match_id"],
                     home_team=cached["home_team"],
                     away_team=cached["away_team"],
-                    competition=COMPETITION_NAMES.get(cached["competition_code"], cached["competition_code"]),
+                    competition=COMPETITION_NAMES.get(comp_code, comp_code),
                     match_date=datetime.fromisoformat(cached["match_date"]),
                     probabilities=PredictionProbabilities(
                         home_win=cached["home_win_prob"],
@@ -827,7 +858,7 @@ async def get_daily_picks(
             # Sort and return top 5
             all_predictions.sort(key=lambda x: x[1], reverse=True)
             daily_picks = [
-                DailyPickResponse(rank=i+1, prediction=p, pick_score=round(s, 4))
+                DailyPickResponse(rank=i + 1, prediction=p, pick_score=round(s, 4))
                 for i, (p, s) in enumerate(all_predictions[:5])
             ]
             return DailyPicksResponse(
@@ -860,7 +891,8 @@ async def get_daily_picks(
         # Include all matches for the day (scheduled, in-play, and finished)
         # This allows users to see predictions even for completed matches
         api_matches = [
-            m for m in api_matches
+            m
+            for m in api_matches
             if m.status in ("SCHEDULED", "TIMED", "FINISHED", "IN_PLAY", "PAUSED")
         ]
 
@@ -877,22 +909,24 @@ async def get_daily_picks(
             pred = await _generate_prediction_from_api_match(api_match, include_model_details=False)
 
             # Save prediction to database for caching
-            save_prediction({
-                "match_id": pred.match_id,
-                "match_external_id": f"{api_match.competition.code}_{pred.match_id}",
-                "home_team": pred.home_team,
-                "away_team": pred.away_team,
-                "competition_code": api_match.competition.code,
-                "match_date": api_match.utcDate,
-                "home_win_prob": pred.probabilities.home_win,
-                "draw_prob": pred.probabilities.draw,
-                "away_win_prob": pred.probabilities.away_win,
-                "predicted_home_goals": None,
-                "predicted_away_goals": None,
-                "confidence": pred.confidence,
-                "recommendation": pred.recommended_bet,
-                "explanation": pred.explanation,
-            })
+            save_prediction(
+                {
+                    "match_id": pred.match_id,
+                    "match_external_id": f"{api_match.competition.code}_{pred.match_id}",
+                    "home_team": pred.home_team,
+                    "away_team": pred.away_team,
+                    "competition_code": api_match.competition.code,
+                    "match_date": api_match.utcDate,
+                    "home_win_prob": pred.probabilities.home_win,
+                    "draw_prob": pred.probabilities.draw,
+                    "away_win_prob": pred.probabilities.away_win,
+                    "predicted_home_goals": None,
+                    "predicted_away_goals": None,
+                    "confidence": pred.confidence,
+                    "recommendation": pred.recommended_bet,
+                    "explanation": pred.explanation,
+                }
+            )
 
             # Calculate pick score (confidence * value_score)
             pick_score = pred.confidence * pred.value_score
@@ -932,13 +966,22 @@ async def get_daily_picks(
         )
 
 
-@router.get("/stats", response_model=PredictionStatsResponse, responses=AUTH_RESPONSES, operation_id="getPredictionStats")
+@router.get(
+    "/stats",
+    response_model=PredictionStatsResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getPredictionStats",
+)
 async def get_prediction_stats(
     user: AuthenticatedUser,
     days: int = Query(30, ge=7, le=365, description="Number of days to analyze"),
 ) -> PredictionStatsResponse:
     """Get historical prediction performance statistics."""
-    from src.data.database import get_prediction_statistics, verify_finished_matches, get_all_predictions_stats
+    from src.data.database import (
+        get_all_predictions_stats,
+        get_prediction_statistics,
+        verify_finished_matches,
+    )
 
     # First, verify any finished matches that haven't been verified
     verify_finished_matches()
@@ -972,8 +1015,7 @@ async def get_prediction_stats(
 
 
 def _generate_fallback_prediction(
-    match_id: int,
-    include_model_details: bool = False
+    match_id: int, include_model_details: bool = False
 ) -> PredictionResponse:
     """
     Generate a basic prediction when external API fails.
@@ -993,6 +1035,7 @@ def _generate_fallback_prediction(
     away_prob = round(away_base, 4)
 
     # Get recommended bet
+    recommended_bet: Literal["home_win", "draw", "away_win"]
     if home_prob >= away_prob and home_prob >= draw_prob:
         recommended_bet = "home_win"
     elif away_prob >= home_prob and away_prob >= draw_prob:
@@ -1014,7 +1057,10 @@ def _generate_fallback_prediction(
 
     risk_factors = random.sample(RISK_FACTORS_TEMPLATES, 2)
 
-    explanation = "Analyse basée sur des données statistiques. Prédiction générée en mode dégradé (API externe temporairement indisponible)."
+    explanation = (
+        "Analyse basée sur des données statistiques. Prédiction générée en mode "
+        "dégradé (API externe temporairement indisponible)."
+    )
 
     # Model contributions (optional)
     model_contributions = None
@@ -1110,7 +1156,7 @@ def _generate_fallback_prediction(
                     no_odds=mm_prediction.btts.no_odds,
                     recommended=mm_prediction.btts.recommended,
                 ),
-                double_chance=DoubleChanceResponse(
+                double_chance=DoubleChanceResponse(  # type: ignore[call-arg]
                     home_or_draw=mm_prediction.double_chance.home_or_draw_prob,
                     away_or_draw=mm_prediction.double_chance.away_or_draw_prob,
                     home_or_away=mm_prediction.double_chance.home_or_away_prob,
@@ -1159,18 +1205,25 @@ def _generate_fallback_prediction(
     )
 
 
-@router.get("/{match_id}", response_model=PredictionResponse, responses=AUTH_RESPONSES, operation_id="getPrediction")
+@router.get(
+    "/{match_id}",
+    response_model=PredictionResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getPrediction",
+)
 async def get_prediction(
     match_id: int,
     user: AuthenticatedUser,
-    include_model_details: bool = Query(False, description="Include individual model contributions"),
+    include_model_details: bool = Query(False, description="Include model details"),
 ) -> PredictionResponse:
     """Get detailed prediction for a specific match."""
     try:
         # Fetch real match from API
         client = get_football_data_client()
         api_match = await client.get_match(match_id)
-        return await _generate_prediction_from_api_match(api_match, include_model_details=include_model_details)
+        return await _generate_prediction_from_api_match(
+            api_match, include_model_details=include_model_details
+        )
 
     except RateLimitError:
         # On rate limit, try fallback instead of failing

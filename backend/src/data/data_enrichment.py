@@ -9,8 +9,8 @@ Sources:
 
 import logging
 import os
-from datetime import date, datetime, timedelta
-from typing import Any, Optional
+from datetime import datetime
+from typing import Any
 
 import httpx
 
@@ -42,7 +42,7 @@ class OddsAPIClient:
         competition: str,
         markets: str = "h2h,totals",  # h2h, spreads, totals
         regions: str = "eu",
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Get current odds for a competition including Over/Under markets."""
         if not self.api_key:
             return []
@@ -61,11 +61,11 @@ class OddsAPIClient:
                         "regions": regions,
                         "markets": markets,
                         "oddsFormat": "decimal",
-                    }
+                    },
                 )
 
                 if response.status_code == 200:
-                    data = response.json()
+                    data: list[dict[str, Any]] = response.json()
                     logger.info(f"Fetched odds for {len(data)} matches in {competition}")
                     return data
                 elif response.status_code == 401:
@@ -80,9 +80,11 @@ class OddsAPIClient:
 
         return []
 
-    def extract_best_odds(self, odds_data: list[dict], home_team: str, away_team: str) -> dict:
+    def extract_best_odds(
+        self, odds_data: list[dict[str, Any]], home_team: str, away_team: str
+    ) -> dict[str, Any]:
         """Extract best odds for a specific match."""
-        result = {
+        result: dict[str, Any] = {
             "home_win": None,
             "draw": None,
             "away_win": None,
@@ -107,7 +109,8 @@ class OddsAPIClient:
                     for bm in bookmakers[:5]:  # Top 5 bookmakers
                         for market in bm.get("markets", []):
                             if market.get("key") == "h2h":
-                                outcomes = {o["name"]: o["price"] for o in market.get("outcomes", [])}
+                                market_outcomes = market.get("outcomes", [])
+                                outcomes = {o["name"]: o["price"] for o in market_outcomes}
                                 if match.get("home_team") in outcomes:
                                     home_odds.append(outcomes[match.get("home_team")])
                                 if "Draw" in outcomes:
@@ -129,8 +132,8 @@ class OddsAPIClient:
         return result
 
     def extract_totals_odds(
-        self, odds_data: list[dict], home_team: str, away_team: str
-    ) -> dict:
+        self, odds_data: list[dict[str, Any]], home_team: str, away_team: str
+    ) -> dict[str, Any]:
         """Extract Over/Under (totals) odds for a specific match."""
         result = {
             "over_25": None,
@@ -160,21 +163,14 @@ class OddsAPIClient:
                                     name = outcome.get("name", "").lower()
                                     price = outcome.get("price")
 
-                                    if point == 2.5:
-                                        if name == "over" and (result["over_25"] is None or price > result["over_25"]):
-                                            result["over_25"] = price
-                                        elif name == "under" and (result["under_25"] is None or price > result["under_25"]):
-                                            result["under_25"] = price
-                                    elif point == 1.5:
-                                        if name == "over" and (result["over_15"] is None or price > result["over_15"]):
-                                            result["over_15"] = price
-                                        elif name == "under" and (result["under_15"] is None or price > result["under_15"]):
-                                            result["under_15"] = price
-                                    elif point == 3.5:
-                                        if name == "over" and (result["over_35"] is None or price > result["over_35"]):
-                                            result["over_35"] = price
-                                        elif name == "under" and (result["under_35"] is None or price > result["under_35"]):
-                                            result["under_35"] = price
+                                    # Map point value to result key suffix
+                                    point_map = {1.5: "15", 2.5: "25", 3.5: "35"}
+                                    suffix = point_map.get(point)
+                                    if suffix:
+                                        key = f"{name}_{suffix}"
+                                        current = result.get(key)
+                                        if current is None or price > current:
+                                            result[key] = price
 
                     # Check if we have at least Over/Under 2.5
                     if result["over_25"] is not None or result["under_25"] is not None:
@@ -257,11 +253,7 @@ class WeatherClient:
         # Open-Meteo doesn't need an API key - this param is kept for compatibility
         pass
 
-    async def get_match_weather(
-        self,
-        home_team: str,
-        match_date: datetime
-    ) -> dict[str, Any]:
+    async def get_match_weather(self, home_team: str, match_date: datetime) -> dict[str, Any]:
         """Get weather forecast for match day at stadium location using Open-Meteo."""
         # Find stadium coordinates
         coords = None
@@ -277,15 +269,19 @@ class WeatherClient:
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 # Open-Meteo forecast API
+                hourly_params = (
+                    "temperature_2m,relative_humidity_2m,apparent_temperature,"
+                    "precipitation_probability,weather_code,wind_speed_10m"
+                )
                 response = await client.get(
                     self.BASE_URL,
                     params={
                         "latitude": coords[0],
                         "longitude": coords[1],
-                        "hourly": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m",
+                        "hourly": hourly_params,
                         "forecast_days": 7,
                         "timezone": "auto",
-                    }
+                    },
                 )
 
                 if response.status_code == 200:
@@ -294,9 +290,8 @@ class WeatherClient:
                     times = hourly.get("time", [])
 
                     # Find forecast closest to match time
-                    match_date_str = match_date.strftime("%Y-%m-%dT%H:00")
                     closest_idx = 0
-                    min_diff = float('inf')
+                    min_diff = float("inf")
 
                     for idx, time_str in enumerate(times):
                         try:
@@ -327,8 +322,8 @@ class WeatherClient:
                             "impact": self._assess_weather_impact(
                                 temp or 15,
                                 wind_speed / 3.6,  # Convert km/h to m/s
-                                precip_prob / 100  # Convert to 0-1 range
-                            )
+                                precip_prob / 100,  # Convert to 0-1 range
+                            ),
                         }
 
         except Exception as e:
@@ -390,9 +385,9 @@ class FormCalculator:
     """Calculate team form from recent results."""
 
     @staticmethod
-    def calculate_form(matches: list[dict], team_name: str) -> dict:
+    def calculate_form(matches: list[dict[str, Any]], team_name: str) -> dict[str, Any]:
         """Calculate form stats from last N matches."""
-        form = {
+        form: dict[str, Any] = {
             "last_5": [],
             "points": 0,
             "goals_scored": 0,
@@ -406,7 +401,6 @@ class FormCalculator:
 
         for match in matches[:5]:
             home_team = match.get("homeTeam", {}).get("name", "")
-            away_team = match.get("awayTeam", {}).get("name", "")
             score = match.get("score", {})
 
             if not score or not score.get("fullTime"):
@@ -459,7 +453,7 @@ class XGApproximator:
         goals_conceded: float,
         form_rating: float,
         is_home: bool = False,
-    ) -> dict:
+    ) -> dict[str, float]:
         """Estimate xG-like metrics from basic stats."""
         # Base xG approximation from goals
         base_xg = goals_scored * 0.9  # Regress slightly to mean
@@ -486,7 +480,7 @@ class XGApproximator:
 class DataEnrichmentService:
     """Main service that combines all data sources."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.odds_client = OddsAPIClient()
         self.weather_client = WeatherClient()
         self.form_calculator = FormCalculator()
@@ -498,13 +492,13 @@ class DataEnrichmentService:
         away_team: str,
         competition: str,
         match_date: datetime,
-        home_recent_matches: list[dict] | None = None,
-        away_recent_matches: list[dict] | None = None,
-        h2h_matches: list[dict] | None = None,
-        standings: list[dict] | None = None,
+        home_recent_matches: list[dict[str, Any]] | None = None,
+        away_recent_matches: list[dict[str, Any]] | None = None,
+        h2h_matches: list[dict[str, Any]] | None = None,
+        standings: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Get all enrichment data for a match."""
-        enrichment = {
+        enrichment: dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "home_team": home_team,
             "away_team": away_team,
@@ -514,9 +508,7 @@ class DataEnrichmentService:
         # 1. Get bookmaker odds (1X2 + Over/Under)
         try:
             odds_data = await self.odds_client.get_odds(competition, markets="h2h,totals")
-            enrichment["odds"] = self.odds_client.extract_best_odds(
-                odds_data, home_team, away_team
-            )
+            enrichment["odds"] = self.odds_client.extract_best_odds(odds_data, home_team, away_team)
             # Also extract Over/Under odds
             enrichment["totals_odds"] = self.odds_client.extract_totals_odds(
                 odds_data, home_team, away_team
@@ -557,32 +549,29 @@ class DataEnrichmentService:
 
         # 6. xG approximation
         if enrichment.get("home_form") and enrichment.get("away_form"):
-            home_form = enrichment["home_form"]
-            away_form = enrichment["away_form"]
+            home_form: dict[str, Any] = enrichment["home_form"]
+            away_form: dict[str, Any] = enrichment["away_form"]
 
             enrichment["home_xg_estimate"] = self.xg_approximator.estimate_team_xg(
-                home_form["goals_scored"] / max(1, len(home_form["last_5"])),
-                home_form["goals_conceded"] / max(1, len(home_form["last_5"])),
-                home_form["form_rating"],
+                float(home_form["goals_scored"]) / max(1, len(home_form["last_5"])),
+                float(home_form["goals_conceded"]) / max(1, len(home_form["last_5"])),
+                float(home_form["form_rating"]),
                 is_home=True,
             )
             enrichment["away_xg_estimate"] = self.xg_approximator.estimate_team_xg(
-                away_form["goals_scored"] / max(1, len(away_form["last_5"])),
-                away_form["goals_conceded"] / max(1, len(away_form["last_5"])),
-                away_form["form_rating"],
+                float(away_form["goals_scored"]) / max(1, len(away_form["last_5"])),
+                float(away_form["goals_conceded"]) / max(1, len(away_form["last_5"])),
+                float(away_form["form_rating"]),
                 is_home=False,
             )
 
         return enrichment
 
     def _analyze_h2h(
-        self,
-        matches: list[dict],
-        home_team: str,
-        away_team: str
-    ) -> dict:
+        self, matches: list[dict[str, Any]], home_team: str, away_team: str
+    ) -> dict[str, Any]:
         """Analyze head-to-head history."""
-        h2h = {
+        h2h: dict[str, Any] = {
             "total_matches": len(matches),
             "home_wins": 0,
             "away_wins": 0,
@@ -633,12 +622,12 @@ class DataEnrichmentService:
 
     def _extract_standings_context(
         self,
-        standings: list[dict],
+        standings: list[dict[str, Any]],
         home_team: str,
         away_team: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Extract standings context for both teams."""
-        context = {
+        context: dict[str, Any] = {
             "home_position": None,
             "away_position": None,
             "home_points": None,
@@ -656,15 +645,17 @@ class DataEnrichmentService:
                 context["away_position"] = team.get("position")
                 context["away_points"] = team.get("points")
 
-        if context["home_position"] and context["away_position"]:
-            context["position_diff"] = context["away_position"] - context["home_position"]
+        home_pos = context["home_position"]
+        away_pos = context["away_position"]
+        if home_pos is not None and away_pos is not None:
+            context["position_diff"] = int(away_pos) - int(home_pos)
 
             # Generate context note
-            if context["home_position"] <= 4 and context["away_position"] <= 4:
+            if int(home_pos) <= 4 and int(away_pos) <= 4:
                 context["context_note"] = "Top 4 clash"
-            elif context["home_position"] <= 4 or context["away_position"] <= 4:
+            elif int(home_pos) <= 4 or int(away_pos) <= 4:
                 context["context_note"] = "European spot battle"
-            elif context["home_position"] >= 17 or context["away_position"] >= 17:
+            elif int(home_pos) >= 17 or int(away_pos) >= 17:
                 context["context_note"] = "Relegation battle"
 
         return context

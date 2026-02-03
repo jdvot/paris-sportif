@@ -3,27 +3,30 @@
 All endpoints require authentication.
 """
 
-from datetime import date, datetime, timedelta
-from typing import Literal
 import logging
+from datetime import UTC, date, datetime, timedelta
+from typing import Literal
 
-from fastapi import APIRouter, Query, HTTPException, Depends
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
-from src.data.sources.football_data import get_football_data_client, MatchData, COMPETITIONS
-from src.data.database import get_matches_from_db, get_standings_from_db
+from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.exceptions import FootballDataAPIError, RateLimitError
-from src.auth import AuthenticatedUser, AUTH_RESPONSES
+from src.data.database import get_matches_from_db, get_standings_from_db
+from src.data.sources.football_data import COMPETITIONS, MatchData, get_football_data_client
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# Type aliases for match status
+MatchStatus = Literal["scheduled", "live", "finished", "postponed"]
+APIStatus = Literal["SCHEDULED", "LIVE", "FINISHED"]
+
 
 def _generate_mock_matches() -> list["MatchResponse"]:
     """Generate mock matches when API is unavailable."""
-    from datetime import timezone
 
-    base_date = datetime.now(timezone.utc)
+    base_date = datetime.now(UTC)
 
     mock_data = [
         {"home": "Manchester City", "away": "Chelsea", "comp": "Premier League", "code": "PL"},
@@ -41,25 +44,27 @@ def _generate_mock_matches() -> list["MatchResponse"]:
     matches = []
     for i, m in enumerate(mock_data):
         match_time = base_date + timedelta(days=i // 3, hours=15 + (i % 3) * 2)
-        matches.append(MatchResponse(
-            id=1000 + i,
-            external_id=f"{m['code']}_{1000 + i}",
-            home_team=TeamInfo(
-                id=100 + i * 2,
-                name=m["home"],
-                short_name=m["home"][:3].upper(),
-            ),
-            away_team=TeamInfo(
-                id=101 + i * 2,
-                name=m["away"],
-                short_name=m["away"][:3].upper(),
-            ),
-            competition=m["comp"],
-            competition_code=m["code"],
-            match_date=match_time,
-            status="scheduled",
-            matchday=i % 20 + 1,
-        ))
+        matches.append(
+            MatchResponse(
+                id=1000 + i,
+                external_id=f"{m['code']}_{1000 + i}",
+                home_team=TeamInfo(
+                    id=100 + i * 2,
+                    name=m["home"],
+                    short_name=m["home"][:3].upper(),
+                ),
+                away_team=TeamInfo(
+                    id=101 + i * 2,
+                    name=m["away"],
+                    short_name=m["away"][:3].upper(),
+                ),
+                competition=m["comp"],
+                competition_code=m["code"],
+                match_date=match_time,
+                status="scheduled",
+                matchday=i % 20 + 1,
+            )
+        )
 
     return matches
 
@@ -175,7 +180,7 @@ class HeadToHeadResponse(BaseModel):
 def _convert_api_match(api_match: MatchData) -> MatchResponse:
     """Convert football-data.org match to our response format."""
     # Map API status to our status
-    status_map = {
+    status_map: dict[str, MatchStatus] = {
         "SCHEDULED": "scheduled",
         "TIMED": "scheduled",
         "LIVE": "live",
@@ -187,7 +192,7 @@ def _convert_api_match(api_match: MatchData) -> MatchResponse:
         "SUSPENDED": "postponed",
     }
 
-    status = status_map.get(api_match.status, "scheduled")
+    status: MatchStatus = status_map.get(api_match.status, "scheduled")
 
     # Extract scores
     home_score = None
@@ -202,13 +207,21 @@ def _convert_api_match(api_match: MatchData) -> MatchResponse:
         home_team=TeamInfo(
             id=api_match.homeTeam.id,
             name=api_match.homeTeam.name,
-            short_name=api_match.homeTeam.tla or api_match.homeTeam.shortName or api_match.homeTeam.name[:3].upper(),
+            short_name=(
+                api_match.homeTeam.tla
+                or api_match.homeTeam.shortName
+                or api_match.homeTeam.name[:3].upper()
+            ),
             logo_url=api_match.homeTeam.crest,
         ),
         away_team=TeamInfo(
             id=api_match.awayTeam.id,
             name=api_match.awayTeam.name,
-            short_name=api_match.awayTeam.tla or api_match.awayTeam.shortName or api_match.awayTeam.name[:3].upper(),
+            short_name=(
+                api_match.awayTeam.tla
+                or api_match.awayTeam.shortName
+                or api_match.awayTeam.name[:3].upper()
+            ),
             logo_url=api_match.awayTeam.crest,
         ),
         competition=api_match.competition.name,
@@ -221,10 +234,15 @@ def _convert_api_match(api_match: MatchData) -> MatchResponse:
     )
 
 
-@router.get("", response_model=MatchListResponse, responses=AUTH_RESPONSES, operation_id="getMatches")
+@router.get(
+    "",
+    response_model=MatchListResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getMatches",
+)
 async def get_matches(
     user: AuthenticatedUser,
-    competition: str | None = Query(None, description="Filter by competition code (e.g., PL, PD, BL1)"),
+    competition: str | None = Query(None, description="Competition code (PL, PD, BL1)"),
     date_from: date | None = Query(None, description="Start date filter"),
     date_to: date | None = Query(None, description="End date filter"),
     status: Literal["scheduled", "live", "finished"] | None = Query(None),
@@ -245,14 +263,14 @@ async def get_matches(
     """
     try:
         # Map our status to API status
-        api_status = None
+        api_status: APIStatus | None = None
         if status:
-            status_map = {
+            api_status_map: dict[str, APIStatus] = {
                 "scheduled": "SCHEDULED",
                 "live": "LIVE",
                 "finished": "FINISHED",
             }
-            api_status = status_map.get(status)
+            api_status = api_status_map.get(status)
 
         # Default date range if not specified: next 10 days (API free tier limit)
         if not date_from and not date_to:
@@ -363,7 +381,12 @@ async def get_upcoming_matches(
         )
 
 
-@router.get("/{match_id}", response_model=MatchResponse, responses=AUTH_RESPONSES, operation_id="getMatch")
+@router.get(
+    "/{match_id}",
+    response_model=MatchResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getMatch",
+)
 async def get_match(match_id: int, user: AuthenticatedUser) -> MatchResponse:
     """Get details for a specific match."""
     try:
@@ -385,7 +408,12 @@ async def get_match(match_id: int, user: AuthenticatedUser) -> MatchResponse:
         return mock
 
 
-@router.get("/{match_id}/head-to-head", response_model=HeadToHeadResponse, responses=AUTH_RESPONSES, operation_id="getHeadToHead")
+@router.get(
+    "/{match_id}/head-to-head",
+    response_model=HeadToHeadResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getHeadToHead",
+)
 async def get_head_to_head(
     match_id: int,
     user: AuthenticatedUser,
@@ -419,14 +447,16 @@ async def get_head_to_head(
             else:
                 draws += 1
 
-            matches.append(HeadToHeadMatch(
-                date=datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00")),
-                home_team=api_match.homeTeam.name,
-                away_team=api_match.awayTeam.name,
-                home_score=home_score,
-                away_score=away_score,
-                competition=api_match.competition.name,
-            ))
+            matches.append(
+                HeadToHeadMatch(
+                    date=datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00")),
+                    home_team=api_match.homeTeam.name,
+                    away_team=api_match.awayTeam.name,
+                    home_score=home_score,
+                    away_score=away_score,
+                    competition=api_match.competition.name,
+                )
+            )
 
         total_matches = len(matches)
         avg_goals = total_goals / total_matches if total_matches > 0 else 0.0
@@ -453,12 +483,17 @@ async def get_head_to_head(
         )
 
 
-@router.get("/teams/{team_id}/form", response_model=TeamFormResponse, responses=AUTH_RESPONSES, operation_id="getTeamForm")
+@router.get(
+    "/teams/{team_id}/form",
+    response_model=TeamFormResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getTeamForm",
+)
 async def get_team_form(
     team_id: int,
     user: AuthenticatedUser,
     matches_count: int = Query(5, ge=3, le=10),
-    team_name: str | None = Query(None, description="Optional team name for fallback when API fails"),
+    team_name: str | None = Query(None, description="Team name for API fallback"),
 ) -> TeamFormResponse:
     """Get recent form for a team."""
     try:
@@ -502,6 +537,7 @@ async def get_team_form(
                 clean_sheets += 1
 
             # Determine result
+            result: Literal["W", "D", "L"]
             if team_score > opp_score:
                 result = "W"
                 total_points += 3
@@ -513,13 +549,15 @@ async def get_team_form(
 
             form_string += result
 
-            last_matches.append(TeamFormMatch(
-                opponent=opponent,
-                result=result,
-                score=f"{team_score}-{opp_score}",
-                home_away="H" if is_home else "A",
-                date=datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00")),
-            ))
+            last_matches.append(
+                TeamFormMatch(
+                    opponent=opponent,
+                    result=result,
+                    score=f"{team_score}-{opp_score}",
+                    home_away="H" if is_home else "A",
+                    date=datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00")),
+                )
+            )
 
         num_matches = len(last_matches)
 
@@ -550,7 +588,12 @@ async def get_team_form(
         )
 
 
-@router.get("/standings/{competition_code}", response_model=StandingsResponse, responses=AUTH_RESPONSES, operation_id="getStandings")
+@router.get(
+    "/standings/{competition_code}",
+    response_model=StandingsResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getStandings",
+)
 async def get_standings(
     competition_code: str,
     user: AuthenticatedUser,
@@ -568,9 +611,10 @@ async def get_standings(
     try:
         # Validate competition code
         if competition_code not in COMPETITIONS:
+            valid_codes = ", ".join(COMPETITIONS.keys())
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid competition code: {competition_code}. Must be one of: {', '.join(COMPETITIONS.keys())}"
+                detail=f"Invalid competition: {competition_code}. Use: {valid_codes}",
             )
 
         # Fetch standings from API
@@ -580,20 +624,22 @@ async def get_standings(
         # Convert to our format
         standings = []
         for api_team in api_standings:
-            standings.append(StandingTeamResponse(
-                position=api_team.position,
-                team_id=api_team.team.id,
-                team_name=api_team.team.name,
-                team_logo_url=api_team.team.crest,
-                played=api_team.playedGames,
-                won=api_team.won,
-                drawn=api_team.draw,
-                lost=api_team.lost,
-                goals_for=api_team.goalsFor,
-                goals_against=api_team.goalsAgainst,
-                goal_difference=api_team.goalDifference,
-                points=api_team.points,
-            ))
+            standings.append(
+                StandingTeamResponse(
+                    position=api_team.position,
+                    team_id=api_team.team.id,
+                    team_name=api_team.team.name,
+                    team_logo_url=api_team.team.crest,
+                    played=api_team.playedGames,
+                    won=api_team.won,
+                    drawn=api_team.draw,
+                    lost=api_team.lost,
+                    goals_for=api_team.goalsFor,
+                    goals_against=api_team.goalsAgainst,
+                    goal_difference=api_team.goalDifference,
+                    points=api_team.points,
+                )
+            )
 
         return StandingsResponse(
             competition_code=competition_code,
@@ -610,28 +656,29 @@ async def get_standings(
 
         # Try database first
         try:
-            from src.data.sources.football_data import StandingTeam
 
             db_standings = get_standings_from_db(competition_code)
             if db_standings:
-                logger.info(f"Found {len(db_standings)} standings in database for {competition_code}")
+                logger.info(f"Found {len(db_standings)} standings in DB for {competition_code}")
                 standings = []
-                for api_team in db_standings:
-                    team_data = api_team.get("team", {})
-                    standings.append(StandingTeamResponse(
-                        position=api_team.get("position", 0),
-                        team_id=team_data.get("id", 0),
-                        team_name=team_data.get("name", "Unknown"),
-                        team_logo_url=team_data.get("crest"),
-                        played=api_team.get("playedGames", 0),
-                        won=api_team.get("won", 0),
-                        drawn=api_team.get("draw", 0),
-                        lost=api_team.get("lost", 0),
-                        goals_for=api_team.get("goalsFor", 0),
-                        goals_against=api_team.get("goalsAgainst", 0),
-                        goal_difference=api_team.get("goalDifference", 0),
-                        points=api_team.get("points", 0),
-                    ))
+                for db_team in db_standings:
+                    team_data = db_team.get("team", {})
+                    standings.append(
+                        StandingTeamResponse(
+                            position=db_team.get("position", 0),
+                            team_id=team_data.get("id", 0),
+                            team_name=team_data.get("name", "Unknown"),
+                            team_logo_url=team_data.get("crest"),
+                            played=db_team.get("playedGames", 0),
+                            won=db_team.get("won", 0),
+                            drawn=db_team.get("draw", 0),
+                            lost=db_team.get("lost", 0),
+                            goals_for=db_team.get("goalsFor", 0),
+                            goals_against=db_team.get("goalsAgainst", 0),
+                            goal_difference=db_team.get("goalDifference", 0),
+                            points=db_team.get("points", 0),
+                        )
+                    )
 
                 return StandingsResponse(
                     competition_code=competition_code,

@@ -9,8 +9,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from src.auth import AdminUser, ADMIN_RESPONSES
-from src.data.database import get_db_stats, get_last_sync
+from src.auth import ADMIN_RESPONSES, AdminUser
+from src.data.database import get_db_stats
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ router = APIRouter()
 
 class AdminStatsResponse(BaseModel):
     """Admin dashboard statistics."""
+
     total_users: int
     premium_users: int
     total_predictions: int
@@ -32,6 +33,7 @@ class AdminStatsResponse(BaseModel):
 
 class UserListItem(BaseModel):
     """User list item for admin view."""
+
     id: str
     email: str
     role: str
@@ -40,6 +42,7 @@ class UserListItem(BaseModel):
 
 class UserListResponse(BaseModel):
     """User list response."""
+
     users: list[UserListItem]
     total: int
     page: int

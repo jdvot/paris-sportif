@@ -8,11 +8,11 @@ This file demonstrates:
 4. Model evaluation
 """
 
-from typing import List, Dict
 import numpy as np
 
+
 # Example 1: Using the Ensemble Predictor
-def example_ensemble_prediction():
+def example_ensemble_prediction() -> None:
     """Demonstrate ensemble prediction with all models."""
     from src.prediction_engine.ensemble import EnsemblePredictor
 
@@ -21,26 +21,22 @@ def example_ensemble_prediction():
     # Match data
     prediction = predictor.predict(
         # Team statistics for statistical models
-        home_attack=2.1,      # Goals per match at home
-        home_defense=1.3,     # Goals conceded per match at home
-        away_attack=1.8,      # Goals per match away
-        away_defense=1.5,     # Goals conceded per match away
-
+        home_attack=2.1,  # Goals per match at home
+        home_defense=1.3,  # Goals conceded per match at home
+        away_attack=1.8,  # Goals per match away
+        away_defense=1.5,  # Goals conceded per match away
         # ELO ratings
         home_elo=1650,
         away_elo=1550,
-
         # Optional: Expected Goals data
         home_xg_for=1.8,
         home_xg_against=0.9,
         away_xg_for=1.5,
         away_xg_against=1.2,
-
         # Optional: ML features
-        recent_form_home=65.0,      # 0-100 scale
+        recent_form_home=65.0,  # 0-100 scale
         recent_form_away=45.0,
-        head_to_head_home=0.2,      # -1.0 to 1.0
-
+        head_to_head_home=0.2,  # -1.0 to 1.0
         # Optional: Bookmaker odds for value calculation
         odds_home=2.1,
         odds_draw=3.2,
@@ -56,7 +52,9 @@ def example_ensemble_prediction():
     print(f"Confidence: {prediction.confidence:.1%}")
     print(f"Model Agreement: {prediction.model_agreement:.1%}")
     print(f"Value Score: {prediction.value_score}")
-    print(f"Expected Goals: {prediction.expected_home_goals:.1f}-{prediction.expected_away_goals:.1f}")
+    print(
+        f"Expected Goals: {prediction.expected_home_goals:.1f}-{prediction.expected_away_goals:.1f}"
+    )
 
     # Model contributions
     if prediction.poisson_contribution:
@@ -70,7 +68,7 @@ def example_ensemble_prediction():
 
 
 # Example 2: Feature Engineering
-def example_feature_engineering():
+def example_feature_engineering() -> None:
     """Demonstrate feature engineering capabilities."""
     from src.prediction_engine.feature_engineering import FeatureEngineer
 
@@ -111,7 +109,7 @@ def example_feature_engineering():
 
 
 # Example 3: Training Models
-def example_training():
+def example_training() -> None:
     """Demonstrate model training."""
     from src.prediction_engine.model_trainer import ModelTrainer
 
@@ -146,16 +144,18 @@ def example_training():
         else:
             outcome = 2  # Away win
 
-        match_data.append({
-            "home_attack": home_attack,
-            "home_defense": home_defense,
-            "away_attack": away_attack,
-            "away_defense": away_defense,
-            "recent_form_home": home_form,
-            "recent_form_away": away_form,
-            "head_to_head_home": np.random.uniform(-1, 1),
-            "outcome": outcome,
-        })
+        match_data.append(
+            {
+                "home_attack": home_attack,
+                "home_defense": home_defense,
+                "away_attack": away_attack,
+                "away_defense": away_defense,
+                "recent_form_home": home_form,
+                "recent_form_away": away_form,
+                "head_to_head_home": np.random.uniform(-1, 1),
+                "outcome": outcome,
+            }
+        )
 
     print(f"Generated {len(match_data)} synthetic matches")
 
@@ -164,23 +164,23 @@ def example_training():
     metrics = trainer.train_both_models(match_data, test_size=0.2)
 
     if metrics["xgboost"]:
-        print(f"\nXGBoost:")
+        print("\nXGBoost:")
         print(f"  Accuracy: {metrics['xgboost'].accuracy:.2%}")
         print(f"  LogLoss: {metrics['xgboost'].logloss:.4f}")
         print(f"  Home F1: {metrics['xgboost'].f1_home:.3f}")
 
     if metrics["random_forest"]:
-        print(f"\nRandom Forest:")
+        print("\nRandom Forest:")
         print(f"  Accuracy: {metrics['random_forest'].accuracy:.2%}")
         print(f"  LogLoss: {metrics['random_forest'].logloss:.4f}")
         print(f"  Home F1: {metrics['random_forest'].f1_home:.3f}")
 
 
 # Example 4: Direct Model Usage
-def example_direct_models():
+def example_direct_models() -> None:
     """Demonstrate using models directly."""
-    from src.prediction_engine.models.xgboost_model import XGBoostModel
     from src.prediction_engine.models.random_forest_model import RandomForestModel
+    from src.prediction_engine.models.xgboost_model import XGBoostModel
 
     print("\n=== Direct Model Usage ===")
 
@@ -198,7 +198,7 @@ def example_direct_models():
         head_to_head_home=0.2,
     )
 
-    print(f"XGBoost Prediction:")
+    print("XGBoost Prediction:")
     print(f"  Home Win: {xgb_pred.home_win_prob:.1%}")
     print(f"  Draw: {xgb_pred.draw_prob:.1%}")
     print(f"  Away Win: {xgb_pred.away_win_prob:.1%}")
@@ -216,28 +216,31 @@ def example_direct_models():
         head_to_head_home=0.2,
     )
 
-    print(f"\nRandom Forest Prediction:")
+    print("\nRandom Forest Prediction:")
     print(f"  Home Win: {rf_pred.home_win_prob:.1%}")
     print(f"  Draw: {rf_pred.draw_prob:.1%}")
     print(f"  Away Win: {rf_pred.away_win_prob:.1%}")
 
 
 # Example 5: Batch Predictions
-def example_batch_predictions():
+def example_batch_predictions() -> None:
     """Demonstrate batch predictions for multiple matches."""
-    from src.prediction_engine.models.xgboost_model import XGBoostModel
     import numpy as np
+
+    from src.prediction_engine.models.xgboost_model import XGBoostModel
 
     print("\n=== Batch Predictions ===")
 
     model = XGBoostModel()
 
     # Create feature matrix for multiple matches
-    features = np.array([
-        [0.7, 0.4, 0.6, 0.5, 0.65, 0.45, 0.2],  # Match 1
-        [0.8, 0.5, 0.5, 0.6, 0.55, 0.55, 0.0],  # Match 2
-        [0.6, 0.3, 0.8, 0.4, 0.45, 0.65, -0.1], # Match 3
-    ])
+    features = np.array(
+        [
+            [0.7, 0.4, 0.6, 0.5, 0.65, 0.45, 0.2],  # Match 1
+            [0.8, 0.5, 0.5, 0.6, 0.55, 0.55, 0.0],  # Match 2
+            [0.6, 0.3, 0.8, 0.4, 0.45, 0.65, -0.1],  # Match 3
+        ]
+    )
 
     probs = model.predict_batch(features)
 
@@ -247,11 +250,11 @@ def example_batch_predictions():
 
 
 # Example 6: Feature Importance
-def example_feature_importance():
+def example_feature_importance() -> None:
     """Demonstrate feature importance inspection."""
-    from src.prediction_engine.model_trainer import ModelTrainer
-    from src.prediction_engine.models.xgboost_model import XGBoostModel
     import numpy as np
+
+    from src.prediction_engine.models.xgboost_model import XGBoostModel
 
     print("\n=== Feature Importance ===")
 
@@ -276,7 +279,7 @@ def example_feature_importance():
         print(f"Note: {e}")
 
 
-def run_all_examples():
+def run_all_examples() -> None:
     """Run all examples."""
     print("=" * 60)
     print("ML Models and Ensemble Predictor Examples")

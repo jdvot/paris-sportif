@@ -7,7 +7,6 @@ Reference: https://dashee87.github.io/data%20science/football/r/predicting-footb
 """
 
 from dataclasses import dataclass
-from typing import Tuple
 
 import numpy as np
 from scipy.stats import poisson
@@ -22,8 +21,8 @@ class PoissonPrediction:
     away_win_prob: float
     expected_home_goals: float
     expected_away_goals: float
-    most_likely_score: Tuple[int, int]
-    score_probabilities: dict[Tuple[int, int], float]
+    most_likely_score: tuple[int, int]
+    score_probabilities: dict[tuple[int, int], float]
 
 
 class PoissonModel:
@@ -64,7 +63,7 @@ class PoissonModel:
         home_defense: float,
         away_attack: float,
         away_defense: float,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Calculate expected goals for each team.
 
@@ -88,19 +87,24 @@ class PoissonModel:
         # Use smoothing to avoid extreme ratios when values are very small
         smoothing = 0.1  # Add small constant to prevent division by very small numbers
 
-        home_attack_strength = home_attack / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
-        away_attack_strength = away_attack / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
+        home_attack_strength = (
+            home_attack / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
+        )
+        away_attack_strength = (
+            away_attack / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
+        )
 
-        home_defense_strength = home_defense / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
-        away_defense_strength = away_defense / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
+        home_defense_strength = (
+            home_defense / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
+        )
+        away_defense_strength = (
+            away_defense / (league_avg_per_team + smoothing) if league_avg_per_team > 0 else 1.0
+        )
 
         # Expected goals with improved home advantage handling
         # Home: home attack strength × away defense weakness × league avg × home advantage
         expected_home = (
-            home_attack_strength
-            * away_defense_strength
-            * league_avg_per_team
-            * self.home_advantage
+            home_attack_strength * away_defense_strength * league_avg_per_team * self.home_advantage
         )
 
         # Away: away attack strength × home defense weakness × league avg
@@ -145,7 +149,7 @@ class PoissonModel:
         )
 
         # Build score probability matrix
-        score_probs: dict[Tuple[int, int], float] = {}
+        score_probs: dict[tuple[int, int], float] = {}
         home_win_prob = 0.0
         draw_prob = 0.0
         away_win_prob = 0.0
@@ -153,10 +157,7 @@ class PoissonModel:
         for home_goals in range(self.MAX_GOALS + 1):
             for away_goals in range(self.MAX_GOALS + 1):
                 # P(home_goals) × P(away_goals)
-                prob = (
-                    poisson.pmf(home_goals, exp_home)
-                    * poisson.pmf(away_goals, exp_away)
-                )
+                prob = poisson.pmf(home_goals, exp_home) * poisson.pmf(away_goals, exp_away)
                 score_probs[(home_goals, away_goals)] = prob
 
                 if home_goals > away_goals:
@@ -216,7 +217,7 @@ class PoissonModel:
         expected_home: float,
         expected_away: float,
         line: float = 2.5,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Calculate over/under probabilities for a goals line.
 
@@ -233,9 +234,8 @@ class PoissonModel:
         for home_goals in range(self.MAX_GOALS + 1):
             for away_goals in range(self.MAX_GOALS + 1):
                 if home_goals + away_goals > line:
-                    prob = (
-                        poisson.pmf(home_goals, expected_home)
-                        * poisson.pmf(away_goals, expected_away)
+                    prob = poisson.pmf(home_goals, expected_home) * poisson.pmf(
+                        away_goals, expected_away
                     )
                     over_prob += prob
 
@@ -260,7 +260,7 @@ class PoissonModel:
         home_scores = 1 - poisson.pmf(0, expected_home)
         away_scores = 1 - poisson.pmf(0, expected_away)
 
-        return home_scores * away_scores
+        return float(home_scores * away_scores)
 
 
 # Default instance

@@ -84,6 +84,17 @@ select = ["E", "F", "I", "N", "W", "UP"]
 [tool.ruff.lint.per-file-ignores]
 # Pydantic models must match external API field names (camelCase)
 "src/data/sources/football_data.py" = ["N815"]
+# LLM prompts and database functions have long lines
+"src/llm/prompts*.py" = ["E501"]
+"src/llm/tasks/*.py" = ["E501"]
+"src/llm/adjustments.py" = ["E501"]
+"src/data/database.py" = ["E501"]
+"src/prediction_engine/models/*.py" = ["E501", "N803"]  # X, X_train are ML conventions
+"src/prediction_engine/ensemble*.py" = ["E501"]
+"src/prediction_engine/model_trainer.py" = ["E501", "N803", "N806"]
+"src/prediction_engine/examples.py" = ["E501", "N806"]
+"src/ml/*.py" = ["E501", "N803", "N806"]  # ML uses X, X_train, X_val conventions
+"src/api/routes/sync.py" = ["E501"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

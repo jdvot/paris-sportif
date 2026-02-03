@@ -4,6 +4,8 @@ Provides decorators and utilities for caching expensive API calls.
 Uses redis-py with async support for non-blocking operations.
 """
 
+from __future__ import annotations
+
 import hashlib
 import json
 import logging
@@ -161,15 +163,11 @@ def cached(
             ...
     """
 
-    def decorator(
-        func: Callable[P, Awaitable[T]]
-    ) -> Callable[P, Awaitable[Any]]:
+    def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[Any]]:
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
             # Generate cache key from function name and arguments
-            cache_key = generate_cache_key(
-                func.__name__, args, kwargs, prefix=prefix
-            )
+            cache_key = generate_cache_key(func.__name__, args, kwargs, prefix=prefix)
 
             # Try to get from cache
             cached_value = await cache_get(cache_key)
@@ -212,9 +210,7 @@ def cached_response(
             ...
     """
 
-    def decorator(
-        func: Callable[P, Awaitable[T]]
-    ) -> Callable[P, Awaitable[Any]]:
+    def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[Any]]:
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
             # Generate cache key from function name and arguments
@@ -260,9 +256,7 @@ def cached_response(
                 else:
                     cache_data = result
 
-                await cache_set(
-                    cache_key, json.dumps(cache_data, default=str), ttl
-                )
+                await cache_set(cache_key, json.dumps(cache_data, default=str), ttl)
             except (TypeError, ValueError) as e:
                 logger.warning(f"Failed to serialize response for caching: {e}")
 

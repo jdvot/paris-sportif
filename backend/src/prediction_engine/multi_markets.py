@@ -9,10 +9,9 @@ Calculates probabilities for various betting markets:
 Uses Poisson distribution for goal-based markets.
 """
 
+import logging
 import math
 from dataclasses import dataclass
-from typing import Optional
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +23,10 @@ class OverUnderPrediction:
     line: float  # 1.5, 2.5, 3.5, etc.
     over_prob: float
     under_prob: float
-    over_odds: Optional[float] = None
-    under_odds: Optional[float] = None
-    over_value: Optional[float] = None  # Value vs bookmaker
-    under_value: Optional[float] = None
+    over_odds: float | None = None
+    under_odds: float | None = None
+    over_value: float | None = None  # Value vs bookmaker
+    under_value: float | None = None
     recommended: str = "over"  # "over" or "under"
 
 
@@ -37,10 +36,10 @@ class BTTSPrediction:
 
     yes_prob: float
     no_prob: float
-    yes_odds: Optional[float] = None
-    no_odds: Optional[float] = None
-    yes_value: Optional[float] = None
-    no_value: Optional[float] = None
+    yes_odds: float | None = None
+    no_odds: float | None = None
+    yes_value: float | None = None
+    no_value: float | None = None
     recommended: str = "yes"  # "yes" or "no"
 
 
@@ -51,9 +50,9 @@ class DoubleChancePrediction:
     home_or_draw_prob: float  # 1X
     away_or_draw_prob: float  # X2
     home_or_away_prob: float  # 12 (no draw)
-    home_or_draw_odds: Optional[float] = None
-    away_or_draw_odds: Optional[float] = None
-    home_or_away_odds: Optional[float] = None
+    home_or_draw_odds: float | None = None
+    away_or_draw_odds: float | None = None
+    home_or_away_odds: float | None = None
     recommended: str = "1X"  # "1X", "X2", or "12"
 
 
@@ -246,7 +245,7 @@ def _calculate_correct_score(
     )
 
 
-def _calculate_value(prob: float, odds: Optional[float]) -> Optional[float]:
+def _calculate_value(prob: float, odds: float | None) -> float | None:
     """Calculate value score: (prob * odds) - 1."""
     if odds is None or odds <= 1:
         return None
@@ -254,7 +253,7 @@ def _calculate_value(prob: float, odds: Optional[float]) -> Optional[float]:
     return round(value, 4)
 
 
-def _estimate_fair_odds(prob: float) -> Optional[float]:
+def _estimate_fair_odds(prob: float) -> float | None:
     """Estimate fair odds from probability with 5% margin."""
     if prob <= 0 or prob >= 1:
         return None
@@ -279,10 +278,10 @@ class MultiMarketsPredictor:
         draw_prob: float,
         away_win_prob: float,
         # Optional bookmaker odds for value calculation
-        odds_over_25: Optional[float] = None,
-        odds_under_25: Optional[float] = None,
-        odds_btts_yes: Optional[float] = None,
-        odds_btts_no: Optional[float] = None,
+        odds_over_25: float | None = None,
+        odds_under_25: float | None = None,
+        odds_btts_yes: float | None = None,
+        odds_btts_no: float | None = None,
     ) -> MultiMarketsPrediction:
         """
         Calculate multi-markets predictions.
@@ -375,10 +374,10 @@ def get_multi_markets_prediction(
     home_win_prob: float,
     draw_prob: float,
     away_win_prob: float,
-    odds_over_25: Optional[float] = None,
-    odds_under_25: Optional[float] = None,
-    odds_btts_yes: Optional[float] = None,
-    odds_btts_no: Optional[float] = None,
+    odds_over_25: float | None = None,
+    odds_under_25: float | None = None,
+    odds_btts_yes: float | None = None,
+    odds_btts_no: float | None = None,
 ) -> MultiMarketsPrediction:
     """Convenience function to get multi-markets prediction."""
     return multi_markets_predictor.predict(

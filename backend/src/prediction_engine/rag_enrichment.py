@@ -8,10 +8,11 @@ prediction accuracy:
 - Head-to-head context
 """
 
-import logging
 import asyncio
-from datetime import datetime, timedelta
+import logging
+from datetime import datetime
 from typing import Any
+
 import httpx
 from groq import Groq
 
@@ -46,8 +47,8 @@ class RAGEnrichment:
         "AC Milan": ["Milan", "Rossoneri"],
     }
 
-    def __init__(self):
-        self.groq_client = None
+    def __init__(self) -> None:
+        self.groq_client: Groq | None = None
         if settings.groq_api_key:
             self.groq_client = Groq(api_key=settings.groq_api_key)
 
@@ -58,7 +59,7 @@ class RAGEnrichment:
         Returns:
             dict with keys: news, injuries, form_notes, sentiment
         """
-        context = {
+        context: dict[str, Any] = {
             "team": team_name,
             "news": [],
             "injuries": [],
@@ -75,8 +76,7 @@ class RAGEnrichment:
             form_task = self._fetch_team_form(team_name)
 
             news, injuries, form_data = await asyncio.gather(
-                news_task, injuries_task, form_task,
-                return_exceptions=True
+                news_task, injuries_task, form_task, return_exceptions=True
             )
 
             if not isinstance(news, Exception):
@@ -92,7 +92,8 @@ class RAGEnrichment:
                 context["sentiment"] = await self._analyze_sentiment(team_name, context["news"])
 
             # Generate key info from all sources
-            if self.groq_client and (context["news"] or context["injuries"] or context["recent_form"]):
+            has_content = context["news"] or context["injuries"] or context["recent_form"]
+            if self.groq_client and has_content:
                 context["key_info"] = await self._extract_key_info(team_name, context)
 
         except Exception as e:
@@ -100,9 +101,9 @@ class RAGEnrichment:
 
         return context
 
-    async def _fetch_team_news(self, team_name: str, limit: int = 5) -> list[dict]:
+    async def _fetch_team_news(self, team_name: str, limit: int = 5) -> list[dict[str, Any]]:
         """Fetch recent news about a team from Google News RSS."""
-        news = []
+        news: list[dict[str, Any]] = []
 
         try:
             # Use Google News RSS (free, no API key required)
@@ -115,6 +116,7 @@ class RAGEnrichment:
                 if response.status_code == 200:
                     # Parse RSS XML
                     import xml.etree.ElementTree as ET
+
                     root = ET.fromstring(response.text)
 
                     items = root.findall(".//item")[:limit]
@@ -124,12 +126,16 @@ class RAGEnrichment:
                         link_elem = item.find("link")
 
                         if title_elem is not None:
-                            news.append({
-                                "title": title_elem.text,
-                                "date": pub_date_elem.text if pub_date_elem is not None else None,
-                                "url": link_elem.text if link_elem is not None else None,
-                                "source": "Google News"
-                            })
+                            news.append(
+                                {
+                                    "title": title_elem.text,
+                                    "date": (
+                                        pub_date_elem.text if pub_date_elem is not None else None
+                                    ),
+                                    "url": link_elem.text if link_elem is not None else None,
+                                    "source": "Google News",
+                                }
+                            )
 
                     logger.info(f"Fetched {len(news)} news items for {team_name}")
 
@@ -138,9 +144,9 @@ class RAGEnrichment:
 
         return news
 
-    async def _fetch_team_injuries(self, team_name: str) -> list[dict]:
+    async def _fetch_team_injuries(self, team_name: str) -> list[dict[str, Any]]:
         """Fetch injury/suspension information for a team from football-data.org."""
-        injuries = []
+        injuries: list[dict[str, Any]] = []
 
         try:
             # Use football-data.org API if available (includes squad info)
@@ -153,18 +159,24 @@ class RAGEnrichment:
 
                 if response.status_code == 200:
                     import xml.etree.ElementTree as ET
+
                     root = ET.fromstring(response.text)
 
                     items = root.findall(".//item")[:3]  # Limited to recent injury news
+                    injury_keywords = ["bless", "injur", "absent", "forfait", "out"]
                     for item in items:
                         title_elem = item.find("title")
-                        if title_elem is not None and any(kw in title_elem.text.lower() for kw in ["bless", "injur", "absent", "forfait", "out"]):
-                            injuries.append({
-                                "player": "Info from news",
-                                "type": title_elem.text[:100],
-                                "source": "Google News",
-                                "status": "uncertain"
-                            })
+                        if title_elem is not None and title_elem.text:
+                            title_lower = title_elem.text.lower()
+                            if any(kw in title_lower for kw in injury_keywords):
+                                injuries.append(
+                                    {
+                                        "player": "Info from news",
+                                        "type": title_elem.text[:100],
+                                        "source": "Google News",
+                                        "status": "uncertain",
+                                    }
+                                )
 
                     logger.info(f"Fetched {len(injuries)} injury items for {team_name}")
 
@@ -175,7 +187,8 @@ class RAGEnrichment:
 
     async def _fetch_team_form(self, team_name: str) -> dict[str, Any]:
         """Fetch recent form/results for a team."""
-        form_data = {"results": [], "summary": ""}
+        results_list: list[dict[str, str]] = []
+        form_data: dict[str, Any] = {"results": results_list, "summary": ""}
 
         try:
             # Search for recent match results via Google News
@@ -187,35 +200,39 @@ class RAGEnrichment:
 
                 if response.status_code == 200:
                     import xml.etree.ElementTree as ET
+
                     root = ET.fromstring(response.text)
 
                     items = root.findall(".//item")[:5]
                     for item in items:
                         title_elem = item.find("title")
-                        if title_elem is not None:
+                        if title_elem is not None and title_elem.text:
                             title = title_elem.text
                             # Look for score patterns (e.g., "2-1", "0-0")
                             import re
-                            score_match = re.search(r'\b(\d+)\s*[-:]\s*(\d+)\b', title)
+
+                            score_match = re.search(r"\b(\d+)\s*[-:]\s*(\d+)\b", title)
                             if score_match:
-                                form_data["results"].append({
-                                    "headline": title[:100],
-                                    "score": f"{score_match.group(1)}-{score_match.group(2)}"
-                                })
+                                form_data["results"].append(
+                                    {
+                                        "headline": title[:100],
+                                        "score": f"{score_match.group(1)}-{score_match.group(2)}",
+                                    }
+                                )
 
                     # Generate summary
                     if form_data["results"]:
-                        wins = sum(1 for r in form_data["results"] if "-" in r.get("headline", "").lower() and team_name.lower() in r.get("headline", "").lower())
                         form_data["summary"] = f"{len(form_data['results'])} recent results found"
 
-                    logger.info(f"Fetched form data for {team_name}: {len(form_data['results'])} results")
+                    result_count = len(form_data["results"])
+                    logger.info(f"Fetched form for {team_name}: {result_count} results")
 
         except Exception as e:
             logger.error(f"Error fetching form for {team_name}: {e}")
 
         return form_data
 
-    async def _extract_key_info(self, team_name: str, context: dict) -> list[str]:
+    async def _extract_key_info(self, team_name: str, context: dict[str, Any]) -> list[str]:
         """Extract key insights from all context data using LLM."""
         if not self.groq_client:
             return []
@@ -229,8 +246,8 @@ class RAGEnrichment:
             if not news_titles and not injuries:
                 return []
 
-            prompt = f"""Extract 2-3 key facts about {team_name} football team from this information.
-Be concise (max 15 words per fact). Focus on: injuries, transfers, form, morale.
+            prompt = f"""Extract 2-3 key facts about {team_name} from this info.
+Be concise (max 15 words per fact). Focus on: injuries, transfers, form.
 
 Recent news: {news_titles}
 Injury reports: {injuries}
@@ -241,19 +258,21 @@ Reply with bullet points only, in French:"""
             response = self.groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 max_tokens=150,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
             )
 
-            result = response.choices[0].message.content.strip()
+            content = response.choices[0].message.content
+            result = content.strip() if content else ""
             # Parse bullet points
-            key_info = [line.strip().lstrip("•-").strip() for line in result.split("\n") if line.strip()]
+            lines = [line.strip().lstrip("•-").strip() for line in result.split("\n")]
+            key_info = [line for line in lines if line]
             return key_info[:3]
 
         except Exception as e:
             logger.error(f"Error extracting key info: {e}")
             return []
 
-    async def _analyze_sentiment(self, team_name: str, news: list[dict]) -> str:
+    async def _analyze_sentiment(self, team_name: str, news: list[dict[str, Any]]) -> str:
         """Analyze sentiment from news articles using Groq."""
         if not self.groq_client or not news:
             return "neutral"
@@ -261,20 +280,19 @@ Reply with bullet points only, in French:"""
         try:
             news_text = "\n".join([n.get("title", "") for n in news[:5]])
 
-            response = self.groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                max_tokens=50,
-                messages=[{
-                    "role": "user",
-                    "content": f"""Analyze the sentiment of these news headlines about {team_name} football team.
+            prompt = f"""Analyze the sentiment of these headlines about {team_name}.
 Headlines:
 {news_text}
 
 Reply with exactly one word: positive, negative, or neutral"""
-                }]
+            response = self.groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                max_tokens=50,
+                messages=[{"role": "user", "content": prompt}],
             )
 
-            sentiment = response.choices[0].message.content.strip().lower()
+            content = response.choices[0].message.content
+            sentiment = content.strip().lower() if content else "neutral"
             if sentiment in ["positive", "negative", "neutral"]:
                 return sentiment
 
@@ -308,14 +326,13 @@ Reply with exactly one word: positive, negative, or neutral"""
             home_task = self.get_team_context(home_team)
             away_task = self.get_team_context(away_team)
 
-            home_ctx, away_ctx = await asyncio.gather(
-                home_task, away_task,
-                return_exceptions=True
-            )
+            results = await asyncio.gather(home_task, away_task, return_exceptions=True)
+            home_ctx: dict[str, Any] | BaseException = results[0]
+            away_ctx: dict[str, Any] | BaseException = results[1]
 
-            if not isinstance(home_ctx, Exception):
+            if not isinstance(home_ctx, BaseException):
                 enrichment["home_context"] = home_ctx
-            if not isinstance(away_ctx, Exception):
+            if not isinstance(away_ctx, BaseException):
                 enrichment["away_context"] = away_ctx
 
             # Add match-specific context
@@ -347,8 +364,9 @@ Reply with exactly one word: positive, negative, or neutral"""
         ]
 
         for team1, team2 in derbies:
-            if (team1 in home_team and team2 in away_team) or \
-               (team2 in home_team and team1 in away_team):
+            if (team1 in home_team and team2 in away_team) or (
+                team2 in home_team and team1 in away_team
+            ):
                 return True
 
         return False
@@ -374,8 +392,8 @@ Reply with exactly one word: positive, negative, or neutral"""
         self,
         home_team: str,
         away_team: str,
-        base_prediction: dict,
-        enrichment: dict,
+        base_prediction: dict[str, Any],
+        enrichment: dict[str, Any],
     ) -> str:
         """
         Generate an enriched analysis using Groq with RAG context.
@@ -390,7 +408,7 @@ Reply with exactly one word: positive, negative, or neutral"""
             Enhanced analysis text
         """
         if not self.groq_client:
-            return base_prediction.get("explanation", "")
+            return str(base_prediction.get("explanation", ""))
 
         try:
             # Build context from enrichment
@@ -411,7 +429,8 @@ Reply with exactly one word: positive, negative, or neutral"""
             home_sentiment = home_ctx.get("sentiment", "neutral")
             away_sentiment = away_ctx.get("sentiment", "neutral")
             if home_sentiment != "neutral" or away_sentiment != "neutral":
-                context_parts.append(f"Sentiment presse: {home_team}={home_sentiment}, {away_team}={away_sentiment}")
+                sentiment_str = f"{home_team}={home_sentiment}, {away_team}={away_sentiment}"
+                context_parts.append(f"Sentiment: {sentiment_str}")
 
             # Add recent form notes
             if home_ctx.get("form_notes"):
@@ -420,10 +439,12 @@ Reply with exactly one word: positive, negative, or neutral"""
                 context_parts.append(f"Forme {away_team}: {away_ctx['form_notes']}")
 
             if home_ctx.get("injuries"):
-                context_parts.append(f"Blessures {home_team}: {', '.join([i.get('type', '')[:50] for i in home_ctx['injuries'][:2]])}")
+                inj_list = [i.get("type", "")[:50] for i in home_ctx["injuries"][:2]]
+                context_parts.append(f"Blessures {home_team}: {', '.join(inj_list)}")
 
             if away_ctx.get("injuries"):
-                context_parts.append(f"Blessures {away_team}: {', '.join([i.get('type', '')[:50] for i in away_ctx['injuries'][:2]])}")
+                inj_list = [i.get("type", "")[:50] for i in away_ctx["injuries"][:2]]
+                context_parts.append(f"Blessures {away_team}: {', '.join(inj_list)}")
 
             if match_ctx.get("is_derby"):
                 context_parts.append("Match: Derby local (rivalité historique)")
@@ -431,7 +452,8 @@ Reply with exactly one word: positive, negative, or neutral"""
             if match_ctx.get("importance") == "high":
                 context_parts.append("Importance: Match crucial pour le classement")
 
-            context_str = "\n".join(context_parts) if context_parts else "Pas d'informations contextuelles supplémentaires"
+            no_context_msg = "Pas d'informations contextuelles"
+            context_str = "\n".join(context_parts) if context_parts else no_context_msg
 
             prompt = f"""Analyse ce match de football et génère une prédiction enrichie.
 
@@ -451,14 +473,15 @@ Génère une analyse de 2-3 phrases en français qui prend en compte ces informa
             response = self.groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 max_tokens=300,
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
             )
 
-            return response.choices[0].message.content.strip()
+            content = response.choices[0].message.content
+            return content.strip() if content else ""
 
         except Exception as e:
             logger.error(f"Error generating enriched analysis: {e}")
-            return base_prediction.get("explanation", "")
+            return str(base_prediction.get("explanation", ""))
 
 
 # Singleton instance

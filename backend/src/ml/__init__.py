@@ -22,8 +22,8 @@ Usage:
     result = get_ml_prediction(home_team_id=1, away_team_id=2)
 """
 
-from .model_loader import get_ml_prediction, model_loader, TrainedModelLoader
-from .pipeline import ml_pipeline, start_ml_scheduler, run_pipeline_now
+from .model_loader import TrainedModelLoader, get_ml_prediction, model_loader
+from .pipeline import ml_pipeline, run_pipeline_now, start_ml_scheduler
 
 __all__ = [
     "get_ml_prediction",

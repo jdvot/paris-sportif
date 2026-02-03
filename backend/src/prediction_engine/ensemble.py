@@ -10,14 +10,16 @@ Improvements:
 """
 
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
 
-from src.prediction_engine.models.poisson import PoissonModel, PoissonPrediction
-from src.prediction_engine.models.elo import ELOSystem, ELOPrediction
-from src.prediction_engine.models.xgboost_model import XGBoostModel, XGBoostPrediction
-from src.prediction_engine.models.random_forest_model import RandomForestModel, RandomForestPrediction
+from src.prediction_engine.models.elo import ELOSystem
+from src.prediction_engine.models.poisson import PoissonModel
+from src.prediction_engine.models.random_forest_model import (
+    RandomForestModel,
+)
+from src.prediction_engine.models.xgboost_model import XGBoostModel
 
 
 @dataclass
@@ -30,6 +32,10 @@ class LLMAdjustments:
     sentiment_away: float = 0.0  # -0.1 to 0.1
     tactical_edge: float = 0.0  # -0.05 to 0.05
     reasoning: str = ""
+    # Additional fields used by adjustments module
+    form_home: float = 0.0  # -0.15 to 0.15
+    form_away: float = 0.0  # -0.15 to 0.15
+    overall_confidence: float = 0.5  # 0.0 to 1.0
 
     @property
     def total_home_adjustment(self) -> float:
@@ -76,17 +82,17 @@ class EnsemblePrediction:
     confidence: float
 
     # Value score (vs bookmaker odds)
-    value_score: Optional[float] = None
+    value_score: float | None = None
 
     # Model contributions
-    poisson_contribution: Optional[ModelContribution] = None
-    elo_contribution: Optional[ModelContribution] = None
-    xg_contribution: Optional[ModelContribution] = None
-    xgboost_contribution: Optional[ModelContribution] = None
-    random_forest_contribution: Optional[ModelContribution] = None
+    poisson_contribution: ModelContribution | None = None
+    elo_contribution: ModelContribution | None = None
+    xg_contribution: ModelContribution | None = None
+    xgboost_contribution: ModelContribution | None = None
+    random_forest_contribution: ModelContribution | None = None
 
     # LLM adjustments applied
-    llm_adjustments: Optional[LLMAdjustments] = None
+    llm_adjustments: LLMAdjustments | None = None
 
     # Expected goals
     expected_home_goals: float = 0.0
@@ -121,10 +127,10 @@ class EnsemblePredictor:
 
     def __init__(
         self,
-        poisson_model: Optional[PoissonModel] = None,
-        elo_system: Optional[ELOSystem] = None,
-        xgboost_model: Optional[XGBoostModel] = None,
-        random_forest_model: Optional[RandomForestModel] = None,
+        poisson_model: PoissonModel | None = None,
+        elo_system: ELOSystem | None = None,
+        xgboost_model: XGBoostModel | None = None,
+        random_forest_model: RandomForestModel | None = None,
     ):
         """Initialize ensemble with component models."""
         self.poisson = poisson_model or PoissonModel()
@@ -196,8 +202,8 @@ class EnsemblePredictor:
     def _calculate_value(
         self,
         prob: float,
-        odds: Optional[float],
-    ) -> Optional[float]:
+        odds: float | None,
+    ) -> float | None:
         """
         Calculate value score vs bookmaker odds.
 
@@ -207,10 +213,7 @@ class EnsemblePredictor:
         if odds is None or odds <= 1:
             return None
 
-        # Implied probability from odds
-        implied_prob = 1 / odds
-
-        # Value score
+        # Value score: (our_probability × odds) - 1
         value = (prob * odds) - 1
 
         return value
@@ -303,22 +306,22 @@ class EnsemblePredictor:
         home_elo: float,
         away_elo: float,
         # Optional xG data
-        home_xg_for: Optional[float] = None,
-        home_xg_against: Optional[float] = None,
-        away_xg_for: Optional[float] = None,
-        away_xg_against: Optional[float] = None,
+        home_xg_for: float | None = None,
+        home_xg_against: float | None = None,
+        away_xg_for: float | None = None,
+        away_xg_against: float | None = None,
         # Optional XGBoost/Random Forest features
-        xgboost_probs: Optional[tuple[float, float, float]] = None,
-        random_forest_probs: Optional[tuple[float, float, float]] = None,
-        recent_form_home: Optional[float] = None,
-        recent_form_away: Optional[float] = None,
-        head_to_head_home: Optional[float] = None,
+        xgboost_probs: tuple[float, float, float] | None = None,
+        random_forest_probs: tuple[float, float, float] | None = None,
+        recent_form_home: float | None = None,
+        recent_form_away: float | None = None,
+        head_to_head_home: float | None = None,
         # LLM adjustments
-        llm_adjustments: Optional[LLMAdjustments] = None,
+        llm_adjustments: LLMAdjustments | None = None,
         # Bookmaker odds for value calculation
-        odds_home: Optional[float] = None,
-        odds_draw: Optional[float] = None,
-        odds_away: Optional[float] = None,
+        odds_home: float | None = None,
+        odds_draw: float | None = None,
+        odds_away: float | None = None,
     ) -> EnsemblePrediction:
         """
         Make ensemble prediction combining all models.
@@ -352,12 +355,14 @@ class EnsemblePredictor:
             away_attack=away_attack,
             away_defense=away_defense,
         )
-        contributions.append((
-            poisson_pred.home_win_prob,
-            poisson_pred.draw_prob,
-            poisson_pred.away_win_prob,
-            self.WEIGHT_POISSON,
-        ))
+        contributions.append(
+            (
+                poisson_pred.home_win_prob,
+                poisson_pred.draw_prob,
+                poisson_pred.away_win_prob,
+                self.WEIGHT_POISSON,
+            )
+        )
         poisson_contrib = ModelContribution(
             home_prob=poisson_pred.home_win_prob,
             draw_prob=poisson_pred.draw_prob,
@@ -367,12 +372,14 @@ class EnsemblePredictor:
 
         # 2. ELO model
         elo_pred = self.elo.predict(home_elo, away_elo)
-        contributions.append((
-            elo_pred.home_win_prob,
-            elo_pred.draw_prob,
-            elo_pred.away_win_prob,
-            self.WEIGHT_ELO,
-        ))
+        contributions.append(
+            (
+                elo_pred.home_win_prob,
+                elo_pred.draw_prob,
+                elo_pred.away_win_prob,
+                self.WEIGHT_ELO,
+            )
+        )
         elo_contrib = ModelContribution(
             home_prob=elo_pred.home_win_prob,
             draw_prob=elo_pred.draw_prob,
@@ -389,12 +396,14 @@ class EnsemblePredictor:
                 away_xg_for=away_xg_for,  # type: ignore
                 away_xg_against=away_xg_against,  # type: ignore
             )
-            contributions.append((
-                xg_pred.home_win_prob,
-                xg_pred.draw_prob,
-                xg_pred.away_win_prob,
-                self.WEIGHT_XG,
-            ))
+            contributions.append(
+                (
+                    xg_pred.home_win_prob,
+                    xg_pred.draw_prob,
+                    xg_pred.away_win_prob,
+                    self.WEIGHT_XG,
+                )
+            )
             xg_contrib = ModelContribution(
                 home_prob=xg_pred.home_win_prob,
                 draw_prob=xg_pred.draw_prob,
@@ -405,12 +414,14 @@ class EnsemblePredictor:
         # 4. XGBoost model (if available)
         xgboost_contrib = None
         if xgboost_probs:
-            contributions.append((
-                xgboost_probs[0],
-                xgboost_probs[1],
-                xgboost_probs[2],
-                self.WEIGHT_XGBOOST,
-            ))
+            contributions.append(
+                (
+                    xgboost_probs[0],
+                    xgboost_probs[1],
+                    xgboost_probs[2],
+                    self.WEIGHT_XGBOOST,
+                )
+            )
             xgboost_contrib = ModelContribution(
                 home_prob=xgboost_probs[0],
                 draw_prob=xgboost_probs[1],
@@ -428,12 +439,14 @@ class EnsemblePredictor:
                 recent_form_away=recent_form_away or 50.0,
                 head_to_head_home=head_to_head_home or 0.0,
             )
-            contributions.append((
-                xgb_pred.home_win_prob,
-                xgb_pred.draw_prob,
-                xgb_pred.away_win_prob,
-                self.WEIGHT_XGBOOST,
-            ))
+            contributions.append(
+                (
+                    xgb_pred.home_win_prob,
+                    xgb_pred.draw_prob,
+                    xgb_pred.away_win_prob,
+                    self.WEIGHT_XGBOOST,
+                )
+            )
             xgboost_contrib = ModelContribution(
                 home_prob=xgb_pred.home_win_prob,
                 draw_prob=xgb_pred.draw_prob,
@@ -444,12 +457,14 @@ class EnsemblePredictor:
         # 5. Random Forest model (if available)
         random_forest_contrib = None
         if random_forest_probs:
-            contributions.append((
-                random_forest_probs[0],
-                random_forest_probs[1],
-                random_forest_probs[2],
-                0.15,  # Lower weight for backup model
-            ))
+            contributions.append(
+                (
+                    random_forest_probs[0],
+                    random_forest_probs[1],
+                    random_forest_probs[2],
+                    0.15,  # Lower weight for backup model
+                )
+            )
             random_forest_contrib = ModelContribution(
                 home_prob=random_forest_probs[0],
                 draw_prob=random_forest_probs[1],
@@ -467,12 +482,14 @@ class EnsemblePredictor:
                 recent_form_away=recent_form_away or 50.0,
                 head_to_head_home=head_to_head_home or 0.0,
             )
-            contributions.append((
-                rf_pred.home_win_prob,
-                rf_pred.draw_prob,
-                rf_pred.away_win_prob,
-                0.15,
-            ))
+            contributions.append(
+                (
+                    rf_pred.home_win_prob,
+                    rf_pred.draw_prob,
+                    rf_pred.away_win_prob,
+                    0.15,
+                )
+            )
             random_forest_contrib = ModelContribution(
                 home_prob=rf_pred.home_win_prob,
                 draw_prob=rf_pred.draw_prob,
@@ -487,9 +504,7 @@ class EnsemblePredictor:
         away_prob = sum(c[2] * c[3] for c in contributions) / total_weight
 
         # Normalize
-        home_prob, draw_prob, away_prob = self._normalize_probs(
-            home_prob, draw_prob, away_prob
-        )
+        home_prob, draw_prob, away_prob = self._normalize_probs(home_prob, draw_prob, away_prob)
 
         # Apply LLM adjustments if available
         if llm_adjustments:
