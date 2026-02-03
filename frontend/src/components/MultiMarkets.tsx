@@ -111,20 +111,20 @@ export function MultiMarkets({
                 </span>
               </div>
 
-              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${market.options.length}, 1fr)` }}>
+              <div className="grid gap-2 pt-2" style={{ gridTemplateColumns: `repeat(${market.options.length}, 1fr)` }}>
                 {market.options.map((option) => (
                   <div
                     key={option.label}
                     className={cn(
-                      "relative p-2 rounded-lg border text-center transition-all",
+                      "relative p-2 rounded-lg border text-center transition-all overflow-visible",
                       option.recommended
                         ? "bg-primary-50 dark:bg-primary-500/10 border-primary-300 dark:border-primary-500/40"
                         : "bg-white dark:bg-dark-800/50 border-gray-200 dark:border-dark-600"
                     )}
                   >
                     {option.recommended && (
-                      <div className="absolute -top-1.5 left-1/2 -translate-x-1/2">
-                        <span className="px-1.5 py-0.5 bg-primary-500 text-white text-[8px] font-bold rounded-full">
+                      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-10">
+                        <span className="px-1.5 py-0.5 bg-primary-500 text-white text-[8px] font-bold rounded-full whitespace-nowrap">
                           REC
                         </span>
                       </div>

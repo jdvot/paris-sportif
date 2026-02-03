@@ -172,6 +172,14 @@ async def sync_weekly_data(
         if include_standings:
             standings_synced, standings_errors = await _sync_all_standings()
 
+        # Automatically verify predictions for finished matches
+        verified_count = 0
+        try:
+            verified_count = verify_finished_matches()
+            logger.info(f"Auto-verified {verified_count} predictions")
+        except Exception as e:
+            logger.warning(f"Failed to verify predictions: {e}")
+
         all_errors = match_errors + standings_errors
         status = "success" if not all_errors else "partial"
 
@@ -205,12 +213,20 @@ async def sync_matches_only(
     try:
         matches_synced, errors = await _sync_matches_for_week(days)
 
+        # Automatically verify predictions for finished matches
+        verified_count = 0
+        try:
+            verified_count = verify_finished_matches()
+            logger.info(f"Auto-verified {verified_count} predictions")
+        except Exception as e:
+            logger.warning(f"Failed to verify predictions: {e}")
+
         status = "success" if not errors else "partial"
         log_sync("matches", status, matches_synced, "; ".join(errors) if errors else None)
 
         return SyncResponse(
             status=status,
-            message=f"Synchronized {matches_synced} matches",
+            message=f"Synchronized {matches_synced} matches, verified {verified_count} predictions",
             matches_synced=matches_synced,
             errors=errors,
         )

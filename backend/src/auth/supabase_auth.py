@@ -23,6 +23,7 @@ security = HTTPBearer(auto_error=False)
 # Supabase configuration from environment
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
 # Cache for JWKS keys
 _jwks_cache: dict[str, Any] | None = None
@@ -260,3 +261,44 @@ def require_admin(user: dict[str, Any] = Depends(get_current_user)) -> dict[str,
         )
 
     return user
+
+
+async def update_user_metadata(user_id: str, user_metadata: dict[str, Any]) -> dict[str, Any] | None:
+    """
+    Update user metadata in Supabase using the Admin API.
+
+    Args:
+        user_id: The user's UUID (from JWT 'sub' claim)
+        user_metadata: Dictionary of metadata fields to update
+
+    Returns:
+        Updated user data or None if update failed
+    """
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        logger.warning("Supabase admin credentials not configured - cannot update user metadata")
+        return None
+
+    base_url = SUPABASE_URL.rstrip("/")
+    url = f"{base_url}/auth/v1/admin/users/{user_id}"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.put(
+                url,
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Content-Type": "application/json",
+                },
+                json={"user_metadata": user_metadata},
+            )
+            response.raise_for_status()
+            result: dict[str, Any] = response.json()
+            logger.info(f"Updated user metadata for {user_id}")
+            return result
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Failed to update user metadata: {e.response.status_code} - {e.response.text}")
+        return None
+    except Exception as e:
+        logger.error(f"Error updating user metadata: {e}")
+        return None

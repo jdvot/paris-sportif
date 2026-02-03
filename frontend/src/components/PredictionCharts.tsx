@@ -292,11 +292,27 @@ function ConfidenceGauge({ prediction }: PredictionChartsProps) {
         </div>
       </div>
 
-      {/* Confidence scale */}
-      <div className="flex justify-between text-xs text-gray-500 dark:text-slate-400 px-2">
-        <span>0%</span>
-        <span>50%</span>
-        <span>100%</span>
+      {/* Progress bar */}
+      <div className="px-2 space-y-1">
+        <div className="h-2 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
+          <div
+            className={cn(
+              "h-full rounded-full transition-all duration-500",
+              confidencePercent >= 70
+                ? "bg-gradient-to-r from-primary-600 to-primary-400"
+                : confidencePercent >= 60
+                  ? "bg-gradient-to-r from-yellow-600 to-yellow-400"
+                  : "bg-gradient-to-r from-orange-600 to-orange-400"
+            )}
+            style={{ width: `${confidencePercent}%` }}
+          />
+        </div>
+        {/* Confidence scale */}
+        <div className="flex justify-between text-xs text-gray-500 dark:text-slate-400">
+          <span>0%</span>
+          <span>50%</span>
+          <span>100%</span>
+        </div>
       </div>
     </div>
   );

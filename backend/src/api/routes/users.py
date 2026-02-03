@@ -5,10 +5,11 @@ Provides endpoints for user profile management.
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
+from src.auth.supabase_auth import update_user_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -69,22 +70,33 @@ async def update_profile(
     """
     Update current user's profile.
 
-    Note: This only updates local cache. For persistent changes,
-    use Supabase client directly from the frontend.
+    Persists changes to Supabase user metadata.
     """
-    # In a real implementation, this would update the Supabase user
-    # For now, we just return the current profile with the updates applied
-    user_metadata = user.get("user_metadata", {})
+    user_id = user.get("sub", "")
+    user_metadata = user.get("user_metadata", {}).copy()
     app_metadata = user.get("app_metadata", {})
 
-    # Apply updates to metadata
+    # Build metadata updates
+    metadata_updates: dict[str, str | None] = {}
     if updates.full_name is not None:
+        metadata_updates["full_name"] = updates.full_name
         user_metadata["full_name"] = updates.full_name
+
+    # Persist to Supabase if there are updates
+    if metadata_updates and user_id:
+        result = await update_user_metadata(user_id, metadata_updates)
+        if result is None:
+            logger.warning(f"Failed to persist profile update for user {user_id}")
+            raise HTTPException(
+                status_code=500,
+                detail="Impossible de sauvegarder les modifications du profil",
+            )
+        logger.info(f"Profile updated for user {user_id}")
 
     role = app_metadata.get("role") or user_metadata.get("role") or "free"
 
     return UserProfileResponse(
-        id=user.get("sub", ""),
+        id=user_id,
         email=user.get("email"),
         full_name=user_metadata.get("full_name"),
         role=role,
