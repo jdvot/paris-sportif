@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from src.auth import ADMIN_RESPONSES, AdminUser
 from src.data.database import get_db_stats
+from src.data.quality_monitor import AlertLevel, run_quality_check, send_slack_alert
 
 logger = logging.getLogger(__name__)
 
@@ -117,3 +118,88 @@ async def update_user_role(
         "message": f"Role updated to {role}",
         "user_id": user_id,
     }
+
+
+class DataQualityCheckResponse(BaseModel):
+    """Single data quality check result."""
+
+    name: str
+    status: str
+    message: str
+    value: float | int | str | None = None
+    threshold: float | int | str | None = None
+    details: dict[str, Any] = {}
+
+
+class DataQualityResponse(BaseModel):
+    """Complete data quality report."""
+
+    timestamp: str
+    overall_status: str
+    freshness: DataQualityCheckResponse
+    completeness: DataQualityCheckResponse
+    range_validation: DataQualityCheckResponse
+    consistency: DataQualityCheckResponse
+    anomalies: list[dict[str, Any]] = []
+    metrics: dict[str, Any] = {}
+
+
+@router.get("/data-quality", response_model=DataQualityResponse, responses=ADMIN_RESPONSES)
+async def get_data_quality_status(user: AdminUser) -> DataQualityResponse:
+    """
+    Get data quality status report.
+
+    Runs comprehensive data quality checks and returns results.
+    Admin role required.
+
+    Checks include:
+    - Freshness: How recently data was updated
+    - Completeness: Percentage of populated fields
+    - Range validation: Values within expected bounds
+    - Consistency: Duplicates and conflicts
+    """
+    try:
+        report = run_quality_check()
+        return DataQualityResponse(**report.to_dict())
+    except Exception as e:
+        logger.error(f"Error running data quality check: {e}")
+        raise HTTPException(status_code=500, detail="Failed to run data quality check")
+
+
+@router.post("/data-quality/alert", responses=ADMIN_RESPONSES)
+async def trigger_data_quality_alert(
+    user: AdminUser,
+    force: bool = False,
+) -> dict[str, Any]:
+    """
+    Run data quality check and send Slack alert if critical issues.
+
+    Args:
+        force: Send alert even if status is not critical
+
+    Returns:
+        Report summary and alert status
+    """
+    try:
+        report = run_quality_check()
+
+        # Send alert if critical or forced
+        alert_sent = False
+        if report.overall_status == AlertLevel.CRITICAL or force:
+            alert_sent = await send_slack_alert(report)
+
+        return {
+            "status": "success",
+            "overall_status": report.overall_status.value,
+            "alert_sent": alert_sent,
+            "checks": {
+                "freshness": report.freshness.status.value,
+                "completeness": report.completeness.status.value,
+                "range_validation": report.range_validation.status.value,
+                "consistency": report.consistency.status.value,
+            },
+            "anomaly_count": len(report.anomalies),
+        }
+    except Exception as e:
+        logger.error(f"Error in data quality alert: {e}")
+        raise HTTPException(status_code=500, detail="Failed to run data quality check")
