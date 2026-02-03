@@ -1,9 +1,14 @@
 """FastAPI application entry point."""
 
+import asyncio
+import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import date, timedelta
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -32,9 +37,59 @@ from src.core.config import settings
 from src.core.exceptions import ParisportifError
 from src.core.rate_limit import limiter
 from src.core.sentry import init_sentry
+from src.data.database import save_matches, verify_finished_matches
+from src.data.sources.football_data import COMPETITIONS, get_football_data_client
 
 # Initialize Sentry for error monitoring
 init_sentry()
+
+logger = logging.getLogger(__name__)
+
+# Global scheduler instance
+scheduler: AsyncIOScheduler | None = None
+
+
+async def auto_sync_and_verify():
+    """
+    Automatic job to sync finished matches and verify predictions.
+    Runs every 6 hours to keep stats up to date.
+    """
+    logger.info("[Scheduler] Starting auto sync and verify job...")
+
+    try:
+        client = get_football_data_client()
+        today = date.today()
+        date_from = today - timedelta(days=7)  # Look back 7 days
+
+        total_synced = 0
+
+        # Sync finished matches for each competition
+        for comp_code in COMPETITIONS.keys():
+            try:
+                matches = await client.get_matches(
+                    competition=comp_code,
+                    date_from=date_from,
+                    date_to=today,
+                    status="FINISHED",
+                )
+                matches_dict = [m.model_dump() for m in matches]
+                synced = save_matches(matches_dict)
+                total_synced += synced
+
+                # Small delay between API calls to respect rate limits
+                await asyncio.sleep(2)
+
+            except Exception as e:
+                logger.warning(f"[Scheduler] Error syncing {comp_code}: {e}")
+                await asyncio.sleep(10)  # Wait longer on error
+
+        # Verify predictions against actual results
+        verified_count = verify_finished_matches()
+
+        logger.info(f"[Scheduler] Auto sync complete: {total_synced} matches synced, {verified_count} predictions verified")
+
+    except Exception as e:
+        logger.error(f"[Scheduler] Auto sync failed: {e}")
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -61,6 +116,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler."""
+    global scheduler
+
     # Startup
     print(f"Starting {settings.app_name} v{settings.app_version}")
     print(f"Environment: {settings.app_env}")
@@ -79,9 +136,35 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     else:
         print("WARNING: GROQ_API_KEY from settings is NOT set or empty!")
 
+    # Start the scheduler for automatic sync
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(
+        auto_sync_and_verify,
+        trigger=IntervalTrigger(hours=6),
+        id="auto_sync_verify",
+        name="Auto sync matches and verify predictions",
+        replace_existing=True,
+    )
+    scheduler.start()
+    print("[Scheduler] Started - auto sync every 6 hours")
+
+    # Run initial sync after 30 seconds (let app fully start first)
+    asyncio.create_task(_delayed_initial_sync())
+
     yield
+
     # Shutdown
+    if scheduler:
+        scheduler.shutdown(wait=False)
+        print("[Scheduler] Stopped")
     print("Shutting down...")
+
+
+async def _delayed_initial_sync():
+    """Run initial sync after app startup."""
+    await asyncio.sleep(30)  # Wait 30 seconds for app to fully start
+    logger.info("[Scheduler] Running initial sync...")
+    await auto_sync_and_verify()
 
 
 app = FastAPI(
