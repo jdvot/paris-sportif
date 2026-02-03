@@ -70,10 +70,10 @@ export function PredictionCardPremium({
       <div
         className={cn(
           "group relative overflow-hidden rounded-xl border transition-smooth cursor-pointer",
-          "bg-white dark:bg-gradient-to-br dark:from-slate-800/90 dark:to-slate-900/80",
+          "bg-white dark:bg-slate-800/50",
           "border-gray-200 dark:border-slate-700 hover:border-primary-400 dark:hover:border-primary-500/50",
           "animate-stagger-in",
-          isTopPick && "border-primary-400 dark:border-primary-500/50 bg-gradient-to-br from-primary-50 dark:from-primary-950/40 to-white dark:to-slate-900/80"
+          isTopPick && "border-primary-400 dark:border-primary-500/50 bg-gradient-to-br from-primary-50 to-white dark:from-primary-950/30 dark:to-slate-800/50"
         )}
         style={{ animationDelay: `${index * 50}ms` } as React.CSSProperties}
       >
