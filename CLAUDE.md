@@ -46,7 +46,7 @@ backend/src/
 ├── api/routes/          # FastAPI endpoints (matches, predictions, users, admin)
 ├── prediction_engine/   # Core ML models
 │   ├── models/          # Poisson, ELO, XGBoost, RandomForest
-│   ├── ensemble.py      # Combines models with weighted average
+│   ├── ensemble_advanced.py  # Combines 6 models with weighted average
 │   └── rag_enrichment.py # News/injury context via RAG
 ├── llm/                 # LLM integration
 │   ├── client.py        # Groq/Anthropic client
@@ -78,14 +78,16 @@ frontend/src/
 
 ### Prediction Models
 
-The ensemble predictor combines 4 models with weighted average:
+The advanced ensemble predictor (`ensemble_advanced.py`) combines 6 models with weighted average:
 
 | Model | Weight | Description |
 |-------|--------|-------------|
-| Poisson | 25% | Goal distribution (lambda = attack × defense) |
-| ELO | 15% | Team strength rating (K=20, home advantage +100) |
-| xG | 25% | Expected Goals based predictions |
-| XGBoost | 35% | Gradient boosting classifier |
+| Dixon-Coles | 30% | Time-weighted attack/defense ratings with dependency correction |
+| Advanced ELO | 25% | Team strength with form, home advantage, goal difference |
+| XGBoost | 20% | Gradient boosting classifier on match features |
+| Poisson | 10% | Goal distribution (lambda = attack × defense) |
+| Random Forest | 10% | Ensemble of decision trees for classification |
+| Basic ELO | 5% | Simple rating system (K=20, home advantage +100) |
 
 LLM adjustments are applied via log-odds transformation, bounded to ±0.5 max.
 
@@ -99,7 +101,7 @@ Frontend uses **Orval** to generate React Query hooks from the backend OpenAPI s
 
 ## Key Files
 
-- `backend/src/prediction_engine/ensemble.py` - Model combination logic
+- `backend/src/prediction_engine/ensemble_advanced.py` - Advanced ensemble (6 models)
 - `frontend/src/lib/constants.ts` - Confidence/value thresholds and colors
 - `frontend/src/lib/api/custom-instance.ts` - API fetch wrapper with Supabase auth
 - `frontend/orval.config.ts` - API generation config
