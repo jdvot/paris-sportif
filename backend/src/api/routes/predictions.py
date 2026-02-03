@@ -15,12 +15,13 @@ import random
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from groq import Groq
 from pydantic import BaseModel, Field
 
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.config import settings
+from src.core.rate_limit import RATE_LIMITS, limiter
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 from src.data.data_enrichment import get_data_enrichment
 from src.data.database import (
@@ -896,7 +897,9 @@ async def _generate_prediction_from_api_match(
     responses=AUTH_RESPONSES,
     operation_id="getDailyPicks",
 )
+@limiter.limit(RATE_LIMITS["predictions"])
 async def get_daily_picks(
+    request: Request,
     user: AuthenticatedUser,
     query_date: str | None = Query(None, alias="date", description="Date YYYY-MM-DD"),
 ) -> DailyPicksResponse:
@@ -1062,7 +1065,9 @@ async def get_daily_picks(
     responses=AUTH_RESPONSES,
     operation_id="getPredictionStats",
 )
+@limiter.limit(RATE_LIMITS["predictions"])
 async def get_prediction_stats(
+    request: Request,
     user: AuthenticatedUser,
     days: int = Query(30, ge=7, le=365, description="Number of days to analyze"),
 ) -> PredictionStatsResponse:
@@ -1301,7 +1306,9 @@ def _generate_fallback_prediction(
     responses=AUTH_RESPONSES,
     operation_id="getPrediction",
 )
+@limiter.limit(RATE_LIMITS["predictions"])
 async def get_prediction(
+    request: Request,
     match_id: int,
     user: AuthenticatedUser,
     include_model_details: bool = Query(False, description="Include model details"),
@@ -1364,9 +1371,11 @@ class VerifyPredictionResponse(BaseModel):
     operation_id="verifyPrediction",
     response_model=VerifyPredictionResponse,
 )
+@limiter.limit(RATE_LIMITS["predictions"])
 async def verify_prediction_endpoint(
+    request: Request,
     match_id: int,
-    request: VerifyPredictionRequest,
+    body: VerifyPredictionRequest,
     user: AuthenticatedUser,
 ) -> VerifyPredictionResponse:
     """
@@ -1376,7 +1385,7 @@ async def verify_prediction_endpoint(
     Used for tracking prediction accuracy and ROI.
     """
     # Verify the prediction
-    result = verify_prediction(match_id, request.home_score, request.away_score)
+    result = verify_prediction(match_id, body.home_score, body.away_score)
 
     if result is None:
         raise HTTPException(
@@ -1386,8 +1395,8 @@ async def verify_prediction_endpoint(
 
     return VerifyPredictionResponse(
         match_id=match_id,
-        home_score=request.home_score,
-        away_score=request.away_score,
+        home_score=body.home_score,
+        away_score=body.away_score,
         actual_result=result["actual_result"],
         was_correct=result["was_correct"],
         message=f"Prediction for match {match_id} verified successfully",
@@ -1395,7 +1404,8 @@ async def verify_prediction_endpoint(
 
 
 @router.post("/{match_id}/refresh", responses=AUTH_RESPONSES, operation_id="refreshPrediction")
-async def refresh_prediction(match_id: int, user: AuthenticatedUser) -> dict[str, str]:
+@limiter.limit(RATE_LIMITS["predictions"])
+async def refresh_prediction(request: Request, match_id: int, user: AuthenticatedUser) -> dict[str, str]:
     """Force refresh a prediction (admin only)."""
     try:
         # Verify match exists

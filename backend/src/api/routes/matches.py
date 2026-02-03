@@ -7,11 +7,12 @@ import logging
 from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.exceptions import FootballDataAPIError, RateLimitError
+from src.core.rate_limit import RATE_LIMITS, limiter
 from src.data.database import get_matches_from_db, get_standings_from_db
 from src.data.sources.football_data import COMPETITIONS, MatchData, get_football_data_client
 
@@ -240,7 +241,9 @@ def _convert_api_match(api_match: MatchData) -> MatchResponse:
     responses=AUTH_RESPONSES,
     operation_id="getMatches",
 )
+@limiter.limit(RATE_LIMITS["matches"])
 async def get_matches(
+    request: Request,
     user: AuthenticatedUser,
     competition: str | None = Query(None, description="Competition code (PL, PD, BL1)"),
     date_from: date | None = Query(None, description="Start date filter"),
@@ -347,7 +350,9 @@ async def get_matches(
 
 
 @router.get("/upcoming", responses=AUTH_RESPONSES, operation_id="getUpcomingMatches")
+@limiter.limit(RATE_LIMITS["matches"])
 async def get_upcoming_matches(
+    request: Request,
     user: AuthenticatedUser,
     days: int = Query(2, ge=1, le=7, description="Number of days ahead"),
     competition: str | None = Query(None),
@@ -387,7 +392,8 @@ async def get_upcoming_matches(
     responses=AUTH_RESPONSES,
     operation_id="getMatch",
 )
-async def get_match(match_id: int, user: AuthenticatedUser) -> MatchResponse:
+@limiter.limit(RATE_LIMITS["matches"])
+async def get_match(request: Request, match_id: int, user: AuthenticatedUser) -> MatchResponse:
     """Get details for a specific match."""
     try:
         client = get_football_data_client()
@@ -414,7 +420,9 @@ async def get_match(match_id: int, user: AuthenticatedUser) -> MatchResponse:
     responses=AUTH_RESPONSES,
     operation_id="getHeadToHead",
 )
+@limiter.limit(RATE_LIMITS["matches"])
 async def get_head_to_head(
+    request: Request,
     match_id: int,
     user: AuthenticatedUser,
     limit: int = Query(10, ge=1, le=20),
@@ -489,7 +497,9 @@ async def get_head_to_head(
     responses=AUTH_RESPONSES,
     operation_id="getTeamForm",
 )
+@limiter.limit(RATE_LIMITS["matches"])
 async def get_team_form(
+    request: Request,
     team_id: int,
     user: AuthenticatedUser,
     matches_count: int = Query(5, ge=3, le=10),
@@ -594,7 +604,9 @@ async def get_team_form(
     responses=AUTH_RESPONSES,
     operation_id="getStandings",
 )
+@limiter.limit(RATE_LIMITS["matches"])
 async def get_standings(
+    request: Request,
     competition_code: str,
     user: AuthenticatedUser,
 ) -> StandingsResponse:
