@@ -243,6 +243,11 @@
       "emailInUse": "This email is already in use",
       "invalidCredentials": "Invalid email or password",
       "generic": "An error occurred"
+    },
+    "error": {
+      "title": "Authentication error",
+      "description": "An error occurred during login. This can happen if the link has expired or the connection was cancelled.",
+      "helpText": "If the problem persists, contact support at"
     }
   },
   "profile": {

@@ -243,6 +243,11 @@
       "emailInUse": "Cet email est deja utilise",
       "invalidCredentials": "Email ou mot de passe incorrect",
       "generic": "Une erreur est survenue"
+    },
+    "error": {
+      "title": "Erreur d'authentification",
+      "description": "Une erreur s'est produite lors de la connexion. Cela peut arriver si le lien a expire ou si la connexion a ete annulee.",
+      "helpText": "Si le probleme persiste, contactez le support a"
     }
   },
   "profile": {
