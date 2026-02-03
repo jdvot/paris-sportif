@@ -3,10 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Mail, Lock, User, Eye, EyeOff, Loader2, CheckCircle2, ArrowRight, Sparkles, Shield, Zap, TrendingUp } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function SignUpPage() {
   const { signUp, signInWithGoogle, loading } = useAuth();
+  const t = useTranslations("auth.signup");
+  const tErrors = useTranslations("auth.errors");
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -23,12 +26,12 @@ export default function SignUpPage() {
 
     // Validation
     if (password !== confirmPassword) {
-      setError("Les mots de passe ne correspondent pas");
+      setError(tErrors("passwordMismatch"));
       return;
     }
 
     if (password.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caracteres");
+      setError(tErrors("passwordTooShort"));
       return;
     }
 
@@ -59,17 +62,17 @@ export default function SignUpPage() {
             <div className="w-20 h-20 mx-auto mb-8 rounded-full bg-gradient-to-br from-primary-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-primary-500/30">
               <CheckCircle2 className="w-10 h-10 text-gray-900 dark:text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">Verifiez votre email</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">{t("verifyEmail")}</h1>
             <p className="text-gray-600 dark:text-dark-400 mb-8 text-lg">
-              Nous avons envoye un lien de confirmation a{" "}
+              {t("confirmationSent")}{" "}
               <strong className="text-primary-400">{email}</strong>.
-              Cliquez sur le lien pour activer votre compte.
+              {" "}{t("clickLink")}
             </p>
             <Link
               href="/auth/login"
               className="inline-flex items-center justify-center gap-2 py-4 px-8 bg-gradient-to-r from-primary-500 to-emerald-500 hover:from-primary-600 hover:to-emerald-600 text-gray-900 dark:text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-primary-500/25 hover:shadow-xl hover:shadow-primary-500/30 hover:-translate-y-0.5"
             >
-              Retour a la connexion
+              {t("backToLogin")}
               <ArrowRight className="w-5 h-5" />
             </Link>
           </div>
@@ -97,17 +100,16 @@ export default function SignUpPage() {
           <div className="mb-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-gray-900 dark:text-white/90 text-sm font-medium mb-6">
               <Sparkles className="w-4 h-4" />
-              Rejoignez 10 000+ parieurs
+              {t("joinBettors")}
             </div>
             <h1 className="text-4xl xl:text-5xl font-bold text-gray-900 dark:text-white leading-tight mb-4">
-              Commencez a gagner<br />
+              {t("startWinning")}<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-emerald-200">
-                des aujourd&apos;hui
+                {t("today")}
               </span>
             </h1>
             <p className="text-lg text-gray-900 dark:text-white/80 max-w-md">
-              Inscrivez-vous gratuitement et accedez a nos predictions IA
-              avec un taux de reussite de 73%.
+              {t("heroDescription")}
             </p>
           </div>
 
@@ -118,8 +120,8 @@ export default function SignUpPage() {
                 <TrendingUp className="w-6 h-6 text-gray-900 dark:text-white" />
               </div>
               <div>
-                <div className="text-gray-900 dark:text-white font-semibold">Predictions IA</div>
-                <div className="text-gray-900 dark:text-white/70 text-sm">Modeles statistiques avances</div>
+                <div className="text-gray-900 dark:text-white font-semibold">{t("feature1Title")}</div>
+                <div className="text-gray-900 dark:text-white/70 text-sm">{t("feature1Desc")}</div>
               </div>
             </div>
             <div className="flex items-center gap-4 bg-white/10 backdrop-blur-sm rounded-2xl p-4">
@@ -127,8 +129,8 @@ export default function SignUpPage() {
                 <Zap className="w-6 h-6 text-gray-900 dark:text-white" />
               </div>
               <div>
-                <div className="text-gray-900 dark:text-white font-semibold">5+ picks par jour</div>
-                <div className="text-gray-900 dark:text-white/70 text-sm">Selection quotidienne optimisee</div>
+                <div className="text-gray-900 dark:text-white font-semibold">{t("feature2Title")}</div>
+                <div className="text-gray-900 dark:text-white/70 text-sm">{t("feature2Desc")}</div>
               </div>
             </div>
             <div className="flex items-center gap-4 bg-white/10 backdrop-blur-sm rounded-2xl p-4">
@@ -136,8 +138,8 @@ export default function SignUpPage() {
                 <Shield className="w-6 h-6 text-gray-900 dark:text-white" />
               </div>
               <div>
-                <div className="text-gray-900 dark:text-white font-semibold">100% transparent</div>
-                <div className="text-gray-900 dark:text-white/70 text-sm">Historique verifiable</div>
+                <div className="text-gray-900 dark:text-white font-semibold">{t("feature3Title")}</div>
+                <div className="text-gray-900 dark:text-white/70 text-sm">{t("feature3Desc")}</div>
               </div>
             </div>
           </div>
@@ -167,10 +169,10 @@ export default function SignUpPage() {
           {/* Form Header */}
           <div className="mb-8">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Creer votre compte
+              {t("createAccount")}
             </h2>
             <p className="text-gray-600 dark:text-dark-400">
-              Rejoignez-nous pour des predictions de qualite
+              {t("joinUs")}
             </p>
           </div>
 
@@ -187,7 +189,7 @@ export default function SignUpPage() {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            S&apos;inscrire avec Google
+            {t("signupWithGoogle")}
           </button>
 
           {/* Divider */}
@@ -196,7 +198,7 @@ export default function SignUpPage() {
               <div className="w-full border-t border-gray-300 dark:border-dark-700"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-gray-50 dark:bg-dark-900 text-gray-400 dark:text-dark-500">ou avec votre email</span>
+              <span className="px-4 bg-gray-50 dark:bg-dark-900 text-gray-400 dark:text-dark-500">{t("orWithEmail")}</span>
             </div>
           </div>
 
@@ -214,7 +216,7 @@ export default function SignUpPage() {
             {/* Full Name */}
             <div>
               <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 dark:text-dark-300 mb-2">
-                Nom complet
+                {t("nameLabel")}
               </label>
               <div className="relative group">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-dark-500 group-focus-within:text-primary-400 transition-colors" />
@@ -223,7 +225,7 @@ export default function SignUpPage() {
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Jean Dupont"
+                  placeholder={t("namePlaceholder")}
                   autoComplete="name"
                   className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-dark-500 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
                 />
@@ -233,7 +235,7 @@ export default function SignUpPage() {
             {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-dark-300 mb-2">
-                Adresse email
+                {t("emailLabel")}
               </label>
               <div className="relative group">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-dark-500 group-focus-within:text-primary-400 transition-colors" />
@@ -242,7 +244,7 @@ export default function SignUpPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="votre@email.com"
+                  placeholder={t("emailPlaceholder")}
                   required
                   autoComplete="email"
                   className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-dark-500 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
@@ -253,7 +255,7 @@ export default function SignUpPage() {
             {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-dark-300 mb-2">
-                Mot de passe
+                {t("passwordLabel")}
               </label>
               <div className="relative group">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-dark-500 group-focus-within:text-primary-400 transition-colors" />
@@ -276,13 +278,13 @@ export default function SignUpPage() {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              <p className="mt-1.5 text-xs text-gray-400 dark:text-dark-500">Minimum 6 caracteres</p>
+              <p className="mt-1.5 text-xs text-gray-400 dark:text-dark-500">{t("passwordHint")}</p>
             </div>
 
             {/* Confirm Password */}
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-dark-300 mb-2">
-                Confirmer le mot de passe
+                {t("confirmPasswordLabel")}
               </label>
               <div className="relative group">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-dark-500 group-focus-within:text-primary-400 transition-colors" />
@@ -308,11 +310,11 @@ export default function SignUpPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Creation en cours...
+                  {t("creating")}
                 </>
               ) : (
                 <>
-                  Creer mon compte
+                  {t("createMyAccount")}
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -324,32 +326,32 @@ export default function SignUpPage() {
             <div className="flex items-center gap-3">
               <span className="text-2xl">🎁</span>
               <div>
-                <p className="text-primary-300 font-medium">Compte gratuit inclus</p>
-                <p className="text-primary-400/70 text-sm">3 picks par jour sans engagement</p>
+                <p className="text-primary-300 font-medium">{t("freeAccountIncluded")}</p>
+                <p className="text-primary-400/70 text-sm">{t("freeAccountDesc")}</p>
               </div>
             </div>
           </div>
 
           {/* Sign In Link */}
           <p className="mt-8 text-center text-gray-600 dark:text-dark-400">
-            Deja un compte ?{" "}
+            {t("alreadyHaveAccount")}{" "}
             <Link
               href="/auth/login"
               className="text-primary-400 hover:text-primary-300 font-semibold transition-colors"
             >
-              Se connecter
+              {t("signIn")}
             </Link>
           </p>
 
           {/* Footer */}
           <p className="mt-8 text-center text-xs text-gray-500 dark:text-dark-600">
-            En vous inscrivant, vous acceptez nos{" "}
+            {t("bySigningUp")}{" "}
             <Link href="/terms" className="text-gray-400 dark:text-dark-500 hover:text-gray-600 dark:text-dark-400 underline">
-              Conditions d&apos;utilisation
+              {t("termsOfService")}
             </Link>{" "}
-            et notre{" "}
+            {t("and")}{" "}
             <Link href="/privacy" className="text-gray-400 dark:text-dark-500 hover:text-gray-600 dark:text-dark-400 underline">
-              Politique de confidentialite
+              {t("privacyPolicy")}
             </Link>
           </p>
         </div>

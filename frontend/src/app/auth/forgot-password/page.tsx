@@ -3,10 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Mail, Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function ForgotPasswordPage() {
   const { resetPassword } = useAuth();
+  const t = useTranslations("auth.forgot");
 
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -38,16 +40,17 @@ export default function ForgotPasswordPage() {
             <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary-500/20 to-emerald-500/20 flex items-center justify-center">
               <CheckCircle2 className="w-8 h-8 text-primary-400" />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Email envoye</h1>
+            <h1 className="text-2xl font-bold text-white mb-2">{t("emailSent")}</h1>
             <p className="text-dark-400 mb-6">
-              Si un compte existe avec l&apos;adresse <strong className="text-white">{email}</strong>,
-              vous recevrez un lien pour reinitialiser votre mot de passe.
+              {t("emailSentDescription")}{" "}
+              <strong className="text-white">{email}</strong>
+              {t("emailSentSuffix")}
             </p>
             <Link
               href="/auth/login"
               className="inline-flex items-center justify-center py-3 px-6 bg-gradient-to-r from-primary-500 to-emerald-500 hover:from-primary-600 hover:to-emerald-600 text-white font-semibold rounded-xl transition-all"
             >
-              Retour a la connexion
+              {t("backToLogin")}
             </Link>
           </div>
         </div>
@@ -64,14 +67,14 @@ export default function ForgotPasswordPage() {
           className="inline-flex items-center gap-2 text-dark-400 hover:text-white transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />
-          Retour a la connexion
+          {t("backToLogin")}
         </Link>
 
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white">Mot de passe oublie ?</h1>
+          <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
           <p className="text-dark-400 mt-2">
-            Entrez votre email pour recevoir un lien de reinitialisation
+            {t("subtitle")}
           </p>
         </div>
 
@@ -88,7 +91,7 @@ export default function ForgotPasswordPage() {
             {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-dark-300 mb-2">
-                Email
+                {t("emailLabel")}
               </label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
@@ -97,7 +100,7 @@ export default function ForgotPasswordPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="votre@email.com"
+                  placeholder={t("emailPlaceholder")}
                   required
                   className="w-full pl-12 pr-4 py-3 bg-dark-900 border border-dark-600 rounded-xl text-white placeholder-dark-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
                 />
@@ -113,10 +116,10 @@ export default function ForgotPasswordPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Envoi...
+                  {t("sending")}
                 </>
               ) : (
-                "Envoyer le lien"
+                t("sendLink")
               )}
             </button>
           </form>

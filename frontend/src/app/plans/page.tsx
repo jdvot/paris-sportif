@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { Check, Crown, Zap, X, Sparkles, ArrowLeft, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 export default function PlansPage() {
   const { isPremium, isAdmin, loading, isAuthenticated } = useAuth();
+  const t = useTranslations("plans");
 
   const currentPlan = isAdmin ? "admin" : isPremium ? "premium" : "free";
 
@@ -27,12 +29,12 @@ export default function PlansPage() {
             <Crown className="w-10 h-10 text-yellow-500" />
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            {isPremium || isAdmin ? "Gerez votre abonnement" : "Passez a Premium"}
+            {isPremium || isAdmin ? t("manageSubscription") : t("upgradeToPremium")}
           </h1>
           <p className="text-gray-600 dark:text-dark-300 text-lg max-w-2xl mx-auto">
             {isPremium || isAdmin
-              ? "Vous beneficiez de toutes les fonctionnalites Premium."
-              : "Debloquez toutes les fonctionnalites et accedez aux predictions detaillees de nos modeles IA."}
+              ? t("premiumBenefits")
+              : t("unlockFeatures")}
           </p>
         </div>
 
@@ -48,7 +50,7 @@ export default function PlansPage() {
                 : "bg-gray-100 dark:bg-dark-700 text-gray-700 dark:text-dark-300"
             )}>
               <Sparkles className="w-4 h-4" />
-              Votre plan actuel: {currentPlan === "admin" ? "Administrateur" : currentPlan === "premium" ? "Premium" : "Gratuit"}
+              {t("yourCurrentPlan")}: {currentPlan === "admin" ? t("administrator") : currentPlan === "premium" ? t("premium.title") : t("free.title")}
             </div>
           </div>
         )}
@@ -66,47 +68,47 @@ export default function PlansPage() {
               <div className="mb-4">
                 <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 rounded-full text-xs font-medium">
                   <Check className="w-3 h-3" />
-                  Plan actuel
+                  {t("currentPlan")}
                 </span>
               </div>
             )}
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Gratuit</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{t("free.title")}</h2>
             <p className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
-              0€ <span className="text-sm text-gray-500 dark:text-dark-400 font-normal">/mois</span>
+              0€ <span className="text-sm text-gray-500 dark:text-dark-400 font-normal">/{t("month")}</span>
             </p>
             <ul className="space-y-3 mb-8">
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                Acces aux matchs
+                {t("free.matchAccess")}
               </li>
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                Statistiques de base
+                {t("free.basicStats")}
               </li>
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                3 picks par jour
+                {t("free.picksPerDay")}
               </li>
               <li className="flex items-center gap-3 text-gray-400 dark:text-dark-500 text-sm">
                 <X className="w-5 h-5 flex-shrink-0" />
-                <span className="line-through">Predictions detaillees</span>
+                <span className="line-through">{t("free.detailedPredictions")}</span>
               </li>
               <li className="flex items-center gap-3 text-gray-400 dark:text-dark-500 text-sm">
                 <X className="w-5 h-5 flex-shrink-0" />
-                <span className="line-through">Analyse IA RAG</span>
+                <span className="line-through">{t("free.ragAnalysis")}</span>
               </li>
               <li className="flex items-center gap-3 text-gray-400 dark:text-dark-500 text-sm">
                 <X className="w-5 h-5 flex-shrink-0" />
-                <span className="line-through">Historique complet</span>
+                <span className="line-through">{t("free.fullHistory")}</span>
               </li>
             </ul>
             {currentPlan === "free" ? (
               <div className="text-center py-3 px-4 bg-gray-100 dark:bg-dark-700 text-gray-600 dark:text-dark-300 rounded-lg text-sm">
-                Votre plan actuel
+                {t("yourCurrentPlanLabel")}
               </div>
             ) : (
               <div className="text-center py-3 px-4 bg-gray-100 dark:bg-dark-700 text-gray-500 dark:text-dark-400 rounded-lg text-sm">
-                Plan de base
+                {t("basicPlan")}
               </div>
             )}
           </div>
@@ -119,59 +121,59 @@ export default function PlansPage() {
               : "border-yellow-400/50 dark:border-yellow-500/30"
           )}>
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black text-xs font-semibold px-3 py-1 rounded-full">
-              Recommande
+              {t("recommended")}
             </div>
             {currentPlan === "premium" && (
               <div className="mb-4">
                 <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 rounded-full text-xs font-medium">
                   <Sparkles className="w-3 h-3" />
-                  Plan actuel
+                  {t("currentPlan")}
                 </span>
               </div>
             )}
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
               <Zap className="w-5 h-5 text-yellow-500" />
-              Premium
+              {t("premium.title")}
             </h2>
             <p className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
-              9.99€ <span className="text-sm text-gray-500 dark:text-dark-400 font-normal">/mois</span>
+              9.99€ <span className="text-sm text-gray-500 dark:text-dark-400 font-normal">/{t("month")}</span>
             </p>
             <ul className="space-y-3 mb-8">
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                Tout le plan gratuit
+                {t("premium.allFree")}
               </li>
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                Picks illimites
+                {t("premium.unlimitedPicks")}
               </li>
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                Predictions detaillees
+                {t("premium.detailedPredictions")}
               </li>
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                Analyse IA RAG
+                {t("premium.ragAnalysis")}
               </li>
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                Historique complet
+                {t("premium.fullHistory")}
               </li>
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                Support prioritaire
+                {t("premium.prioritySupport")}
               </li>
             </ul>
             {currentPlan === "premium" ? (
               <div className="text-center py-3 px-4 bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 rounded-lg text-sm font-medium">
-                Votre plan actuel
+                {t("yourCurrentPlanLabel")}
               </div>
             ) : (
               <button
                 disabled
                 className="w-full text-center py-3 px-4 bg-yellow-500 text-black font-semibold rounded-lg opacity-60 cursor-not-allowed"
               >
-                Bientot disponible
+                {t("comingSoon")}
               </button>
             )}
           </div>
@@ -187,79 +189,79 @@ export default function PlansPage() {
               <div className="mb-4">
                 <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 rounded-full text-xs font-medium">
                   <Sparkles className="w-3 h-3" />
-                  Plan actuel
+                  {t("currentPlan")}
                 </span>
               </div>
             )}
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Enterprise</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{t("enterprise.title")}</h2>
             <p className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
-              Sur mesure
+              {t("enterprise.custom")}
             </p>
             <ul className="space-y-3 mb-8">
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                Tout le plan Premium
+                {t("enterprise.allPremium")}
               </li>
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                API acces
+                {t("enterprise.apiAccess")}
               </li>
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                Webhooks personnalises
+                {t("enterprise.customWebhooks")}
               </li>
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                Support dedie
+                {t("enterprise.dedicatedSupport")}
               </li>
               <li className="flex items-center gap-3 text-gray-700 dark:text-dark-300 text-sm">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                SLA garanti
+                {t("enterprise.slaGuaranteed")}
               </li>
             </ul>
             <a
               href="mailto:contact@paris-sportif.ai"
               className="block w-full text-center py-3 px-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors"
             >
-              Nous contacter
+              {t("contactUs")}
             </a>
           </div>
         </div>
 
         {/* FAQ Section */}
         <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-2xl p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Questions frequentes</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">{t("faq.title")}</h2>
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <h3 className="font-medium text-gray-900 dark:text-white mb-2">
-                Comment fonctionne Premium?
+                {t("faq.howPremiumWorks")}
               </h3>
               <p className="text-sm text-gray-600 dark:text-dark-400">
-                L'abonnement Premium vous donne acces a toutes les predictions detaillees, analyses IA, et picks quotidiens illimites.
+                {t("faq.howPremiumWorksAnswer")}
               </p>
             </div>
             <div>
               <h3 className="font-medium text-gray-900 dark:text-white mb-2">
-                Puis-je annuler a tout moment?
+                {t("faq.canCancel")}
               </h3>
               <p className="text-sm text-gray-600 dark:text-dark-400">
-                Oui, vous pouvez annuler votre abonnement a tout moment. Vous conservez l'acces jusqu'a la fin de la periode payee.
+                {t("faq.canCancelAnswer")}
               </p>
             </div>
             <div>
               <h3 className="font-medium text-gray-900 dark:text-white mb-2">
-                Quels moyens de paiement acceptez-vous?
+                {t("faq.paymentMethods")}
               </h3>
               <p className="text-sm text-gray-600 dark:text-dark-400">
-                Nous acceptons les cartes bancaires (Visa, Mastercard), PayPal, et les virements SEPA pour Enterprise.
+                {t("faq.paymentMethodsAnswer")}
               </p>
             </div>
             <div>
               <h3 className="font-medium text-gray-900 dark:text-white mb-2">
-                Y a-t-il une periode d'essai?
+                {t("faq.freeTrial")}
               </h3>
               <p className="text-sm text-gray-600 dark:text-dark-400">
-                Oui, profitez de 7 jours d'essai gratuit Premium pour tester toutes les fonctionnalites.
+                {t("faq.freeTrialAnswer")}
               </p>
             </div>
           </div>
@@ -272,7 +274,7 @@ export default function PlansPage() {
             className="inline-flex items-center gap-2 text-gray-600 dark:text-dark-400 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Retour a l'accueil
+            {t("backToHome")}
           </Link>
         </div>
       </div>

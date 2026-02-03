@@ -14,6 +14,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useTheme } from "next-themes";
+import { useTranslations } from "next-intl";
 import type { DetailedPrediction, ModelContribution } from "@/lib/types";
 import type { PredictionResponse } from "@/lib/api/models";
 import { cn } from "@/lib/utils";
@@ -72,6 +73,7 @@ interface PredictionChartsProps {
 function ProbabilityPieChart({ prediction }: PredictionChartsProps) {
   const { resolvedTheme } = useTheme();
   const colors = getColors(resolvedTheme === "dark");
+  const t = useTranslations("charts");
 
   const probs = prediction?.probabilities as Record<string, number> | undefined;
 
@@ -88,16 +90,16 @@ function ProbabilityPieChart({ prediction }: PredictionChartsProps) {
     (typeof probs?.awayWin === "number" ? probs.awayWin : 0);
 
   const data = [
-    { name: "Domicile", value: Math.round(homeProb * 100) },
-    { name: "Nul", value: Math.round(drawProb * 100) },
-    { name: "Extérieur", value: Math.round(awayProb * 100) },
+    { name: t("home"), value: Math.round(homeProb * 100) },
+    { name: t("draw"), value: Math.round(drawProb * 100) },
+    { name: t("away"), value: Math.round(awayProb * 100) },
   ];
 
   const pieColors = [colors.primary, colors.yellow, colors.accent];
 
   return (
     <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4 transition-colors">
-      <h3 className="text-lg font-bold text-gray-900 dark:text-white">Probabilités de Résultat</h3>
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t("resultProbabilities")}</h3>
       <ResponsiveContainer width="100%" height={300}>
         <PieChart>
           <Pie
@@ -128,15 +130,15 @@ function ProbabilityPieChart({ prediction }: PredictionChartsProps) {
       <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm">
         <div className="text-center p-2 bg-primary-500/10 rounded">
           <div className="font-bold text-primary-400">{Math.round(homeProb * 100)}%</div>
-          <div className="text-gray-500 dark:text-slate-400">Domicile</div>
+          <div className="text-gray-500 dark:text-slate-400">{t("home")}</div>
         </div>
         <div className="text-center p-2 bg-yellow-500/10 rounded">
           <div className="font-bold text-yellow-400">{Math.round(drawProb * 100)}%</div>
-          <div className="text-gray-500 dark:text-slate-400">Nul</div>
+          <div className="text-gray-500 dark:text-slate-400">{t("draw")}</div>
         </div>
         <div className="text-center p-2 bg-accent-500/10 rounded">
           <div className="font-bold text-accent-400">{Math.round(awayProb * 100)}%</div>
-          <div className="text-gray-500 dark:text-slate-400">Extérieur</div>
+          <div className="text-gray-500 dark:text-slate-400">{t("away")}</div>
         </div>
       </div>
     </div>
@@ -149,6 +151,7 @@ function ProbabilityPieChart({ prediction }: PredictionChartsProps) {
 function ModelComparisonChart({ prediction }: PredictionChartsProps) {
   const { resolvedTheme } = useTheme();
   const colors = getColors(resolvedTheme === "dark");
+  const t = useTranslations("charts");
 
   const modelContributions = getObjectValue(prediction, "modelContributions", "model_contributions");
   if (!modelContributions || typeof modelContributions !== "object") {
@@ -170,7 +173,7 @@ function ModelComparisonChart({ prediction }: PredictionChartsProps) {
     xgModel: "xG",
     xgboost: "XGBoost",
     random_forest: "Random Forest",
-    advanced_elo: "ELO Avancé",
+    advanced_elo: t("advancedElo"),
   };
 
   const chartData = models.map(([modelName, contribution]) => {
@@ -181,15 +184,15 @@ function ModelComparisonChart({ prediction }: PredictionChartsProps) {
 
     return {
       name: modelDisplayNames[modelName] || modelName,
-      Domicile: Math.round(homeProb * 100),
-      Nul: Math.round(drawProb * 100),
-      Extérieur: Math.round(awayProb * 100),
+      [t("home")]: Math.round(homeProb * 100),
+      [t("draw")]: Math.round(drawProb * 100),
+      [t("away")]: Math.round(awayProb * 100),
     };
   });
 
   return (
     <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4 transition-colors">
-      <h3 className="text-lg font-bold text-gray-900 dark:text-white">Comparaison des Modèles</h3>
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t("modelComparison")}</h3>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke={colors.gridLine} />
@@ -205,9 +208,9 @@ function ModelComparisonChart({ prediction }: PredictionChartsProps) {
             formatter={(value) => `${value}%`}
           />
           <Legend wrapperStyle={{ color: colors.textSecondary }} />
-          <Bar dataKey="Domicile" fill={colors.primary} />
-          <Bar dataKey="Nul" fill={colors.yellow} />
-          <Bar dataKey="Extérieur" fill={colors.accent} />
+          <Bar dataKey={t("home")} fill={colors.primary} />
+          <Bar dataKey={t("draw")} fill={colors.yellow} />
+          <Bar dataKey={t("away")} fill={colors.accent} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -220,6 +223,7 @@ function ModelComparisonChart({ prediction }: PredictionChartsProps) {
 function ConfidenceGauge({ prediction }: PredictionChartsProps) {
   const { resolvedTheme } = useTheme();
   const colors = getColors(resolvedTheme === "dark");
+  const t = useTranslations("charts");
 
   const confidence = typeof prediction?.confidence === "number" ? prediction.confidence : 0;
   const confidencePercent = Math.round(confidence * 100);
@@ -253,7 +257,7 @@ function ConfidenceGauge({ prediction }: PredictionChartsProps) {
         confidenceBorder
       )}
     >
-      <h3 className="text-lg font-bold text-gray-900 dark:text-white">Niveau de Confiance</h3>
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t("confidenceLevel")}</h3>
 
       {/* Gauge visualization */}
       <div className="flex flex-col items-center space-y-3">
@@ -296,7 +300,7 @@ function ConfidenceGauge({ prediction }: PredictionChartsProps) {
               <div className={cn("text-3xl font-bold", confidenceColor)}>
                 {confidencePercent}%
               </div>
-              <div className="text-xs text-gray-500 dark:text-slate-400">Confiance</div>
+              <div className="text-xs text-gray-500 dark:text-slate-400">{t("confidence")}</div>
             </div>
           </div>
         </div>
@@ -305,12 +309,12 @@ function ConfidenceGauge({ prediction }: PredictionChartsProps) {
         <div className="text-sm text-center">
           <p className={cn("font-semibold", confidenceColor)}>
             {confidencePercent >= 70
-              ? "Très Élevée"
+              ? t("veryHigh")
               : confidencePercent >= 60
-                ? "Élevée"
+                ? t("high")
                 : confidencePercent >= 50
-                  ? "Modérée"
-                  : "Faible"}
+                  ? t("moderate")
+                  : t("low")}
           </p>
         </div>
       </div>
@@ -318,7 +322,7 @@ function ConfidenceGauge({ prediction }: PredictionChartsProps) {
       {/* Progress bar */}
       <div className="px-2 space-y-2 mt-2">
         <p className="text-xs font-medium text-gray-600 dark:text-slate-400 text-center">
-          Barre de progression
+          {t("progressBar")}
         </p>
         <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden border border-gray-300 dark:border-slate-600 shadow-inner">
           <div
@@ -348,6 +352,7 @@ function ConfidenceGauge({ prediction }: PredictionChartsProps) {
  * Value Score Indicator - Show the value score with color coding
  */
 function ValueScoreIndicator({ prediction }: PredictionChartsProps) {
+  const t = useTranslations("charts");
   const valueScore = getNumericValue(prediction, "valueScore", "value_score");
   const valuePercent = Math.round(valueScore * 100);
 
@@ -367,12 +372,12 @@ function ValueScoreIndicator({ prediction }: PredictionChartsProps) {
         valueBorder
       )}
     >
-      <h3 className="text-lg font-bold text-gray-900 dark:text-white">Indice de Valeur (Cote)</h3>
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t("valueIndex")}</h3>
 
       <div className="space-y-4">
         {/* Main Value Display */}
         <div className="flex items-center justify-between">
-          <span className="text-gray-500 dark:text-slate-400 font-semibold">Valeur Estimée</span>
+          <span className="text-gray-500 dark:text-slate-400 font-semibold">{t("estimatedValue")}</span>
           <div className={cn("text-3xl font-bold", valueColor)}>
             {isPositiveValue ? "+" : ""}{valuePercent}%
           </div>
@@ -381,9 +386,9 @@ function ValueScoreIndicator({ prediction }: PredictionChartsProps) {
         {/* Value Bar */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-500 dark:text-slate-400">Risque</span>
+            <span className="text-gray-500 dark:text-slate-400">{t("risk")}</span>
             <span className={cn("font-semibold", valueColor)}>
-              {isPositiveValue ? "Favorable" : "Défavorable"}
+              {isPositiveValue ? t("favorable") : t("unfavorable")}
             </span>
           </div>
           <div className="h-2 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
@@ -403,31 +408,31 @@ function ValueScoreIndicator({ prediction }: PredictionChartsProps) {
         <div className="grid grid-cols-3 gap-2 text-xs text-gray-500 dark:text-slate-400 text-center py-2 border-t border-gray-200 dark:border-slate-700 pt-3">
           <div>
             <div className="text-red-400 font-semibold">-50%</div>
-            <div>Très Mauvaise</div>
+            <div>{t("veryBad")}</div>
           </div>
           <div>
             <div className="text-gray-500 dark:text-slate-400 font-semibold">0%</div>
-            <div>Neutre</div>
+            <div>{t("neutral")}</div>
           </div>
           <div>
             <div className="text-primary-400 font-semibold">+50%</div>
-            <div>Excellente</div>
+            <div>{t("excellent")}</div>
           </div>
         </div>
 
         {/* Value Interpretation */}
         <div className="p-2 bg-gray-100 dark:bg-slate-700/50 rounded text-xs text-gray-600 dark:text-slate-300">
           {valuePercent > 30
-            ? "Excellent ROI attendu sur le long terme"
+            ? t("excellentROI")
             : valuePercent > 10
-              ? "Valeur intéressante, opportunité favorable"
+              ? t("interestingValue")
               : valuePercent > 0
-                ? "Léger avantage statistique"
+                ? t("slightAdvantage")
                 : valuePercent > -10
-                  ? "Prédiction correcte mais sans valeur de cote"
+                  ? t("correctNoValue")
                   : valuePercent > -30
-                    ? "Valeur négative, attention au ROI"
-                    : "Forte dévaluation, à éviter"}
+                    ? t("negativeValue")
+                    : t("strongDevaluation")}
         </div>
       </div>
     </div>
@@ -440,6 +445,7 @@ function ValueScoreIndicator({ prediction }: PredictionChartsProps) {
 function ExpectedGoalsChart({ prediction }: PredictionChartsProps) {
   const { resolvedTheme } = useTheme();
   const colors = getColors(resolvedTheme === "dark");
+  const t = useTranslations("charts");
 
   const homeXg = getNumericValue(prediction, "expectedHomeGoals", "expected_home_goals");
   const awayXg = getNumericValue(prediction, "expectedAwayGoals", "expected_away_goals");
@@ -450,15 +456,15 @@ function ExpectedGoalsChart({ prediction }: PredictionChartsProps) {
 
   const data = [
     {
-      name: "Buts attendus (xG)",
-      Domicile: parseFloat(homeXg.toFixed(2)),
-      Extérieur: parseFloat(awayXg.toFixed(2)),
+      name: t("expectedGoals"),
+      [t("home")]: parseFloat(homeXg.toFixed(2)),
+      [t("away")]: parseFloat(awayXg.toFixed(2)),
     },
   ];
 
   return (
     <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4 transition-colors">
-      <h3 className="text-lg font-bold text-gray-900 dark:text-white">Buts Attendus (xG)</h3>
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t("expectedGoalsTitle")}</h3>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} layout="vertical">
           <CartesianGrid strokeDasharray="3 3" stroke={colors.gridLine} />
@@ -474,8 +480,8 @@ function ExpectedGoalsChart({ prediction }: PredictionChartsProps) {
             formatter={(value) => typeof value === 'number' ? value.toFixed(2) : value}
           />
           <Legend wrapperStyle={{ color: colors.textSecondary }} />
-          <Bar dataKey="Domicile" fill={colors.primary} radius={[0, 8, 8, 0]} />
-          <Bar dataKey="Extérieur" fill={colors.accent} radius={[0, 8, 8, 0]} />
+          <Bar dataKey={t("home")} fill={colors.primary} radius={[0, 8, 8, 0]} />
+          <Bar dataKey={t("away")} fill={colors.accent} radius={[0, 8, 8, 0]} />
         </BarChart>
       </ResponsiveContainer>
 
@@ -483,11 +489,11 @@ function ExpectedGoalsChart({ prediction }: PredictionChartsProps) {
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div className="p-3 bg-primary-500/10 rounded text-center">
           <div className="text-primary-400 font-bold">{homeXg.toFixed(2)}</div>
-          <div className="text-xs text-gray-500 dark:text-slate-400">xG Domicile</div>
+          <div className="text-xs text-gray-500 dark:text-slate-400">{t("xgHome")}</div>
         </div>
         <div className="p-3 bg-accent-500/10 rounded text-center">
           <div className="text-accent-400 font-bold">{awayXg.toFixed(2)}</div>
-          <div className="text-xs text-gray-500 dark:text-slate-400">xG Extérieur</div>
+          <div className="text-xs text-gray-500 dark:text-slate-400">{t("xgAway")}</div>
         </div>
       </div>
     </div>

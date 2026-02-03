@@ -4,10 +4,14 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Lock, Eye, EyeOff, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const t = useTranslations("auth.reset");
+  const tErrors = useTranslations("auth.errors");
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -35,12 +39,12 @@ export default function ResetPasswordPage() {
 
     // Validation
     if (password.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caracteres");
+      setError(tErrors("passwordTooShort"));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Les mots de passe ne correspondent pas");
+      setError(tErrors("passwordMismatch"));
       return;
     }
 
@@ -64,8 +68,8 @@ export default function ResetPasswordPage() {
       setTimeout(() => {
         router.push("/auth/login");
       }, 3000);
-    } catch (err) {
-      setError("Une erreur s'est produite. Veuillez reessayer.");
+    } catch {
+      setError(tErrors("genericError"));
       setIsSubmitting(false);
     }
   };
@@ -88,16 +92,16 @@ export default function ResetPasswordPage() {
             <AlertTriangle className="w-10 h-10 text-red-500" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Lien expire ou invalide
+            {t("linkExpired")}
           </h1>
           <p className="text-gray-600 dark:text-dark-400 mb-8">
-            Le lien de reinitialisation a expire ou est invalide. Veuillez demander un nouveau lien.
+            {t("linkExpiredDescription")}
           </p>
           <Link
             href="/auth/forgot-password"
             className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-primary-500 to-emerald-500 text-white font-semibold rounded-xl"
           >
-            Demander un nouveau lien
+            {t("requestNewLink")}
           </Link>
         </div>
       </div>
@@ -113,13 +117,13 @@ export default function ResetPasswordPage() {
             <CheckCircle className="w-10 h-10 text-green-500" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Mot de passe modifie !
+            {t("success")}
           </h1>
           <p className="text-gray-600 dark:text-dark-400 mb-4">
-            Votre mot de passe a ete mis a jour avec succes.
+            {t("successDescription")}
           </p>
           <p className="text-sm text-gray-500 dark:text-dark-500">
-            Redirection vers la page de connexion...
+            {t("redirecting")}
           </p>
         </div>
       </div>
@@ -132,10 +136,10 @@ export default function ResetPasswordPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Nouveau mot de passe
+            {t("title")}
           </h1>
           <p className="text-gray-600 dark:text-dark-400">
-            Choisissez un nouveau mot de passe securise
+            {t("subtitle")}
           </p>
         </div>
 
@@ -152,7 +156,7 @@ export default function ResetPasswordPage() {
           {/* New Password */}
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-dark-300 mb-2">
-              Nouveau mot de passe
+              {t("newPasswordLabel")}
             </label>
             <div className="relative group">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-dark-500 group-focus-within:text-primary-400 transition-colors" />
@@ -176,14 +180,14 @@ export default function ResetPasswordPage() {
               </button>
             </div>
             <p className="mt-1.5 text-xs text-gray-500 dark:text-dark-500">
-              Minimum 6 caracteres
+              {t("passwordHint")}
             </p>
           </div>
 
           {/* Confirm Password */}
           <div>
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-dark-300 mb-2">
-              Confirmer le mot de passe
+              {t("confirmPasswordLabel")}
             </label>
             <div className="relative group">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-dark-500 group-focus-within:text-primary-400 transition-colors" />
@@ -216,10 +220,10 @@ export default function ResetPasswordPage() {
             {isSubmitting ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Modification en cours...
+                {t("updating")}
               </>
             ) : (
-              "Modifier le mot de passe"
+              t("changePassword")
             )}
           </button>
         </form>
@@ -230,7 +234,7 @@ export default function ResetPasswordPage() {
             href="/auth/login"
             className="text-primary-400 hover:text-primary-300 font-medium transition-colors"
           >
-            Retour a la connexion
+            {t("backToLogin")}
           </Link>
         </p>
       </div>

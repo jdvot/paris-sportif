@@ -739,6 +739,7 @@ function KeyFactorsSection({
 }: {
   prediction: PredictionResponse;
 }) {
+  const t = useTranslations("matchDetail.keyFactors");
   const keyFactors = prediction?.key_factors || [];
   const riskFactors = prediction?.risk_factors || [];
 
@@ -746,7 +747,7 @@ function KeyFactorsSection({
     <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-3 sm:space-y-4">
       <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
         <BarChart3 className="w-5 h-5 text-accent-400 flex-shrink-0" />
-        Facteurs Cles
+        {t("title")}
       </h3>
 
       {keyFactors.length > 0 && (
@@ -762,7 +763,7 @@ function KeyFactorsSection({
 
       {riskFactors.length > 0 && (
         <div className="space-y-2 pt-3 sm:pt-4 border-t border-gray-200 dark:border-slate-700">
-          <h4 className="text-xs sm:text-sm font-semibold text-yellow-600 dark:text-yellow-400">Facteurs de Risque</h4>
+          <h4 className="text-xs sm:text-sm font-semibold text-yellow-600 dark:text-yellow-400">{t("riskFactors")}</h4>
           {riskFactors.map((factor, index) => (
             <div key={index} className="flex items-start gap-3 p-3 bg-yellow-100 dark:bg-yellow-500/10 rounded-lg border border-yellow-300 dark:border-yellow-500/20">
               <AlertTriangle className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
@@ -785,11 +786,13 @@ function TeamFormSection({
   homeForm: TeamFormResponse;
   awayForm: TeamFormResponse;
 }) {
+  const t = useTranslations("matchDetail.teamForm");
+
   return (
     <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
       <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
         <TrendingUp className="w-5 h-5 text-primary-400 flex-shrink-0" />
-        Forme Recente
+        {t("title")}
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         <TeamFormCard form={homeForm} isHome={true} />
@@ -800,10 +803,13 @@ function TeamFormSection({
 }
 
 function TeamFormCard({ form, isHome }: { form: TeamFormResponse; isHome: boolean }) {
+  const t = useTranslations("matchDetail.teamForm");
+  const tErrors = useTranslations("matchDetail.errors");
+
   if (!form) {
     return (
       <div className="bg-gray-200 dark:bg-slate-700/50 rounded-lg p-3 sm:p-4">
-        <p className="text-gray-500 dark:text-slate-400 text-sm">Donnees non disponibles</p>
+        <p className="text-gray-500 dark:text-slate-400 text-sm">{tErrors("dataNotAvailable")}</p>
       </div>
     );
   }
@@ -828,7 +834,7 @@ function TeamFormCard({ form, isHome }: { form: TeamFormResponse; isHome: boolea
           {formResults.map((result, i) => {
             const resultStr = result.toUpperCase();
             const bgColor = resultStr === "W" ? "bg-primary-500" : resultStr === "D" ? "bg-gray-500" : "bg-red-500";
-            const displayLabel = resultStr === "W" ? "V" : resultStr === "D" ? "N" : "D";
+            const displayLabel = resultStr === "W" ? t("win") : resultStr === "D" ? t("drawShort") : t("loss");
             return (
               <div key={i} className={cn("flex-1 h-7 sm:h-8 rounded flex items-center justify-center text-gray-900 dark:text-white font-semibold text-xs sm:text-sm", bgColor)}>
                 {displayLabel}
@@ -840,23 +846,23 @@ function TeamFormCard({ form, isHome }: { form: TeamFormResponse; isHome: boolea
 
       <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm">
         <div>
-          <p className="text-gray-500 dark:text-slate-400">Points (5 derniers)</p>
+          <p className="text-gray-500 dark:text-slate-400">{t("pointsLast5")}</p>
           <p className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">{form.points_last_5 ?? "-"}</p>
         </div>
         <div>
-          <p className="text-gray-500 dark:text-slate-400">Buts marques/match</p>
+          <p className="text-gray-500 dark:text-slate-400">{t("goalsScoredPerMatch")}</p>
           <p className="text-base sm:text-lg font-bold text-primary-400">
             {typeof form.goals_scored_avg === 'number' ? form.goals_scored_avg.toFixed(1) : "-"}
           </p>
         </div>
         <div>
-          <p className="text-gray-500 dark:text-slate-400">Buts encaisses/match</p>
+          <p className="text-gray-500 dark:text-slate-400">{t("goalsConcededPerMatch")}</p>
           <p className="text-base sm:text-lg font-bold text-orange-400">
             {typeof form.goals_conceded_avg === 'number' ? form.goals_conceded_avg.toFixed(1) : "-"}
           </p>
         </div>
         <div>
-          <p className="text-gray-500 dark:text-slate-400">Matchs sans encaisser</p>
+          <p className="text-gray-500 dark:text-slate-400">{t("cleanSheets")}</p>
           <p className="text-base sm:text-lg font-bold text-accent-400">{form.clean_sheets ?? "-"}</p>
         </div>
       </div>
@@ -864,13 +870,13 @@ function TeamFormCard({ form, isHome }: { form: TeamFormResponse; isHome: boolea
       {(form.xg_for_avg !== null || form.xg_against_avg !== null) && (
         <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm border-t border-gray-300 dark:border-slate-600 pt-2 sm:pt-3">
           <div>
-            <p className="text-gray-500 dark:text-slate-400">xG pour/match</p>
+            <p className="text-gray-500 dark:text-slate-400">{t("xgForPerMatch")}</p>
             <p className="text-base sm:text-lg font-bold text-primary-300">
               {typeof form.xg_for_avg === 'number' ? form.xg_for_avg.toFixed(2) : "-"}
             </p>
           </div>
           <div>
-            <p className="text-gray-500 dark:text-slate-400">xG contre/match</p>
+            <p className="text-gray-500 dark:text-slate-400">{t("xgAgainstPerMatch")}</p>
             <p className="text-base sm:text-lg font-bold text-orange-300">
               {typeof form.xg_against_avg === 'number' ? form.xg_against_avg.toFixed(2) : "-"}
             </p>
@@ -893,6 +899,10 @@ function HeadToHeadSection({
   homeTeam: string;
   awayTeam: string;
 }) {
+  const t = useTranslations("matchDetail.headToHead");
+  const tErrors = useTranslations("matchDetail.errors");
+  const locale = useLocale();
+  const dateLocale = locale === "fr" ? fr : enUS;
   const [showDetails, setShowDetails] = useState(false);
 
   // Calculate additional stats from matches
@@ -947,7 +957,7 @@ function HeadToHeadSection({
   const formatLastMatchResult = () => {
     if (!lastMatch) return null;
     try {
-      const date = format(parseISO(lastMatch.date), "dd MMM yyyy", { locale: fr });
+      const date = format(parseISO(lastMatch.date), "dd MMM yyyy", { locale: dateLocale });
       return { date, score: `${lastMatch.home_score} - ${lastMatch.away_score}`, teams: `${lastMatch.home_team} vs ${lastMatch.away_team}` };
     } catch {
       return null;
@@ -959,10 +969,10 @@ function HeadToHeadSection({
     <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6 sticky top-8">
       <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
         <Users className="w-5 h-5 text-accent-400 flex-shrink-0" />
-        Head-to-Head
+        {t("title")}
         {headToHead.total_matches > 0 && (
           <span className="text-xs text-gray-500 dark:text-slate-400 font-normal ml-auto">
-            {headToHead.total_matches} matchs
+            {headToHead.total_matches} {t("matches")}
           </span>
         )}
       </h3>
@@ -970,15 +980,15 @@ function HeadToHeadSection({
       {/* Win/Draw/Lose Stats */}
       <div className="space-y-2">
         <div className="flex items-center justify-between p-2.5 sm:p-3 bg-primary-100 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/20 rounded-lg">
-          <span className="text-primary-700 dark:text-primary-300 font-semibold text-sm">Victoires {homeTeam}</span>
+          <span className="text-primary-700 dark:text-primary-300 font-semibold text-sm">{t("winsFor", { team: homeTeam })}</span>
           <span className="text-xl sm:text-2xl font-bold text-primary-600 dark:text-primary-400">{headToHead.home_wins ?? 0}</span>
         </div>
         <div className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-100 dark:bg-gray-500/10 border border-gray-200 dark:border-gray-500/20 rounded-lg">
-          <span className="text-gray-700 dark:text-gray-300 font-semibold text-sm">Matchs nuls</span>
+          <span className="text-gray-700 dark:text-gray-300 font-semibold text-sm">{t("draws")}</span>
           <span className="text-xl sm:text-2xl font-bold text-gray-600 dark:text-gray-400">{headToHead.draws ?? 0}</span>
         </div>
         <div className="flex items-center justify-between p-2.5 sm:p-3 bg-accent-100 dark:bg-accent-500/10 border border-accent-200 dark:border-accent-500/20 rounded-lg">
-          <span className="text-accent-700 dark:text-accent-300 font-semibold text-sm">Victoires {awayTeam}</span>
+          <span className="text-accent-700 dark:text-accent-300 font-semibold text-sm">{t("winsFor", { team: awayTeam })}</span>
           <span className="text-xl sm:text-2xl font-bold text-accent-600 dark:text-accent-400">{headToHead.away_wins ?? 0}</span>
         </div>
       </div>
@@ -988,14 +998,14 @@ function HeadToHeadSection({
         <div className="text-center p-2 bg-gray-50 dark:bg-slate-700/30 rounded-lg">
           <div className="flex items-center justify-center gap-1 text-gray-500 dark:text-slate-400">
             <Goal className="w-3.5 h-3.5" />
-            <span className="text-xs">Moy. buts/match</span>
+            <span className="text-xs">{t("avgGoalsPerMatch")}</span>
           </div>
           <p className="text-lg font-bold text-gray-900 dark:text-white">{avgGoals.toFixed(1)}</p>
         </div>
         <div className="text-center p-2 bg-gray-50 dark:bg-slate-700/30 rounded-lg">
           <div className="flex items-center justify-center gap-1 text-gray-500 dark:text-slate-400">
             <Goal className="w-3.5 h-3.5" />
-            <span className="text-xs">Buts totaux</span>
+            <span className="text-xs">{t("totalGoals")}</span>
           </div>
           <div className="flex items-center justify-center gap-2">
             <span className="text-sm font-bold text-primary-500">{totalGoalsHome}</span>
@@ -1010,7 +1020,7 @@ function HeadToHeadSection({
         <div className="flex items-center gap-2 p-2.5 bg-gradient-to-r from-orange-100 to-yellow-100 dark:from-orange-500/20 dark:to-yellow-500/20 rounded-lg border border-orange-200 dark:border-orange-500/30">
           <Flame className="w-4 h-4 text-orange-500" />
           <span className="text-sm text-orange-700 dark:text-orange-300">
-            <span className="font-bold">{streak.team}</span>: {streak.count} victoires consecutives
+            <span className="font-bold">{streak.team}</span>: {t("consecutiveWins", { count: streak.count })}
           </span>
         </div>
       )}
@@ -1018,7 +1028,7 @@ function HeadToHeadSection({
       {/* Last Confrontation */}
       {lastMatchInfo && (
         <div className="p-3 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-700/50 dark:to-slate-800/50 rounded-lg border border-gray-200 dark:border-slate-600">
-          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Derniere confrontation</p>
+          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">{t("lastConfrontation")}</p>
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-gray-900 dark:text-white">{lastMatchInfo.teams}</p>
             <p className="text-lg font-bold text-gray-900 dark:text-white">{lastMatchInfo.score}</p>
@@ -1034,7 +1044,7 @@ function HeadToHeadSection({
             onClick={() => setShowDetails(!showDetails)}
             className="flex items-center justify-between w-full text-sm font-semibold text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
-            <span>Historique ({matches.length} matchs)</span>
+            <span>{t("history", { count: matches.length })}</span>
             <ChevronDown
               className={cn(
                 "w-4 h-4 transition-transform",
@@ -1053,9 +1063,9 @@ function HeadToHeadSection({
 
                 let dateDisplay = "";
                 try {
-                  dateDisplay = format(parseISO(match.date), "dd MMM yyyy", { locale: fr });
+                  dateDisplay = format(parseISO(match.date), "dd MMM yyyy", { locale: dateLocale });
                 } catch {
-                  dateDisplay = "Date invalide";
+                  dateDisplay = tErrors("invalidDate");
                 }
 
                 // Determine which team in this H2H context won
@@ -1107,16 +1117,25 @@ function HeadToHeadSection({
    COMPONENT: Model Contributions Section
    ============================================ */
 function ModelContributionsSection({ prediction }: { prediction: PredictionResponse }) {
+  const t = useTranslations("matchDetail.models");
+
   if (!prediction?.model_contributions) return null;
 
   const models = Object.entries(prediction.model_contributions).filter(([, v]) => v);
   if (models.length === 0) return null;
 
-  const modelDescriptions: Record<string, { desc: string; weight: string; icon: string }> = {
-    poisson: { desc: "Distribution statistique des buts", weight: "15%", icon: "📊" },
-    elo: { desc: "Classement dynamique des equipes", weight: "10%", icon: "📈" },
-    xg_model: { desc: "Analyse des Expected Goals (xG)", weight: "15%", icon: "⚽" },
-    xgboost: { desc: "Machine Learning gradient boosting", weight: "35%", icon: "🤖" },
+  const modelIcons: Record<string, string> = {
+    poisson: "📊",
+    elo: "📈",
+    xg_model: "⚽",
+    xgboost: "🤖",
+  };
+
+  const modelWeights: Record<string, string> = {
+    poisson: "15%",
+    elo: "10%",
+    xg_model: "15%",
+    xgboost: "35%",
   };
 
   return (
@@ -1124,22 +1143,22 @@ function ModelContributionsSection({ prediction }: { prediction: PredictionRespo
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <BarChart3 className="w-5 h-5 text-accent-400 flex-shrink-0" />
-          Modeles de Prediction
+          {t("title")}
         </h3>
-        <span className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">{models.length} modeles combines</span>
+        <span className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">{t("modelsCombined", { count: models.length })}</span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {models.map(([modelName, contribution]) => {
-          const modelInfo = modelDescriptions[modelName] || { desc: "Modele statistique", weight: "N/A", icon: "📐" };
+          const modelKey = modelName === "xg_model" ? "xgModel" : modelName;
           return (
             <ModelContributionCard
               key={modelName}
               modelName={modelName}
+              modelKey={modelKey}
               contribution={contribution!}
-              description={modelInfo.desc}
-              weight={modelInfo.weight}
-              icon={modelInfo.icon}
+              weight={modelWeights[modelName] || "N/A"}
+              icon={modelIcons[modelName] || "📐"}
             />
           );
         })}
@@ -1150,23 +1169,18 @@ function ModelContributionsSection({ prediction }: { prediction: PredictionRespo
 
 function ModelContributionCard({
   modelName,
+  modelKey,
   contribution,
-  description,
   weight,
   icon,
 }: {
   modelName: string;
+  modelKey: string;
   contribution: { home_win?: number; draw?: number; away_win?: number };
-  description: string;
   weight: string;
   icon: string;
 }) {
-  const displayName: Record<string, string> = {
-    poisson: "Poisson",
-    elo: "ELO",
-    xg_model: "Expected Goals",
-    xgboost: "XGBoost ML",
-  };
+  const t = useTranslations("matchDetail.models");
 
   const homeProb = contribution?.home_win ?? 0;
   const drawProb = contribution?.draw ?? 0;
@@ -1176,27 +1190,44 @@ function ModelContributionCard({
   const predictedOutcome = maxProb === homeProb ? "home" : maxProb === drawProb ? "draw" : "away";
   const outcomeColors = { home: "border-primary-500/50", draw: "border-yellow-500/50", away: "border-accent-500/50" };
 
+  // Get localized model name and description
+  const getModelName = () => {
+    try {
+      return t(`${modelKey}.name`);
+    } catch {
+      return modelName;
+    }
+  };
+
+  const getModelDescription = () => {
+    try {
+      return t(`${modelKey}.description`);
+    } catch {
+      return t("generic");
+    }
+  };
+
   return (
     <div className={cn("bg-gray-200 dark:bg-slate-700/50 rounded-lg p-3 sm:p-4 space-y-3 border-l-2", outcomeColors[predictedOutcome])}>
       <div className="flex items-start gap-2">
         <span className="text-lg">{icon}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-gray-900 dark:text-white text-sm sm:text-base font-semibold truncate">{displayName[modelName] || modelName}</p>
-          <p className="text-xs text-gray-500 dark:text-slate-400">Poids: {weight}</p>
+          <p className="text-gray-900 dark:text-white text-sm sm:text-base font-semibold truncate">{getModelName()}</p>
+          <p className="text-xs text-gray-500 dark:text-slate-400">{t("weight")}: {weight}</p>
         </div>
       </div>
-      <p className="text-xs text-gray-500 dark:text-slate-400 line-clamp-2">{description}</p>
+      <p className="text-xs text-gray-500 dark:text-slate-400 line-clamp-2">{getModelDescription()}</p>
       <div className="space-y-1.5 text-xs">
         <div className="flex items-center justify-between">
-          <span className="text-gray-500 dark:text-slate-400">Domicile:</span>
+          <span className="text-gray-500 dark:text-slate-400">{t("home")}:</span>
           <span className="text-primary-400 font-semibold">{Math.round(homeProb * 100)}%</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-gray-500 dark:text-slate-400">Nul:</span>
+          <span className="text-gray-500 dark:text-slate-400">{t("draw")}:</span>
           <span className="text-yellow-400 font-semibold">{Math.round(drawProb * 100)}%</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-gray-500 dark:text-slate-400">Exterieur:</span>
+          <span className="text-gray-500 dark:text-slate-400">{t("away")}:</span>
           <span className="text-accent-400 font-semibold">{Math.round(awayProb * 100)}%</span>
         </div>
       </div>
@@ -1208,6 +1239,8 @@ function ModelContributionCard({
    COMPONENT: LLM Adjustments Section
    ============================================ */
 function LLMAdjustmentsSection({ prediction }: { prediction: PredictionResponse }) {
+  const t = useTranslations("matchDetail.llmAnalysis");
+
   if (!prediction?.llm_adjustments) return null;
 
   const adjustments = prediction.llm_adjustments;
@@ -1222,47 +1255,47 @@ function LLMAdjustmentsSection({ prediction }: { prediction: PredictionResponse 
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-primary-400 flex-shrink-0" />
-          Analyse IA Avancee
+          {t("title")}
         </h3>
         <div className={cn(
           "px-3 py-1 rounded-full text-xs sm:text-sm font-semibold",
           (adjustments.total_adjustment ?? 0) >= 0 ? "bg-primary-500/20 text-primary-400" : "bg-red-500/20 text-red-400"
         )}>
-          Ajustement Total: {formatAdjustment(adjustments.total_adjustment)}
+          {t("totalAdjustment")}: {formatAdjustment(adjustments.total_adjustment)}
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-gray-200 dark:bg-slate-700/30 rounded-lg p-3 sm:p-4">
-          <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">🏥 Impact Blessures</h4>
+          <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">🏥 {t("injuryImpact")}</h4>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
-              <p className="text-gray-500 dark:text-slate-400">Domicile</p>
+              <p className="text-gray-500 dark:text-slate-400">{t("home")}</p>
               <p className="text-orange-400 font-bold">{formatAdjustment(adjustments.injury_impact_home)}</p>
             </div>
             <div>
-              <p className="text-gray-500 dark:text-slate-400">Exterieur</p>
+              <p className="text-gray-500 dark:text-slate-400">{t("away")}</p>
               <p className="text-orange-400 font-bold">{formatAdjustment(adjustments.injury_impact_away)}</p>
             </div>
           </div>
         </div>
 
         <div className="bg-gray-200 dark:bg-slate-700/30 rounded-lg p-3 sm:p-4">
-          <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">💭 Sentiment & Moral</h4>
+          <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">💭 {t("sentimentMorale")}</h4>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
-              <p className="text-gray-500 dark:text-slate-400">Domicile</p>
+              <p className="text-gray-500 dark:text-slate-400">{t("home")}</p>
               <p className="text-blue-400 font-bold">{formatAdjustment(adjustments.sentiment_home)}</p>
             </div>
             <div>
-              <p className="text-gray-500 dark:text-slate-400">Exterieur</p>
+              <p className="text-gray-500 dark:text-slate-400">{t("away")}</p>
               <p className="text-blue-400 font-bold">{formatAdjustment(adjustments.sentiment_away)}</p>
             </div>
           </div>
         </div>
 
         <div className="bg-gray-200 dark:bg-slate-700/30 rounded-lg p-3 sm:p-4 sm:col-span-2">
-          <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">⚔️ Avantage Tactique</h4>
+          <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">⚔️ {t("tacticalAdvantage")}</h4>
           <p className="text-primary-400 font-bold text-lg">{formatAdjustment(adjustments.tactical_edge)}</p>
         </div>
       </div>
@@ -1271,7 +1304,7 @@ function LLMAdjustmentsSection({ prediction }: { prediction: PredictionResponse 
         <div className="p-3 sm:p-4 bg-gradient-to-r from-primary-100 to-accent-100 dark:from-primary-500/10 dark:to-accent-500/10 rounded-lg border border-primary-200 dark:border-primary-500/20">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">🤖</span>
-            <h4 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">Raisonnement IA</h4>
+            <h4 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{t("aiReasoning")}</h4>
           </div>
           <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{adjustments.reasoning}</p>
         </div>
@@ -1403,13 +1436,15 @@ function XGEstimatesSection({
   homeTeam: string;
   awayTeam: string;
 }) {
+  const t = useTranslations("matchDetail.xgEstimates");
+
   if (!homeXg && !awayXg) return null;
 
   return (
     <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4">
       <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
         <Crosshair className="w-5 h-5 text-orange-500" />
-        Expected Goals (xG)
+        {t("title")}
       </h3>
 
       <div className="space-y-4">
@@ -1419,25 +1454,25 @@ function XGEstimatesSection({
             <p className="text-xs font-semibold text-primary-700 dark:text-primary-300 mb-2">{homeTeam}</p>
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <p className="text-gray-700 dark:text-slate-400">xG estime</p>
+                <p className="text-gray-700 dark:text-slate-400">{t("estimatedXg")}</p>
                 <p className="text-lg font-bold text-primary-600 dark:text-primary-400">
                   {homeXg.estimated_xg?.toFixed(2) || "-"}
                 </p>
               </div>
               <div>
-                <p className="text-gray-700 dark:text-slate-400">xGA estime</p>
+                <p className="text-gray-700 dark:text-slate-400">{t("estimatedXga")}</p>
                 <p className="text-lg font-bold text-orange-500">
                   {homeXg.estimated_xga?.toFixed(2) || "-"}
                 </p>
               </div>
               <div>
-                <p className="text-gray-700 dark:text-slate-400">Rating offensif</p>
+                <p className="text-gray-700 dark:text-slate-400">{t("offensiveRating")}</p>
                 <p className="font-semibold text-green-600 dark:text-green-400">
                   {homeXg.offensive_rating?.toFixed(1) || "-"}
                 </p>
               </div>
               <div>
-                <p className="text-gray-700 dark:text-slate-400">Rating defensif</p>
+                <p className="text-gray-700 dark:text-slate-400">{t("defensiveRating")}</p>
                 <p className="font-semibold text-red-500">
                   {homeXg.defensive_rating?.toFixed(1) || "-"}
                 </p>
@@ -1452,25 +1487,25 @@ function XGEstimatesSection({
             <p className="text-xs font-semibold text-accent-700 dark:text-accent-300 mb-2">{awayTeam}</p>
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <p className="text-gray-700 dark:text-slate-400">xG estime</p>
+                <p className="text-gray-700 dark:text-slate-400">{t("estimatedXg")}</p>
                 <p className="text-lg font-bold text-accent-600 dark:text-accent-400">
                   {awayXg.estimated_xg?.toFixed(2) || "-"}
                 </p>
               </div>
               <div>
-                <p className="text-gray-700 dark:text-slate-400">xGA estime</p>
+                <p className="text-gray-700 dark:text-slate-400">{t("estimatedXga")}</p>
                 <p className="text-lg font-bold text-orange-500">
                   {awayXg.estimated_xga?.toFixed(2) || "-"}
                 </p>
               </div>
               <div>
-                <p className="text-gray-700 dark:text-slate-400">Rating offensif</p>
+                <p className="text-gray-700 dark:text-slate-400">{t("offensiveRating")}</p>
                 <p className="font-semibold text-green-600 dark:text-green-400">
                   {awayXg.offensive_rating?.toFixed(1) || "-"}
                 </p>
               </div>
               <div>
-                <p className="text-gray-700 dark:text-slate-400">Rating defensif</p>
+                <p className="text-gray-700 dark:text-slate-400">{t("defensiveRating")}</p>
                 <p className="font-semibold text-red-500">
                   {awayXg.defensive_rating?.toFixed(1) || "-"}
                 </p>
@@ -1495,6 +1530,8 @@ function StandingsSection({
   homeTeam: string;
   awayTeam: string;
 }) {
+  const t = useTranslations("matchDetail.standings");
+
   const hasData = standings.home_position || standings.away_position;
   if (!hasData) return null;
 
@@ -1505,7 +1542,7 @@ function StandingsSection({
     <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4">
       <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
         <Medal className="w-5 h-5 text-yellow-500" />
-        Classement
+        {t("title")}
       </h3>
 
       <div className="grid grid-cols-2 gap-4">
@@ -1513,10 +1550,10 @@ function StandingsSection({
         <div className="p-3 bg-primary-50 dark:bg-primary-500/10 rounded-lg border border-primary-200 dark:border-primary-500/30 text-center">
           <p className="text-xs text-gray-700 dark:text-slate-400 mb-1 truncate">{homeTeam}</p>
           <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-            {standings.home_position ? `${standings.home_position}e` : "-"}
+            {standings.home_position ? `${standings.home_position}${t("positionSuffix")}` : "-"}
           </p>
           {standings.home_points != null && (
-            <p className="text-xs text-gray-700 dark:text-slate-400">{standings.home_points} pts</p>
+            <p className="text-xs text-gray-700 dark:text-slate-400">{standings.home_points} {t("points")}</p>
           )}
         </div>
 
@@ -1524,10 +1561,10 @@ function StandingsSection({
         <div className="p-3 bg-accent-50 dark:bg-accent-500/10 rounded-lg border border-accent-200 dark:border-accent-500/30 text-center">
           <p className="text-xs text-gray-700 dark:text-slate-400 mb-1 truncate">{awayTeam}</p>
           <p className="text-2xl font-bold text-accent-600 dark:text-accent-400">
-            {standings.away_position ? `${standings.away_position}e` : "-"}
+            {standings.away_position ? `${standings.away_position}${t("positionSuffix")}` : "-"}
           </p>
           {standings.away_points != null && (
-            <p className="text-xs text-gray-700 dark:text-slate-400">{standings.away_points} pts</p>
+            <p className="text-xs text-gray-700 dark:text-slate-400">{standings.away_points} {t("points")}</p>
           )}
         </div>
       </div>
@@ -1537,7 +1574,7 @@ function StandingsSection({
         <div className="flex items-center justify-center gap-2 p-2 bg-gray-100 dark:bg-slate-700/50 rounded-lg">
           <ArrowUpDown className={cn("w-4 h-4", diffColor)} />
           <span className={cn("text-sm font-semibold", diffColor)}>
-            {Math.abs(positionDiff)} place{Math.abs(positionDiff) > 1 ? "s" : ""} d'ecart
+            {t("positionGap", { count: Math.abs(positionDiff) })}
           </span>
         </div>
       )}
@@ -1566,6 +1603,7 @@ function ProbabilityBar({
   isRecommended: boolean;
   color: "primary" | "accent" | "yellow";
 }) {
+  const t = useTranslations("matchDetail.probabilityTooltip");
   const [isAnimated, setIsAnimated] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -1595,10 +1633,10 @@ function ProbabilityBar({
   const getTooltipContent = () => {
     const percentage = Math.round(prob * 100);
     const impliedOdds = prob > 0 ? (1 / prob).toFixed(2) : "-";
-    let confidence = "Faible";
-    if (prob >= 0.5) confidence = "Elevee";
-    else if (prob >= 0.35) confidence = "Moyenne";
-    return { percentage, impliedOdds, confidence };
+    let confidenceKey: "high" | "medium" | "low" = "low";
+    if (prob >= 0.5) confidenceKey = "high";
+    else if (prob >= 0.35) confidenceKey = "medium";
+    return { percentage, impliedOdds, confidenceKey };
   };
 
   const tooltip = getTooltipContent();
@@ -1646,13 +1684,13 @@ function ProbabilityBar({
       {showTooltip && (
         <div className="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-slate-700 text-white text-xs rounded-lg shadow-lg whitespace-nowrap animate-fadeIn">
           <div className="space-y-1">
-            <p><span className="text-gray-400">Probabilite:</span> <span className="font-bold">{tooltip.percentage}%</span></p>
-            <p><span className="text-gray-400">Cote implicite:</span> <span className="font-bold">{tooltip.impliedOdds}</span></p>
-            <p><span className="text-gray-400">Confiance:</span> <span className={cn(
+            <p><span className="text-gray-400">{t("probability")}:</span> <span className="font-bold">{tooltip.percentage}%</span></p>
+            <p><span className="text-gray-400">{t("impliedOdds")}:</span> <span className="font-bold">{tooltip.impliedOdds}</span></p>
+            <p><span className="text-gray-400">{t("confidence")}:</span> <span className={cn(
               "font-bold",
-              tooltip.confidence === "Elevee" ? "text-primary-400" :
-              tooltip.confidence === "Moyenne" ? "text-yellow-400" : "text-orange-400"
-            )}>{tooltip.confidence}</span></p>
+              tooltip.confidenceKey === "high" ? "text-primary-400" :
+              tooltip.confidenceKey === "medium" ? "text-yellow-400" : "text-orange-400"
+            )}>{t(tooltip.confidenceKey)}</span></p>
           </div>
           <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-slate-700" />
         </div>

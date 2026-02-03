@@ -51,9 +51,8 @@ function ToggleSwitch({ enabled, onToggle, disabled = false, label }: ToggleSwit
 }
 
 export default function SettingsPage() {
-  const t = useTranslations("common");
-  const tSettings = useTranslations("settings");
-  const tNav = useTranslations("nav");
+  const t = useTranslations("settings");
+  const tCommon = useTranslations("common");
   const { user, loading, isAuthenticated, resetPassword, deleteAccount } = useAuth();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
@@ -84,13 +83,13 @@ export default function SettingsPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 dark:text-dark-400 mb-4">
-            Vous devez etre connecte pour acceder a cette page.
+            {t("loginRequired")}
           </p>
           <Link
             href="/auth/login"
             className="text-primary-600 dark:text-primary-400 hover:underline"
           >
-            Se connecter
+            {t("signIn")}
           </Link>
         </div>
       </div>
@@ -126,7 +125,7 @@ export default function SettingsPage() {
 
     if (error) {
       setIsDeleting(false);
-      setDeleteError(t("errorDelete"));
+      setDeleteError(tCommon("errorDelete"));
       return;
     }
 
@@ -137,14 +136,14 @@ export default function SettingsPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-8">
-        Parametres
+        {t("title")}
       </h1>
 
       {/* Appearance Section */}
       <section className="bg-white dark:bg-dark-900 border border-gray-200 dark:border-dark-700 rounded-xl overflow-hidden mb-6">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
           <h2 className="font-semibold text-gray-900 dark:text-white">
-            Apparence
+            {t("appearance.title")}
           </h2>
         </div>
         <div className="p-6">
@@ -157,14 +156,14 @@ export default function SettingsPage() {
               )}
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  Mode sombre
+                  {t("appearance.darkMode")}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-dark-400">
-                  {isDarkMode ? "Active" : "Desactive"}
+                  {isDarkMode ? t("appearance.enabled") : t("appearance.disabled")}
                 </p>
               </div>
             </div>
-            <ToggleSwitch enabled={isDarkMode} onToggle={handleThemeToggle} label="Activer le mode sombre" />
+            <ToggleSwitch enabled={isDarkMode} onToggle={handleThemeToggle} label={t("appearance.toggleDarkMode")} />
           </div>
         </div>
       </section>
@@ -173,7 +172,7 @@ export default function SettingsPage() {
       <section className="bg-white dark:bg-dark-900 border border-gray-200 dark:border-dark-700 rounded-xl overflow-hidden mb-6">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
           <h2 className="font-semibold text-gray-900 dark:text-white">
-            Notifications
+            {t("notifications.title")}
           </h2>
         </div>
         <div className="divide-y divide-gray-200 dark:divide-dark-700">
@@ -182,17 +181,17 @@ export default function SettingsPage() {
               <Bell className="w-5 h-5 text-gray-500 dark:text-dark-400" />
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  Picks quotidiens
+                  {t("notifications.dailyPicks")}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-dark-400">
-                  Recevoir les nouveaux picks chaque jour
+                  {t("notifications.dailyPicksDesc")}
                 </p>
               </div>
             </div>
             <ToggleSwitch
               enabled={notifications.dailyPicks}
               onToggle={() => handleNotificationToggle("dailyPicks")}
-              label="Activer les notifications de picks quotidiens"
+              label={t("notifications.toggleDailyPicks")}
             />
           </div>
 
@@ -201,17 +200,17 @@ export default function SettingsPage() {
               <BellOff className="w-5 h-5 text-gray-500 dark:text-dark-400" />
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  Alertes importantes
+                  {t("notifications.alerts")}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-dark-400">
-                  Mises a jour de securite et compte
+                  {t("notifications.alertsDesc")}
                 </p>
               </div>
             </div>
             <ToggleSwitch
               enabled={notifications.alerts}
               onToggle={() => handleNotificationToggle("alerts")}
-              label="Activer les alertes importantes"
+              label={t("notifications.toggleAlerts")}
             />
           </div>
 
@@ -220,17 +219,17 @@ export default function SettingsPage() {
               <Bell className="w-5 h-5 text-gray-500 dark:text-dark-400" />
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  Offres promotionnelles
+                  {t("notifications.promos")}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-dark-400">
-                  Recevoir les offres speciales
+                  {t("notifications.promosDesc")}
                 </p>
               </div>
             </div>
             <ToggleSwitch
               enabled={notifications.promos}
               onToggle={() => handleNotificationToggle("promos")}
-              label="Activer les notifications d'offres promotionnelles"
+              label={t("notifications.togglePromos")}
             />
           </div>
         </div>
@@ -239,7 +238,7 @@ export default function SettingsPage() {
       {/* Language Section */}
       <section className="bg-white dark:bg-dark-900 border border-gray-200 dark:border-dark-700 rounded-xl overflow-hidden mb-6">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
-          <h2 className="font-semibold text-gray-900 dark:text-white">Langue</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white">{t("language.title")}</h2>
         </div>
         <div className="p-6">
           <div className="flex items-center justify-between opacity-50">
@@ -247,10 +246,10 @@ export default function SettingsPage() {
               <Globe className="w-5 h-5 text-gray-500 dark:text-dark-400" />
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  Francais
+                  {t("language.french")}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-dark-400">
-                  Bientot disponible
+                  {t("language.comingSoon")}
                 </p>
               </div>
             </div>
@@ -263,7 +262,7 @@ export default function SettingsPage() {
       <section className="bg-white dark:bg-dark-900 border border-gray-200 dark:border-dark-700 rounded-xl overflow-hidden mb-6">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700">
           <h2 className="font-semibold text-gray-900 dark:text-white">
-            Securite
+            {t("security.title")}
           </h2>
         </div>
         <div className="p-6">
@@ -272,16 +271,16 @@ export default function SettingsPage() {
               <Lock className="w-5 h-5 text-gray-500 dark:text-dark-400" />
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  Mot de passe
+                  {t("security.password")}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-dark-400">
-                  Reinitialiser votre mot de passe
+                  {t("security.passwordDesc")}
                 </p>
               </div>
             </div>
             {resetPasswordSent ? (
               <span className="text-sm text-primary-600 dark:text-primary-400">
-                Email envoye!
+                {t("security.emailSent")}
               </span>
             ) : (
               <button
@@ -292,7 +291,7 @@ export default function SettingsPage() {
                 {isResettingPassword ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  "Reinitialiser"
+                  t("security.reset")
                 )}
               </button>
             )}
@@ -304,7 +303,7 @@ export default function SettingsPage() {
       <section className="bg-white dark:bg-dark-900 border border-red-200 dark:border-red-500/30 rounded-xl overflow-hidden">
         <div className="px-6 py-4 border-b border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10">
           <h2 className="font-semibold text-red-700 dark:text-red-400">
-            Zone de danger
+            {t("dangerZone.title")}
           </h2>
         </div>
         <div className="p-6">
@@ -314,11 +313,10 @@ export default function SettingsPage() {
                 <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-red-700 dark:text-red-400">
-                    Etes-vous sur?
+                    {t("dangerZone.areYouSure")}
                   </p>
                   <p className="text-sm text-red-600 dark:text-red-300 mt-1">
-                    Cette action est irreversible. Toutes vos donnees seront
-                    supprimees.
+                    {t("dangerZone.warningMessage")}
                   </p>
                 </div>
               </div>
@@ -331,7 +329,7 @@ export default function SettingsPage() {
                   disabled={isDeleting}
                   className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-dark-300 bg-gray-100 dark:bg-dark-700 hover:bg-gray-200 dark:hover:bg-dark-600 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  Annuler
+                  {t("dangerZone.cancel")}
                 </button>
                 <button
                   onClick={handleDeleteAccount}
@@ -341,10 +339,10 @@ export default function SettingsPage() {
                   {isDeleting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Suppression...
+                      {t("dangerZone.deleting")}
                     </>
                   ) : (
-                    "Supprimer definitivement"
+                    t("dangerZone.deletePermanently")
                   )}
                 </button>
               </div>
@@ -355,10 +353,10 @@ export default function SettingsPage() {
                 <Trash2 className="w-5 h-5 text-red-500" />
                 <div>
                   <p className="font-medium text-gray-900 dark:text-white">
-                    Supprimer mon compte
+                    {t("dangerZone.deleteAccount")}
                   </p>
                   <p className="text-sm text-gray-500 dark:text-dark-400">
-                    Supprimer definitivement votre compte et vos donnees
+                    {t("dangerZone.deleteAccountDesc")}
                   </p>
                 </div>
               </div>
@@ -366,7 +364,7 @@ export default function SettingsPage() {
                 onClick={() => setShowDeleteConfirm(true)}
                 className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
               >
-                Supprimer
+                {t("dangerZone.delete")}
               </button>
             </div>
           )}
