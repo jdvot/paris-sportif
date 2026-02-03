@@ -9,6 +9,7 @@ import type { DailyPick } from "@/lib/api/models";
 import { RAGContext } from "./RAGContext";
 import { ValueBetIndicator } from "./ValueBetBadge";
 import { FavoriteButton } from "./FavoriteButton";
+import { ShareButton } from "./ShareButton";
 import {
   getConfidenceTier as getConfidenceTierFromConstants,
   getValueTier as getValueTierFromConstants,
@@ -137,6 +138,14 @@ export function PredictionCardPremium({
                   matchDate: prediction.match_date || new Date().toISOString(),
                   competition: (prediction as { competition?: string }).competition,
                 }}
+                size="sm"
+              />
+              <ShareButton
+                matchId={prediction.match_id}
+                homeTeam={prediction.home_team}
+                awayTeam={prediction.away_team}
+                prediction={betLabel}
+                confidence={confidence}
                 size="sm"
               />
             </div>
