@@ -209,7 +209,7 @@ export function PredictionCardPremium({
 
           {/* Value Score & Pick Score Indicators */}
           <div className="grid grid-cols-2 gap-2">
-            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-100 dark:bg-slate-700/80 border border-gray-200 dark:border-slate-600">
+            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-200 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-700">
               <div className="flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4 text-cyan-700 dark:text-cyan-400 flex-shrink-0" />
                 <span className="text-xs sm:text-sm text-gray-700 dark:text-slate-300">Value</span>
@@ -233,7 +233,7 @@ export function PredictionCardPremium({
 
             {/* Pick Score */}
             {pick.pick_score !== undefined && (
-              <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-100 dark:bg-slate-700/80 border border-gray-200 dark:border-slate-600">
+              <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-200 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-700">
                 <div className="flex items-center gap-1.5">
                   <Zap className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
                   <span className="text-xs sm:text-sm text-gray-700 dark:text-slate-300">Score</span>
