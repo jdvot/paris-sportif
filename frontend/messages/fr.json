@@ -255,12 +255,97 @@
     "stats": "Mes statistiques",
     "favorites": "Mes favoris",
     "settings": "Parametres",
+    "loginRequired": "Vous devez etre connecte pour acceder a cette page.",
+    "signIn": "Se connecter",
+    "defaultName": "Utilisateur",
+    "editName": "Modifier le nom",
+    "yourName": "Votre nom",
+    "memberSince": "Membre depuis le",
+    "daysOld": "{days} jours d'anciennete",
+    "favoriteCompetition": "Competition favorite:",
+    "edit": {
+      "title": "Modifier mon profil",
+      "fullName": "Nom complet",
+      "fullNamePlaceholder": "Votre nom complet",
+      "save": "Sauvegarder",
+      "error": "Erreur lors de la mise a jour du profil",
+      "success": "Profil mis a jour avec succes"
+    },
+    "email": {
+      "label": "Email",
+      "cannotChange": "L'email ne peut pas etre modifie"
+    },
+    "password": {
+      "label": "Mot de passe",
+      "change": "Changer le mot de passe",
+      "resetSent": "Email de reinitialisation envoye a {email}",
+      "resetHint": "Un email vous sera envoye pour reinitialiser votre mot de passe"
+    },
     "subscription": {
-      "title": "Abonnement",
+      "title": "Mon Abonnement",
       "free": "Gratuit",
+      "premium": "Premium",
+      "admin": "Administrateur",
       "pro": "Pro",
       "elite": "Elite",
-      "upgrade": "Passer a Pro"
+      "upgrade": "Upgrade",
+      "active": "Actif",
+      "fullAccess": "Acces complet",
+      "perMonth": "{price}/mois",
+      "unlock": "Debloquez toutes les fonctionnalites",
+      "manage": "Gerer mon abonnement"
+    },
+    "plan": {
+      "matchAccess": "Acces aux matchs",
+      "basicStats": "Statistiques de base",
+      "picksLimit": "3 picks par jour max",
+      "detailedPredictions": "Predictions detaillees",
+      "ragAnalysis": "Analyse RAG IA",
+      "fullHistory": "Historique complet",
+      "customAlerts": "Alertes personnalisees",
+      "advancedStats": "Statistiques avancees",
+      "unlimitedPicks": "Picks illimites",
+      "allPremium": "Toutes les fonctionnalites Premium",
+      "adminDashboard": "Tableau de bord admin",
+      "userManagement": "Gestion des utilisateurs",
+      "dataSync": "Synchronisation des donnees",
+      "systemLogs": "Logs systeme"
+    },
+    "activity": {
+      "title": "Activite",
+      "predictionsViewed": "Predictions vues",
+      "betsPlaced": "Paris places",
+      "betsWon": "Paris gagnes"
+    },
+    "performance": {
+      "title": "Performance",
+      "winRate": "Taux de reussite",
+      "won": "Gagnes",
+      "lost": "Perdus",
+      "pending": "En cours"
+    },
+    "links": {
+      "plans": "Plans & Tarifs",
+      "settings": "Parametres",
+      "dailyPicks": "Picks du jour",
+      "allMatches": "Tous les matchs"
+    },
+    "bets": {
+      "title": "Derniers paris",
+      "total": "{count} paris au total",
+      "match": "Match #{id}",
+      "homeWin": "Victoire domicile",
+      "awayWin": "Victoire exterieur",
+      "draw": "Match nul",
+      "odds": "Cote:",
+      "won": "Gagne",
+      "lost": "Perdu",
+      "pending": "En cours"
+    },
+    "roles": {
+      "admin": "Admin",
+      "premium": "Premium",
+      "free": "Gratuit"
     }
   },
   "settings": {

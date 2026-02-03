@@ -255,12 +255,97 @@
     "stats": "My statistics",
     "favorites": "My favorites",
     "settings": "Settings",
+    "loginRequired": "You must be logged in to access this page.",
+    "signIn": "Sign in",
+    "defaultName": "User",
+    "editName": "Edit name",
+    "yourName": "Your name",
+    "memberSince": "Member since",
+    "daysOld": "{days} days of membership",
+    "favoriteCompetition": "Favorite competition:",
+    "edit": {
+      "title": "Edit my profile",
+      "fullName": "Full name",
+      "fullNamePlaceholder": "Your full name",
+      "save": "Save",
+      "error": "Error updating profile",
+      "success": "Profile updated successfully"
+    },
+    "email": {
+      "label": "Email",
+      "cannotChange": "Email cannot be changed"
+    },
+    "password": {
+      "label": "Password",
+      "change": "Change password",
+      "resetSent": "Reset email sent to {email}",
+      "resetHint": "An email will be sent to reset your password"
+    },
     "subscription": {
-      "title": "Subscription",
+      "title": "My Subscription",
       "free": "Free",
+      "premium": "Premium",
+      "admin": "Administrator",
       "pro": "Pro",
       "elite": "Elite",
-      "upgrade": "Upgrade to Pro"
+      "upgrade": "Upgrade",
+      "active": "Active",
+      "fullAccess": "Full access",
+      "perMonth": "{price}/month",
+      "unlock": "Unlock all features",
+      "manage": "Manage my subscription"
+    },
+    "plan": {
+      "matchAccess": "Match access",
+      "basicStats": "Basic statistics",
+      "picksLimit": "3 picks per day max",
+      "detailedPredictions": "Detailed predictions",
+      "ragAnalysis": "RAG AI analysis",
+      "fullHistory": "Full history",
+      "customAlerts": "Custom alerts",
+      "advancedStats": "Advanced statistics",
+      "unlimitedPicks": "Unlimited picks",
+      "allPremium": "All Premium features",
+      "adminDashboard": "Admin dashboard",
+      "userManagement": "User management",
+      "dataSync": "Data synchronization",
+      "systemLogs": "System logs"
+    },
+    "activity": {
+      "title": "Activity",
+      "predictionsViewed": "Predictions viewed",
+      "betsPlaced": "Bets placed",
+      "betsWon": "Bets won"
+    },
+    "performance": {
+      "title": "Performance",
+      "winRate": "Win rate",
+      "won": "Won",
+      "lost": "Lost",
+      "pending": "Pending"
+    },
+    "links": {
+      "plans": "Plans & Pricing",
+      "settings": "Settings",
+      "dailyPicks": "Today's picks",
+      "allMatches": "All matches"
+    },
+    "bets": {
+      "title": "Recent bets",
+      "total": "{count} bets total",
+      "match": "Match #{id}",
+      "homeWin": "Home win",
+      "awayWin": "Away win",
+      "draw": "Draw",
+      "odds": "Odds:",
+      "won": "Won",
+      "lost": "Lost",
+      "pending": "Pending"
+    },
+    "roles": {
+      "admin": "Admin",
+      "premium": "Premium",
+      "free": "Free"
     }
   },
   "settings": {

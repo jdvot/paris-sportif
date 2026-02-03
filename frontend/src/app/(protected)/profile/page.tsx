@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr, enUS } from "date-fns/locale";
+import type { Locale } from "date-fns/locale";
+import { useTranslations, useLocale } from "next-intl";
 import {
   User,
   Mail,
@@ -28,9 +30,6 @@ import {
   CreditCard,
   Sparkles,
   Lock,
-  Unlock,
-  Bell,
-  Clock,
   ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -43,7 +42,6 @@ import { useListBets } from "@/lib/api/endpoints/bets/bets";
 import { cn } from "@/lib/utils";
 import { ROLE_PERMISSIONS, type UserRole } from "@/lib/supabase/types";
 import { useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
 import { Achievements } from "@/components/Achievements";
 import { StreakTracker } from "@/components/StreakTracker";
 
@@ -51,7 +49,9 @@ export default function ProfilePage() {
   const { user, profile, loading, isAuthenticated, isPremium, isAdmin, resetPassword } =
     useAuth();
   const queryClient = useQueryClient();
-  const supabase = createClient();
+  const t = useTranslations("profile");
+  const locale = useLocale();
+  const dateLocale: Locale = locale === "fr" ? fr : enUS;
 
   // Edit mode states
   const [isEditing, setIsEditing] = useState(false);
@@ -98,13 +98,13 @@ export default function ProfilePage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 dark:text-dark-400 mb-4">
-            Vous devez etre connecte pour acceder a cette page.
+            {t("loginRequired")}
           </p>
           <Link
             href="/auth/login"
             className="text-primary-600 dark:text-primary-400 hover:underline"
           >
-            Se connecter
+            {t("signIn")}
           </Link>
         </div>
       </div>
@@ -112,7 +112,7 @@ export default function ProfilePage() {
   }
 
   const displayName =
-    profile?.full_name || user.user_metadata?.full_name || "Utilisateur";
+    profile?.full_name || user.user_metadata?.full_name || t("defaultName");
   const email = user.email || "";
   const createdAt = user.created_at ? new Date(user.created_at) : new Date();
 
@@ -166,7 +166,7 @@ export default function ProfilePage() {
       return (
         <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 rounded-full text-sm font-medium">
           <Shield className="w-4 h-4" />
-          Admin
+          {t("roles.admin")}
         </span>
       );
     }
@@ -174,14 +174,14 @@ export default function ProfilePage() {
       return (
         <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 rounded-full text-sm font-medium">
           <Crown className="w-4 h-4" />
-          Premium
+          {t("roles.premium")}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 dark:bg-dark-700 text-gray-700 dark:text-dark-300 rounded-full text-sm font-medium">
         <User className="w-4 h-4" />
-        Gratuit
+        {t("roles.free")}
       </span>
     );
   };
@@ -192,46 +192,46 @@ export default function ProfilePage() {
 
   const planDetails = {
     free: {
-      name: "Gratuit",
+      name: t("subscription.free"),
       price: "0€",
       color: "gray",
       icon: User,
       features: [
-        { label: "Acces aux matchs", included: true },
-        { label: "Statistiques de base", included: true },
-        { label: "3 picks par jour max", included: true },
-        { label: "Predictions detaillees", included: false },
-        { label: "Analyse RAG IA", included: false },
-        { label: "Historique complet", included: false },
-        { label: "Alertes personnalisees", included: false },
+        { label: t("plan.matchAccess"), included: true },
+        { label: t("plan.basicStats"), included: true },
+        { label: t("plan.picksLimit"), included: true },
+        { label: t("plan.detailedPredictions"), included: false },
+        { label: t("plan.ragAnalysis"), included: false },
+        { label: t("plan.fullHistory"), included: false },
+        { label: t("plan.customAlerts"), included: false },
       ],
     },
     premium: {
-      name: "Premium",
+      name: t("subscription.premium"),
       price: "9.99€",
       color: "yellow",
       icon: Crown,
       features: [
-        { label: "Acces aux matchs", included: true },
-        { label: "Statistiques avancees", included: true },
-        { label: "Picks illimites", included: true },
-        { label: "Predictions detaillees", included: true },
-        { label: "Analyse RAG IA", included: true },
-        { label: "Historique complet", included: true },
-        { label: "Alertes personnalisees", included: true },
+        { label: t("plan.matchAccess"), included: true },
+        { label: t("plan.advancedStats"), included: true },
+        { label: t("plan.unlimitedPicks"), included: true },
+        { label: t("plan.detailedPredictions"), included: true },
+        { label: t("plan.ragAnalysis"), included: true },
+        { label: t("plan.fullHistory"), included: true },
+        { label: t("plan.customAlerts"), included: true },
       ],
     },
     admin: {
-      name: "Administrateur",
+      name: t("subscription.admin"),
       price: "∞",
       color: "red",
       icon: Shield,
       features: [
-        { label: "Toutes les fonctionnalites Premium", included: true },
-        { label: "Tableau de bord admin", included: true },
-        { label: "Gestion des utilisateurs", included: true },
-        { label: "Synchronisation des donnees", included: true },
-        { label: "Logs systeme", included: true },
+        { label: t("plan.allPremium"), included: true },
+        { label: t("plan.adminDashboard"), included: true },
+        { label: t("plan.userManagement"), included: true },
+        { label: t("plan.dataSync"), included: true },
+        { label: t("plan.systemLogs"), included: true },
       ],
     },
   };
@@ -241,7 +241,7 @@ export default function ProfilePage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-8">
-        Mon Profil
+        {t("title")}
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -263,7 +263,7 @@ export default function ProfilePage() {
                         value={editedName}
                         onChange={(e) => setEditedName(e.target.value)}
                         className="px-3 py-1.5 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
-                        placeholder="Votre nom"
+                        placeholder={t("yourName")}
                       />
                       <button
                         onClick={handleEditSave}
@@ -291,7 +291,7 @@ export default function ProfilePage() {
                       <button
                         onClick={handleEditStart}
                         className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-                        title="Modifier le nom"
+                        title={t("editName")}
                       >
                         <Edit2 className="w-4 h-4 text-white" />
                       </button>
@@ -312,22 +312,22 @@ export default function ProfilePage() {
               <div className="flex items-center gap-3 text-gray-700 dark:text-dark-300">
                 <Calendar className="w-5 h-5 text-gray-400 dark:text-dark-500" />
                 <span>
-                  Membre depuis le{" "}
-                  {format(createdAt, "d MMMM yyyy", { locale: fr })}
+                  {t("memberSince")}{" "}
+                  {format(createdAt, "d MMMM yyyy", { locale: dateLocale })}
                 </span>
               </div>
 
               {userStats?.member_since_days !== undefined && (
                 <div className="flex items-center gap-3 text-gray-700 dark:text-dark-300">
                   <Activity className="w-5 h-5 text-gray-400 dark:text-dark-500" />
-                  <span>{userStats.member_since_days} jours d'anciennete</span>
+                  <span>{t("daysOld", { days: userStats.member_since_days })}</span>
                 </div>
               )}
 
               {userStats?.favorite_competition && (
                 <div className="flex items-center gap-3 text-gray-700 dark:text-dark-300">
                   <Star className="w-5 h-5 text-yellow-500" />
-                  <span>Competition favorite: {userStats.favorite_competition}</span>
+                  <span>{t("favoriteCompetition")} {userStats.favorite_competition}</span>
                 </div>
               )}
 
@@ -338,7 +338,7 @@ export default function ProfilePage() {
                   className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-500/10 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-500/20 transition-colors"
                 >
                   <Edit2 className="w-4 h-4" />
-                  Modifier mon profil
+                  {t("edit.title")}
                 </button>
               )}
             </div>
@@ -349,7 +349,7 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <Edit2 className="w-5 h-5 text-primary-500" />
-                    Modifier mon profil
+                    {t("edit.title")}
                   </h3>
                   <button
                     onClick={() => setShowEditSection(false)}
@@ -363,7 +363,7 @@ export default function ProfilePage() {
                   {/* Name Field */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-dark-300 mb-2">
-                      Nom complet
+                      {t("edit.fullName")}
                     </label>
                     <div className="flex gap-2">
                       <input
@@ -371,7 +371,7 @@ export default function ProfilePage() {
                         value={editedName}
                         onChange={(e) => setEditedName(e.target.value)}
                         className="flex-1 px-4 py-2.5 bg-gray-50 dark:bg-dark-800 border border-gray-200 dark:border-dark-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        placeholder="Votre nom complet"
+                        placeholder={t("edit.fullNamePlaceholder")}
                       />
                       <button
                         onClick={handleEditSave}
@@ -383,17 +383,17 @@ export default function ProfilePage() {
                         ) : (
                           <Check className="w-4 h-4" />
                         )}
-                        Sauvegarder
+                        {t("edit.save")}
                       </button>
                     </div>
                     {updateProfileMutation.isError && (
                       <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                        Erreur lors de la mise a jour du profil
+                        {t("edit.error")}
                       </p>
                     )}
                     {updateProfileMutation.isSuccess && (
                       <p className="mt-2 text-sm text-green-600 dark:text-green-400">
-                        Profil mis a jour avec succes
+                        {t("edit.success")}
                       </p>
                     )}
                   </div>
@@ -401,7 +401,7 @@ export default function ProfilePage() {
                   {/* Email Field (Read-only) */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-dark-300 mb-2">
-                      Email
+                      {t("email.label")}
                     </label>
                     <div className="flex gap-2">
                       <input
@@ -415,20 +415,20 @@ export default function ProfilePage() {
                       </div>
                     </div>
                     <p className="mt-1 text-xs text-gray-500 dark:text-dark-400">
-                      L'email ne peut pas etre modifie
+                      {t("email.cannotChange")}
                     </p>
                   </div>
 
                   {/* Password Reset */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-dark-300 mb-2">
-                      Mot de passe
+                      {t("password.label")}
                     </label>
                     {passwordResetSent ? (
                       <div className="p-4 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-lg">
                         <p className="text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
                           <Check className="w-4 h-4" />
-                          Email de reinitialisation envoye a {email}
+                          {t("password.resetSent", { email })}
                         </p>
                       </div>
                     ) : (
@@ -446,7 +446,7 @@ export default function ProfilePage() {
                           ) : (
                             <Lock className="w-4 h-4" />
                           )}
-                          Changer le mot de passe
+                          {t("password.change")}
                         </button>
                       </div>
                     )}
@@ -456,7 +456,7 @@ export default function ProfilePage() {
                       </p>
                     )}
                     <p className="mt-1 text-xs text-gray-500 dark:text-dark-400">
-                      Un email vous sera envoye pour reinitialiser votre mot de passe
+                      {t("password.resetHint")}
                     </p>
                   </div>
                 </div>
@@ -467,7 +467,7 @@ export default function ProfilePage() {
             <div className="border-t border-gray-200 dark:border-dark-700 p-6">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-primary-500" />
-                Mon Abonnement
+                {t("subscription.title")}
               </h3>
 
               <div className={cn(
@@ -502,14 +502,14 @@ export default function ProfilePage() {
                         Plan {currentPlan.name}
                       </h4>
                       <p className="text-sm text-gray-500 dark:text-dark-400">
-                        {currentRole === "admin" ? "Acces complet" : `${currentPlan.price}/mois`}
+                        {currentRole === "admin" ? t("subscription.fullAccess") : t("subscription.perMonth", { price: currentPlan.price })}
                       </p>
                     </div>
                   </div>
                   {currentRole === "premium" && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
                       <Sparkles className="w-3 h-3" />
-                      Actif
+                      {t("subscription.active")}
                     </span>
                   )}
                 </div>
@@ -540,14 +540,14 @@ export default function ProfilePage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-dark-400">
                         <Zap className="w-4 h-4 text-yellow-500" />
-                        <span>Debloquez toutes les fonctionnalites</span>
+                        <span>{t("subscription.unlock")}</span>
                       </div>
                       <Link
                         href="/plans"
                         className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-medium rounded-lg transition-colors text-sm"
                       >
                         <Crown className="w-4 h-4" />
-                        Upgrade
+                        {t("subscription.upgrade")}
                         <ArrowRight className="w-4 h-4" />
                       </Link>
                     </div>
@@ -561,7 +561,7 @@ export default function ProfilePage() {
                       href="/plans"
                       className="text-sm text-yellow-700 dark:text-yellow-400 hover:underline flex items-center gap-1"
                     >
-                      Gerer mon abonnement
+                      {t("subscription.manage")}
                       <ChevronRight className="w-4 h-4" />
                     </Link>
                   </div>
@@ -577,14 +577,14 @@ export default function ProfilePage() {
           <div className="bg-white dark:bg-dark-900 border border-gray-200 dark:border-dark-700 rounded-xl p-6">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-primary-500" />
-              Activite
+              {t("activity.title")}
             </h3>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-gray-600 dark:text-dark-400">
                   <Eye className="w-4 h-4" />
-                  <span className="text-sm">Predictions vues</span>
+                  <span className="text-sm">{t("activity.predictionsViewed")}</span>
                 </div>
                 <span className="font-bold text-gray-900 dark:text-white">
                   {statsLoading ? (
@@ -598,7 +598,7 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-gray-600 dark:text-dark-400">
                   <Target className="w-4 h-4" />
-                  <span className="text-sm">Paris places</span>
+                  <span className="text-sm">{t("activity.betsPlaced")}</span>
                 </div>
                 <span className="font-bold text-gray-900 dark:text-white">
                   {betsLoading ? (
@@ -612,7 +612,7 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-gray-600 dark:text-dark-400">
                   <Trophy className="w-4 h-4" />
-                  <span className="text-sm">Paris gagnes</span>
+                  <span className="text-sm">{t("activity.betsWon")}</span>
                 </div>
                 <span className="font-bold text-primary-600 dark:text-primary-400">
                   {betsLoading ? (
@@ -630,7 +630,7 @@ export default function ProfilePage() {
             <div className="bg-white dark:bg-dark-900 border border-gray-200 dark:border-dark-700 rounded-xl p-6">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-primary-500" />
-                Performance
+                {t("performance.title")}
               </h3>
 
               <div className="text-center mb-4">
@@ -643,22 +643,22 @@ export default function ProfilePage() {
                   {winRate.toFixed(1)}%
                 </div>
                 <p className="text-sm text-gray-500 dark:text-dark-400">
-                  Taux de reussite
+                  {t("performance.winRate")}
                 </p>
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-center text-sm">
                 <div className="bg-primary-50 dark:bg-primary-500/10 rounded-lg p-2">
                   <div className="font-bold text-primary-600 dark:text-primary-400">{wonBets}</div>
-                  <div className="text-gray-500 dark:text-dark-400 text-xs">Gagnes</div>
+                  <div className="text-gray-500 dark:text-dark-400 text-xs">{t("performance.won")}</div>
                 </div>
                 <div className="bg-red-50 dark:bg-red-500/10 rounded-lg p-2">
                   <div className="font-bold text-red-600 dark:text-red-400">{lostBets}</div>
-                  <div className="text-gray-500 dark:text-dark-400 text-xs">Perdus</div>
+                  <div className="text-gray-500 dark:text-dark-400 text-xs">{t("performance.lost")}</div>
                 </div>
                 <div className="bg-yellow-50 dark:bg-yellow-500/10 rounded-lg p-2">
                   <div className="font-bold text-yellow-600 dark:text-yellow-400">{pendingBets}</div>
-                  <div className="text-gray-500 dark:text-dark-400 text-xs">En cours</div>
+                  <div className="text-gray-500 dark:text-dark-400 text-xs">{t("performance.pending")}</div>
                 </div>
               </div>
             </div>
@@ -672,7 +672,7 @@ export default function ProfilePage() {
             >
               <div className="flex items-center gap-3">
                 <Crown className="w-5 h-5 text-yellow-500" />
-                <span className="text-gray-700 dark:text-dark-300">Plans & Tarifs</span>
+                <span className="text-gray-700 dark:text-dark-300">{t("links.plans")}</span>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 dark:text-dark-500" />
             </Link>
@@ -682,7 +682,7 @@ export default function ProfilePage() {
             >
               <div className="flex items-center gap-3">
                 <Settings className="w-5 h-5 text-gray-400 dark:text-dark-500" />
-                <span className="text-gray-700 dark:text-dark-300">Parametres</span>
+                <span className="text-gray-700 dark:text-dark-300">{t("links.settings")}</span>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 dark:text-dark-500" />
             </Link>
@@ -692,7 +692,7 @@ export default function ProfilePage() {
             >
               <div className="flex items-center gap-3">
                 <Zap className="w-5 h-5 text-yellow-500" />
-                <span className="text-gray-700 dark:text-dark-300">Picks du jour</span>
+                <span className="text-gray-700 dark:text-dark-300">{t("links.dailyPicks")}</span>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 dark:text-dark-500" />
             </Link>
@@ -702,7 +702,7 @@ export default function ProfilePage() {
             >
               <div className="flex items-center gap-3">
                 <History className="w-5 h-5 text-gray-400 dark:text-dark-500" />
-                <span className="text-gray-700 dark:text-dark-300">Tous les matchs</span>
+                <span className="text-gray-700 dark:text-dark-300">{t("links.allMatches")}</span>
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 dark:text-dark-500" />
             </Link>
@@ -726,10 +726,10 @@ export default function ProfilePage() {
             <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700 flex items-center justify-between">
               <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <Target className="w-5 h-5 text-primary-500" />
-                Derniers paris
+                {t("bets.title")}
               </h3>
               <span className="text-sm text-gray-500 dark:text-dark-400">
-                {bets.length} paris au total
+                {t("bets.total", { count: bets.length })}
               </span>
             </div>
             <div className="divide-y divide-gray-200 dark:divide-dark-700">
@@ -740,14 +740,14 @@ export default function ProfilePage() {
                 >
                   <div className="flex-1">
                     <div className="font-medium text-gray-900 dark:text-white">
-                      Match #{bet.match_id}
+                      {t("bets.match", { id: bet.match_id })}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-dark-400">
                       {bet.prediction === "home_win"
-                        ? "Victoire domicile"
+                        ? t("bets.homeWin")
                         : bet.prediction === "away_win"
-                        ? "Victoire exterieur"
-                        : "Match nul"}
+                        ? t("bets.awayWin")
+                        : t("bets.draw")}
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
@@ -756,7 +756,7 @@ export default function ProfilePage() {
                         {bet.amount?.toFixed(2) ?? "-"} EUR
                       </div>
                       <div className="text-sm text-gray-500 dark:text-dark-400">
-                        Cote: {bet.odds?.toFixed(2) ?? "-"}
+                        {t("bets.odds")} {bet.odds?.toFixed(2) ?? "-"}
                       </div>
                     </div>
                     <span
@@ -769,7 +769,7 @@ export default function ProfilePage() {
                           : "bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300"
                       )}
                     >
-                      {bet.status === "won" ? "Gagne" : bet.status === "lost" ? "Perdu" : "En cours"}
+                      {bet.status === "won" ? t("bets.won") : bet.status === "lost" ? t("bets.lost") : t("bets.pending")}
                     </span>
                   </div>
                 </div>
