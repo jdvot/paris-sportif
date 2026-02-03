@@ -3,31 +3,29 @@ import * as Sentry from "@sentry/nextjs";
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-  // Performance monitoring
+  // Performance Monitoring
   tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
 
-  // Session replay for debugging
+  // Session Replay
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1.0,
 
   // Environment
   environment: process.env.NODE_ENV,
 
-  // Only enable in production
-  enabled: process.env.NODE_ENV === "production",
+  // Release tracking
+  release: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
 
-  // Filter out noisy errors
+  // Filter out non-actionable errors
   ignoreErrors: [
-    "ResizeObserver loop",
-    "Non-Error promise rejection",
+    "Failed to fetch",
+    "NetworkError",
     "Load failed",
+    /^chrome-extension:\/\//,
+    /^moz-extension:\/\//,
+    "Minified React error",
+    "Hydration failed",
   ],
 
-  beforeSend(event) {
-    // Don't send events in development
-    if (process.env.NODE_ENV !== "production") {
-      return null;
-    }
-    return event;
-  },
+  enabled: process.env.NODE_ENV === "production",
 });

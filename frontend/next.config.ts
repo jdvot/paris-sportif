@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
@@ -49,7 +50,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https://crests.football-data.org",
               "font-src 'self' data:",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io",
               "frame-ancestors 'self'",
             ].join("; "),
           },
@@ -81,4 +82,21 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+// Wrap with Sentry for error tracking
+export default withSentryConfig(withNextIntl(nextConfig), {
+  // Sentry options
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Suppress logs during build
+  silent: true,
+
+  // Upload source maps for better error traces
+  widenClientFileUpload: true,
+
+  // Hide source maps from clients
+  hideSourceMaps: true,
+
+  // Tree shake Sentry for smaller bundle
+  disableLogger: true,
+});
