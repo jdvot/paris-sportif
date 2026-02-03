@@ -29,6 +29,7 @@ from src.data.database import (
     save_prediction,
     verify_prediction,
 )
+from src.data.fatigue_service import get_fatigue_service, MatchFatigueData
 from src.data.sources.football_data import MatchData, get_football_data_client
 from src.llm.prompts_advanced import (
     get_prediction_analysis_prompt,
@@ -79,6 +80,30 @@ class LLMAdjustments(BaseModel):
     tactical_edge: float = Field(0.0, ge=-0.05, le=0.05)
     total_adjustment: float = Field(0.0, ge=-0.5, le=0.5)
     reasoning: str = ""
+
+
+class TeamFatigueInfo(BaseModel):
+    """Fatigue information for a single team."""
+
+    rest_days_score: float = Field(
+        0.5, ge=0.0, le=1.0, description="Rest days score (0=fatigued, 1=well-rested)"
+    )
+    fixture_congestion_score: float = Field(
+        0.5, ge=0.0, le=1.0, description="Fixture congestion score (0=congested, 1=light)"
+    )
+    combined_score: float = Field(
+        0.5, ge=0.0, le=1.0, description="Combined fatigue score"
+    )
+
+
+class FatigueInfo(BaseModel):
+    """Fatigue information for both teams in a match."""
+
+    home_team: TeamFatigueInfo
+    away_team: TeamFatigueInfo
+    fatigue_advantage: float = Field(
+        0.0, ge=-1.0, le=1.0, description="Home team advantage (positive = home more rested)"
+    )
 
 
 # Multi-Markets Response Models
@@ -165,6 +190,9 @@ class PredictionResponse(BaseModel):
     # Model details (optional, for transparency)
     model_contributions: ModelContributions | None = None
     llm_adjustments: LLMAdjustments | None = None
+
+    # Fatigue analysis (optional)
+    fatigue_info: FatigueInfo | None = None
 
     # Multi-markets predictions (optional)
     multi_markets: MultiMarketsResponse | None = None
@@ -486,6 +514,26 @@ async def _generate_prediction_from_api_match(
     # Get team stats for ML models
     team_stats = _get_team_stats_for_ml(home_team, away_team, api_match.id)
 
+    # Fetch fatigue data from API
+    fatigue_data: MatchFatigueData | None = None
+    try:
+        fatigue_service = get_fatigue_service()
+        fatigue_data = await fatigue_service.get_match_fatigue(
+            home_team_id=api_match.homeTeam.id,
+            home_team_name=home_team,
+            away_team_id=api_match.awayTeam.id,
+            away_team_name=away_team,
+            match_date=match_date,
+        )
+        logger.info(
+            f"Fatigue data for {home_team} vs {away_team}: "
+            f"home_rest={fatigue_data.home_team.rest_days_score:.2f}, "
+            f"away_rest={fatigue_data.away_team.rest_days_score:.2f}, "
+            f"advantage={fatigue_data.fatigue_advantage:+.2f}"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to fetch fatigue data: {e}")
+
     # Use the advanced ensemble predictor with all models (ML + statistical)
     try:
         ensemble_result = advanced_ensemble_predictor.predict(
@@ -556,6 +604,13 @@ async def _generate_prediction_from_api_match(
         key_factors = random.sample(KEY_FACTORS_TEMPLATES["away_strong"], 3)
     else:
         key_factors = random.sample(KEY_FACTORS_TEMPLATES["balanced"], 3)
+
+    # Add fatigue factor if significant advantage exists
+    if fatigue_data:
+        if fatigue_data.fatigue_advantage > 0.15:
+            key_factors.append("Avantage physique (plus de repos)")
+        elif fatigue_data.fatigue_advantage < -0.15:
+            key_factors.append("Calendrier chargé (fatigue potentielle)")
 
     # Select risk factors
     risk_factors = random.sample(RISK_FACTORS_TEMPLATES, 2)
@@ -776,6 +831,23 @@ async def _generate_prediction_from_api_match(
             logger.warning(f"Failed to calculate multi-markets: {e}")
             multi_markets = None
 
+    # Build fatigue info response
+    fatigue_info: FatigueInfo | None = None
+    if fatigue_data:
+        fatigue_info = FatigueInfo(
+            home_team=TeamFatigueInfo(
+                rest_days_score=round(fatigue_data.home_team.rest_days_score, 3),
+                fixture_congestion_score=round(fatigue_data.home_team.fixture_congestion_score, 3),
+                combined_score=round(fatigue_data.home_team.combined_fatigue_score, 3),
+            ),
+            away_team=TeamFatigueInfo(
+                rest_days_score=round(fatigue_data.away_team.rest_days_score, 3),
+                fixture_congestion_score=round(fatigue_data.away_team.fixture_congestion_score, 3),
+                combined_score=round(fatigue_data.away_team.combined_fatigue_score, 3),
+            ),
+            fatigue_advantage=round(fatigue_data.fatigue_advantage, 3),
+        )
+
     return PredictionResponse(
         match_id=api_match.id,
         home_team=home_team,
@@ -795,6 +867,7 @@ async def _generate_prediction_from_api_match(
         risk_factors=risk_factors,
         model_contributions=model_contributions,
         llm_adjustments=llm_adjustments,
+        fatigue_info=fatigue_info,
         multi_markets=multi_markets,
         created_at=datetime.now(),
         is_daily_pick=False,
