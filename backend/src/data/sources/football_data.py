@@ -236,7 +236,7 @@ class FootballDataClient:
         else:
             logger.warning("FootballDataClient initialized WITHOUT API key!")
 
-    @retry(
+    @retry(  # type: ignore[misc]
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
     )
@@ -272,17 +272,18 @@ class FootballDataClient:
                     details={"response": response.text},
                 )
 
-            return response.json()
+            result: dict[str, Any] = response.json()
+            return result
 
     async def get_competitions(self) -> list[dict[str, Any]]:
         """Get list of available competitions."""
         data = await self._request("GET", "/competitions")
-        return data.get("competitions", [])
+        return data.get("competitions", [])  # type: ignore[no-any-return]
 
     async def get_competition(self, code: str) -> dict[str, Any]:
         """Get competition details."""
-        data = await self._request("GET", f"/competitions/{code}")
-        return data
+        result: dict[str, Any] = await self._request("GET", f"/competitions/{code}")
+        return result
 
     async def get_matches(
         self,
@@ -346,8 +347,8 @@ class FootballDataClient:
 
     async def get_team(self, team_id: int) -> dict[str, Any]:
         """Get team details."""
-        data = await self._request("GET", f"/teams/{team_id}")
-        return data
+        result: dict[str, Any] = await self._request("GET", f"/teams/{team_id}")
+        return result
 
     async def get_team_matches(
         self,

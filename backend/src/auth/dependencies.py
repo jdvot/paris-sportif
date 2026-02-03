@@ -27,7 +27,7 @@ OptionalUser = Annotated[dict[str, Any] | None, Depends(get_optional_user)]
 
 def get_user_id(user: dict[str, Any]) -> str:
     """Extract user ID from JWT payload."""
-    return user.get("sub", "")
+    return str(user.get("sub", ""))
 
 
 def get_user_email(user: dict[str, Any]) -> str | None:

@@ -5,6 +5,7 @@ Premium endpoints - require premium or admin role.
 
 import logging
 from datetime import datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -247,7 +248,7 @@ async def get_match_odds(
     home_team: str = Query(..., description="Home team name"),
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code"),
-) -> dict:
+) -> dict[str, Any]:
     """Get bookmaker odds for a specific match."""
     try:
         enrichment_service = get_data_enrichment()
@@ -263,7 +264,7 @@ async def get_match_weather(
     user: PremiumUser,
     home_team: str = Query(..., description="Home team name"),
     match_date: str | None = Query(None, description="Match date YYYY-MM-DD"),
-) -> dict:
+) -> dict[str, Any]:
     """Get weather forecast for match day."""
     try:
         if match_date:
@@ -284,7 +285,7 @@ async def get_h2h(
     home_team: str = Query(..., description="Home team name"),
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code"),
-) -> dict:
+) -> dict[str, Any]:
     """Get head-to-head history between two teams."""
     try:
         football_client = get_football_data_client()
@@ -334,7 +335,7 @@ async def get_team_form(
     team_name: str,
     user: PremiumUser,
     competition: str = Query("PL", description="Competition code"),
-) -> dict:
+) -> dict[str, Any]:
     """Get recent form for a team."""
     try:
         football_client = get_football_data_client()
@@ -371,7 +372,7 @@ async def get_team_form(
 
 
 @router.get("/status", responses=PREMIUM_RESPONSES)
-async def get_enrichment_status(user: PremiumUser) -> dict:
+async def get_enrichment_status(user: PremiumUser) -> dict[str, Any]:
     """Get status of all enrichment data sources."""
     import os
 

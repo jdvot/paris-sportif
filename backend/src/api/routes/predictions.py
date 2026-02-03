@@ -13,7 +13,7 @@ import json
 import logging
 import random
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from groq import Groq
@@ -196,8 +196,8 @@ class PredictionStatsResponse(BaseModel):
     correct_predictions: int
     accuracy: float
     roi_simulated: float
-    by_competition: dict[str, dict]
-    by_bet_type: dict[str, dict]
+    by_competition: dict[str, dict[str, Any]]
+    by_bet_type: dict[str, dict[str, Any]]
     last_updated: datetime
 
 
@@ -275,7 +275,7 @@ def _get_groq_prediction(
     away_current_form: str = "",
     home_injuries: str = "",
     away_injuries: str = "",
-) -> dict | None:
+) -> dict[str, Any] | None:
     """
     Get match prediction from Groq API using advanced analysis prompt.
 
@@ -401,7 +401,7 @@ def _get_recommended_bet(
     return "draw"
 
 
-def _get_team_stats_for_ml(home_team: str, away_team: str, match_id: int) -> dict:
+def _get_team_stats_for_ml(home_team: str, away_team: str, match_id: int) -> dict[str, Any]:
     """
     Get team statistics for ML ensemble prediction.
 
@@ -514,8 +514,14 @@ async def _generate_prediction_from_api_match(
         )
 
         # Map ensemble recommended_bet to API format
-        bet_map = {"home": "home_win", "draw": "draw", "away": "away_win"}
-        recommended_bet = bet_map.get(ensemble_result.recommended_bet, "draw")
+        bet_map: dict[str, Literal["home_win", "draw", "away_win"]] = {
+            "home": "home_win",
+            "draw": "draw",
+            "away": "away_win",
+        }
+        recommended_bet: Literal["home_win", "draw", "away_win"] = bet_map.get(
+            ensemble_result.recommended_bet, "draw"
+        )
 
     except Exception as e:
         logger.warning(f"Ensemble prediction failed, using fallback: {e}")
@@ -747,7 +753,7 @@ async def _generate_prediction_from_api_match(
                     no_odds=mm_prediction.btts.no_odds,
                     recommended=mm_prediction.btts.recommended,
                 ),
-                double_chance=DoubleChanceResponse(
+                double_chance=DoubleChanceResponse(  # type: ignore[call-arg]
                     home_or_draw=mm_prediction.double_chance.home_or_draw_prob,
                     away_or_draw=mm_prediction.double_chance.away_or_draw_prob,
                     home_or_away=mm_prediction.double_chance.home_or_away_prob,
@@ -1029,6 +1035,7 @@ def _generate_fallback_prediction(
     away_prob = round(away_base, 4)
 
     # Get recommended bet
+    recommended_bet: Literal["home_win", "draw", "away_win"]
     if home_prob >= away_prob and home_prob >= draw_prob:
         recommended_bet = "home_win"
     elif away_prob >= home_prob and away_prob >= draw_prob:
@@ -1149,7 +1156,7 @@ def _generate_fallback_prediction(
                     no_odds=mm_prediction.btts.no_odds,
                     recommended=mm_prediction.btts.recommended,
                 ),
-                double_chance=DoubleChanceResponse(
+                double_chance=DoubleChanceResponse(  # type: ignore[call-arg]
                     home_or_draw=mm_prediction.double_chance.home_or_draw_prob,
                     away_or_draw=mm_prediction.double_chance.away_or_draw_prob,
                     home_or_away=mm_prediction.double_chance.home_or_away_prob,

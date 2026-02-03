@@ -5,6 +5,7 @@ Premium endpoints - require premium or admin role.
 
 import logging
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -135,7 +136,7 @@ async def enrich_match(
         # Convert sentiment to float score (handle both string and float inputs)
         sentiment_map = {"positive": 0.8, "negative": 0.2, "neutral": 0.5}
 
-        def parse_sentiment(value) -> tuple[float, str]:
+        def parse_sentiment(value: Any) -> tuple[float, str]:
             """Parse sentiment value, handling both string and numeric types."""
             if isinstance(value, (int, float)):
                 # Already numeric, clamp to valid range
@@ -154,7 +155,7 @@ async def enrich_match(
         away_sentiment_score, away_sentiment_str = parse_sentiment(away_sentiment_raw)
 
         # Extract news titles and injury descriptions from dict lists
-        def extract_titles(items: list, key: str = "title") -> list[str]:
+        def extract_titles(items: list[Any], key: str = "title") -> list[str]:
             """Extract string values from a list of dicts or strings."""
             result = []
             for item in items:
@@ -250,7 +251,7 @@ async def analyze_match_context(
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code"),
     additional_context: str | None = Query(None, description="Additional context to include"),
-) -> dict:
+) -> dict[str, Any]:
     """
     Generate a detailed analysis of match context using LLM.
 

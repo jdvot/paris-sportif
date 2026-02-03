@@ -47,8 +47,8 @@ class RAGEnrichment:
         "AC Milan": ["Milan", "Rossoneri"],
     }
 
-    def __init__(self):
-        self.groq_client = None
+    def __init__(self) -> None:
+        self.groq_client: Groq | None = None
         if settings.groq_api_key:
             self.groq_client = Groq(api_key=settings.groq_api_key)
 
@@ -59,7 +59,7 @@ class RAGEnrichment:
         Returns:
             dict with keys: news, injuries, form_notes, sentiment
         """
-        context = {
+        context: dict[str, Any] = {
             "team": team_name,
             "news": [],
             "injuries": [],
@@ -101,9 +101,9 @@ class RAGEnrichment:
 
         return context
 
-    async def _fetch_team_news(self, team_name: str, limit: int = 5) -> list[dict]:
+    async def _fetch_team_news(self, team_name: str, limit: int = 5) -> list[dict[str, Any]]:
         """Fetch recent news about a team from Google News RSS."""
-        news = []
+        news: list[dict[str, Any]] = []
 
         try:
             # Use Google News RSS (free, no API key required)
@@ -144,9 +144,9 @@ class RAGEnrichment:
 
         return news
 
-    async def _fetch_team_injuries(self, team_name: str) -> list[dict]:
+    async def _fetch_team_injuries(self, team_name: str) -> list[dict[str, Any]]:
         """Fetch injury/suspension information for a team from football-data.org."""
-        injuries = []
+        injuries: list[dict[str, Any]] = []
 
         try:
             # Use football-data.org API if available (includes squad info)
@@ -166,7 +166,7 @@ class RAGEnrichment:
                     injury_keywords = ["bless", "injur", "absent", "forfait", "out"]
                     for item in items:
                         title_elem = item.find("title")
-                        if title_elem is not None:
+                        if title_elem is not None and title_elem.text:
                             title_lower = title_elem.text.lower()
                             if any(kw in title_lower for kw in injury_keywords):
                                 injuries.append(
@@ -187,7 +187,8 @@ class RAGEnrichment:
 
     async def _fetch_team_form(self, team_name: str) -> dict[str, Any]:
         """Fetch recent form/results for a team."""
-        form_data = {"results": [], "summary": ""}
+        results_list: list[dict[str, str]] = []
+        form_data: dict[str, Any] = {"results": results_list, "summary": ""}
 
         try:
             # Search for recent match results via Google News
@@ -205,7 +206,7 @@ class RAGEnrichment:
                     items = root.findall(".//item")[:5]
                     for item in items:
                         title_elem = item.find("title")
-                        if title_elem is not None:
+                        if title_elem is not None and title_elem.text:
                             title = title_elem.text
                             # Look for score patterns (e.g., "2-1", "0-0")
                             import re
@@ -231,7 +232,7 @@ class RAGEnrichment:
 
         return form_data
 
-    async def _extract_key_info(self, team_name: str, context: dict) -> list[str]:
+    async def _extract_key_info(self, team_name: str, context: dict[str, Any]) -> list[str]:
         """Extract key insights from all context data using LLM."""
         if not self.groq_client:
             return []
@@ -260,7 +261,8 @@ Reply with bullet points only, in French:"""
                 messages=[{"role": "user", "content": prompt}],
             )
 
-            result = response.choices[0].message.content.strip()
+            content = response.choices[0].message.content
+            result = content.strip() if content else ""
             # Parse bullet points
             lines = [line.strip().lstrip("•-").strip() for line in result.split("\n")]
             key_info = [line for line in lines if line]
@@ -270,7 +272,7 @@ Reply with bullet points only, in French:"""
             logger.error(f"Error extracting key info: {e}")
             return []
 
-    async def _analyze_sentiment(self, team_name: str, news: list[dict]) -> str:
+    async def _analyze_sentiment(self, team_name: str, news: list[dict[str, Any]]) -> str:
         """Analyze sentiment from news articles using Groq."""
         if not self.groq_client or not news:
             return "neutral"
@@ -289,7 +291,8 @@ Reply with exactly one word: positive, negative, or neutral"""
                 messages=[{"role": "user", "content": prompt}],
             )
 
-            sentiment = response.choices[0].message.content.strip().lower()
+            content = response.choices[0].message.content
+            sentiment = content.strip().lower() if content else "neutral"
             if sentiment in ["positive", "negative", "neutral"]:
                 return sentiment
 
@@ -323,11 +326,13 @@ Reply with exactly one word: positive, negative, or neutral"""
             home_task = self.get_team_context(home_team)
             away_task = self.get_team_context(away_team)
 
-            home_ctx, away_ctx = await asyncio.gather(home_task, away_task, return_exceptions=True)
+            results = await asyncio.gather(home_task, away_task, return_exceptions=True)
+            home_ctx: dict[str, Any] | BaseException = results[0]
+            away_ctx: dict[str, Any] | BaseException = results[1]
 
-            if not isinstance(home_ctx, Exception):
+            if not isinstance(home_ctx, BaseException):
                 enrichment["home_context"] = home_ctx
-            if not isinstance(away_ctx, Exception):
+            if not isinstance(away_ctx, BaseException):
                 enrichment["away_context"] = away_ctx
 
             # Add match-specific context
@@ -387,8 +392,8 @@ Reply with exactly one word: positive, negative, or neutral"""
         self,
         home_team: str,
         away_team: str,
-        base_prediction: dict,
-        enrichment: dict,
+        base_prediction: dict[str, Any],
+        enrichment: dict[str, Any],
     ) -> str:
         """
         Generate an enriched analysis using Groq with RAG context.
@@ -403,7 +408,7 @@ Reply with exactly one word: positive, negative, or neutral"""
             Enhanced analysis text
         """
         if not self.groq_client:
-            return base_prediction.get("explanation", "")
+            return str(base_prediction.get("explanation", ""))
 
         try:
             # Build context from enrichment
@@ -471,11 +476,12 @@ Génère une analyse de 2-3 phrases en français qui prend en compte ces informa
                 messages=[{"role": "user", "content": prompt}],
             )
 
-            return response.choices[0].message.content.strip()
+            content = response.choices[0].message.content
+            return content.strip() if content else ""
 
         except Exception as e:
             logger.error(f"Error generating enriched analysis: {e}")
-            return base_prediction.get("explanation", "")
+            return str(base_prediction.get("explanation", ""))
 
 
 # Singleton instance

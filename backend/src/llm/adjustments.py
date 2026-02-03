@@ -5,6 +5,7 @@ based on injuries, form, sentiment, and other contextual factors.
 """
 
 import logging
+from typing import Any
 
 from src.llm.client import get_llm_client
 from src.llm.prompts import (
@@ -24,7 +25,7 @@ async def analyze_injury_impact(
     team_name: str,
     news_text: str,
     team_strength: str = "medium",
-) -> dict:
+) -> dict[str, Any]:
     """
     Analyze injury news and extract detailed impact assessment.
 
@@ -80,7 +81,7 @@ async def analyze_sentiment(
     team_name: str,
     content: str,
     source_type: str = "news",
-) -> dict:
+) -> dict[str, Any]:
     """
     Analyze sentiment from news, media, or social content.
 
@@ -138,7 +139,7 @@ async def analyze_form(
     recent_results: list[str],
     media_sentiment: str = "neutral",
     tactical_changes: str = "",
-) -> dict:
+) -> dict[str, Any]:
     """
     Analyze team form and momentum with chain-of-thought reasoning.
 
@@ -193,12 +194,12 @@ async def analyze_form(
 async def calculate_llm_adjustments(
     home_team: str,
     away_team: str,
-    home_injuries: list[dict] | None = None,
-    away_injuries: list[dict] | None = None,
-    home_sentiment: dict | None = None,
-    away_sentiment: dict | None = None,
-    home_form: dict | None = None,
-    away_form: dict | None = None,
+    home_injuries: list[dict[str, Any]] | None = None,
+    away_injuries: list[dict[str, Any]] | None = None,
+    home_sentiment: dict[str, Any] | None = None,
+    away_sentiment: dict[str, Any] | None = None,
+    home_form: dict[str, Any] | None = None,
+    away_form: dict[str, Any] | None = None,
 ) -> LLMAdjustments:
     """
     Calculate comprehensive LLM-based adjustments for match prediction.
@@ -302,7 +303,7 @@ async def calculate_llm_adjustments(
     return adjustments
 
 
-def _calculate_injury_impact(injuries: list[dict], team_name: str) -> dict:
+def _calculate_injury_impact(injuries: list[dict[str, Any]], team_name: str) -> dict[str, Any]:
     """
     Calculate cumulative injury impact factor.
 
@@ -343,7 +344,7 @@ def _calculate_injury_impact(injuries: list[dict], team_name: str) -> dict:
     return {"factor": impact_factor, "reasoning": reasoning}
 
 
-def _calculate_sentiment_adjustment(sentiment: dict, team_name: str) -> dict:
+def _calculate_sentiment_adjustment(sentiment: dict[str, Any], team_name: str) -> dict[str, Any]:
     """
     Calculate sentiment-based probability adjustment.
 
@@ -380,7 +381,7 @@ def _calculate_sentiment_adjustment(sentiment: dict, team_name: str) -> dict:
     return {"factor": adjustment_factor, "reasoning": reasoning}
 
 
-def _calculate_form_adjustment(form: dict, team_name: str) -> dict:
+def _calculate_form_adjustment(form: dict[str, Any], team_name: str) -> dict[str, Any]:
     """
     Calculate form-based probability adjustment.
 

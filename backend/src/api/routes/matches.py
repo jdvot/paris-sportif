@@ -18,6 +18,10 @@ from src.data.sources.football_data import COMPETITIONS, MatchData, get_football
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# Type aliases for match status
+MatchStatus = Literal["scheduled", "live", "finished", "postponed"]
+APIStatus = Literal["SCHEDULED", "LIVE", "FINISHED"]
+
 
 def _generate_mock_matches() -> list["MatchResponse"]:
     """Generate mock matches when API is unavailable."""
@@ -176,7 +180,7 @@ class HeadToHeadResponse(BaseModel):
 def _convert_api_match(api_match: MatchData) -> MatchResponse:
     """Convert football-data.org match to our response format."""
     # Map API status to our status
-    status_map = {
+    status_map: dict[str, MatchStatus] = {
         "SCHEDULED": "scheduled",
         "TIMED": "scheduled",
         "LIVE": "live",
@@ -188,7 +192,7 @@ def _convert_api_match(api_match: MatchData) -> MatchResponse:
         "SUSPENDED": "postponed",
     }
 
-    status = status_map.get(api_match.status, "scheduled")
+    status: MatchStatus = status_map.get(api_match.status, "scheduled")
 
     # Extract scores
     home_score = None
@@ -259,14 +263,14 @@ async def get_matches(
     """
     try:
         # Map our status to API status
-        api_status = None
+        api_status: APIStatus | None = None
         if status:
-            status_map = {
+            api_status_map: dict[str, APIStatus] = {
                 "scheduled": "SCHEDULED",
                 "live": "LIVE",
                 "finished": "FINISHED",
             }
-            api_status = status_map.get(status)
+            api_status = api_status_map.get(status)
 
         # Default date range if not specified: next 10 days (API free tier limit)
         if not date_from and not date_to:
@@ -533,6 +537,7 @@ async def get_team_form(
                 clean_sheets += 1
 
             # Determine result
+            result: Literal["W", "D", "L"]
             if team_score > opp_score:
                 result = "W"
                 total_points += 3
@@ -656,22 +661,22 @@ async def get_standings(
             if db_standings:
                 logger.info(f"Found {len(db_standings)} standings in DB for {competition_code}")
                 standings = []
-                for api_team in db_standings:
-                    team_data = api_team.get("team", {})
+                for db_team in db_standings:
+                    team_data = db_team.get("team", {})
                     standings.append(
                         StandingTeamResponse(
-                            position=api_team.get("position", 0),
+                            position=db_team.get("position", 0),
                             team_id=team_data.get("id", 0),
                             team_name=team_data.get("name", "Unknown"),
                             team_logo_url=team_data.get("crest"),
-                            played=api_team.get("playedGames", 0),
-                            won=api_team.get("won", 0),
-                            drawn=api_team.get("draw", 0),
-                            lost=api_team.get("lost", 0),
-                            goals_for=api_team.get("goalsFor", 0),
-                            goals_against=api_team.get("goalsAgainst", 0),
-                            goal_difference=api_team.get("goalDifference", 0),
-                            points=api_team.get("points", 0),
+                            played=db_team.get("playedGames", 0),
+                            won=db_team.get("won", 0),
+                            drawn=db_team.get("draw", 0),
+                            lost=db_team.get("lost", 0),
+                            goals_for=db_team.get("goalsFor", 0),
+                            goals_against=db_team.get("goalsAgainst", 0),
+                            goal_difference=db_team.get("goalDifference", 0),
+                            points=db_team.get("points", 0),
                         )
                     )
 

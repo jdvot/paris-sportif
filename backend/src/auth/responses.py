@@ -3,6 +3,8 @@
 These models help FastAPI generate proper OpenAPI schema for authentication errors.
 """
 
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -13,14 +15,14 @@ class HTTPErrorResponse(BaseModel):
 
 
 # Common response definitions for route decorators
-AUTH_RESPONSES = {
+AUTH_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {
         "model": HTTPErrorResponse,
         "description": "Authentification requise - Token manquant ou invalide",
     },
 }
 
-PREMIUM_RESPONSES = {
+PREMIUM_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {
         "model": HTTPErrorResponse,
         "description": "Authentification requise - Token manquant ou invalide",
@@ -31,7 +33,7 @@ PREMIUM_RESPONSES = {
     },
 }
 
-ADMIN_RESPONSES = {
+ADMIN_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {
         "model": HTTPErrorResponse,
         "description": "Authentification requise - Token manquant ou invalide",

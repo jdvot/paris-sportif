@@ -58,7 +58,7 @@ def _fetch_jwks() -> dict[str, Any] | None:
         with httpx.Client(timeout=10.0) as client:
             response = client.get(jwks_url)
             response.raise_for_status()
-            jwks = response.json()
+            jwks: dict[str, Any] = response.json()
             logger.info(f"Fetched JWKS from {jwks_url}")
             return jwks
     except Exception as e:
@@ -77,7 +77,7 @@ def _get_signing_key(token: str, jwks: dict[str, Any]) -> dict[str, Any] | None:
 
         for key in jwks.get("keys", []):
             if key.get("kid") == kid:
-                return key
+                return key  # type: ignore[no-any-return]
 
         logger.warning(f"No matching key found for kid: {kid}")
         return None
@@ -109,7 +109,7 @@ def _decode_token(token: str) -> dict[str, Any]:
             signing_key = _get_signing_key(token, jwks)
             if signing_key:
                 try:
-                    payload = jwt.decode(
+                    payload: dict[str, Any] = jwt.decode(
                         token,
                         signing_key,
                         algorithms=[alg],
@@ -124,14 +124,14 @@ def _decode_token(token: str) -> dict[str, Any]:
     secret = _get_jwt_secret()
     if secret:
         try:
-            payload = jwt.decode(
+            hmac_payload: dict[str, Any] = jwt.decode(
                 token,
                 secret,
                 algorithms=["HS256", "HS384", "HS512"],
                 audience="authenticated",
             )
             logger.debug("Token verified with shared secret")
-            return payload
+            return hmac_payload
         except JWTError as e:
             logger.debug(f"Shared secret verification failed: {e}")
             raise
@@ -205,12 +205,12 @@ def _get_user_role(user: dict[str, Any]) -> str:
     # Check app_metadata first (more authoritative)
     role = app_metadata.get("role")
     if role:
-        return role
+        return str(role)
 
     # Fallback to user_metadata
     role = user_metadata.get("role")
     if role:
-        return role
+        return str(role)
 
     # Default to free
     return "free"

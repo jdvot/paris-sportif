@@ -4,6 +4,7 @@ Admin only endpoints.
 """
 
 import logging
+from typing import Any
 
 import httpx
 from fastapi import APIRouter
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/api-status", responses=ADMIN_RESPONSES)
-async def debug_api_status(user: AdminUser) -> dict:
+async def debug_api_status(user: AdminUser) -> dict[str, Any]:
     """
     Debug endpoint to verify football-data.org API configuration.
 

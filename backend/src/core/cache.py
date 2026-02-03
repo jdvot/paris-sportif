@@ -4,6 +4,8 @@ Provides decorators and utilities for caching expensive API calls.
 Uses redis-py with async support for non-blocking operations.
 """
 
+from __future__ import annotations
+
 import hashlib
 import json
 import logging

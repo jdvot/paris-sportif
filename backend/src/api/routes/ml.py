@@ -12,6 +12,7 @@ Provides endpoints for:
 import asyncio
 import logging
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
@@ -42,7 +43,7 @@ class PipelineResponse(BaseModel):
 
 
 # Track background task status
-_pipeline_status = {
+_pipeline_status: dict[str, Any] = {
     "running": False,
     "last_run": None,
     "last_result": None,
@@ -97,13 +98,13 @@ async def collect_data(user: AdminUser, background_tasks: BackgroundTasks) -> Pi
     if _pipeline_status["running"]:
         raise HTTPException(status_code=409, detail="A pipeline task is already running")
 
-    def run_collection_sync():
+    def run_collection_sync() -> None:
         global _pipeline_status
         _pipeline_status["running"] = True
         try:
             from src.ml.data_collector import HistoricalDataCollector
 
-            async def _collect():
+            async def _collect() -> None:
                 collector = HistoricalDataCollector()
                 await collector.collect_all_historical_data()
 
@@ -135,7 +136,7 @@ async def train_models(user: AdminUser, background_tasks: BackgroundTasks) -> Pi
     if _pipeline_status["running"]:
         raise HTTPException(status_code=409, detail="A pipeline task is already running")
 
-    def run_training():
+    def run_training() -> None:
         global _pipeline_status
         _pipeline_status["running"] = True
         try:
@@ -180,13 +181,13 @@ async def run_full_pipeline(user: AdminUser, background_tasks: BackgroundTasks) 
     if _pipeline_status["running"]:
         raise HTTPException(status_code=409, detail="A pipeline task is already running")
 
-    def run_full_sync():
+    def run_full_sync() -> None:
         global _pipeline_status
         _pipeline_status["running"] = True
         try:
             from src.ml.pipeline import run_pipeline_now
 
-            async def _run():
+            async def _run() -> bool:
                 return await run_pipeline_now()
 
             success = asyncio.run(_run())

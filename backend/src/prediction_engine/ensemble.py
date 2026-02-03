@@ -32,6 +32,10 @@ class LLMAdjustments:
     sentiment_away: float = 0.0  # -0.1 to 0.1
     tactical_edge: float = 0.0  # -0.05 to 0.05
     reasoning: str = ""
+    # Additional fields used by adjustments module
+    form_home: float = 0.0  # -0.15 to 0.15
+    form_away: float = 0.0  # -0.15 to 0.15
+    overall_confidence: float = 0.5  # 0.0 to 1.0
 
     @property
     def total_home_adjustment(self) -> float:

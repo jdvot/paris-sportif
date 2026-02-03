@@ -7,6 +7,7 @@ Can also be triggered manually.
 
 import logging
 from datetime import date, timedelta
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel
@@ -167,7 +168,7 @@ async def sync_weekly_data(
 
         # Sync standings if requested
         standings_synced = 0
-        standings_errors = []
+        standings_errors: list[str] = []
         if include_standings:
             standings_synced, standings_errors = await _sync_all_standings()
 
@@ -247,7 +248,7 @@ async def get_sync_status(user: AdminUser) -> DbStatsResponse:
 async def get_last_sync_info(
     user: AdminUser,
     sync_type: str = Query("weekly", description="Type of sync to check"),
-) -> dict:
+) -> dict[str, Any]:
     """Get info about the last successful sync."""
     last = get_last_sync(sync_type)
     if last:
