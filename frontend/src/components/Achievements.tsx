@@ -229,7 +229,7 @@ export function Achievements({
 
   // Compact variant - just shows unlocked count and recent badges
   if (variant === "compact") {
-    const recentUnlocked = unlockedAchievements
+    const recentUnlocked = [...unlockedAchievements]
       .sort(
         (a, b) =>
           new Date(b.unlockedAt!).getTime() - new Date(a.unlockedAt!).getTime()
@@ -295,7 +295,7 @@ export function Achievements({
 
   // Showcase variant - displays featured achievements
   if (variant === "showcase") {
-    const featured = unlockedAchievements
+    const featured = [...unlockedAchievements]
       .sort((a, b) => {
         const rarityOrder = { legendary: 0, epic: 1, rare: 2, common: 3 };
         return rarityOrder[a.rarity] - rarityOrder[b.rarity];
