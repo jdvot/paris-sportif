@@ -41,6 +41,7 @@ dependencies = [
     # Rate Limiting
     "slowapi>=0.1.9",
     "pytest>=9.0.2",
+    "optuna>=4.7.0",
 ]
 
 [project.optional-dependencies]
