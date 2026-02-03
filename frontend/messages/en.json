@@ -447,5 +447,95 @@
     "accuracyOverTime": "Accuracy over time (last 30 days)",
     "predictionsByCompetition": "Predictions by competition",
     "correctLabel": "Correct"
+  },
+  "admin": {
+    "title": "Administration",
+    "accessDenied": "Access denied",
+    "noPermission": "You don't have permission to access this page.",
+    "backToHome": "Back to home",
+    "stats": {
+      "totalUsers": "Total users",
+      "premiumUsers": "Premium users",
+      "predictionsGenerated": "Predictions generated",
+      "successRate": "Success rate",
+      "matchesInDb": "Matches in database",
+      "lastSync": "Last sync",
+      "never": "Never",
+      "correctPredictions": "Correct predictions",
+      "outOf": "out of {count} predictions",
+      "simulatedRoi": "Simulated ROI",
+      "ofTotal": "{percent}% of total"
+    },
+    "sync": {
+      "title": "Data synchronization",
+      "matches": "Matches",
+      "matchesDesc": "Sync matches from football-data.org",
+      "standings": "Standings",
+      "standingsDesc": "Update league standings",
+      "xgData": "xG Data",
+      "xgDataDesc": "Fetch Expected Goals data",
+      "syncing": "Syncing...",
+      "startSync": "Start sync",
+      "success": "Sync successful",
+      "error": "Sync error"
+    },
+    "users": {
+      "title": "User management",
+      "count": "{count} users",
+      "searchPlaceholder": "Search by email or role...",
+      "noUsers": "No users found",
+      "email": "Email",
+      "role": "Role",
+      "registrationDate": "Registration date",
+      "actions": "Actions",
+      "page": "Page {current} of {total}",
+      "roleFree": "Free",
+      "rolePremium": "Premium",
+      "roleAdmin": "Admin"
+    },
+    "competition": {
+      "title": "Performance by competition",
+      "predictions": "predictions"
+    },
+    "quickActions": {
+      "title": "Quick actions",
+      "viewPicks": "View today's picks",
+      "manageMatches": "Manage matches",
+      "viewStandings": "View standings"
+    },
+    "system": {
+      "title": "System status",
+      "refresh": "Refresh",
+      "apiBackend": "API Backend",
+      "checking": "Checking...",
+      "online": "Online",
+      "slow": "Slow",
+      "offline": "Offline",
+      "database": "Database",
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "redisCache": "Redis Cache",
+      "active": "Active",
+      "inactive": "Inactive",
+      "footballApi": "Football API",
+      "llmApi": "LLM API",
+      "configured": "Configured",
+      "notConfigured": "Not configured",
+      "lastCheck": "Last check:"
+    },
+    "dataQuality": {
+      "title": "Data quality",
+      "ok": "OK",
+      "warning": "Warning",
+      "critical": "Critical",
+      "freshness": "Freshness",
+      "completeness": "Completeness",
+      "validation": "Validation",
+      "consistency": "Consistency",
+      "anomalies": "Anomalies detected ({count})",
+      "loadError": "Unable to load quality report",
+      "retry": "Retry",
+      "reportGenerated": "Report generated on"
+    }
   }
 }

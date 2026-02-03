@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr, enUS } from "date-fns/locale";
+import type { Locale } from "date-fns/locale";
+import { useTranslations, useLocale } from "next-intl";
 import {
   Users,
   Crown,
@@ -126,6 +128,10 @@ interface SyncOption {
 export default function AdminPage() {
   const router = useRouter();
   const { loading, isAuthenticated, isAdmin } = useAuth();
+  const t = useTranslations("admin");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
+  const dateLocale: Locale = locale === "fr" ? fr : enUS;
   const [syncResult, setSyncResult] = useState<"success" | "error" | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -284,16 +290,16 @@ export default function AdminPage() {
         <div className="text-center">
           <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Acces refuse
+            {t("accessDenied")}
           </h1>
           <p className="text-gray-600 dark:text-dark-400 mb-4">
-            Vous n'avez pas les droits pour acceder a cette page.
+            {t("noPermission")}
           </p>
           <button
             onClick={() => router.push("/")}
             className="text-primary-600 dark:text-primary-400 hover:underline"
           >
-            Retour a l'accueil
+            {t("backToHome")}
           </button>
         </div>
       </div>
@@ -378,30 +384,30 @@ export default function AdminPage() {
           <Shield className="w-6 h-6 text-red-600 dark:text-red-400" />
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-          Administration
+          {t("title")}
         </h1>
       </div>
 
       {/* Stats Grid - Row 1 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <StatCard
-          title="Utilisateurs totaux"
+          title={t("stats.totalUsers")}
           value={statsLoading ? "..." : stats.totalUsers.toLocaleString()}
           icon={<Users className="w-6 h-6 text-primary-600 dark:text-primary-400" />}
         />
         <StatCard
-          title="Utilisateurs Premium"
+          title={t("stats.premiumUsers")}
           value={statsLoading ? "..." : stats.premiumUsers}
           icon={<Crown className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />}
-          subtitle={stats.totalUsers > 0 ? `${((stats.premiumUsers / stats.totalUsers) * 100).toFixed(1)}% du total` : undefined}
+          subtitle={stats.totalUsers > 0 ? t("stats.ofTotal", { percent: ((stats.premiumUsers / stats.totalUsers) * 100).toFixed(1) }) : undefined}
         />
         <StatCard
-          title="Predictions generees"
+          title={t("stats.predictionsGenerated")}
           value={statsLoading ? "..." : stats.totalPredictions.toLocaleString()}
           icon={<TrendingUp className="w-6 h-6 text-primary-600 dark:text-primary-400" />}
         />
         <StatCard
-          title="Taux de reussite"
+          title={t("stats.successRate")}
           value={statsLoading ? "..." : `${stats.successRate}%`}
           icon={<BarChart3 className="w-6 h-6 text-primary-600 dark:text-primary-400" />}
         />
@@ -410,25 +416,25 @@ export default function AdminPage() {
       {/* Stats Grid - Row 2 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
-          title="Matchs en base"
+          title={t("stats.matchesInDb")}
           value={statsLoading ? "..." : stats.totalMatches.toLocaleString()}
           icon={<Activity className="w-6 h-6 text-blue-600 dark:text-blue-400" />}
         />
         <StatCard
-          title="Derniere sync"
-          value={stats.lastMatchSync ? format(new Date(stats.lastMatchSync), "dd/MM HH:mm") : "Jamais"}
+          title={t("stats.lastSync")}
+          value={stats.lastMatchSync ? format(new Date(stats.lastMatchSync), "dd/MM HH:mm") : t("stats.never")}
           icon={<Clock className="w-6 h-6 text-purple-600 dark:text-purple-400" />}
         />
         {predictionStats && (
           <>
             <StatCard
-              title="Predictions correctes"
+              title={t("stats.correctPredictions")}
               value={predictionStatsLoading ? "..." : predictionStats.correct_predictions}
               icon={<Target className="w-6 h-6 text-primary-600 dark:text-primary-400" />}
-              subtitle={`sur ${predictionStats.total_predictions} predictions`}
+              subtitle={t("stats.outOf", { count: predictionStats.total_predictions })}
             />
             <StatCard
-              title="ROI simule"
+              title={t("stats.simulatedRoi")}
               value={predictionStatsLoading ? "..." : `${(predictionStats.roi_simulated * 100).toFixed(1)}%`}
               icon={<Trophy className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />}
             />
@@ -442,7 +448,7 @@ export default function AdminPage() {
           <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700 flex items-center gap-2">
             <Percent className="w-5 h-5 text-gray-500 dark:text-dark-400" />
             <h2 className="font-semibold text-gray-900 dark:text-white">
-              Performance par competition
+              {t("competition.title")}
             </h2>
           </div>
           <div className="p-6">
@@ -464,7 +470,7 @@ export default function AdminPage() {
                     {(data as { accuracy?: number }).accuracy?.toFixed(1) ?? "-"}%
                   </p>
                   <p className="text-xs text-gray-400 dark:text-dark-500 mt-1">
-                    {(data as { total?: number }).total ?? 0} predictions
+                    {(data as { total?: number }).total ?? 0} {t("competition.predictions")}
                   </p>
                 </div>
               ))}
@@ -478,32 +484,36 @@ export default function AdminPage() {
         <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700 flex items-center gap-2">
           <Database className="w-5 h-5 text-gray-500 dark:text-dark-400" />
           <h2 className="font-semibold text-gray-900 dark:text-white">
-            Synchronisation des donnees
+            {t("sync.title")}
           </h2>
         </div>
         <div className="p-6">
           <div className="space-y-4 mb-6">
-            {syncOptions.map((option) => (
-              <label
-                key={option.id}
-                className="flex items-start gap-3 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={option.checked}
-                  onChange={() => handleSyncToggle(option.id)}
-                  className="mt-1 w-4 h-4 rounded border-gray-300 dark:border-dark-600 text-primary-500 focus:ring-primary-500"
-                />
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {option.label}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-dark-400">
-                    {option.description}
-                  </p>
-                </div>
-              </label>
-            ))}
+            {syncOptions.map((option) => {
+              const labelKey = option.id === "matches" ? "sync.matches" : option.id === "standings" ? "sync.standings" : "sync.xgData";
+              const descKey = option.id === "matches" ? "sync.matchesDesc" : option.id === "standings" ? "sync.standingsDesc" : "sync.xgDataDesc";
+              return (
+                <label
+                  key={option.id}
+                  className="flex items-start gap-3 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={option.checked}
+                    onChange={() => handleSyncToggle(option.id)}
+                    className="mt-1 w-4 h-4 rounded border-gray-300 dark:border-dark-600 text-primary-500 focus:ring-primary-500"
+                  />
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {t(labelKey)}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-dark-400">
+                      {t(descKey)}
+                    </p>
+                  </div>
+                </label>
+              );
+            })}
           </div>
 
           <div className="flex items-center gap-4">
@@ -519,20 +529,20 @@ export default function AdminPage() {
               ) : (
                 <RefreshCw className="w-4 h-4" />
               )}
-              {isSyncing ? "Synchronisation..." : "Lancer la synchronisation"}
+              {isSyncing ? t("sync.syncing") : t("sync.startSync")}
             </button>
 
             {syncResult === "success" && (
               <span className="inline-flex items-center gap-1.5 text-sm text-primary-600 dark:text-primary-400">
                 <CheckCircle className="w-4 h-4" />
-                Synchronisation reussie
+                {t("sync.success")}
               </span>
             )}
 
             {syncResult === "error" && (
               <span className="inline-flex items-center gap-1.5 text-sm text-red-600 dark:text-red-400">
                 <AlertTriangle className="w-4 h-4" />
-                Erreur de synchronisation
+                {t("sync.error")}
               </span>
             )}
           </div>
@@ -545,11 +555,11 @@ export default function AdminPage() {
           <div className="flex items-center gap-2">
             <UserCog className="w-5 h-5 text-gray-500 dark:text-dark-400" />
             <h2 className="font-semibold text-gray-900 dark:text-white">
-              Gestion des utilisateurs
+              {t("users.title")}
             </h2>
           </div>
           <span className="text-sm text-gray-500 dark:text-dark-400">
-            {usersData?.total ?? 0} utilisateurs
+            {t("users.count", { count: usersData?.total ?? 0 })}
           </span>
         </div>
 
@@ -559,7 +569,7 @@ export default function AdminPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Rechercher par email ou role..."
+              placeholder={t("users.searchPlaceholder")}
               value={userSearchQuery}
               onChange={(e) => setUserSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-dark-800 border border-gray-200 dark:border-dark-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -577,7 +587,7 @@ export default function AdminPage() {
             <div className="text-center py-12">
               <Users className="w-12 h-12 text-gray-300 dark:text-dark-600 mx-auto mb-3" />
               <p className="text-gray-500 dark:text-dark-400">
-                Aucun utilisateur trouve
+                {t("users.noUsers")}
               </p>
             </div>
           ) : (
@@ -585,16 +595,16 @@ export default function AdminPage() {
               <thead>
                 <tr className="bg-gray-50 dark:bg-dark-800">
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                    Email
+                    {t("users.email")}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                    Role
+                    {t("users.role")}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                    Date d'inscription
+                    {t("users.registrationDate")}
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-dark-400 uppercase tracking-wider">
-                    Actions
+                    {t("users.actions")}
                   </th>
                 </tr>
               </thead>
@@ -628,7 +638,7 @@ export default function AdminPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-dark-400">
-                      {format(new Date(user.created_at), "dd MMM yyyy", { locale: fr })}
+                      {format(new Date(user.created_at), "dd MMM yyyy", { locale: dateLocale })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <select
@@ -637,9 +647,9 @@ export default function AdminPage() {
                         disabled={updatingUserId === user.id}
                         className="text-sm bg-gray-50 dark:bg-dark-800 border border-gray-200 dark:border-dark-700 rounded-lg px-3 py-1.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
                       >
-                        <option value="free">Gratuit</option>
-                        <option value="premium">Premium</option>
-                        <option value="admin">Admin</option>
+                        <option value="free">{t("users.roleFree")}</option>
+                        <option value="premium">{t("users.rolePremium")}</option>
+                        <option value="admin">{t("users.roleAdmin")}</option>
                       </select>
                       {updatingUserId === user.id && (
                         <Loader2 className="w-4 h-4 animate-spin inline-block ml-2 text-primary-500" />
@@ -656,7 +666,7 @@ export default function AdminPage() {
         {totalPages > 1 && (
           <div className="px-6 py-4 border-t border-gray-200 dark:border-dark-700 flex items-center justify-between">
             <p className="text-sm text-gray-500 dark:text-dark-400">
-              Page {currentPage} sur {totalPages}
+              {t("users.page", { current: currentPage, total: totalPages })}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -685,7 +695,7 @@ export default function AdminPage() {
           <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-700 flex items-center gap-2">
             <Zap className="w-5 h-5 text-yellow-500" />
             <h2 className="font-semibold text-gray-900 dark:text-white">
-              Actions rapides
+              {t("quickActions.title")}
             </h2>
           </div>
           <div className="p-6 space-y-3">
@@ -693,21 +703,21 @@ export default function AdminPage() {
               onClick={() => router.push("/picks")}
               className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-800 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors"
             >
-              <span className="text-gray-700 dark:text-dark-300">Voir les picks du jour</span>
+              <span className="text-gray-700 dark:text-dark-300">{t("quickActions.viewPicks")}</span>
               <ChevronRight className="w-4 h-4 text-gray-400" />
             </button>
             <button
               onClick={() => router.push("/matches")}
               className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-800 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors"
             >
-              <span className="text-gray-700 dark:text-dark-300">Gerer les matchs</span>
+              <span className="text-gray-700 dark:text-dark-300">{t("quickActions.manageMatches")}</span>
               <ChevronRight className="w-4 h-4 text-gray-400" />
             </button>
             <button
               onClick={() => router.push("/standings")}
               className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-800 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors"
             >
-              <span className="text-gray-700 dark:text-dark-300">Voir les classements</span>
+              <span className="text-gray-700 dark:text-dark-300">{t("quickActions.viewStandings")}</span>
               <ChevronRight className="w-4 h-4 text-gray-400" />
             </button>
           </div>
@@ -719,13 +729,13 @@ export default function AdminPage() {
             <div className="flex items-center gap-2">
               <Server className="w-5 h-5 text-gray-500 dark:text-dark-400" />
               <h2 className="font-semibold text-gray-900 dark:text-white">
-                Statut systeme
+                {t("system.title")}
               </h2>
             </div>
             <button
               onClick={checkApiHealth}
               className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-800 transition-colors"
-              title="Actualiser"
+              title={t("system.refresh")}
             >
               <RefreshCw className="w-4 h-4 text-gray-500 dark:text-dark-400" />
             </button>
@@ -733,7 +743,7 @@ export default function AdminPage() {
           <div className="p-6 space-y-4">
             {/* API Health with Latency */}
             <div className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-dark-400">API Backend</span>
+              <span className="text-gray-600 dark:text-dark-400">{t("system.apiBackend")}</span>
               <div className="flex items-center gap-2">
                 {apiHealth.latency !== null && (
                   <span className={cn(
@@ -759,15 +769,15 @@ export default function AdminPage() {
                     apiHealth.status === "down" ? "bg-red-500" :
                     "bg-gray-400"
                   )} />
-                  {apiHealth.status === "checking" ? "Verification..." :
-                   apiHealth.status === "healthy" ? "En ligne" :
-                   apiHealth.status === "degraded" ? "Lent" : "Hors ligne"}
+                  {apiHealth.status === "checking" ? t("system.checking") :
+                   apiHealth.status === "healthy" ? t("system.online") :
+                   apiHealth.status === "degraded" ? t("system.slow") : t("system.offline")}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-dark-400">Base de donnees</span>
+              <span className="text-gray-600 dark:text-dark-400">{t("system.database")}</span>
               <span className={cn(
                 "inline-flex items-center gap-1.5 text-sm",
                 apiHealth.database ? "text-primary-600 dark:text-primary-400" : "text-red-600 dark:text-red-400"
@@ -776,12 +786,12 @@ export default function AdminPage() {
                   "w-2 h-2 rounded-full",
                   apiHealth.database ? "bg-primary-500 animate-pulse" : "bg-red-500"
                 )} />
-                {apiHealth.database ? "Connectee" : "Deconnectee"}
+                {apiHealth.database ? t("system.connected") : t("system.disconnected")}
               </span>
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-dark-400">Cache Redis</span>
+              <span className="text-gray-600 dark:text-dark-400">{t("system.redisCache")}</span>
               <span className={cn(
                 "inline-flex items-center gap-1.5 text-sm",
                 apiHealth.redis ? "text-primary-600 dark:text-primary-400" : "text-yellow-600 dark:text-yellow-400"
@@ -790,12 +800,12 @@ export default function AdminPage() {
                   "w-2 h-2 rounded-full",
                   apiHealth.redis ? "bg-primary-500 animate-pulse" : "bg-yellow-500"
                 )} />
-                {apiHealth.redis ? "Actif" : "Inactif"}
+                {apiHealth.redis ? t("system.active") : t("system.inactive")}
               </span>
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-dark-400">Football API</span>
+              <span className="text-gray-600 dark:text-dark-400">{t("system.footballApi")}</span>
               <span className={cn(
                 "inline-flex items-center gap-1.5 text-sm",
                 apiHealth.footballApi ? "text-primary-600 dark:text-primary-400" : "text-red-600 dark:text-red-400"
@@ -804,12 +814,12 @@ export default function AdminPage() {
                   "w-2 h-2 rounded-full",
                   apiHealth.footballApi ? "bg-primary-500 animate-pulse" : "bg-red-500"
                 )} />
-                {apiHealth.footballApi ? "Configure" : "Non configure"}
+                {apiHealth.footballApi ? t("system.configured") : t("system.notConfigured")}
               </span>
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-dark-400">LLM API</span>
+              <span className="text-gray-600 dark:text-dark-400">{t("system.llmApi")}</span>
               <span className={cn(
                 "inline-flex items-center gap-1.5 text-sm",
                 apiHealth.llmApi ? "text-primary-600 dark:text-primary-400" : "text-yellow-600 dark:text-yellow-400"
@@ -818,13 +828,13 @@ export default function AdminPage() {
                   "w-2 h-2 rounded-full",
                   apiHealth.llmApi ? "bg-primary-500 animate-pulse" : "bg-yellow-500"
                 )} />
-                {apiHealth.llmApi ? "Configure" : "Non configure"}
+                {apiHealth.llmApi ? t("system.configured") : t("system.notConfigured")}
               </span>
             </div>
 
             {apiHealth.lastCheck && (
               <p className="text-xs text-gray-400 dark:text-dark-500 pt-2 border-t border-gray-100 dark:border-dark-700">
-                Derniere verification: {format(apiHealth.lastCheck, "HH:mm:ss")}
+                {t("system.lastCheck")} {format(apiHealth.lastCheck, "HH:mm:ss")}
               </p>
             )}
           </div>
@@ -837,7 +847,7 @@ export default function AdminPage() {
           <div className="flex items-center gap-2">
             <Gauge className="w-5 h-5 text-gray-500 dark:text-dark-400" />
             <h2 className="font-semibold text-gray-900 dark:text-white">
-              Qualite des donnees
+              {t("dataQuality.title")}
             </h2>
           </div>
           <div className="flex items-center gap-2">
@@ -853,15 +863,15 @@ export default function AdminPage() {
                 {dataQuality.overall_status === "ok" && <CheckCircle2 className="w-3 h-3" />}
                 {dataQuality.overall_status === "warning" && <AlertCircle className="w-3 h-3" />}
                 {dataQuality.overall_status === "critical" && <XCircle className="w-3 h-3" />}
-                {dataQuality.overall_status === "ok" ? "OK" :
-                 dataQuality.overall_status === "warning" ? "Attention" : "Critique"}
+                {dataQuality.overall_status === "ok" ? t("dataQuality.ok") :
+                 dataQuality.overall_status === "warning" ? t("dataQuality.warning") : t("dataQuality.critical")}
               </span>
             )}
             <button
               onClick={fetchDataQuality}
               disabled={dataQualityLoading}
               className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-800 transition-colors disabled:opacity-50"
-              title="Actualiser"
+              title={t("system.refresh")}
             >
               <RefreshCw className={cn(
                 "w-4 h-4 text-gray-500 dark:text-dark-400",
@@ -895,7 +905,7 @@ export default function AdminPage() {
                     "text-red-600 dark:text-red-400"
                   )} />
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    Fraicheur
+                    {t("dataQuality.freshness")}
                   </span>
                 </div>
                 <p className="text-xs text-gray-600 dark:text-dark-400">
@@ -920,7 +930,7 @@ export default function AdminPage() {
                     "text-red-600 dark:text-red-400"
                   )} />
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    Completude
+                    {t("dataQuality.completeness")}
                   </span>
                 </div>
                 <p className="text-xs text-gray-600 dark:text-dark-400">
@@ -952,7 +962,7 @@ export default function AdminPage() {
                     "text-red-600 dark:text-red-400"
                   )} />
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    Validation
+                    {t("dataQuality.validation")}
                   </span>
                 </div>
                 <p className="text-xs text-gray-600 dark:text-dark-400">
@@ -977,7 +987,7 @@ export default function AdminPage() {
                     "text-red-600 dark:text-red-400"
                   )} />
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    Consistance
+                    {t("dataQuality.consistency")}
                   </span>
                 </div>
                 <p className="text-xs text-gray-600 dark:text-dark-400">
@@ -991,7 +1001,7 @@ export default function AdminPage() {
               <div className="mt-6">
                 <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                  Anomalies detectees ({dataQuality.anomalies.length})
+                  {t("dataQuality.anomalies", { count: dataQuality.anomalies.length })}
                 </h3>
                 <div className="space-y-2">
                   {dataQuality.anomalies.slice(0, 5).map((anomaly, index) => (
@@ -1016,19 +1026,19 @@ export default function AdminPage() {
 
             {dataQuality.timestamp && (
               <p className="text-xs text-gray-400 dark:text-dark-500 mt-4 pt-4 border-t border-gray-100 dark:border-dark-700">
-                Rapport genere le {format(new Date(dataQuality.timestamp), "dd/MM/yyyy a HH:mm", { locale: fr })}
+                {t("dataQuality.reportGenerated")} {format(new Date(dataQuality.timestamp), "dd/MM/yyyy HH:mm", { locale: dateLocale })}
               </p>
             )}
           </div>
         ) : (
           <div className="p-6 text-center text-gray-500 dark:text-dark-400">
             <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>Impossible de charger le rapport de qualite</p>
+            <p>{t("dataQuality.loadError")}</p>
             <button
               onClick={fetchDataQuality}
               className="mt-2 text-primary-600 dark:text-primary-400 hover:underline text-sm"
             >
-              Reessayer
+              {t("dataQuality.retry")}
             </button>
           </div>
         )}

@@ -447,5 +447,95 @@
     "accuracyOverTime": "Precision au fil du temps (30 derniers jours)",
     "predictionsByCompetition": "Predictions par competition",
     "correctLabel": "Correctes"
+  },
+  "admin": {
+    "title": "Administration",
+    "accessDenied": "Acces refuse",
+    "noPermission": "Vous n'avez pas les droits pour acceder a cette page.",
+    "backToHome": "Retour a l'accueil",
+    "stats": {
+      "totalUsers": "Utilisateurs totaux",
+      "premiumUsers": "Utilisateurs Premium",
+      "predictionsGenerated": "Predictions generees",
+      "successRate": "Taux de reussite",
+      "matchesInDb": "Matchs en base",
+      "lastSync": "Derniere sync",
+      "never": "Jamais",
+      "correctPredictions": "Predictions correctes",
+      "outOf": "sur {count} predictions",
+      "simulatedRoi": "ROI simule",
+      "ofTotal": "{percent}% du total"
+    },
+    "sync": {
+      "title": "Synchronisation des donnees",
+      "matches": "Matchs",
+      "matchesDesc": "Synchroniser les matchs depuis football-data.org",
+      "standings": "Classements",
+      "standingsDesc": "Mettre a jour les classements des ligues",
+      "xgData": "xG Data",
+      "xgDataDesc": "Recuperer les donnees Expected Goals",
+      "syncing": "Synchronisation...",
+      "startSync": "Lancer la synchronisation",
+      "success": "Synchronisation reussie",
+      "error": "Erreur de synchronisation"
+    },
+    "users": {
+      "title": "Gestion des utilisateurs",
+      "count": "{count} utilisateurs",
+      "searchPlaceholder": "Rechercher par email ou role...",
+      "noUsers": "Aucun utilisateur trouve",
+      "email": "Email",
+      "role": "Role",
+      "registrationDate": "Date d'inscription",
+      "actions": "Actions",
+      "page": "Page {current} sur {total}",
+      "roleFree": "Gratuit",
+      "rolePremium": "Premium",
+      "roleAdmin": "Admin"
+    },
+    "competition": {
+      "title": "Performance par competition",
+      "predictions": "predictions"
+    },
+    "quickActions": {
+      "title": "Actions rapides",
+      "viewPicks": "Voir les picks du jour",
+      "manageMatches": "Gerer les matchs",
+      "viewStandings": "Voir les classements"
+    },
+    "system": {
+      "title": "Statut systeme",
+      "refresh": "Actualiser",
+      "apiBackend": "API Backend",
+      "checking": "Verification...",
+      "online": "En ligne",
+      "slow": "Lent",
+      "offline": "Hors ligne",
+      "database": "Base de donnees",
+      "connected": "Connectee",
+      "disconnected": "Deconnectee",
+      "redisCache": "Cache Redis",
+      "active": "Actif",
+      "inactive": "Inactif",
+      "footballApi": "Football API",
+      "llmApi": "LLM API",
+      "configured": "Configure",
+      "notConfigured": "Non configure",
+      "lastCheck": "Derniere verification:"
+    },
+    "dataQuality": {
+      "title": "Qualite des donnees",
+      "ok": "OK",
+      "warning": "Attention",
+      "critical": "Critique",
+      "freshness": "Fraicheur",
+      "completeness": "Completude",
+      "validation": "Validation",
+      "consistency": "Consistance",
+      "anomalies": "Anomalies detectees ({count})",
+      "loadError": "Impossible de charger le rapport de qualite",
+      "retry": "Reessayer",
+      "reportGenerated": "Rapport genere le"
+    }
   }
 }
