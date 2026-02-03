@@ -13,6 +13,10 @@ from starlette.responses import Response
 from src.api.routes import matches, predictions, health, debug, ml, sync, rag, enrichment, users, admin
 from src.core.config import settings
 from src.core.exceptions import ParisportifError
+from src.core.sentry import init_sentry
+
+# Initialize Sentry for error monitoring
+init_sentry()
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):

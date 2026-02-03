@@ -43,6 +43,9 @@ dependencies = [
 
     # Authentication (Supabase JWT)
     "python-jose[cryptography]>=3.3.0",
+
+    # Monitoring
+    "sentry-sdk[fastapi]>=2.0.0",
 ]
 
 [project.optional-dependencies]
