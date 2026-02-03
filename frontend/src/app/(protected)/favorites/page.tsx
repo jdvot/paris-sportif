@@ -3,11 +3,16 @@
 import { Heart, Trash2, ArrowLeft, Calendar } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr, enUS } from "date-fns/locale";
+import { useTranslations, useLocale } from "next-intl";
 import { useFavorites } from "@/hooks/useFavorites";
 import { cn } from "@/lib/utils";
 
 export default function FavoritesPage() {
+  const t = useTranslations("favorites");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
+  const dateLocale = locale === "fr" ? fr : enUS;
   const { favorites, isLoaded, removeFavorite, clearFavorites } = useFavorites();
 
   if (!isLoaded) {
@@ -25,24 +30,23 @@ export default function FavoritesPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
             <Heart className="w-8 h-8 text-red-500 fill-red-500" />
-            Mes Favoris
+            {t("title")}
           </h1>
           <p className="text-gray-600 dark:text-dark-400 mt-1">
-            {favorites.length} match{favorites.length !== 1 ? "s" : ""} sauvegarde
-            {favorites.length !== 1 ? "s" : ""}
+            {t("subtitle")} ({favorites.length})
           </p>
         </div>
         {favorites.length > 0 && (
           <button
             onClick={() => {
-              if (confirm("Voulez-vous vraiment supprimer tous les favoris ?")) {
+              if (confirm(locale === "fr" ? "Voulez-vous vraiment supprimer tous les favoris ?" : "Are you sure you want to clear all favorites?")) {
                 clearFavorites();
               }
             }}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
           >
             <Trash2 className="w-4 h-4" />
-            Tout supprimer
+            {t("clearAll")}
           </button>
         )}
       </div>
@@ -54,17 +58,17 @@ export default function FavoritesPage() {
             <Heart className="w-8 h-8 text-gray-400 dark:text-dark-500" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Aucun favori
+            {t("empty")}
           </h3>
           <p className="text-gray-600 dark:text-dark-400 mb-6 max-w-sm mx-auto">
-            Ajoutez des matchs a vos favoris pour les retrouver facilement ici.
+            {t("emptyHint")}
           </p>
           <Link
             href="/picks"
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Voir les picks
+            {tCommon("viewPicks")}
           </Link>
         </div>
       )}
@@ -91,7 +95,7 @@ export default function FavoritesPage() {
                       <span className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
                         {format(new Date(favorite.matchDate), "d MMM yyyy, HH:mm", {
-                          locale: fr,
+                          locale: dateLocale,
                         })}
                       </span>
                       {favorite.competition && (
@@ -104,7 +108,7 @@ export default function FavoritesPage() {
                   <button
                     onClick={() => removeFavorite(favorite.matchId)}
                     className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                    title="Retirer des favoris"
+                    title={t("removeFavorite")}
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -117,7 +121,7 @@ export default function FavoritesPage() {
       {/* Info */}
       <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4">
         <p className="text-sm text-blue-800 dark:text-blue-300">
-          💡 Les favoris sont sauvegardes localement et expires automatiquement apres 7 jours.
+          {t("infoBanner")}
         </p>
       </div>
     </div>

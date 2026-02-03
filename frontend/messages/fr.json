@@ -97,13 +97,26 @@
     }
   },
   "matches": {
-    "title": "Matchs a Venir",
-    "subtitle": "Tous les matchs avec predictions",
-    "empty": "Aucun match trouve",
+    "title": "Tous les Matchs",
+    "subtitle": "Explorez les matchs a venir et trouvez les meilleures opportunites",
+    "empty": "Aucun match disponible",
+    "emptyHint": "Essayez de modifier vos filtres ou de selectionner une autre periode",
+    "loadError": "Impossible de charger les matchs",
+    "matchCount": "Match",
+    "dayCount": "jour",
+    "matchday": "Journee {day}",
+    "finished": "Termine",
+    "loadedInfo": "{count} matchs charges. Les donnees sont mises a jour en temps reel.",
     "filters": {
-      "competition": "Competition",
+      "competition": "Competitions",
       "date": "Date",
-      "all": "Toutes les competitions"
+      "all": "Toutes les competitions",
+      "today": "Aujourd'hui",
+      "tomorrow": "Demain",
+      "thisWeek": "Cette Semaine",
+      "next7Days": "7 Prochains Jours",
+      "clearFilters": "Effacer les filtres",
+      "includeFinished": "Inclure les matchs termines"
     },
     "kickoff": "Coup d'envoi",
     "viewPrediction": "Voir la prediction"
@@ -132,8 +145,11 @@
   },
   "history": {
     "title": "Historique",
-    "subtitle": "Suivi de nos predictions passees",
-    "empty": "Aucune prediction passee",
+    "subtitle": "Suivez les resultats de vos predictions",
+    "empty": "Aucun historique",
+    "emptyHint": "L'historique de vos predictions apparaitra ici.",
+    "inProgress": "En cours",
+    "infoBanner": "Les resultats sont mis a jour automatiquement apres chaque match. Le taux de reussite est calcule sur les predictions terminees.",
     "result": {
       "correct": "Correct",
       "incorrect": "Incorrect",
@@ -143,8 +159,27 @@
       "total": "Total predictions",
       "correct": "Predictions correctes",
       "accuracy": "Taux de reussite",
-      "roi": "ROI"
+      "roi": "ROI",
+      "won": "Gagnes",
+      "lost": "Perdus",
+      "pending": "En Attente",
+      "winRate": "Taux Reussite"
+    },
+    "filters": {
+      "last7Days": "7 derniers jours",
+      "last14Days": "14 derniers jours",
+      "last30Days": "30 derniers jours"
     }
+  },
+  "favorites": {
+    "title": "Mes Favoris",
+    "subtitle": "Matchs que vous avez sauvegardes",
+    "empty": "Aucun favori",
+    "emptyHint": "Ajoutez des matchs a vos favoris pour les retrouver facilement ici.",
+    "clearAll": "Tout supprimer",
+    "addedOn": "Ajoute le",
+    "removeFavorite": "Retirer des favoris",
+    "infoBanner": "Les favoris sont sauvegardes localement et expirent automatiquement apres 7 jours."
   },
   "auth": {
     "login": {
@@ -260,7 +295,9 @@
     },
     "offline": {
       "title": "Vous etes hors ligne",
-      "description": "Verifiez votre connexion internet."
+      "description": "Impossible de se connecter au serveur. Verifiez votre connexion internet et reessayez.",
+      "cacheHint": "Les donnees precedemment consultees sont disponibles en cache. Naviguez vers les pages deja visitees pour y acceder.",
+      "preparingPredictions": "Preparation de vos predictions"
     }
   },
   "pwa": {

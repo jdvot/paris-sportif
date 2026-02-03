@@ -97,13 +97,26 @@
     }
   },
   "matches": {
-    "title": "Upcoming Matches",
-    "subtitle": "All matches with predictions",
-    "empty": "No matches found",
+    "title": "All Matches",
+    "subtitle": "Explore upcoming matches and find the best opportunities",
+    "empty": "No matches available",
+    "emptyHint": "Try changing your filters or selecting another period",
+    "loadError": "Unable to load matches",
+    "matchCount": "Match",
+    "dayCount": "day",
+    "matchday": "Matchday {day}",
+    "finished": "Finished",
+    "loadedInfo": "{count} matches loaded. Data is updated in real-time.",
     "filters": {
-      "competition": "Competition",
+      "competition": "Competitions",
       "date": "Date",
-      "all": "All competitions"
+      "all": "All competitions",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "thisWeek": "This Week",
+      "next7Days": "Next 7 Days",
+      "clearFilters": "Clear filters",
+      "includeFinished": "Include finished matches"
     },
     "kickoff": "Kick-off",
     "viewPrediction": "View prediction"
@@ -132,8 +145,11 @@
   },
   "history": {
     "title": "History",
-    "subtitle": "Track our past predictions",
-    "empty": "No past predictions",
+    "subtitle": "Track the results of your predictions",
+    "empty": "No history yet",
+    "emptyHint": "Your prediction history will appear here.",
+    "inProgress": "In progress",
+    "infoBanner": "Results are updated automatically after each match. Success rate is calculated on completed predictions.",
     "result": {
       "correct": "Correct",
       "incorrect": "Incorrect",
@@ -143,8 +159,27 @@
       "total": "Total predictions",
       "correct": "Correct predictions",
       "accuracy": "Success rate",
-      "roi": "ROI"
+      "roi": "ROI",
+      "won": "Won",
+      "lost": "Lost",
+      "pending": "Pending",
+      "winRate": "Win Rate"
+    },
+    "filters": {
+      "last7Days": "Last 7 days",
+      "last14Days": "Last 14 days",
+      "last30Days": "Last 30 days"
     }
+  },
+  "favorites": {
+    "title": "My Favorites",
+    "subtitle": "Matches you've saved",
+    "empty": "No favorites yet",
+    "emptyHint": "Add matches to your favorites to find them easily here.",
+    "clearAll": "Clear all",
+    "addedOn": "Added on",
+    "removeFavorite": "Remove from favorites",
+    "infoBanner": "Favorites are saved locally and expire automatically after 7 days."
   },
   "auth": {
     "login": {
@@ -260,7 +295,9 @@
     },
     "offline": {
       "title": "You're offline",
-      "description": "Check your internet connection."
+      "description": "Unable to connect to the server. Check your internet connection and try again.",
+      "cacheHint": "Previously viewed data is available in cache. Navigate to already visited pages to access it.",
+      "preparingPredictions": "Preparing your predictions"
     }
   },
   "pwa": {

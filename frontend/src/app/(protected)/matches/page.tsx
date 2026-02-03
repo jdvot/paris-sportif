@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { format, startOfDay, addDays, isSameDay, startOfWeek, endOfWeek } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr, enUS, type Locale } from "date-fns/locale";
+import { useTranslations, useLocale } from "next-intl";
 import { useGetMatches } from "@/lib/api/endpoints/matches/matches";
 import type { MatchResponse, MatchListResponse } from "@/lib/api/models";
 import { LoadingState } from "@/components/LoadingState";
@@ -46,6 +47,10 @@ const getTeamName = (team: MatchResponse["home_team"]): string => {
 };
 
 export default function MatchesPage() {
+  const t = useTranslations("matches");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
+  const dateLocale = locale === "fr" ? fr : enUS;
   const [dateRange, setDateRange] = useState<DateRange>("week");
   const [selectedCompetitions, setSelectedCompetitions] = useState<string[]>([]);
   const [showFinished, setShowFinished] = useState<boolean>(true);
@@ -171,10 +176,9 @@ export default function MatchesPage() {
     <div className="space-y-6 sm:space-y-8">
       {/* Header */}
       <section className="text-center py-6 sm:py-8 px-4">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-3">Tous les Matchs</h1>
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-3">{t("title")}</h1>
         <p className="text-gray-600 dark:text-slate-300 text-sm sm:text-base">
-          Explorez les matchs a venir et trouvez les meilleures opportunites de
-          paris
+          {t("subtitle")}
         </p>
       </section>
 
@@ -194,10 +198,10 @@ export default function MatchesPage() {
                   : "bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700"
               }`}
             >
-              {range === "today" && "Aujourd'hui"}
-              {range === "tomorrow" && "Demain"}
-              {range === "week" && "Cette Semaine"}
-              {range === "next7days" && "7 Prochains Jours"}
+              {range === "today" && t("filters.today")}
+              {range === "tomorrow" && t("filters.tomorrow")}
+              {range === "week" && t("filters.thisWeek")}
+              {range === "next7days" && t("filters.next7Days")}
             </button>
           ))}
         </div>
@@ -206,7 +210,7 @@ export default function MatchesPage() {
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-gray-600 dark:text-slate-300">
             <Filter className="w-4 h-4" />
-            <span className="text-xs sm:text-sm font-medium">Competitions</span>
+            <span className="text-xs sm:text-sm font-medium">{t("filters.competition")}</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {availableCompetitions.map((code) => (
@@ -231,7 +235,7 @@ export default function MatchesPage() {
               className="flex items-center gap-1 text-xs sm:text-sm text-primary-400 hover:text-primary-300 transition-colors"
             >
               <X className="w-4 h-4" />
-              Effacer les filtres
+              {t("filters.clearFilters")}
             </button>
           )}
         </div>
@@ -253,7 +257,7 @@ export default function MatchesPage() {
               </div>
             </div>
             <span className="text-xs sm:text-sm text-gray-600 dark:text-slate-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
-              Inclure les matchs terminés
+              {t("filters.includeFinished")}
             </span>
           </label>
         </div>
@@ -263,16 +267,16 @@ export default function MatchesPage() {
       <section className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-3 sm:py-4 border-b border-gray-200 dark:border-slate-700 gap-2 px-4 sm:px-0">
         <div>
           <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
-            {filteredMatches.length} Match{filteredMatches.length > 1 ? "s" : ""}
+            {filteredMatches.length} {t("matchCount", { count: filteredMatches.length })}
           </h2>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">
-            {datesToDisplay.length} jour{datesToDisplay.length > 1 ? "s" : ""}
+            {datesToDisplay.length} {t("dayCount", { count: datesToDisplay.length })}
           </p>
         </div>
         {isLoading && (
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-primary-500 rounded-full animate-pulse" />
-            <span className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">Chargement...</span>
+            <span className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">{tCommon("loading")}</span>
           </div>
         )}
       </section>
@@ -282,16 +286,16 @@ export default function MatchesPage() {
         <section className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 sm:p-8 lg:p-12 text-center mx-4 sm:mx-0">
           <Calendar className="w-10 sm:w-12 h-10 sm:h-12 text-red-400 mx-auto mb-3 sm:mb-4" />
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Erreur de chargement
+            {tCommon("errorLoading")}
           </h3>
           <p className="text-gray-500 dark:text-slate-400 mb-3 sm:mb-4 text-sm sm:text-base">
-            {error instanceof Error ? error.message : "Impossible de charger les matchs."}
+            {error instanceof Error ? error.message : t("loadError")}
           </p>
           <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
           >
-            Réessayer
+            {tCommon("retry")}
           </button>
         </section>
       ) : null}
@@ -303,10 +307,10 @@ export default function MatchesPage() {
           <div className="text-center py-8 sm:py-12">
             <Calendar className="w-10 sm:w-12 h-10 sm:h-12 text-gray-400 dark:text-slate-500 mx-auto mb-3 sm:mb-4" />
             <h3 className="text-base sm:text-lg font-medium text-gray-600 dark:text-slate-300 mb-1">
-              Aucun match disponible
+              {t("empty")}
             </h3>
             <p className="text-gray-500 dark:text-slate-400 text-sm">
-              Essayez de modifier vos filtres ou de selectionner une autre periode
+              {t("emptyHint")}
             </p>
           </div>
         ) : (
@@ -330,15 +334,14 @@ export default function MatchesPage() {
                     <Calendar className="w-4 sm:w-5 h-4 sm:h-5 text-primary-400 flex-shrink-0" />
                     <div className="text-left min-w-0">
                       <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">
-                        {format(date, "EEEE d MMMM yyyy", { locale: fr })}
+                        {format(date, "EEEE d MMMM yyyy", { locale: dateLocale })}
                       </h3>
                       <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">
-                        {isToday && "Aujourd'hui"}
-                        {isTomorrow && "Demain"}
-                        {!isToday && !isTomorrow && format(date, "EEEE", { locale: fr })}
+                        {isToday && t("filters.today")}
+                        {isTomorrow && t("filters.tomorrow")}
+                        {!isToday && !isTomorrow && format(date, "EEEE", { locale: dateLocale })}
                         {" • "}
-                        {groupedMatches[dateKey].length} match
-                        {groupedMatches[dateKey].length > 1 ? "s" : ""}
+                        {groupedMatches[dateKey].length} {t("matchCount", { count: groupedMatches[dateKey].length })}
                       </p>
                     </div>
                   </div>
@@ -354,7 +357,7 @@ export default function MatchesPage() {
                 {isExpanded && (
                   <div className="divide-y divide-gray-200 dark:divide-slate-700">
                     {groupedMatches[dateKey].map((match) => (
-                      <MatchCard key={match.id} match={match} />
+                      <MatchCard key={match.id} match={match} dateLocale={dateLocale} />
                     ))}
                   </div>
                 )}
@@ -369,8 +372,7 @@ export default function MatchesPage() {
       {filteredMatches.length > 0 ? (
         <section className="text-center py-6 sm:py-8 px-4">
           <p className="text-gray-500 dark:text-slate-400 text-xs sm:text-sm">
-            {filteredMatches.length} matchs charges. Les donnees sont mises a
-            jour en temps reel.
+            {t("loadedInfo", { count: filteredMatches.length })}
           </p>
         </section>
       ) : null}
@@ -378,7 +380,8 @@ export default function MatchesPage() {
   );
 }
 
-function MatchCard({ match }: { match: MatchResponse }) {
+function MatchCard({ match, dateLocale }: { match: MatchResponse; dateLocale: Locale }) {
+  const t = useTranslations("matches");
   const matchDate = new Date(match.match_date);
   const homeTeamName = getTeamName(match.home_team);
   const awayTeamName = getTeamName(match.away_team);
@@ -420,12 +423,12 @@ function MatchCard({ match }: { match: MatchResponse }) {
             </span>
             {match.matchday && (
               <span className="text-xs text-gray-500 dark:text-slate-500">
-                Journee {match.matchday}
+                {t("matchday", { day: match.matchday })}
               </span>
             )}
             {isFinished && (
               <span className="text-xs font-medium text-emerald-400 bg-emerald-500/20 px-2 py-1 rounded">
-                Terminé
+                {t("finished")}
               </span>
             )}
           </div>
@@ -439,7 +442,7 @@ function MatchCard({ match }: { match: MatchResponse }) {
             {format(matchDate, "HH:mm")}
           </p>
           <p className="text-xs text-gray-500 dark:text-slate-400">
-            {format(matchDate, "EEEE", { locale: fr })}
+            {format(matchDate, "EEEE", { locale: dateLocale })}
           </p>
         </div>
         <ChevronRight className="w-4 sm:w-5 h-4 sm:h-5 text-gray-400 dark:text-slate-500 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors flex-shrink-0" />

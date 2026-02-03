@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { format, subDays, parseISO } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr, enUS } from "date-fns/locale";
 import { History, CheckCircle, XCircle, Clock, TrendingUp, Calendar, Filter } from "lucide-react";
 import Link from "next/link";
+import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useGetDailyPicks } from "@/lib/api/endpoints/predictions/predictions";
 import type { DailyPick } from "@/lib/api/models";
@@ -13,6 +14,11 @@ import { ExportCSV } from "@/components/ExportCSV";
 import { getConfidenceTier } from "@/lib/constants";
 
 export default function HistoryPage() {
+  const t = useTranslations("history");
+  const tCommon = useTranslations("common");
+  const tDailyPicks = useTranslations("dailyPicks");
+  const locale = useLocale();
+  const dateLocale = locale === "fr" ? fr : enUS;
   const [daysBack, setDaysBack] = useState(7);
 
   // Fetch predictions for multiple past days
@@ -48,10 +54,10 @@ export default function HistoryPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
             <History className="w-8 h-8 text-primary-500" />
-            Historique
+            {t("title")}
           </h1>
           <p className="text-gray-600 dark:text-dark-400 mt-1">
-            Suivez les resultats de vos predictions
+            {t("subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -60,9 +66,9 @@ export default function HistoryPage() {
             onChange={(e) => setDaysBack(Number(e.target.value))}
             className="px-3 py-2 bg-gray-100 dark:bg-dark-700 border border-gray-200 dark:border-dark-600 rounded-lg text-sm text-gray-900 dark:text-white"
           >
-            <option value={7}>7 derniers jours</option>
-            <option value={14}>14 derniers jours</option>
-            <option value={30}>30 derniers jours</option>
+            <option value={7}>{t("filters.last7Days")}</option>
+            <option value={14}>{t("filters.last14Days")}</option>
+            <option value={30}>{t("filters.last30Days")}</option>
           </select>
           <ExportCSV picks={picks} filename="historique" />
         </div>
@@ -76,22 +82,22 @@ export default function HistoryPage() {
         <div className="bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-xl p-4 text-center">
           <CheckCircle className="w-6 h-6 text-green-500 mx-auto mb-2" />
           <p className="text-2xl font-bold text-green-600 dark:text-green-400">{wonCount}</p>
-          <p className="text-xs text-gray-600 dark:text-dark-400">Gagnes</p>
+          <p className="text-xs text-gray-600 dark:text-dark-400">{t("stats.won")}</p>
         </div>
         <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-4 text-center">
           <XCircle className="w-6 h-6 text-red-500 mx-auto mb-2" />
           <p className="text-2xl font-bold text-red-600 dark:text-red-400">{lostCount}</p>
-          <p className="text-xs text-gray-600 dark:text-dark-400">Perdus</p>
+          <p className="text-xs text-gray-600 dark:text-dark-400">{t("stats.lost")}</p>
         </div>
         <div className="bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/30 rounded-xl p-4 text-center">
           <Clock className="w-6 h-6 text-yellow-500 mx-auto mb-2" />
           <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{pendingCount}</p>
-          <p className="text-xs text-gray-600 dark:text-dark-400">En Attente</p>
+          <p className="text-xs text-gray-600 dark:text-dark-400">{t("stats.pending")}</p>
         </div>
         <div className="bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/30 rounded-xl p-4 text-center">
           <TrendingUp className="w-6 h-6 text-primary-500 mx-auto mb-2" />
           <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">{winRate.toFixed(0)}%</p>
-          <p className="text-xs text-gray-600 dark:text-dark-400">Taux Reussite</p>
+          <p className="text-xs text-gray-600 dark:text-dark-400">{t("stats.winRate")}</p>
         </div>
       </div>
 
@@ -109,16 +115,16 @@ export default function HistoryPage() {
         <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-8 text-center">
           <History className="w-12 h-12 text-gray-400 dark:text-dark-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Aucun historique
+            {t("empty")}
           </h3>
           <p className="text-gray-600 dark:text-dark-400 mb-4">
-            L'historique de vos predictions apparaitra ici.
+            {t("emptyHint")}
           </p>
           <Link
             href="/picks"
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
           >
-            Voir les picks du jour
+            {tCommon("viewPicks")}
           </Link>
         </div>
       ) : (
@@ -128,11 +134,11 @@ export default function HistoryPage() {
             const confidence = prediction.confidence || 0;
             const confidenceTier = getConfidenceTier(confidence);
             const betLabel = {
-              home: `Victoire ${prediction.home_team}`,
-              home_win: `Victoire ${prediction.home_team}`,
-              draw: "Match nul",
-              away: `Victoire ${prediction.away_team}`,
-              away_win: `Victoire ${prediction.away_team}`,
+              home: tDailyPicks("homeWin", { team: prediction.home_team }),
+              home_win: tDailyPicks("homeWin", { team: prediction.home_team }),
+              draw: tDailyPicks("draw"),
+              away: tDailyPicks("awayWin", { team: prediction.away_team }),
+              away_win: tDailyPicks("awayWin", { team: prediction.away_team }),
             }[prediction.recommended_bet] || prediction.recommended_bet;
 
             return (
@@ -191,11 +197,11 @@ export default function HistoryPage() {
                         {pick.actualScore}
                       </p>
                     ) : (
-                      <p className="text-sm text-yellow-600 dark:text-yellow-400">En cours</p>
+                      <p className="text-sm text-yellow-600 dark:text-yellow-400">{t("inProgress")}</p>
                     )}
                     <p className="text-xs text-gray-500 dark:text-dark-400">
                       {prediction.match_date
-                        ? format(new Date(prediction.match_date), "d MMM", { locale: fr })
+                        ? format(new Date(prediction.match_date), "d MMM", { locale: dateLocale })
                         : ""}
                     </p>
                   </div>
@@ -209,7 +215,7 @@ export default function HistoryPage() {
       {/* Info Banner */}
       <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4">
         <p className="text-sm text-blue-800 dark:text-blue-300">
-          📊 Les resultats sont mis a jour automatiquement apres chaque match. Le taux de reussite est calcule sur les predictions terminees.
+          {t("infoBanner")}
         </p>
       </div>
     </div>
