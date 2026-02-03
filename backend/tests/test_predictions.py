@@ -409,3 +409,114 @@ class TestRefreshPrediction:
         response = client.post("/api/v1/predictions/12345/refresh")
 
         assert response.status_code == 429
+
+
+class TestVerifyPrediction:
+    """Test suite for POST /predictions/{match_id}/verify endpoint."""
+
+    def test_verify_prediction_without_auth(self, client_no_auth: TestClient):
+        """Test that verify prediction endpoint requires authentication."""
+        response = client_no_auth.post(
+            "/api/v1/predictions/12345/verify",
+            json={"home_score": 2, "away_score": 1},
+        )
+        assert response.status_code == 401
+
+    @patch("src.api.routes.predictions.verify_prediction")
+    def test_verify_prediction_success(
+        self,
+        mock_verify: MagicMock,
+        client: TestClient,
+    ):
+        """Test successful prediction verification."""
+        mock_verify.return_value = {
+            "match_id": 12345,
+            "home_score": 2,
+            "away_score": 1,
+            "actual_result": "home_win",
+            "predicted_result": "home_win",
+            "was_correct": True,
+        }
+
+        response = client.post(
+            "/api/v1/predictions/12345/verify",
+            json={"home_score": 2, "away_score": 1},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["match_id"] == 12345
+        assert data["home_score"] == 2
+        assert data["away_score"] == 1
+        assert data["actual_result"] == "home_win"
+        assert data["was_correct"] is True
+        assert "message" in data
+
+    @patch("src.api.routes.predictions.verify_prediction")
+    def test_verify_prediction_incorrect(
+        self,
+        mock_verify: MagicMock,
+        client: TestClient,
+    ):
+        """Test verification of incorrect prediction."""
+        mock_verify.return_value = {
+            "match_id": 12345,
+            "home_score": 0,
+            "away_score": 2,
+            "actual_result": "away_win",
+            "predicted_result": "home_win",
+            "was_correct": False,
+        }
+
+        response = client.post(
+            "/api/v1/predictions/12345/verify",
+            json={"home_score": 0, "away_score": 2},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["actual_result"] == "away_win"
+        assert data["was_correct"] is False
+
+    @patch("src.api.routes.predictions.verify_prediction")
+    def test_verify_prediction_not_found(
+        self,
+        mock_verify: MagicMock,
+        client: TestClient,
+    ):
+        """Test verification for non-existent prediction."""
+        mock_verify.return_value = None
+
+        response = client.post(
+            "/api/v1/predictions/99999/verify",
+            json={"home_score": 1, "away_score": 1},
+        )
+
+        assert response.status_code == 404
+        assert "No prediction found" in response.json()["detail"]
+
+    @patch("src.api.routes.predictions.verify_prediction")
+    def test_verify_prediction_draw(
+        self,
+        mock_verify: MagicMock,
+        client: TestClient,
+    ):
+        """Test verification with draw result."""
+        mock_verify.return_value = {
+            "match_id": 12345,
+            "home_score": 1,
+            "away_score": 1,
+            "actual_result": "draw",
+            "predicted_result": "draw",
+            "was_correct": True,
+        }
+
+        response = client.post(
+            "/api/v1/predictions/12345/verify",
+            json={"home_score": 1, "away_score": 1},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["actual_result"] == "draw"
+        assert data["was_correct"] is True
