@@ -22,6 +22,23 @@ logger = logging.getLogger(__name__)
 # Type aliases for match status
 MatchStatus = Literal["scheduled", "live", "finished", "postponed"]
 APIStatus = Literal["SCHEDULED", "LIVE", "FINISHED"]
+DataSourceType = Literal["live_api", "cache", "database", "mock"]
+
+
+class DataSourceInfo(BaseModel):
+    """Information about data source and any warnings (Beta feature).
+
+    Distinguishes between:
+    - external_api_limited: football-data.org rate limit (10 req/min free tier)
+    - app_rate_limited: our API rate limit for user protection
+    """
+
+    source: DataSourceType = "live_api"
+    is_fallback: bool = False
+    warning: str | None = None
+    warning_code: str | None = None  # e.g., "EXTERNAL_API_RATE_LIMIT", "STALE_CACHE"
+    details: str | None = None
+    retry_after_seconds: int | None = None  # When to retry for fresh data
 
 
 def _generate_mock_matches() -> list["MatchResponse"]:
@@ -103,6 +120,8 @@ class MatchListResponse(BaseModel):
     total: int
     page: int
     per_page: int
+    # Beta: data source info for transparency
+    data_source: DataSourceInfo | None = None
 
 
 class TeamFormMatch(BaseModel):
@@ -128,6 +147,8 @@ class TeamFormResponse(BaseModel):
     clean_sheets: int
     xg_for_avg: float | None = None
     xg_against_avg: float | None = None
+    # Beta: data source info for transparency
+    data_source: DataSourceInfo | None = None
 
 
 class StandingTeamResponse(BaseModel):
@@ -154,6 +175,8 @@ class StandingsResponse(BaseModel):
     competition_name: str
     standings: list[StandingTeamResponse]
     last_updated: datetime | None = None
+    # Beta: data source info for transparency
+    data_source: DataSourceInfo | None = None
 
 
 class HeadToHeadMatch(BaseModel):
@@ -176,6 +199,8 @@ class HeadToHeadResponse(BaseModel):
     away_wins: int
     avg_goals: float
     total_matches: int
+    # Beta: data source info for transparency
+    data_source: DataSourceInfo | None = None
 
 
 def _convert_api_match(api_match: MatchData) -> MatchResponse:
@@ -306,9 +331,67 @@ async def get_matches(
             total=total,
             page=page,
             per_page=per_page,
+            data_source=DataSourceInfo(source="live_api"),
         )
 
-    except (RateLimitError, FootballDataAPIError, Exception) as e:
+    except RateLimitError as e:
+        logger.warning(f"External API rate limit: {e}, trying database fallback...")
+        retry_after = e.details.get("retry_after", 60) if e.details else 60
+
+        # Try database first
+        try:
+            db_matches = get_matches_from_db(
+                date_from=date_from,
+                date_to=date_to,
+                competition=competition,
+            )
+
+            if db_matches:
+                logger.info(f"Found {len(db_matches)} matches in database")
+                matches = [_convert_api_match(MatchData(**m)) for m in db_matches]
+                matches = sorted(matches, key=lambda m: m.match_date)
+
+                total = len(matches)
+                start_idx = (page - 1) * per_page
+                end_idx = start_idx + per_page
+                paginated_matches = matches[start_idx:end_idx]
+
+                return MatchListResponse(
+                    matches=paginated_matches,
+                    total=total,
+                    page=page,
+                    per_page=per_page,
+                    data_source=DataSourceInfo(
+                        source="database",
+                        is_fallback=True,
+                        warning="[BETA] Données en cache - Limite API externe atteinte (football-data.org: 10 req/min)",
+                        warning_code="EXTERNAL_API_RATE_LIMIT",
+                        details="Les données peuvent avoir quelques minutes de retard",
+                        retry_after_seconds=retry_after,
+                    ),
+                )
+        except Exception as db_error:
+            logger.warning(f"Database fallback failed: {db_error}")
+
+        # Final fallback to mock data
+        logger.warning("Using mock data as final fallback")
+        matches = _generate_mock_matches()
+        return MatchListResponse(
+            matches=matches[:per_page],
+            total=len(matches),
+            page=page,
+            per_page=per_page,
+            data_source=DataSourceInfo(
+                source="mock",
+                is_fallback=True,
+                warning="[BETA] Données de démonstration - Limite API externe atteinte",
+                warning_code="EXTERNAL_API_RATE_LIMIT",
+                details="API football-data.org temporairement indisponible (10 req/min). Données fictives affichées.",
+                retry_after_seconds=retry_after,
+            ),
+        )
+
+    except (FootballDataAPIError, Exception) as e:
         logger.warning(f"API error: {e}, trying database fallback...")
 
         # Try database first
@@ -334,6 +417,13 @@ async def get_matches(
                     total=total,
                     page=page,
                     per_page=per_page,
+                    data_source=DataSourceInfo(
+                        source="database",
+                        is_fallback=True,
+                        warning="[BETA] Données en cache - API externe indisponible",
+                        warning_code="EXTERNAL_API_ERROR",
+                        details=f"Erreur: {str(e)[:100]}",
+                    ),
                 )
         except Exception as db_error:
             logger.warning(f"Database fallback failed: {db_error}")
@@ -346,6 +436,13 @@ async def get_matches(
             total=len(matches),
             page=page,
             per_page=per_page,
+            data_source=DataSourceInfo(
+                source="mock",
+                is_fallback=True,
+                warning="[BETA] Données de démonstration - API externe indisponible",
+                warning_code="EXTERNAL_API_ERROR",
+                details=f"Erreur: {str(e)[:100]}. Données fictives affichées.",
+            ),
         )
 
 
@@ -373,16 +470,43 @@ async def get_upcoming_matches(
             total=len(matches),
             page=1,
             per_page=len(matches),
+            data_source=DataSourceInfo(source="live_api"),
         )
 
-    except (RateLimitError, FootballDataAPIError, Exception) as e:
-        logger.warning(f"API error in upcoming: {e}, using mock data")
-        matches = _generate_mock_matches()[:5]  # Only first 5 for upcoming
+    except RateLimitError as e:
+        logger.warning(f"External API rate limit in upcoming: {e}, using mock data")
+        retry_after = e.details.get("retry_after", 60) if e.details else 60
+        matches = _generate_mock_matches()[:5]
         return MatchListResponse(
             matches=matches,
             total=len(matches),
             page=1,
             per_page=len(matches),
+            data_source=DataSourceInfo(
+                source="mock",
+                is_fallback=True,
+                warning="[BETA] Données de démonstration - Limite API externe atteinte (10 req/min)",
+                warning_code="EXTERNAL_API_RATE_LIMIT",
+                details="API football-data.org temporairement saturée",
+                retry_after_seconds=retry_after,
+            ),
+        )
+
+    except (FootballDataAPIError, Exception) as e:
+        logger.warning(f"API error in upcoming: {e}, using mock data")
+        matches = _generate_mock_matches()[:5]
+        return MatchListResponse(
+            matches=matches,
+            total=len(matches),
+            page=1,
+            per_page=len(matches),
+            data_source=DataSourceInfo(
+                source="mock",
+                is_fallback=True,
+                warning="[BETA] Données de démonstration - API externe indisponible",
+                warning_code="EXTERNAL_API_ERROR",
+                details=f"Erreur: {str(e)[:100]}",
+            ),
         )
 
 
@@ -476,11 +600,12 @@ async def get_head_to_head(
             away_wins=away_wins,
             avg_goals=round(avg_goals, 2),
             total_matches=total_matches,
+            data_source=DataSourceInfo(source="live_api"),
         )
 
-    except (RateLimitError, FootballDataAPIError, Exception) as e:
-        logger.warning(f"API error for head-to-head: {e}, using mock data")
-        # Return mock head-to-head data
+    except RateLimitError as e:
+        logger.warning(f"External API rate limit for H2H: {e}, using mock data")
+        retry_after = e.details.get("retry_after", 60) if e.details else 60
         return HeadToHeadResponse(
             matches=[],
             home_wins=3,
@@ -488,6 +613,32 @@ async def get_head_to_head(
             away_wins=2,
             avg_goals=2.8,
             total_matches=7,
+            data_source=DataSourceInfo(
+                source="mock",
+                is_fallback=True,
+                warning="[BETA] Historique H2H estimé - Limite API externe atteinte",
+                warning_code="EXTERNAL_API_RATE_LIMIT",
+                details="football-data.org temporairement saturée (10 req/min)",
+                retry_after_seconds=retry_after,
+            ),
+        )
+
+    except (FootballDataAPIError, Exception) as e:
+        logger.warning(f"API error for head-to-head: {e}, using mock data")
+        return HeadToHeadResponse(
+            matches=[],
+            home_wins=3,
+            draws=2,
+            away_wins=2,
+            avg_goals=2.8,
+            total_matches=7,
+            data_source=DataSourceInfo(
+                source="mock",
+                is_fallback=True,
+                warning="[BETA] Historique H2H estimé - API externe indisponible",
+                warning_code="EXTERNAL_API_ERROR",
+                details=f"Erreur: {str(e)[:80]}",
+            ),
         )
 
 
@@ -580,11 +731,12 @@ async def get_team_form(
             goals_scored_avg=round(goals_scored / num_matches, 2) if num_matches > 0 else 0.0,
             goals_conceded_avg=round(goals_conceded / num_matches, 2) if num_matches > 0 else 0.0,
             clean_sheets=clean_sheets,
+            data_source=DataSourceInfo(source="live_api"),
         )
 
-    except (RateLimitError, FootballDataAPIError, Exception) as e:
-        logger.warning(f"API error for team form: {e}, using mock data")
-        # Return mock form data - use provided team_name if available
+    except RateLimitError as e:
+        logger.warning(f"External API rate limit for team form: {e}, using mock data")
+        retry_after = e.details.get("retry_after", 60) if e.details else 60
         fallback_name = team_name if team_name else "Équipe inconnue"
         return TeamFormResponse(
             team_id=team_id,
@@ -595,6 +747,35 @@ async def get_team_form(
             goals_scored_avg=1.8,
             goals_conceded_avg=0.8,
             clean_sheets=2,
+            data_source=DataSourceInfo(
+                source="mock",
+                is_fallback=True,
+                warning="[BETA] Forme estimée - Limite API externe atteinte (10 req/min)",
+                warning_code="EXTERNAL_API_RATE_LIMIT",
+                details=f"football-data.org temporairement saturée pour {fallback_name}",
+                retry_after_seconds=retry_after,
+            ),
+        )
+
+    except (FootballDataAPIError, Exception) as e:
+        logger.warning(f"API error for team form: {e}, using mock data")
+        fallback_name = team_name if team_name else "Équipe inconnue"
+        return TeamFormResponse(
+            team_id=team_id,
+            team_name=fallback_name,
+            last_matches=[],
+            form_string="WDWLW",
+            points_last_5=10,
+            goals_scored_avg=1.8,
+            goals_conceded_avg=0.8,
+            clean_sheets=2,
+            data_source=DataSourceInfo(
+                source="mock",
+                is_fallback=True,
+                warning="[BETA] Forme estimée - API externe indisponible",
+                warning_code="EXTERNAL_API_ERROR",
+                details=f"Erreur pour {fallback_name}: {str(e)[:80]}",
+            ),
         )
 
 
@@ -658,17 +839,18 @@ async def get_standings(
             competition_name=COMPETITIONS.get(competition_code, competition_code),
             standings=standings,
             last_updated=datetime.now(),
+            data_source=DataSourceInfo(source="live_api"),
         )
 
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
-    except (RateLimitError, FootballDataAPIError, Exception) as e:
-        logger.warning(f"API error for standings {competition_code}: {e}, trying database...")
+    except RateLimitError as e:
+        logger.warning(f"External API rate limit for standings {competition_code}: {e}")
+        retry_after = e.details.get("retry_after", 60) if e.details else 60
 
         # Try database first
         try:
-
             db_standings = get_standings_from_db(competition_code)
             if db_standings:
                 logger.info(f"Found {len(db_standings)} standings in DB for {competition_code}")
@@ -697,33 +879,92 @@ async def get_standings(
                     competition_name=COMPETITIONS.get(competition_code, competition_code),
                     standings=standings,
                     last_updated=datetime.now(),
+                    data_source=DataSourceInfo(
+                        source="database",
+                        is_fallback=True,
+                        warning="[BETA] Classement en cache - Limite API externe atteinte",
+                        warning_code="EXTERNAL_API_RATE_LIMIT",
+                        details="football-data.org temporairement saturée (10 req/min)",
+                        retry_after_seconds=retry_after,
+                    ),
                 )
         except Exception as db_error:
             logger.warning(f"Database fallback failed for standings: {db_error}")
 
-        # Final fallback to mock data
-        logger.warning(f"Using mock data for standings {competition_code}")
-        mock_standings = [
-            StandingTeamResponse(
-                position=i + 1,
-                team_id=1000 + i,
-                team_name=f"Team {i + 1}",
-                team_logo_url=None,
-                played=30,
-                won=20 - i,
-                drawn=6 - (i % 3),
-                lost=4 + i,
-                goals_for=70 - (i * 2),
-                goals_against=30 + (i * 2),
-                goal_difference=40 - (i * 4),
-                points=66 - (i * 3),
-            )
-            for i in range(20)
-        ]
+    except (FootballDataAPIError, Exception) as e:
+        logger.warning(f"API error for standings {competition_code}: {e}, trying database...")
 
-        return StandingsResponse(
-            competition_code=competition_code,
-            competition_name=COMPETITIONS.get(competition_code, competition_code),
-            standings=mock_standings,
-            last_updated=datetime.now(),
+        # Try database first
+        try:
+            db_standings = get_standings_from_db(competition_code)
+            if db_standings:
+                logger.info(f"Found {len(db_standings)} standings in DB for {competition_code}")
+                standings = []
+                for db_team in db_standings:
+                    team_data = db_team.get("team", {})
+                    standings.append(
+                        StandingTeamResponse(
+                            position=db_team.get("position", 0),
+                            team_id=team_data.get("id", 0),
+                            team_name=team_data.get("name", "Unknown"),
+                            team_logo_url=team_data.get("crest"),
+                            played=db_team.get("playedGames", 0),
+                            won=db_team.get("won", 0),
+                            drawn=db_team.get("draw", 0),
+                            lost=db_team.get("lost", 0),
+                            goals_for=db_team.get("goalsFor", 0),
+                            goals_against=db_team.get("goalsAgainst", 0),
+                            goal_difference=db_team.get("goalDifference", 0),
+                            points=db_team.get("points", 0),
+                        )
+                    )
+
+                return StandingsResponse(
+                    competition_code=competition_code,
+                    competition_name=COMPETITIONS.get(competition_code, competition_code),
+                    standings=standings,
+                    last_updated=datetime.now(),
+                    data_source=DataSourceInfo(
+                        source="database",
+                        is_fallback=True,
+                        warning="[BETA] Classement en cache - API externe indisponible",
+                        warning_code="EXTERNAL_API_ERROR",
+                        details=f"Erreur: {str(e)[:80]}",
+                    ),
+                )
+        except Exception as db_error:
+            logger.warning(f"Database fallback failed for standings: {db_error}")
+
+    # Final fallback to mock data (outside exception blocks)
+    logger.warning(f"Using mock data for standings {competition_code}")
+    mock_standings = [
+        StandingTeamResponse(
+            position=i + 1,
+            team_id=1000 + i,
+            team_name=f"Team {i + 1}",
+            team_logo_url=None,
+            played=30,
+            won=20 - i,
+            drawn=6 - (i % 3),
+            lost=4 + i,
+            goals_for=70 - (i * 2),
+            goals_against=30 + (i * 2),
+            goal_difference=40 - (i * 4),
+            points=66 - (i * 3),
         )
+        for i in range(20)
+    ]
+
+    return StandingsResponse(
+        competition_code=competition_code,
+        competition_name=COMPETITIONS.get(competition_code, competition_code),
+        standings=mock_standings,
+        last_updated=datetime.now(),
+        data_source=DataSourceInfo(
+            source="mock",
+            is_fallback=True,
+            warning="[BETA] Classement de démonstration - API externe indisponible",
+            warning_code="EXTERNAL_API_ERROR",
+            details="Données fictives affichées. Réessayez dans quelques instants.",
+        ),
+    )
