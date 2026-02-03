@@ -3,10 +3,10 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel
 
-from src.auth.dependencies import get_current_user, require_authenticated
+from src.auth.dependencies import AuthenticatedUser, get_user_id, get_user_email
 from src.services.stripe_service import stripe_service
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class CancelRequest(BaseModel):
 @router.post("/create-checkout-session", response_model=CheckoutResponse)
 async def create_checkout_session(
     request: CreateCheckoutRequest,
-    current_user: Annotated[dict, Depends(require_authenticated)],
+    current_user: AuthenticatedUser,
 ):
     """
     Create a Stripe Checkout session for subscription purchase.
@@ -103,7 +103,7 @@ async def create_checkout_session(
 @router.post("/create-portal-session", response_model=PortalResponse)
 async def create_portal_session(
     request: PortalRequest,
-    current_user: Annotated[dict, Depends(require_authenticated)],
+    current_user: AuthenticatedUser,
 ):
     """
     Create a Stripe Customer Portal session for subscription management.
@@ -136,7 +136,7 @@ async def create_portal_session(
 
 @router.get("/subscription", response_model=SubscriptionResponse | None)
 async def get_subscription(
-    current_user: Annotated[dict, Depends(require_authenticated)],
+    current_user: AuthenticatedUser,
 ):
     """
     Get the current user's subscription details.
@@ -164,7 +164,7 @@ async def get_subscription(
 @router.post("/cancel-subscription")
 async def cancel_subscription(
     request: CancelRequest,
-    current_user: Annotated[dict, Depends(require_authenticated)],
+    current_user: AuthenticatedUser,
 ):
     """
     Cancel the current user's subscription.
