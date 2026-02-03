@@ -1973,3 +1973,207 @@ class TestFatigueServiceSingleton:
         service1 = get_fatigue_service()
         service2 = get_fatigue_service()
         assert service1 is service2
+
+
+# =============================================================================
+# Model Loader Tests (Extended Feature Set)
+# =============================================================================
+
+
+class TestModelLoaderFeatureConstants:
+    """Test feature set constants."""
+
+    def test_feature_set_constants_defined(self):
+        """Test that feature set constants are defined."""
+        from src.ml.model_loader import FEATURE_SET_LEGACY, FEATURE_SET_EXTENDED
+
+        assert FEATURE_SET_LEGACY == 7
+        assert FEATURE_SET_EXTENDED == 19
+
+
+class TestModelLoaderCreateFeatures:
+    """Test create_features method with extended feature set."""
+
+    def test_create_features_legacy_size(self):
+        """Test that legacy feature set has 7 features."""
+        from src.ml.model_loader import TrainedModelLoader
+
+        # Create a fresh loader (no models = legacy mode)
+        loader = object.__new__(TrainedModelLoader)
+        loader.xgb_model = None
+        loader.rf_model = None
+        loader.feature_state = None
+
+        features = loader.create_features(
+            home_team_id=1,
+            away_team_id=2,
+            home_attack=1.5,
+            home_defense=1.2,
+            away_attack=1.3,
+            away_defense=1.4,
+            home_form=60.0,
+            away_form=50.0,
+        )
+
+        assert features.shape == (1, 7)
+
+    def test_create_features_accepts_fatigue_params(self):
+        """Test that create_features accepts fatigue parameters."""
+        from src.ml.model_loader import TrainedModelLoader
+
+        loader = object.__new__(TrainedModelLoader)
+        loader.xgb_model = None
+        loader.rf_model = None
+        loader.feature_state = None
+
+        # Should not raise
+        features = loader.create_features(
+            home_team_id=1,
+            away_team_id=2,
+            home_rest_days=0.8,
+            home_congestion=0.7,
+            away_rest_days=0.5,
+            away_congestion=0.6,
+        )
+
+        assert features is not None
+        assert features.shape == (1, 7)  # Legacy mode ignores fatigue
+
+    def test_create_features_extended_values(self):
+        """Test that extended feature set contains correct values."""
+        from src.ml.model_loader import TrainedModelLoader, FEATURE_SET_EXTENDED
+        from unittest.mock import MagicMock
+
+        loader = object.__new__(TrainedModelLoader)
+        loader.feature_state = {"feature_count": FEATURE_SET_EXTENDED}
+
+        # Mock model with expected feature count
+        mock_model = MagicMock()
+        mock_model.n_features_in_ = FEATURE_SET_EXTENDED
+        loader.xgb_model = mock_model
+        loader.rf_model = None
+
+        features = loader.create_features(
+            home_team_id=1,
+            away_team_id=2,
+            home_attack=1.5,
+            home_defense=1.2,
+            away_attack=1.3,
+            away_defense=1.4,
+            home_form=60.0,
+            away_form=50.0,
+            home_rest_days=0.8,
+            home_congestion=0.7,
+            away_rest_days=0.5,
+            away_congestion=0.6,
+        )
+
+        assert features.shape == (1, 19)
+
+        # Check base features
+        assert features[0, 0] == 1.5  # home_attack
+        assert features[0, 1] == 1.2  # home_defense
+        assert features[0, 4] == 0.6  # home_form (normalized)
+
+        # Check fatigue features
+        assert features[0, 7] == 0.8  # home_rest_days
+        assert features[0, 8] == 0.7  # home_congestion
+        assert features[0, 9] == 0.5  # away_rest_days
+        assert features[0, 10] == 0.6  # away_congestion
+
+        # Check interaction features
+        form_diff = 0.6 - 0.5  # home_form - away_form
+        assert abs(features[0, 13] - form_diff) < 0.001  # form_differential
+
+
+class TestModelLoaderGetExpectedFeatureCount:
+    """Test _get_expected_feature_count method."""
+
+    def test_returns_legacy_when_no_models(self):
+        """Test returns legacy count when no models loaded."""
+        from src.ml.model_loader import TrainedModelLoader, FEATURE_SET_LEGACY
+
+        loader = object.__new__(TrainedModelLoader)
+        loader.xgb_model = None
+        loader.rf_model = None
+        loader.feature_state = None
+
+        assert loader._get_expected_feature_count() == FEATURE_SET_LEGACY
+
+    def test_reads_from_feature_state(self):
+        """Test reads feature count from feature_state."""
+        from src.ml.model_loader import TrainedModelLoader, FEATURE_SET_EXTENDED
+
+        loader = object.__new__(TrainedModelLoader)
+        loader.xgb_model = None
+        loader.rf_model = None
+        loader.feature_state = {"feature_count": FEATURE_SET_EXTENDED}
+
+        assert loader._get_expected_feature_count() == FEATURE_SET_EXTENDED
+
+    def test_reads_from_model_n_features_in(self):
+        """Test reads feature count from model's n_features_in_."""
+        from src.ml.model_loader import TrainedModelLoader
+        from unittest.mock import MagicMock
+
+        loader = object.__new__(TrainedModelLoader)
+        mock_model = MagicMock()
+        mock_model.n_features_in_ = 19
+        loader.xgb_model = mock_model
+        loader.rf_model = None
+        loader.feature_state = None
+
+        assert loader._get_expected_feature_count() == 19
+
+
+class TestModelLoaderPredictEnsembleMetadata:
+    """Test predict_ensemble returns metadata about features."""
+
+    def test_returns_feature_count_in_result(self):
+        """Test that result includes feature_count."""
+        from src.ml.model_loader import TrainedModelLoader, FEATURE_SET_LEGACY
+        from unittest.mock import MagicMock
+
+        loader = object.__new__(TrainedModelLoader)
+        loader.feature_state = None
+
+        # Mock XGBoost model
+        mock_xgb = MagicMock()
+        mock_xgb.n_features_in_ = FEATURE_SET_LEGACY
+        mock_xgb.predict_proba.return_value = [[0.5, 0.25, 0.25]]
+        loader.xgb_model = mock_xgb
+        loader.rf_model = None
+
+        result = loader.predict_ensemble(home_team_id=1, away_team_id=2)
+
+        assert result is not None
+        assert "feature_count" in result
+        assert result["feature_count"] == FEATURE_SET_LEGACY
+
+    def test_returns_uses_fatigue_features_flag(self):
+        """Test that result includes uses_fatigue_features flag."""
+        from src.ml.model_loader import TrainedModelLoader, FEATURE_SET_EXTENDED
+        from unittest.mock import MagicMock
+
+        loader = object.__new__(TrainedModelLoader)
+        loader.feature_state = {"feature_count": FEATURE_SET_EXTENDED}
+
+        # Mock XGBoost model with extended features
+        mock_xgb = MagicMock()
+        mock_xgb.n_features_in_ = FEATURE_SET_EXTENDED
+        mock_xgb.predict_proba.return_value = [[0.5, 0.25, 0.25]]
+        loader.xgb_model = mock_xgb
+        loader.rf_model = None
+
+        result = loader.predict_ensemble(
+            home_team_id=1,
+            away_team_id=2,
+            home_rest_days=0.8,
+            home_congestion=0.7,
+            away_rest_days=0.5,
+            away_congestion=0.6,
+        )
+
+        assert result is not None
+        assert "uses_fatigue_features" in result
+        assert result["uses_fatigue_features"] is True

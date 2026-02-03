@@ -2,6 +2,10 @@
 
 Loads trained XGBoost and Random Forest models for inference.
 Provides a unified interface for predictions.
+
+Supports two feature sets:
+- Legacy (7 features): attack/defense/form/h2h
+- Extended (19 features): + fatigue + interaction features
 """
 
 import logging
@@ -12,6 +16,10 @@ from typing import Any
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+# Feature set versions
+FEATURE_SET_LEGACY = 7
+FEATURE_SET_EXTENDED = 19
 
 ML_DIR = Path(__file__).parent
 MODELS_DIR = ML_DIR / "trained_models"
@@ -123,6 +131,31 @@ class TrainedModelLoader:
             "matches_played": len(goals_scored),
         }
 
+    def _get_expected_feature_count(self) -> int:
+        """Detect expected feature count from loaded model."""
+        # Try XGBoost first
+        if self.xgb_model is not None:
+            try:
+                if hasattr(self.xgb_model, "n_features_in_"):
+                    return int(self.xgb_model.n_features_in_)
+            except Exception:
+                pass
+
+        # Try Random Forest
+        if self.rf_model is not None:
+            try:
+                if hasattr(self.rf_model, "n_features_in_"):
+                    return int(self.rf_model.n_features_in_)
+            except Exception:
+                pass
+
+        # Check feature state for version info
+        if self.feature_state and "feature_count" in self.feature_state:
+            return int(self.feature_state["feature_count"])
+
+        # Default to legacy
+        return FEATURE_SET_LEGACY
+
     def create_features(
         self,
         home_team_id: int,
@@ -133,11 +166,34 @@ class TrainedModelLoader:
         away_defense: float = 1.3,
         home_form: float = 50.0,
         away_form: float = 50.0,
+        # Fatigue features (for extended feature set)
+        home_rest_days: float = 0.5,
+        home_congestion: float = 0.5,
+        away_rest_days: float = 0.5,
+        away_congestion: float = 0.5,
     ) -> np.ndarray:
         """
         Create feature vector for prediction.
 
         Uses historical data if available, otherwise uses provided values.
+        Automatically detects if model expects legacy (7) or extended (19) features.
+
+        Args:
+            home_team_id: Home team ID
+            away_team_id: Away team ID
+            home_attack: Home team attack strength
+            home_defense: Home team defense strength
+            away_attack: Away team attack strength
+            away_defense: Away team defense strength
+            home_form: Home team form (0-100)
+            away_form: Away team form (0-100)
+            home_rest_days: Home team rest score (0=fatigued, 1=rested)
+            home_congestion: Home team congestion score (0=congested, 1=light)
+            away_rest_days: Away team rest score
+            away_congestion: Away team congestion score
+
+        Returns:
+            Feature array sized for the loaded model
         """
         # Try to use historical data
         if self.feature_state:
@@ -166,19 +222,66 @@ class TrainedModelLoader:
                     points = wins * 3 + draws
                     h2h = points / (len(results) * 3)
 
-        return np.array(
-            [
-                [
-                    home_attack,
-                    home_defense,
-                    away_attack,
-                    away_defense,
-                    home_form / 100.0,
-                    away_form / 100.0,
-                    h2h,
-                ]
+        # Normalize form to 0-1
+        home_form_norm = home_form / 100.0
+        away_form_norm = away_form / 100.0
+
+        # Check which feature set the model expects
+        expected_features = self._get_expected_feature_count()
+
+        if expected_features >= FEATURE_SET_EXTENDED:
+            # Extended feature set (19 features)
+            # Base features (7)
+            base = [
+                home_attack,
+                home_defense,
+                away_attack,
+                away_defense,
+                home_form_norm,
+                away_form_norm,
+                h2h,
             ]
-        )
+
+            # Fatigue features (4)
+            fatigue = [
+                home_rest_days,
+                home_congestion,
+                away_rest_days,
+                away_congestion,
+            ]
+
+            # Interaction features (8)
+            home_fatigue_combined = (home_rest_days + home_congestion) / 2
+            away_fatigue_combined = (away_rest_days + away_congestion) / 2
+
+            interactions = [
+                home_attack - away_defense,  # attack_vs_defense_home
+                away_attack - home_defense,  # attack_vs_defense_away
+                home_form_norm - away_form_norm,  # form_differential
+                home_attack * home_form_norm,  # home_attack_form
+                away_attack * away_form_norm,  # away_attack_form
+                home_fatigue_combined - away_fatigue_combined,  # fatigue_advantage
+                home_attack * home_fatigue_combined,  # home_attack_fatigue
+                away_attack * away_fatigue_combined,  # away_attack_fatigue
+            ]
+
+            return np.array([base + fatigue + interactions])
+
+        else:
+            # Legacy feature set (7 features)
+            return np.array(
+                [
+                    [
+                        home_attack,
+                        home_defense,
+                        away_attack,
+                        away_defense,
+                        home_form_norm,
+                        away_form_norm,
+                        h2h,
+                    ]
+                ]
+            )
 
     def predict_xgboost(self, features: np.ndarray) -> tuple[np.ndarray, float] | None:
         """
@@ -234,6 +337,11 @@ class TrainedModelLoader:
         away_form: float = 50.0,
         xgb_weight: float = 0.7,
         rf_weight: float = 0.3,
+        # Fatigue features (for extended feature set)
+        home_rest_days: float = 0.5,
+        home_congestion: float = 0.5,
+        away_rest_days: float = 0.5,
+        away_congestion: float = 0.5,
     ) -> dict[str, Any] | None:
         """
         Make ensemble prediction combining both models.
@@ -250,6 +358,10 @@ class TrainedModelLoader:
             away_defense,
             home_form,
             away_form,
+            home_rest_days,
+            home_congestion,
+            away_rest_days,
+            away_congestion,
         )
 
         xgb_result = self.predict_xgboost(features)
@@ -286,6 +398,8 @@ class TrainedModelLoader:
             "confidence": float(confidence),
             "model_used": model_used,
             "is_trained_model": True,
+            "feature_count": self._get_expected_feature_count(),
+            "uses_fatigue_features": self._get_expected_feature_count() >= FEATURE_SET_EXTENDED,
         }
 
 
@@ -302,11 +416,17 @@ def get_ml_prediction(
     away_defense: float = 1.3,
     home_form: float = 50.0,
     away_form: float = 50.0,
+    # Fatigue features (for extended feature set)
+    home_rest_days: float = 0.5,
+    home_congestion: float = 0.5,
+    away_rest_days: float = 0.5,
+    away_congestion: float = 0.5,
 ) -> dict[str, Any] | None:
     """
     Convenience function to get ML prediction.
 
     Falls back to None if no trained models available.
+    Supports both legacy (7 features) and extended (19 features) models.
     """
     if not model_loader.is_trained():
         return None
@@ -320,4 +440,8 @@ def get_ml_prediction(
         away_defense,
         home_form,
         away_form,
+        home_rest_days=home_rest_days,
+        home_congestion=home_congestion,
+        away_rest_days=away_rest_days,
+        away_congestion=away_congestion,
     )

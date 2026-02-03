@@ -415,6 +415,11 @@ class AdvancedEnsemblePredictor:
         # Form scores for ML (0-100)
         home_form_score: float = 50.0,
         away_form_score: float = 50.0,
+        # Fatigue scores for extended ML features (0=fatigued, 1=rested)
+        home_rest_days: float = 0.5,
+        home_congestion: float = 0.5,
+        away_rest_days: float = 0.5,
+        away_congestion: float = 0.5,
     ) -> AdvancedEnsemblePrediction:
         """
         Make advanced ensemble prediction.
@@ -586,6 +591,11 @@ class AdvancedEnsemblePredictor:
                     away_defense=away_defense,
                     home_form=home_form_score,
                     away_form=away_form_score,
+                    # Pass fatigue data for extended feature models
+                    home_rest_days=home_rest_days,
+                    home_congestion=home_congestion,
+                    away_rest_days=away_rest_days,
+                    away_congestion=away_congestion,
                 )
 
                 if ml_result:

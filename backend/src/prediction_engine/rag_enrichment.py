@@ -10,6 +10,8 @@ prediction accuracy:
 
 import asyncio
 import logging
+import re
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -19,6 +21,248 @@ from groq import Groq
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Injury Parsing - Improved patterns to reduce false positives
+# =============================================================================
+
+
+@dataclass
+class InjuryInfo:
+    """Structured injury information extracted from news."""
+
+    player_name: str | None
+    injury_type: str | None
+    severity: str  # minor, moderate, serious, unknown
+    duration: str | None  # "2-3 weeks", "season", etc.
+    headline: str
+    confidence: float  # 0.0 to 1.0
+
+
+class InjuryParser:
+    """Parse injury information from news headlines with high precision."""
+
+    # Body parts that indicate injury
+    BODY_PARTS = [
+        "hamstring", "ischio", "cuisse",
+        "knee", "genou", "acl", "mcl", "lcl",
+        "ankle", "cheville",
+        "groin", "adducteur", "aine",
+        "calf", "mollet",
+        "back", "dos", "lombaire",
+        "shoulder", "épaule",
+        "hip", "hanche",
+        "thigh", "quadriceps",
+        "foot", "pied", "metatarsal",
+        "achilles", "tendon",
+        "muscle", "musculaire",
+        "ligament",
+    ]
+
+    # Injury action words
+    INJURY_ACTIONS = [
+        "injured", "blessé", "blessure", "injury",
+        "sidelined", "sidelines", "ruled out", "absent",
+        "miss", "misses", "manquera", "forfait",
+        "surgery", "opération", "opéré",
+        "scan", "tests", "examen",
+        "strain", "sprain", "tear", "rupture",
+        "fracture", "broken", "cassé",
+        "doubtful", "doubt", "incertain",
+        "fitness concern", "fitness doubt", "fitness",
+        "limped off", "carried off", "sorti sur blessure",
+        "blow", "setback", "coup dur",
+        "out for", "absent pour",
+        "return from injury", "retour de blessure",
+        "knock", "minor knock", "slight",
+        "long-term", "long term",
+        "concern", "problem", "issue",
+    ]
+
+    # Suspension keywords
+    SUSPENSION_KEYWORDS = [
+        "suspended", "suspendu", "suspension",
+        "red card", "carton rouge",
+        "ban", "banned", "interdit",
+        "yellow card accumulation", "cumul de cartons",
+    ]
+
+    # Duration patterns
+    DURATION_PATTERNS = [
+        (r"(\d+)\s*(?:to|-)\s*(\d+)\s*weeks?", lambda m: f"{m.group(1)}-{m.group(2)} weeks"),
+        (r"(\d+)\s*weeks?", lambda m: f"{m.group(1)} weeks"),
+        (r"(\d+)\s*(?:to|-)\s*(\d+)\s*months?", lambda m: f"{m.group(1)}-{m.group(2)} months"),
+        (r"(\d+)\s*months?", lambda m: f"{m.group(1)} months"),
+        (r"(\d+)\s*(?:to|-)\s*(\d+)\s*jours?", lambda m: f"{m.group(1)}-{m.group(2)} days"),
+        (r"(\d+)\s*(?:to|-)\s*(\d+)\s*semaines?", lambda m: f"{m.group(1)}-{m.group(2)} weeks"),
+        (r"rest of (?:the )?season", lambda m: "rest of season"),
+        (r"fin de saison", lambda m: "rest of season"),
+        (r"long[ -]term", lambda m: "long-term"),
+        (r"longue durée", lambda m: "long-term"),
+    ]
+
+    # FALSE POSITIVE patterns - headlines to EXCLUDE
+    FALSE_POSITIVE_PATTERNS = [
+        r"out of contract",  # Transfer news
+        r"contract (?:runs )?out",  # Contract expiration
+        r"speaking out",  # Interviews
+        r"lash(?:es)? out",  # Criticism
+        r"drops? out of (?:transfer|race|running)",  # Transfer news
+        r"rules? out (?:transfer|move|deal|signing)",  # Transfer news
+        r"time out",  # Break
+        r"knock(?:ed)? out of",  # Competition elimination (any context)
+        r"priced out",  # Too expensive
+        r"out of favour",  # Not playing
+        r"frozen out",  # Not playing
+        r"loan move",  # Transfer
+        r"transfer target",  # Transfer
+        r"interest in",  # Transfer speculation
+        r"set to sign",  # Transfer
+        r"closes in on",  # Transfer
+        r"agrees (?:terms|deal)",  # Transfer
+        r"(?:could|may|might) leave",  # Transfer speculation
+        r"exit",  # Transfer
+        r"departure",  # Transfer
+    ]
+
+    @classmethod
+    def parse_headline(cls, headline: str, team_name: str) -> InjuryInfo | None:
+        """
+        Parse a headline for injury information.
+
+        Returns None if not injury-related or if it's a false positive.
+        """
+        headline_lower = headline.lower()
+
+        # Check for false positives FIRST
+        for pattern in cls.FALSE_POSITIVE_PATTERNS:
+            if re.search(pattern, headline_lower):
+                logger.debug(f"Excluded false positive: {headline[:60]}...")
+                return None
+
+        # Check if headline contains injury indicators
+        has_body_part = any(bp in headline_lower for bp in cls.BODY_PARTS)
+        has_injury_action = any(ia in headline_lower for ia in cls.INJURY_ACTIONS)
+        has_suspension = any(sk in headline_lower for sk in cls.SUSPENSION_KEYWORDS)
+
+        # Need at least one injury indicator
+        if not (has_body_part or has_injury_action or has_suspension):
+            return None
+
+        # Calculate confidence based on indicators
+        confidence = 0.4
+        if has_body_part:
+            confidence += 0.3
+        if has_injury_action:
+            confidence += 0.2
+        if has_suspension:
+            confidence += 0.2
+
+        # Extract player name (simple heuristic)
+        player_name = cls._extract_player_name(headline, team_name)
+        if player_name:
+            confidence += 0.1
+
+        # Extract injury type
+        injury_type = cls._extract_injury_type(headline_lower)
+
+        # Extract duration
+        duration = cls._extract_duration(headline_lower)
+
+        # Determine severity
+        severity = cls._estimate_severity(headline_lower, duration)
+
+        return InjuryInfo(
+            player_name=player_name,
+            injury_type=injury_type,
+            severity=severity,
+            duration=duration,
+            headline=headline[:150],
+            confidence=min(confidence, 1.0),
+        )
+
+    @classmethod
+    def _extract_player_name(cls, headline: str, team_name: str) -> str | None:
+        """Extract player name from headline using patterns."""
+        # Pattern: "Player Name injured/ruled out/etc"
+        # Look for capitalized words before injury keywords
+        patterns = [
+            # "Mohamed Salah ruled out"
+            r"([A-Z][a-zé]+(?:\s+[A-Z][a-zé]+){1,2})\s+(?:ruled out|injured|sidelined|doubtful|set to miss)",
+            # "injury blow for Mohamed Salah"
+            r"(?:injury|blow|setback)\s+(?:for|to)\s+([A-Z][a-zé]+(?:\s+[A-Z][a-zé]+){1,2})",
+            # "Mohamed Salah's injury"
+            r"([A-Z][a-zé]+(?:\s+[A-Z][a-zé]+)?)'s\s+(?:injury|fitness|hamstring|knee)",
+            # French: "Blessure de Mohamed Salah"
+            r"[Bb]lessure\s+(?:de|pour)\s+([A-Z][a-zé]+(?:\s+[A-Z][a-zé]+){1,2})",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, headline)
+            if match:
+                name = match.group(1)
+                # Exclude team name from being detected as player
+                if team_name.lower() not in name.lower():
+                    return name
+
+        return None
+
+    @classmethod
+    def _extract_injury_type(cls, headline_lower: str) -> str | None:
+        """Extract the type of injury."""
+        # Check body parts
+        for bp in cls.BODY_PARTS:
+            if bp in headline_lower:
+                return bp
+
+        # Check for suspension
+        for sk in cls.SUSPENSION_KEYWORDS:
+            if sk in headline_lower:
+                return "suspension"
+
+        return None
+
+    @classmethod
+    def _extract_duration(cls, headline_lower: str) -> str | None:
+        """Extract injury duration from headline."""
+        for pattern, formatter in cls.DURATION_PATTERNS:
+            match = re.search(pattern, headline_lower)
+            if match:
+                return formatter(match)
+        return None
+
+    @classmethod
+    def _estimate_severity(cls, headline_lower: str, duration: str | None) -> str:
+        """Estimate injury severity."""
+        # Minor keywords - check first (more specific)
+        minor_keywords = ["minor", "slight", "small", "little"]
+        if any(kw in headline_lower for kw in minor_keywords):
+            return "minor"
+
+        # Keywords for serious injuries
+        serious_keywords = ["surgery", "opération", "acl", "season", "long-term", "long term", "rupture"]
+        if any(kw in headline_lower for kw in serious_keywords):
+            return "serious"
+
+        # Keywords for moderate injuries
+        moderate_keywords = ["weeks", "semaines", "month", "mois", "ruled out", "sidelined"]
+        if any(kw in headline_lower for kw in moderate_keywords):
+            return "moderate"
+
+        # Duration-based estimation
+        if duration:
+            if "month" in duration or "season" in duration or "long" in duration:
+                return "serious"
+            if "week" in duration:
+                return "moderate"
+
+        # Minor keywords (less specific)
+        minor_secondary = ["doubt", "concern", "knock", "fitness"]
+        if any(kw in headline_lower for kw in minor_secondary):
+            return "minor"
+
+        return "unknown"
 
 
 class RAGEnrichment:
@@ -145,40 +389,83 @@ class RAGEnrichment:
         return news
 
     async def _fetch_team_injuries(self, team_name: str) -> list[dict[str, Any]]:
-        """Fetch injury/suspension information for a team from football-data.org."""
+        """
+        Fetch injury/suspension information for a team from Google News.
+
+        Uses improved InjuryParser to reduce false positives and extract
+        structured information (player name, injury type, severity, duration).
+        """
         injuries: list[dict[str, Any]] = []
 
         try:
-            # Use football-data.org API if available (includes squad info)
-            # Or fallback to searching Google News for injury news
-            search_term = f"{team_name.replace(' ', '+')}+blessure+injury"
-            rss_url = f"https://news.google.com/rss/search?q={search_term}&hl=fr&gl=FR&ceid=FR:fr"
+            # Search for injury-related news in both English and French
+            search_queries = [
+                f"{team_name.replace(' ', '+')}+injury+injured",
+                f"{team_name.replace(' ', '+')}+blessure+blessé",
+                f"{team_name.replace(' ', '+')}+ruled+out",
+                f"{team_name.replace(' ', '+')}+suspendu+suspended",
+            ]
+
+            all_headlines: list[tuple[str, str | None]] = []
 
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(rss_url)
+                for query in search_queries:
+                    rss_url = f"https://news.google.com/rss/search?q={query}&hl=fr&gl=FR&ceid=FR:fr"
 
-                if response.status_code == 200:
-                    import xml.etree.ElementTree as ET
+                    try:
+                        response = await client.get(rss_url)
 
-                    root = ET.fromstring(response.text)
+                        if response.status_code == 200:
+                            import xml.etree.ElementTree as ET
 
-                    items = root.findall(".//item")[:3]  # Limited to recent injury news
-                    injury_keywords = ["bless", "injur", "absent", "forfait", "out"]
-                    for item in items:
-                        title_elem = item.find("title")
-                        if title_elem is not None and title_elem.text:
-                            title_lower = title_elem.text.lower()
-                            if any(kw in title_lower for kw in injury_keywords):
-                                injuries.append(
-                                    {
-                                        "player": "Info from news",
-                                        "type": title_elem.text[:100],
-                                        "source": "Google News",
-                                        "status": "uncertain",
-                                    }
-                                )
+                            root = ET.fromstring(response.text)
+                            items = root.findall(".//item")[:5]
 
-                    logger.info(f"Fetched {len(injuries)} injury items for {team_name}")
+                            for item in items:
+                                title_elem = item.find("title")
+                                pub_date_elem = item.find("pubDate")
+                                if title_elem is not None and title_elem.text:
+                                    pub_date = pub_date_elem.text if pub_date_elem is not None else None
+                                    all_headlines.append((title_elem.text, pub_date))
+
+                    except Exception as e:
+                        logger.debug(f"Error fetching query '{query}': {e}")
+                        continue
+
+            # Deduplicate headlines
+            seen_headlines: set[str] = set()
+            unique_headlines: list[tuple[str, str | None]] = []
+            for headline, pub_date in all_headlines:
+                normalized = headline.lower()[:50]
+                if normalized not in seen_headlines:
+                    seen_headlines.add(normalized)
+                    unique_headlines.append((headline, pub_date))
+
+            # Parse each headline with the improved parser
+            for headline, pub_date in unique_headlines[:10]:  # Limit to 10 headlines
+                injury_info = InjuryParser.parse_headline(headline, team_name)
+
+                if injury_info and injury_info.confidence >= 0.5:
+                    injury_dict: dict[str, Any] = {
+                        "player": injury_info.player_name or "Unknown player",
+                        "type": injury_info.injury_type or "injury",
+                        "severity": injury_info.severity,
+                        "duration": injury_info.duration,
+                        "headline": injury_info.headline,
+                        "source": "Google News",
+                        "confidence": injury_info.confidence,
+                        "pub_date": pub_date,
+                    }
+                    injuries.append(injury_dict)
+
+            # Sort by confidence and limit
+            injuries.sort(key=lambda x: x.get("confidence", 0), reverse=True)
+            injuries = injuries[:5]  # Keep top 5 most confident
+
+            logger.info(
+                f"Fetched {len(injuries)} validated injury items for {team_name} "
+                f"(from {len(unique_headlines)} headlines)"
+            )
 
         except Exception as e:
             logger.error(f"Error fetching injuries for {team_name}: {e}")

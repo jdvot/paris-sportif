@@ -536,6 +536,17 @@ async def _generate_prediction_from_api_match(
 
     # Use the advanced ensemble predictor with all models (ML + statistical)
     try:
+        # Prepare fatigue parameters (defaults if not available)
+        home_rest = 0.5
+        home_cong = 0.5
+        away_rest = 0.5
+        away_cong = 0.5
+        if fatigue_data:
+            home_rest = fatigue_data.home_team.rest_days_score
+            home_cong = fatigue_data.home_team.fixture_congestion_score
+            away_rest = fatigue_data.away_team.rest_days_score
+            away_cong = fatigue_data.away_team.fixture_congestion_score
+
         ensemble_result = advanced_ensemble_predictor.predict(
             home_attack=team_stats["home_attack"],
             home_defense=team_stats["home_defense"],
@@ -547,6 +558,11 @@ async def _generate_prediction_from_api_match(
             away_team_id=team_stats["away_team_id"],
             home_form_score=team_stats["home_form"],
             away_form_score=team_stats["away_form"],
+            # Pass fatigue data for ML models with extended features
+            home_rest_days=home_rest,
+            home_congestion=home_cong,
+            away_rest_days=away_rest,
+            away_congestion=away_cong,
         )
 
         # Use ensemble prediction results
