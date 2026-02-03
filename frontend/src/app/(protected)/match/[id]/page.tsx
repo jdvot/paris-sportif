@@ -1,7 +1,8 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import {
   useGetMatch,
   useGetHeadToHead,
@@ -10,7 +11,7 @@ import {
 import { useGetPrediction } from "@/lib/api/endpoints/predictions/predictions";
 import { useGetFullEnrichmentApiV1EnrichmentFullGet } from "@/lib/api/endpoints/data-enrichment/data-enrichment";
 import type {
-  Match,
+  MatchResponse,
   HeadToHeadResponse,
   TeamFormResponse,
   PredictionResponse,
@@ -18,6 +19,7 @@ import type {
   OddsData,
   XGEstimate,
   StandingsContext,
+  TeamInfo,
 } from "@/lib/api/models";
 import {
   TrendingUp,
@@ -32,6 +34,7 @@ import {
   Crosshair,
   Medal,
   ArrowUpDown,
+  Shield,
 } from "lucide-react";
 import { cn, isAuthError } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -40,10 +43,16 @@ import { PredictionCharts } from "@/components/PredictionCharts";
 import { MultiMarkets } from "@/components/MultiMarkets";
 import type { MultiMarketsResponse } from "@/lib/api/models";
 
-// Helper to get team name from Team | string
-const getTeamName = (team: Match["home_team"]): string => {
+// Helper to get team name from TeamInfo | string
+const getTeamName = (team: MatchResponse["home_team"] | string): string => {
   if (typeof team === "string") return team;
-  return team.name || "Unknown";
+  return team?.name || "Unknown";
+};
+
+// Helper to get team info safely
+const getTeamInfo = (team: MatchResponse["home_team"] | string): TeamInfo | null => {
+  if (typeof team === "string") return null;
+  return team || null;
 };
 
 export default function MatchDetailPage() {
@@ -79,7 +88,7 @@ export default function MatchDetailPage() {
   );
 
   // Extract data from responses - API returns { data: {...}, status: number }
-  const match = matchResponse?.data as Match | undefined;
+  const match = matchResponse?.data as MatchResponse | undefined;
   const prediction = predictionResponse?.data as PredictionResponse | undefined;
   const headToHead = h2hResponse?.data as HeadToHeadResponse | undefined;
 
@@ -262,9 +271,112 @@ export default function MatchDetailPage() {
 }
 
 /* ============================================
+   COMPONENT: Team Logo with Fallback
+   ============================================ */
+function TeamLogo({ team, size = "md" }: { team: TeamInfo | null; size?: "sm" | "md" | "lg" }) {
+  const [imgError, setImgError] = useState(false);
+
+  const sizeClasses = {
+    sm: "w-10 h-10 sm:w-12 sm:h-12",
+    md: "w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20",
+    lg: "w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28",
+  };
+
+  if (!team?.logo_url || imgError) {
+    return (
+      <div className={cn(
+        sizeClasses[size],
+        "rounded-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center"
+      )}>
+        <Shield className="w-1/2 h-1/2 text-gray-400 dark:text-slate-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn(sizeClasses[size], "relative")}>
+      <Image
+        src={team.logo_url}
+        alt={`${team.name} logo`}
+        fill
+        className="object-contain"
+        onError={() => setImgError(true)}
+        unoptimized // football-data.org images
+      />
+    </div>
+  );
+}
+
+/* ============================================
+   COMPONENT: Countdown Timer
+   ============================================ */
+function CountdownTimer({ targetDate }: { targetDate: Date }) {
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [isExpired, setIsExpired] = useState(false);
+
+  const calculateTimeLeft = useCallback(() => {
+    const now = new Date();
+    const diff = targetDate.getTime() - now.getTime();
+
+    if (diff <= 0) {
+      setIsExpired(true);
+      return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+    }
+
+    return {
+      days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+      minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+      seconds: Math.floor((diff % (1000 * 60)) / 1000),
+    };
+  }, [targetDate]);
+
+  useEffect(() => {
+    setTimeLeft(calculateTimeLeft());
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [calculateTimeLeft]);
+
+  if (isExpired) {
+    return (
+      <div className="text-center">
+        <span className="text-sm font-semibold text-primary-500 dark:text-primary-400">
+          Match en cours ou terminé
+        </span>
+      </div>
+    );
+  }
+
+  const TimeUnit = ({ value, label }: { value: number; label: string }) => (
+    <div className="flex flex-col items-center">
+      <div className="bg-gray-100 dark:bg-slate-700 rounded-lg px-2 py-1 sm:px-3 sm:py-2 min-w-[2.5rem] sm:min-w-[3rem]">
+        <span className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
+          {String(value).padStart(2, "0")}
+        </span>
+      </div>
+      <span className="text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 mt-1">{label}</span>
+    </div>
+  );
+
+  return (
+    <div className="flex items-center gap-1 sm:gap-2">
+      {timeLeft.days > 0 && <TimeUnit value={timeLeft.days} label="j" />}
+      {timeLeft.days > 0 && <span className="text-gray-400 dark:text-slate-500 text-lg">:</span>}
+      <TimeUnit value={timeLeft.hours} label="h" />
+      <span className="text-gray-400 dark:text-slate-500 text-lg">:</span>
+      <TimeUnit value={timeLeft.minutes} label="m" />
+      <span className="text-gray-400 dark:text-slate-500 text-lg">:</span>
+      <TimeUnit value={timeLeft.seconds} label="s" />
+    </div>
+  );
+}
+
+/* ============================================
    COMPONENT: Match Header
    ============================================ */
-function MatchHeader({ match }: { match: Match }) {
+function MatchHeader({ match }: { match: MatchResponse }) {
   let matchDate;
   try {
     matchDate = match?.match_date && typeof match.match_date === 'string'
@@ -292,10 +404,14 @@ function MatchHeader({ match }: { match: Match }) {
   const competition = typeof match?.competition === 'string' ? match.competition : 'Competition';
   const homeTeamName = getTeamName(match.home_team);
   const awayTeamName = getTeamName(match.away_team);
+  const homeTeamInfo = getTeamInfo(match.home_team);
+  const awayTeamInfo = getTeamInfo(match.away_team);
+  const isUpcoming = status === "scheduled";
 
   return (
     <div className="bg-gradient-to-r from-gray-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden">
       <div className="p-4 sm:p-6 lg:p-8">
+        {/* Competition & Status Row */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Trophy className="w-4 sm:w-5 h-4 sm:h-5 text-accent-400" />
@@ -318,9 +434,12 @@ function MatchHeader({ match }: { match: Match }) {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-4">
-          <div className="flex-1 text-center order-1 sm:order-1">
-            <h2 className="text-lg sm:text-xl lg:text-3xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2 break-words">
+        {/* Teams Row with Logos */}
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
+          {/* Home Team */}
+          <div className="flex-1 flex flex-col items-center gap-2 sm:gap-3">
+            <TeamLogo team={homeTeamInfo} size="md" />
+            <h2 className="text-sm sm:text-lg lg:text-2xl font-bold text-gray-900 dark:text-white text-center break-words max-w-full">
               {homeTeamName}
             </h2>
             {status === "finished" && typeof match?.home_score === 'number' && (
@@ -330,20 +449,44 @@ function MatchHeader({ match }: { match: Match }) {
             )}
           </div>
 
-          <div className="flex flex-col items-center gap-1 sm:gap-2 px-2 sm:px-4 lg:px-6 order-2 sm:order-2">
-            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-500 dark:text-slate-400">vs</p>
+          {/* Center - VS / Countdown / Score */}
+          <div className="flex flex-col items-center gap-2 sm:gap-3 px-2 sm:px-4 lg:px-6 min-w-[100px] sm:min-w-[180px]">
+            {status === "finished" ? (
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-500 dark:text-slate-400">
+                vs
+              </p>
+            ) : status === "live" ? (
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  <span className="text-red-500 font-bold text-sm sm:text-base">LIVE</span>
+                </div>
+              </div>
+            ) : isUpcoming ? (
+              <div className="flex flex-col items-center gap-2">
+                <CountdownTimer targetDate={matchDate} />
+              </div>
+            ) : (
+              <p className="text-xl sm:text-2xl font-bold text-gray-500 dark:text-slate-400">
+                vs
+              </p>
+            )}
+
+            {/* Date/Time (always shown) */}
             <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-gray-500 dark:text-slate-400 text-xs sm:text-sm">
               <Clock className="w-3 sm:w-4 h-3 sm:h-4" />
               <span className="text-center">
                 {format(matchDate, "dd MMM yyyy", { locale: fr })}
               </span>
-              <span className="hidden sm:inline">a</span>
+              <span className="hidden sm:inline">à</span>
               <span>{format(matchDate, "HH:mm", { locale: fr })}</span>
             </div>
           </div>
 
-          <div className="flex-1 text-center order-3 sm:order-3">
-            <h2 className="text-lg sm:text-xl lg:text-3xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2 break-words">
+          {/* Away Team */}
+          <div className="flex-1 flex flex-col items-center gap-2 sm:gap-3">
+            <TeamLogo team={awayTeamInfo} size="md" />
+            <h2 className="text-sm sm:text-lg lg:text-2xl font-bold text-gray-900 dark:text-white text-center break-words max-w-full">
               {awayTeamName}
             </h2>
             {status === "finished" && typeof match?.away_score === 'number' && (
