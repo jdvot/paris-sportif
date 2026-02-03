@@ -85,15 +85,24 @@
   "picks": {
     "title": "Daily Picks",
     "subtitle": "Our top 5 predictions",
-    "empty": "No picks available for today",
+    "allPicks": "All Picks",
+    "allPicksDescription": "Browse our complete prediction history with filters by date and competition. Analyze our picks in detail and track their performance.",
+    "empty": "No picks available",
+    "emptyFiltered": "No picks match the selected competitions.",
+    "emptyDate": "No picks available for this date.",
     "confidence": "Confidence",
     "value": "Value",
     "topPick": "Top Pick",
     "recommended": "Recommended",
+    "updatedOn": "Updated on",
     "tabs": {
       "today": "Today",
       "tomorrow": "Tomorrow",
       "week": "This week"
+    },
+    "navigation": {
+      "previousDay": "Previous day",
+      "nextDay": "Next day"
     }
   },
   "matches": {

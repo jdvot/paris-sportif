@@ -85,15 +85,24 @@
   "picks": {
     "title": "Picks du Jour",
     "subtitle": "Nos 5 meilleures predictions",
-    "empty": "Aucun pick disponible pour aujourd'hui",
+    "allPicks": "Tous les Picks",
+    "allPicksDescription": "Consultez l'historique complet de nos predictions avec filtres par date et competition. Analysez nos picks en details et suivez leur performance.",
+    "empty": "Aucun pick disponible",
+    "emptyFiltered": "Aucun pick ne correspond aux competitions selectionnees.",
+    "emptyDate": "Aucun pick disponible pour cette date.",
     "confidence": "Confiance",
     "value": "Value",
     "topPick": "Top Pick",
     "recommended": "Recommande",
+    "updatedOn": "Mis a jour",
     "tabs": {
       "today": "Aujourd'hui",
       "tomorrow": "Demain",
       "week": "Cette semaine"
+    },
+    "navigation": {
+      "previousDay": "Jour precedent",
+      "nextDay": "Jour suivant"
     }
   },
   "matches": {
