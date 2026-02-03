@@ -14,6 +14,7 @@ from starlette.responses import Response
 
 from src.api.routes import (
     admin,
+    bets,
     dashboard,
     debug,
     enrichment,
@@ -108,7 +109,7 @@ app.add_middleware(
         "https://paris-sportif.vercel.app",
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
@@ -188,6 +189,11 @@ app.include_router(
     dashboard.router,
     prefix=f"{settings.api_v1_prefix}/dashboard",
     tags=["Dashboard"],
+)
+app.include_router(
+    bets.router,
+    prefix=f"{settings.api_v1_prefix}/bets",
+    tags=["Bets & Bankroll"],
 )
 
 
