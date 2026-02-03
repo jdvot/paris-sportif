@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 interface LoadingSpinnerProps {
   size?: "sm" | "md" | "lg" | "xl";
@@ -127,11 +128,13 @@ export function SkeletonCard({ className, lines = 2, showHeader = true, showFoot
   );
 }
 
-export function LoadingOverlay({ text = "Chargement..." }: { text?: string }) {
+export function LoadingOverlay({ text }: { text?: string }) {
+  const t = useTranslations("common");
+  const displayText = text ?? t("loading");
   return (
     <div className="fixed inset-0 bg-dark-900/80 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-dark-800 border border-dark-700 rounded-2xl p-8 shadow-2xl">
-        <LoadingSpinner size="xl" text={text} />
+        <LoadingSpinner size="xl" text={displayText} />
       </div>
     </div>
   );

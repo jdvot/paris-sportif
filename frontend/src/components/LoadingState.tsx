@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface LoadingStateProps {
   variant?: "picks" | "matches" | "stats" | "minimal";
@@ -11,8 +12,10 @@ interface LoadingStateProps {
 export function LoadingState({
   variant = "picks",
   count = 5,
-  message = "Chargement...",
+  message,
 }: LoadingStateProps) {
+  const t = useTranslations("common");
+  const displayMessage = message ?? t("loading");
   if (variant === "minimal") {
     return (
       <div className="flex items-center justify-center gap-3 py-4">
@@ -20,7 +23,7 @@ export function LoadingState({
           <div className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-slate-600" />
           <div className="absolute top-0 left-0 w-6 h-6 rounded-full border-2 border-transparent border-t-primary-500 animate-spin" />
         </div>
-        <span className="text-gray-600 dark:text-slate-400 text-sm animate-pulse">{message}</span>
+        <span className="text-gray-600 dark:text-slate-400 text-sm animate-pulse">{displayMessage}</span>
       </div>
     );
   }
@@ -34,7 +37,7 @@ export function LoadingState({
             <div className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-slate-600" />
             <div className="absolute top-0 left-0 w-6 h-6 rounded-full border-2 border-transparent border-t-primary-500 animate-spin" />
           </div>
-          <span className="text-gray-600 dark:text-slate-400 text-sm animate-pulse">{message}</span>
+          <span className="text-gray-600 dark:text-slate-400 text-sm animate-pulse">{displayMessage}</span>
         </div>
 
         {/* Cards Skeleton */}
@@ -79,7 +82,7 @@ export function LoadingState({
             <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-slate-600" />
             <div className="absolute top-0 left-0 w-5 h-5 rounded-full border-2 border-transparent border-t-primary-500 animate-spin" />
           </div>
-          <span className="text-gray-600 dark:text-slate-400 text-xs animate-pulse">{message}</span>
+          <span className="text-gray-600 dark:text-slate-400 text-xs animate-pulse">{displayMessage}</span>
         </div>
 
         {/* Skeleton rows */}
@@ -119,7 +122,7 @@ export function LoadingState({
           <div className="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-slate-700" />
           <div className="absolute top-0 left-0 w-8 h-8 rounded-full border-2 border-transparent border-t-primary-500 animate-spin" />
         </div>
-        <span className="text-gray-600 dark:text-slate-400 text-sm animate-pulse">{message}</span>
+        <span className="text-gray-600 dark:text-slate-400 text-sm animate-pulse">{displayMessage}</span>
       </div>
 
       {/* Skeleton cards */}
