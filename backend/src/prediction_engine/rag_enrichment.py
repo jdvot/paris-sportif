@@ -11,16 +11,35 @@ prediction accuracy:
 import asyncio
 import logging
 import re
+import threading
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+from urllib.parse import quote
 
 import httpx
+import defusedxml.ElementTree as ET
 
 from src.core.config import settings
 from src.llm.client import get_llm_client, GroqClient
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+# Limits for news/injury fetching
+MAX_NEWS_ITEMS = 5
+MAX_HEADLINES_TO_PARSE = 10
+MAX_INJURIES_TO_KEEP = 5
+MIN_INJURY_CONFIDENCE = 0.5
+
+# LLM token limits
+MAX_TOKENS_KEY_INFO = 200
+MAX_TOKENS_SENTIMENT = 10
+MAX_TOKENS_ANALYSIS = 350
 
 
 # =============================================================================
@@ -45,47 +64,105 @@ class InjuryParser:
 
     # Body parts that indicate injury
     BODY_PARTS = [
-        "hamstring", "ischio", "cuisse",
-        "knee", "genou", "acl", "mcl", "lcl",
-        "ankle", "cheville",
-        "groin", "adducteur", "aine",
-        "calf", "mollet",
-        "back", "dos", "lombaire",
-        "shoulder", "épaule",
-        "hip", "hanche",
-        "thigh", "quadriceps",
-        "foot", "pied", "metatarsal",
-        "achilles", "tendon",
-        "muscle", "musculaire",
+        "hamstring",
+        "ischio",
+        "cuisse",
+        "knee",
+        "genou",
+        "acl",
+        "mcl",
+        "lcl",
+        "ankle",
+        "cheville",
+        "groin",
+        "adducteur",
+        "aine",
+        "calf",
+        "mollet",
+        "back",
+        "dos",
+        "lombaire",
+        "shoulder",
+        "épaule",
+        "hip",
+        "hanche",
+        "thigh",
+        "quadriceps",
+        "foot",
+        "pied",
+        "metatarsal",
+        "achilles",
+        "tendon",
+        "muscle",
+        "musculaire",
         "ligament",
     ]
 
     # Injury action words
     INJURY_ACTIONS = [
-        "injured", "blessé", "blessure", "injury",
-        "sidelined", "sidelines", "ruled out", "absent",
-        "miss", "misses", "manquera", "forfait",
-        "surgery", "opération", "opéré",
-        "scan", "tests", "examen",
-        "strain", "sprain", "tear", "rupture",
-        "fracture", "broken", "cassé",
-        "doubtful", "doubt", "incertain",
-        "fitness concern", "fitness doubt", "fitness",
-        "limped off", "carried off", "sorti sur blessure",
-        "blow", "setback", "coup dur",
-        "out for", "absent pour",
-        "return from injury", "retour de blessure",
-        "knock", "minor knock", "slight",
-        "long-term", "long term",
-        "concern", "problem", "issue",
+        "injured",
+        "blessé",
+        "blessure",
+        "injury",
+        "sidelined",
+        "sidelines",
+        "ruled out",
+        "absent",
+        "miss",
+        "misses",
+        "manquera",
+        "forfait",
+        "surgery",
+        "opération",
+        "opéré",
+        "scan",
+        "tests",
+        "examen",
+        "strain",
+        "sprain",
+        "tear",
+        "rupture",
+        "fracture",
+        "broken",
+        "cassé",
+        "doubtful",
+        "doubt",
+        "incertain",
+        "fitness concern",
+        "fitness doubt",
+        "fitness",
+        "limped off",
+        "carried off",
+        "sorti sur blessure",
+        "blow",
+        "setback",
+        "coup dur",
+        "out for",
+        "absent pour",
+        "return from injury",
+        "retour de blessure",
+        "knock",
+        "minor knock",
+        "slight",
+        "long-term",
+        "long term",
+        "concern",
+        "problem",
+        "issue",
     ]
 
     # Suspension keywords
     SUSPENSION_KEYWORDS = [
-        "suspended", "suspendu", "suspension",
-        "red card", "carton rouge",
-        "ban", "banned", "interdit",
-        "yellow card accumulation", "cumul de cartons",
+        "suspended",
+        "suspendu",
+        "suspension",
+        "red card",
+        "carton rouge",
+        "ban",
+        "banned",
+        "interdit",
+        "yellow card accumulation",
+        "cumul de cartons",
     ]
 
     # Duration patterns
@@ -241,7 +318,15 @@ class InjuryParser:
             return "minor"
 
         # Keywords for serious injuries
-        serious_keywords = ["surgery", "opération", "acl", "season", "long-term", "long term", "rupture"]
+        serious_keywords = [
+            "surgery",
+            "opération",
+            "acl",
+            "season",
+            "long-term",
+            "long term",
+            "rupture",
+        ]
         if any(kw in headline_lower for kw in serious_keywords):
             return "serious"
 
@@ -325,11 +410,20 @@ class RAGEnrichment:
                 news_task, injuries_task, form_task, return_exceptions=True
             )
 
-            if not isinstance(news, Exception):
+            # Handle results with proper exception logging
+            if isinstance(news, Exception):
+                logger.warning(f"Failed to fetch news for {team_name}: {news}")
+            else:
                 context["news"] = news
-            if not isinstance(injuries, Exception):
+
+            if isinstance(injuries, Exception):
+                logger.warning(f"Failed to fetch injuries for {team_name}: {injuries}")
+            else:
                 context["injuries"] = injuries
-            if not isinstance(form_data, Exception):
+
+            if isinstance(form_data, Exception):
+                logger.warning(f"Failed to fetch form for {team_name}: {form_data}")
+            else:
                 context["recent_form"] = form_data.get("results", [])
                 context["form_notes"] = form_data.get("summary", "")
 
@@ -347,22 +441,22 @@ class RAGEnrichment:
 
         return context
 
-    async def _fetch_team_news(self, team_name: str, limit: int = 5) -> list[dict[str, Any]]:
+    async def _fetch_team_news(
+        self, team_name: str, limit: int = MAX_NEWS_ITEMS
+    ) -> list[dict[str, Any]]:
         """Fetch recent news about a team from Google News RSS."""
         news: list[dict[str, Any]] = []
 
         try:
             # Use Google News RSS (free, no API key required)
-            search_term = team_name.replace(" ", "+")
+            search_term = quote(team_name)
             rss_url = f"https://news.google.com/rss/search?q={search_term}+football&hl=fr&gl=FR&ceid=FR:fr"
 
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(rss_url)
 
                 if response.status_code == 200:
-                    # Parse RSS XML
-                    import xml.etree.ElementTree as ET
-
+                    # Parse RSS XML using defusedxml (XXE protection)
                     root = ET.fromstring(response.text)
 
                     items = root.findall(".//item")[:limit]
@@ -401,11 +495,12 @@ class RAGEnrichment:
 
         try:
             # Search for injury-related news in both English and French
+            encoded_team = quote(team_name)
             search_queries = [
-                f"{team_name.replace(' ', '+')}+injury+injured",
-                f"{team_name.replace(' ', '+')}+blessure+blessé",
-                f"{team_name.replace(' ', '+')}+ruled+out",
-                f"{team_name.replace(' ', '+')}+suspendu+suspended",
+                f"{encoded_team}+injury+injured",
+                f"{encoded_team}+blessure+blessé",
+                f"{encoded_team}+ruled+out",
+                f"{encoded_team}+suspendu+suspended",
             ]
 
             all_headlines: list[tuple[str, str | None]] = []
@@ -418,8 +513,7 @@ class RAGEnrichment:
                         response = await client.get(rss_url)
 
                         if response.status_code == 200:
-                            import xml.etree.ElementTree as ET
-
+                            # Parse RSS XML using defusedxml (XXE protection)
                             root = ET.fromstring(response.text)
                             items = root.findall(".//item")[:5]
 
@@ -427,7 +521,9 @@ class RAGEnrichment:
                                 title_elem = item.find("title")
                                 pub_date_elem = item.find("pubDate")
                                 if title_elem is not None and title_elem.text:
-                                    pub_date = pub_date_elem.text if pub_date_elem is not None else None
+                                    pub_date = (
+                                        pub_date_elem.text if pub_date_elem is not None else None
+                                    )
                                     all_headlines.append((title_elem.text, pub_date))
 
                     except Exception as e:
@@ -444,10 +540,10 @@ class RAGEnrichment:
                     unique_headlines.append((headline, pub_date))
 
             # Parse each headline with the improved parser
-            for headline, pub_date in unique_headlines[:10]:  # Limit to 10 headlines
+            for headline, pub_date in unique_headlines[:MAX_HEADLINES_TO_PARSE]:
                 injury_info = InjuryParser.parse_headline(headline, team_name)
 
-                if injury_info and injury_info.confidence >= 0.5:
+                if injury_info and injury_info.confidence >= MIN_INJURY_CONFIDENCE:
                     injury_dict: dict[str, Any] = {
                         "player": injury_info.player_name or "Unknown player",
                         "type": injury_info.injury_type or "injury",
@@ -462,7 +558,7 @@ class RAGEnrichment:
 
             # Sort by confidence and limit
             injuries.sort(key=lambda x: x.get("confidence", 0), reverse=True)
-            injuries = injuries[:5]  # Keep top 5 most confident
+            injuries = injuries[:MAX_INJURIES_TO_KEEP]
 
             logger.info(
                 f"Fetched {len(injuries)} validated injury items for {team_name} "
@@ -481,25 +577,22 @@ class RAGEnrichment:
 
         try:
             # Search for recent match results via Google News
-            search_term = f"{team_name.replace(' ', '+')}+résultat+score+match"
+            search_term = quote(f"{team_name} résultat score match")
             rss_url = f"https://news.google.com/rss/search?q={search_term}&hl=fr&gl=FR&ceid=FR:fr"
 
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(rss_url)
 
                 if response.status_code == 200:
-                    import xml.etree.ElementTree as ET
-
+                    # Parse RSS XML using defusedxml (XXE protection)
                     root = ET.fromstring(response.text)
 
-                    items = root.findall(".//item")[:5]
+                    items = root.findall(".//item")[:MAX_NEWS_ITEMS]
                     for item in items:
                         title_elem = item.find("title")
                         if title_elem is not None and title_elem.text:
                             title = title_elem.text
                             # Look for score patterns (e.g., "2-1", "0-0")
-                            import re
-
                             score_match = re.search(r"\b(\d+)\s*[-:]\s*(\d+)\b", title)
                             if score_match:
                                 form_data["results"].append(
@@ -528,9 +621,11 @@ class RAGEnrichment:
 
         try:
             # Build context summary
-            news_titles = [n.get("title", "")[:100] for n in context.get("news", [])[:5]]
+            news_titles = [
+                n.get("title", "")[:100] for n in context.get("news", [])[:MAX_NEWS_ITEMS]
+            ]
             injuries = [
-                f"{i.get('player_name', 'Joueur inconnu')}: {i.get('injury_type', i.get('type', 'blessure'))}"
+                f"{i.get('player', 'Joueur inconnu')}: {i.get('type', 'blessure')}"
                 for i in context.get("injuries", [])[:3]
             ]
             form = context.get("form_notes", "")
@@ -556,7 +651,7 @@ Réponds en français:"""
             # Use centralized async client with retry logic
             content = await self.llm_client.complete(
                 prompt=prompt,
-                max_tokens=200,
+                max_tokens=MAX_TOKENS_KEY_INFO,
                 temperature=0.2,
             )
 
@@ -592,7 +687,7 @@ Réponse:"""
 
             content = await self.llm_client.complete(
                 prompt=prompt,
-                max_tokens=10,
+                max_tokens=MAX_TOKENS_SENTIMENT,
                 temperature=0.1,
             )
 
@@ -634,9 +729,15 @@ Réponse:"""
             home_ctx: dict[str, Any] | BaseException = results[0]
             away_ctx: dict[str, Any] | BaseException = results[1]
 
-            if not isinstance(home_ctx, BaseException):
+            # Handle results with proper exception logging
+            if isinstance(home_ctx, BaseException):
+                logger.warning(f"Failed to get context for {home_team}: {home_ctx}")
+            else:
                 enrichment["home_context"] = home_ctx
-            if not isinstance(away_ctx, BaseException):
+
+            if isinstance(away_ctx, BaseException):
+                logger.warning(f"Failed to get context for {away_team}: {away_ctx}")
+            else:
                 enrichment["away_context"] = away_ctx
 
             # Add match-specific context
@@ -757,12 +858,16 @@ Réponse:"""
                 context_parts.append("Importance: Match crucial pour le classement")
 
             no_context_msg = "Aucune information contextuelle disponible"
-            context_str = "\n".join(f"• {part}" for part in context_parts) if context_parts else no_context_msg
+            context_str = (
+                "\n".join(f"• {part}" for part in context_parts)
+                if context_parts
+                else no_context_msg
+            )
 
-            home_prob = base_prediction.get('home_win', 0)
-            draw_prob = base_prediction.get('draw', 0)
-            away_prob = base_prediction.get('away_win', 0)
-            confidence = base_prediction.get('confidence', 0.5)
+            home_prob = base_prediction.get("home_win", 0)
+            draw_prob = base_prediction.get("draw", 0)
+            away_prob = base_prediction.get("away_win", 0)
+            confidence = base_prediction.get("confidence", 0.5)
 
             prompt = f"""Tu es un analyste football professionnel. Génère une analyse experte pour ce match.
 
@@ -792,7 +897,7 @@ Réponds en français, style professionnel:"""
 
             content = await self.llm_client.complete(
                 prompt=prompt,
-                max_tokens=350,
+                max_tokens=MAX_TOKENS_ANALYSIS,
                 temperature=0.4,
             )
 
@@ -803,13 +908,17 @@ Réponds en français, style professionnel:"""
             return str(base_prediction.get("explanation", ""))
 
 
-# Singleton instance
+# Thread-safe singleton instance
 _rag_enrichment: RAGEnrichment | None = None
+_rag_lock = threading.Lock()
 
 
 def get_rag_enrichment() -> RAGEnrichment:
-    """Get RAG enrichment singleton."""
+    """Get RAG enrichment singleton (thread-safe)."""
     global _rag_enrichment
     if _rag_enrichment is None:
-        _rag_enrichment = RAGEnrichment()
+        with _rag_lock:
+            # Double-check locking pattern
+            if _rag_enrichment is None:
+                _rag_enrichment = RAGEnrichment()
     return _rag_enrichment
