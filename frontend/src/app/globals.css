@@ -99,6 +99,14 @@ body {
     animation: shimmer 2s infinite;
   }
 
+  .animate-fadeIn {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .animate-pulse-slow {
+    animation: pulseSlow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
   /* Card entrance animation stagger */
   .animate-stagger-in {
     animation: fadeInUp 0.5s ease-out forwards;
@@ -195,6 +203,17 @@ body {
     }
     100% {
       background-position: 1000px 0;
+    }
+  }
+
+  @keyframes pulseSlow {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.9;
+      transform: scale(1.02);
     }
   }
 }

@@ -174,26 +174,38 @@ export default function MatchDetailPage() {
           )}
 
           {!predictionLoading && predictionError && !isAuthError(predictionError) ? (
-            <div className="bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/30 rounded-xl p-4 sm:p-6">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 sm:w-6 h-5 sm:h-6 text-red-500 dark:text-red-400 flex-shrink-0" />
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">Erreur de chargement</h3>
-                  <p className="text-xs sm:text-sm text-red-600 dark:text-red-300">
-                    {(predictionError as Error)?.message || "Impossible de charger les predictions"}
+            <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-500/5 dark:to-orange-500/5 border border-red-200/50 dark:border-red-500/20 rounded-xl p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 p-2 bg-red-100 dark:bg-red-500/20 rounded-lg">
+                  <AlertTriangle className="w-4 h-4 text-red-500 dark:text-red-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Donnees temporairement indisponibles</h3>
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                    Les predictions sont en cours de calcul ou le service est momentanement indisponible.
                   </p>
                 </div>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="flex-shrink-0 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium transition-colors"
+                >
+                  Reessayer
+                </button>
               </div>
             </div>
           ) : null}
 
           {!predictionLoading && !predictionError && !prediction && (
-            <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6">
-              <div className="flex items-center gap-3 text-gray-500 dark:text-slate-400">
-                <Target className="w-5 sm:w-6 h-5 sm:h-6 flex-shrink-0" />
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">Predictions non disponibles</h3>
-                  <p className="text-xs sm:text-sm">Les predictions pour ce match seront bientot disponibles.</p>
+            <div className="bg-gradient-to-r from-gray-50 to-slate-50 dark:from-slate-800/30 dark:to-slate-700/30 border border-gray-200/50 dark:border-slate-700/50 rounded-xl p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 p-2 bg-gray-100 dark:bg-slate-700 rounded-lg">
+                  <Clock className="w-4 h-4 text-gray-500 dark:text-slate-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-medium text-gray-700 dark:text-gray-300 text-sm">Predictions en preparation</h3>
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                    Les predictions pour ce match seront disponibles prochainement. Nos modeles analysent actuellement les donnees.
+                  </p>
                 </div>
               </div>
             </div>
@@ -505,6 +517,49 @@ function MatchHeader({ match }: { match: MatchResponse }) {
 }
 
 /* ============================================
+   COMPONENT: Confidence Indicator (Enhanced with animation)
+   ============================================ */
+function ConfidenceIndicator({ confidence }: { confidence: number }) {
+  // Dynamic icon based on confidence level
+  const getIcon = () => {
+    if (confidence >= 0.75) return <Flame className="w-5 h-5 animate-pulse" />;
+    if (confidence >= 0.65) return <TrendingUp className="w-5 h-5" />;
+    return <BarChart3 className="w-5 h-5" />;
+  };
+
+  const getLabel = () => {
+    if (confidence >= 0.75) return "Tres elevee";
+    if (confidence >= 0.65) return "Elevee";
+    if (confidence >= 0.55) return "Moyenne";
+    return "Moderee";
+  };
+
+  const getColorClasses = () => {
+    if (confidence >= 0.75) return "from-primary-500 to-emerald-500 text-white";
+    if (confidence >= 0.65) return "from-primary-400 to-primary-500 text-white";
+    if (confidence >= 0.55) return "from-yellow-400 to-amber-500 text-white";
+    return "from-orange-400 to-orange-500 text-white";
+  };
+
+  return (
+    <div className={cn(
+      "relative flex flex-col items-center gap-1 px-4 py-3 rounded-xl bg-gradient-to-br",
+      getColorClasses(),
+      confidence >= 0.7 && "animate-pulse-slow shadow-lg shadow-primary-500/30"
+    )}>
+      {getIcon()}
+      <p className="font-bold text-lg sm:text-xl tabular-nums">
+        {Math.round(confidence * 100)}%
+      </p>
+      <p className="text-[10px] sm:text-xs opacity-90 font-medium">{getLabel()}</p>
+      {confidence >= 0.7 && (
+        <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary-300 rounded-full animate-ping" />
+      )}
+    </div>
+  );
+}
+
+/* ============================================
    COMPONENT: Prediction Section
    ============================================ */
 function PredictionSection({
@@ -524,12 +579,9 @@ function PredictionSection({
     ? prediction.confidence
     : 0;
 
-  const confidenceColor =
-    confidence >= 0.7
-      ? "text-primary-400"
-      : confidence >= 0.6
-        ? "text-yellow-400"
-        : "text-orange-400";
+  const valueScore = typeof prediction?.value_score === 'number' && !isNaN(prediction.value_score)
+    ? prediction.value_score
+    : 0;
 
   const homeProb = prediction?.probabilities?.home_win ?? 0;
   const drawProb = prediction?.probabilities?.draw ?? 0;
@@ -540,20 +592,28 @@ function PredictionSection({
   const isHomeRecommended = recommendedBetStr === "home_win";
   const isAwayRecommended = recommendedBetStr === "away_win";
 
+  // Value bet detection (value > 10% is considered a value bet)
+  const isValueBet = valueScore >= 0.1;
+
+  // Get glow intensity based on confidence
+  const getGlowClasses = () => {
+    if (confidence >= 0.75) return "shadow-lg shadow-primary-500/40 dark:shadow-primary-500/30";
+    if (confidence >= 0.65) return "shadow-md shadow-primary-500/30 dark:shadow-primary-500/20";
+    return "";
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className={cn(
+        "bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6 transition-shadow",
+        getGlowClasses()
+      )}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
           <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Target className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 flex-shrink-0" />
             Prediction
           </h2>
-          <div className={cn("text-right", confidenceColor)}>
-            <p className="font-bold text-base sm:text-lg">
-              {Math.round(confidence * 100)}%
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Confiance</p>
-          </div>
+          <ConfidenceIndicator confidence={confidence} />
         </div>
 
         <div className="space-y-3 sm:space-y-4">
@@ -577,24 +637,78 @@ function PredictionSection({
           />
         </div>
 
-        <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 bg-primary-100 dark:bg-primary-500/10 border border-primary-300 dark:border-primary-500/30 rounded-lg">
-          <CheckCircle className="w-5 sm:w-6 h-5 sm:h-6 text-primary-600 dark:text-primary-400 flex-shrink-0 mt-0.5 sm:mt-0" />
-          <div className="min-w-0">
-            <p className="text-primary-700 dark:text-primary-400 font-bold text-sm sm:text-base">
+        {/* Enhanced Recommendation Badge with Glow */}
+        <div className={cn(
+          "relative flex items-start sm:items-center gap-3 p-3 sm:p-4 rounded-lg border-2 transition-all",
+          confidence >= 0.7
+            ? "bg-gradient-to-r from-primary-100 to-emerald-100 dark:from-primary-500/15 dark:to-emerald-500/10 border-primary-400 dark:border-primary-500/50 shadow-[0_0_20px_rgba(16,185,129,0.25)]"
+            : confidence >= 0.6
+              ? "bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-500/15 dark:to-amber-500/10 border-yellow-400 dark:border-yellow-500/50"
+              : "bg-gradient-to-r from-orange-100 to-red-100 dark:from-orange-500/15 dark:to-red-500/10 border-orange-400 dark:border-orange-500/50"
+        )}>
+          <div className={cn(
+            "flex-shrink-0 p-1.5 rounded-full",
+            confidence >= 0.7 ? "bg-primary-500/20" : confidence >= 0.6 ? "bg-yellow-500/20" : "bg-orange-500/20"
+          )}>
+            <CheckCircle className={cn(
+              "w-5 sm:w-6 h-5 sm:h-6",
+              confidence >= 0.7 ? "text-primary-600 dark:text-primary-400" :
+              confidence >= 0.6 ? "text-yellow-600 dark:text-yellow-400" :
+              "text-orange-600 dark:text-orange-400"
+            )} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={cn(
+              "font-bold text-sm sm:text-base",
+              confidence >= 0.7 ? "text-primary-700 dark:text-primary-300" :
+              confidence >= 0.6 ? "text-yellow-700 dark:text-yellow-300" :
+              "text-orange-700 dark:text-orange-300"
+            )}>
               {betLabels[recommendedBet] || "Prediction indisponible"}
             </p>
-            <p className="text-xs sm:text-sm text-primary-600 dark:text-primary-300">
-              Cote Value: +{typeof prediction?.value_score === 'number' && !isNaN(prediction.value_score)
-                ? Math.round(prediction.value_score * 100)
-                : 0}%
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={cn(
+                "text-xs sm:text-sm",
+                confidence >= 0.7 ? "text-primary-600 dark:text-primary-400" :
+                confidence >= 0.6 ? "text-yellow-600 dark:text-yellow-400" :
+                "text-orange-600 dark:text-orange-400"
+              )}>
+                Value: +{Math.round(valueScore * 100)}%
+              </span>
+              {isValueBet && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] sm:text-xs font-bold rounded-full animate-pulse">
+                  <DollarSign className="w-3 h-3" />
+                  Value Bet
+                </span>
+              )}
+            </div>
           </div>
+          {confidence >= 0.7 && (
+            <div className="absolute top-2 right-2 text-lg">🔥</div>
+          )}
         </div>
 
+        {/* Value Bet Explanation */}
+        {isValueBet && (
+          <div className="p-3 sm:p-4 bg-gradient-to-r from-emerald-50 to-primary-50 dark:from-emerald-500/10 dark:to-primary-500/10 rounded-lg border border-emerald-200 dark:border-emerald-500/30">
+            <div className="flex items-start gap-2">
+              <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-1">
+                  Qu'est-ce qu'une Value Bet ?
+                </p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 leading-relaxed">
+                  Les cotes proposees par les bookmakers sont superieures a la probabilite reelle calculee par nos modeles ML.
+                  Avec une value de +{Math.round(valueScore * 100)}%, ce pari offre un avantage statistique a long terme.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {prediction.explanation && (
-          <div className="p-3 sm:p-4 bg-gray-200 dark:bg-slate-700/50 rounded-lg border border-gray-300 dark:border-slate-600">
-            <p className="text-gray-600 dark:text-slate-300 text-sm leading-relaxed">
+          <div className="p-3 sm:p-4 bg-gray-100 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600">
+            <p className="text-gray-700 dark:text-slate-300 text-sm leading-relaxed">
               {prediction.explanation}
             </p>
           </div>
@@ -1376,7 +1490,7 @@ function StandingsSection({
 }
 
 /* ============================================
-   COMPONENT: Probability Bar
+   COMPONENT: Probability Bar (Enhanced with animations)
    ============================================ */
 function ProbabilityBar({
   label,
@@ -1389,10 +1503,23 @@ function ProbabilityBar({
   isRecommended: boolean;
   color: "primary" | "accent" | "yellow";
 }) {
-  const colorClasses: Record<string, string> = {
-    primary: "bg-primary-500",
-    accent: "bg-accent-500",
-    yellow: "bg-yellow-500",
+  const [isAnimated, setIsAnimated] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  // Trigger animation on mount
+  useEffect(() => {
+    const timer = setTimeout(() => setIsAnimated(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const prob = probability ?? 0;
+
+  // Gradient colors based on probability level
+  const getGradientClass = () => {
+    if (!isRecommended) return "bg-gray-400 dark:bg-slate-500 opacity-60";
+    if (prob >= 0.5) return "bg-gradient-to-r from-primary-500 via-emerald-500 to-primary-400";
+    if (prob >= 0.35) return "bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-400";
+    return "bg-gradient-to-r from-accent-500 via-blue-500 to-accent-400";
   };
 
   const textColorClasses: Record<string, string> = {
@@ -1401,24 +1528,72 @@ function ProbabilityBar({
     yellow: "text-yellow-400",
   };
 
-  const prob = probability ?? 0;
+  // Tooltip content
+  const getTooltipContent = () => {
+    const percentage = Math.round(prob * 100);
+    const impliedOdds = prob > 0 ? (1 / prob).toFixed(2) : "-";
+    let confidence = "Faible";
+    if (prob >= 0.5) confidence = "Elevee";
+    else if (prob >= 0.35) confidence = "Moyenne";
+    return { percentage, impliedOdds, confidence };
+  };
+
+  const tooltip = getTooltipContent();
 
   return (
-    <div>
+    <div
+      className="relative group"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
       <div className="flex justify-between items-center mb-2">
-        <span className={cn("text-sm font-semibold", isRecommended ? textColorClasses[color] : "text-gray-800 dark:text-slate-300")}>
+        <span className={cn(
+          "text-sm font-semibold transition-colors",
+          isRecommended ? textColorClasses[color] : "text-gray-800 dark:text-slate-300"
+        )}>
           {label}
+          {isRecommended && (
+            <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 text-[10px] bg-primary-500 text-white rounded-full animate-pulse">
+              ✓
+            </span>
+          )}
         </span>
-        <span className={cn("text-sm font-bold", isRecommended ? textColorClasses[color] : "text-gray-700 dark:text-slate-400")}>
+        <span className={cn(
+          "text-sm font-bold tabular-nums transition-colors",
+          isRecommended ? textColorClasses[color] : "text-gray-700 dark:text-slate-400"
+        )}>
           {Math.round(prob * 100)}%
         </span>
       </div>
-      <div className="h-3 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
+      <div className="h-3 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden relative">
         <div
-          className={cn("h-full rounded-full transition-all", colorClasses[color], !isRecommended && "opacity-60")}
-          style={{ width: `${prob * 100}%` }}
+          className={cn(
+            "h-full rounded-full transition-all duration-700 ease-out",
+            getGradientClass(),
+            isRecommended && "shadow-[0_0_8px_rgba(16,185,129,0.4)]"
+          )}
+          style={{
+            width: isAnimated ? `${prob * 100}%` : "0%",
+            transition: "width 0.8s cubic-bezier(0.4, 0, 0.2, 1)"
+          }}
         />
       </div>
+
+      {/* Tooltip on hover */}
+      {showTooltip && (
+        <div className="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-slate-700 text-white text-xs rounded-lg shadow-lg whitespace-nowrap animate-fadeIn">
+          <div className="space-y-1">
+            <p><span className="text-gray-400">Probabilite:</span> <span className="font-bold">{tooltip.percentage}%</span></p>
+            <p><span className="text-gray-400">Cote implicite:</span> <span className="font-bold">{tooltip.impliedOdds}</span></p>
+            <p><span className="text-gray-400">Confiance:</span> <span className={cn(
+              "font-bold",
+              tooltip.confidence === "Elevee" ? "text-primary-400" :
+              tooltip.confidence === "Moyenne" ? "text-yellow-400" : "text-orange-400"
+            )}>{tooltip.confidence}</span></p>
+          </div>
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-slate-700" />
+        </div>
+      )}
     </div>
   );
 }
