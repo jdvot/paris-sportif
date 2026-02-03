@@ -328,12 +328,12 @@ def check_range_validation() -> DataQualityCheck:
         cursor = conn.cursor()
 
         # Check ELO ratings
-        cursor.execute(f"""
+        cursor.execute("""
             SELECT id, name, elo_rating
             FROM teams
-            WHERE elo_rating < {VALID_RANGES['elo_rating']['min']}
-               OR elo_rating > {VALID_RANGES['elo_rating']['max']}
-        """)
+            WHERE elo_rating < %s
+               OR elo_rating > %s
+        """, (VALID_RANGES['elo_rating']['min'], VALID_RANGES['elo_rating']['max']))
         invalid_elo = cursor.fetchall()
         for row in invalid_elo:
             anomalies.append({
@@ -347,14 +347,17 @@ def check_range_validation() -> DataQualityCheck:
             })
 
         # Check xG values
-        cursor.execute(f"""
+        cursor.execute("""
             SELECT m.id, t1.name, t2.name, m.home_xg, m.away_xg
             FROM matches m
             JOIN teams t1 ON m.home_team_id = t1.id
             JOIN teams t2 ON m.away_team_id = t2.id
-            WHERE (m.home_xg IS NOT NULL AND (m.home_xg < {VALID_RANGES['xg']['min']} OR m.home_xg > {VALID_RANGES['xg']['max']}))
-               OR (m.away_xg IS NOT NULL AND (m.away_xg < {VALID_RANGES['xg']['min']} OR m.away_xg > {VALID_RANGES['xg']['max']}))
-        """)
+            WHERE (m.home_xg IS NOT NULL AND (m.home_xg < %s OR m.home_xg > %s))
+               OR (m.away_xg IS NOT NULL AND (m.away_xg < %s OR m.away_xg > %s))
+        """, (
+            VALID_RANGES['xg']['min'], VALID_RANGES['xg']['max'],
+            VALID_RANGES['xg']['min'], VALID_RANGES['xg']['max']
+        ))
         invalid_xg = cursor.fetchall()
         for row in invalid_xg:
             home_xg = float(row[3]) if row[3] else None
@@ -408,15 +411,15 @@ def check_range_validation() -> DataQualityCheck:
             })
 
         # Check confidence in valid range
-        cursor.execute(f"""
+        cursor.execute("""
             SELECT p.id, p.confidence, t1.name, t2.name
             FROM predictions p
             JOIN matches m ON p.match_id = m.id
             JOIN teams t1 ON m.home_team_id = t1.id
             JOIN teams t2 ON m.away_team_id = t2.id
-            WHERE p.confidence < {VALID_RANGES['confidence']['min']}
-               OR p.confidence > {VALID_RANGES['confidence']['max']}
-        """)
+            WHERE p.confidence < %s
+               OR p.confidence > %s
+        """, (VALID_RANGES['confidence']['min'], VALID_RANGES['confidence']['max']))
         invalid_conf = cursor.fetchall()
         for row in invalid_conf:
             anomalies.append({
@@ -430,14 +433,14 @@ def check_range_validation() -> DataQualityCheck:
             })
 
         # Check goal scores are reasonable
-        cursor.execute(f"""
+        cursor.execute("""
             SELECT m.id, t1.name, t2.name, m.home_score, m.away_score
             FROM matches m
             JOIN teams t1 ON m.home_team_id = t1.id
             JOIN teams t2 ON m.away_team_id = t2.id
-            WHERE (m.home_score IS NOT NULL AND m.home_score > {VALID_RANGES['goals']['max']})
-               OR (m.away_score IS NOT NULL AND m.away_score > {VALID_RANGES['goals']['max']})
-        """)
+            WHERE (m.home_score IS NOT NULL AND m.home_score > %s)
+               OR (m.away_score IS NOT NULL AND m.away_score > %s)
+        """, (VALID_RANGES['goals']['max'], VALID_RANGES['goals']['max']))
         invalid_goals = cursor.fetchall()
         for row in invalid_goals:
             anomalies.append({

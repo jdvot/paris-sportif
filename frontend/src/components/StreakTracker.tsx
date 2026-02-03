@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import { Flame, Trophy, Target, TrendingUp, Zap, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStreak } from "@/hooks/useStreak";
+import { useAchievements } from "@/hooks/useAchievements";
+import { Achievements } from "@/components/Achievements";
 
 interface StreakTrackerProps {
   variant?: "compact" | "full";
@@ -11,6 +14,20 @@ interface StreakTrackerProps {
 
 export function StreakTracker({ variant = "compact", className }: StreakTrackerProps) {
   const { currentStreak, bestStreak, totalWins, totalLosses, winRate, history, isLoaded } = useStreak();
+  const { checkStreakAchievements, isLoaded: achievementsLoaded } = useAchievements();
+
+  // Check achievements when streak data changes
+  useEffect(() => {
+    if (isLoaded && achievementsLoaded && history.length > 0) {
+      checkStreakAchievements({
+        currentStreak,
+        bestStreak,
+        totalWins,
+        totalLosses,
+        history: history.map((h) => ({ won: h.won, date: h.date })),
+      });
+    }
+  }, [isLoaded, achievementsLoaded, currentStreak, bestStreak, totalWins, totalLosses, history, checkStreakAchievements]);
 
   if (!isLoaded) {
     return (
@@ -195,6 +212,9 @@ export function StreakTracker({ variant = "compact", className }: StreakTrackerP
           ))}
         </div>
       </div>
+
+      {/* Achievements Section */}
+      <Achievements variant="compact" className="mt-4" />
     </div>
   );
 }

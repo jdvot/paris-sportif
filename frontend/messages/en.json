@@ -1,0 +1,257 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "filter": "Filter",
+    "all": "All",
+    "none": "None",
+    "yes": "Yes",
+    "no": "No",
+    "or": "or",
+    "and": "and"
+  },
+  "nav": {
+    "home": "Home",
+    "picks": "Daily Picks",
+    "matches": "Matches",
+    "history": "History",
+    "favorites": "Favorites",
+    "standings": "Standings",
+    "profile": "Profile",
+    "settings": "Settings",
+    "login": "Login",
+    "signup": "Sign Up",
+    "logout": "Logout"
+  },
+  "home": {
+    "title": "Paris Sportif",
+    "subtitle": "AI Football Predictions",
+    "hero": {
+      "headline": "AI-Powered Football Predictions",
+      "subheadline": "5 premium daily picks analyzed by our Poisson, ELO, xG and Machine Learning models",
+      "cta": "View today's picks"
+    },
+    "stats": {
+      "accuracy": "Success rate",
+      "predictions": "Predictions",
+      "roi": "Simulated ROI"
+    },
+    "features": {
+      "title": "Why Paris Sportif?",
+      "ai": {
+        "title": "Advanced AI",
+        "description": "4 statistical models combined for accurate predictions"
+      },
+      "daily": {
+        "title": "5 Daily Picks",
+        "description": "Rigorous selection of the best opportunities"
+      },
+      "leagues": {
+        "title": "5 Major Leagues",
+        "description": "Premier League, Ligue 1, La Liga, Serie A, Bundesliga"
+      }
+    }
+  },
+  "picks": {
+    "title": "Daily Picks",
+    "subtitle": "Our top 5 predictions",
+    "empty": "No picks available for today",
+    "confidence": "Confidence",
+    "value": "Value",
+    "topPick": "Top Pick",
+    "recommended": "Recommended",
+    "tabs": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "week": "This week"
+    }
+  },
+  "matches": {
+    "title": "Upcoming Matches",
+    "subtitle": "All matches with predictions",
+    "empty": "No matches found",
+    "filters": {
+      "competition": "Competition",
+      "date": "Date",
+      "all": "All competitions"
+    },
+    "kickoff": "Kick-off",
+    "viewPrediction": "View prediction"
+  },
+  "match": {
+    "prediction": "Prediction",
+    "probabilities": "Probabilities",
+    "homeWin": "Home win",
+    "draw": "Draw",
+    "awayWin": "Away win",
+    "recentForm": "Recent form",
+    "headToHead": "Head to head",
+    "teamStrength": "Team strength",
+    "attack": "Attack",
+    "defense": "Defense",
+    "models": {
+      "title": "Model contributions",
+      "poisson": "Poisson",
+      "elo": "ELO",
+      "xg": "xG",
+      "xgboost": "XGBoost"
+    },
+    "llmAnalysis": "AI Analysis",
+    "injuries": "Injuries",
+    "news": "News"
+  },
+  "history": {
+    "title": "History",
+    "subtitle": "Track our past predictions",
+    "empty": "No past predictions",
+    "result": {
+      "correct": "Correct",
+      "incorrect": "Incorrect",
+      "pending": "Pending"
+    },
+    "stats": {
+      "total": "Total predictions",
+      "correct": "Correct predictions",
+      "accuracy": "Success rate",
+      "roi": "ROI"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Login",
+      "subtitle": "Sign in to your account",
+      "email": "Email",
+      "password": "Password",
+      "remember": "Remember me",
+      "forgot": "Forgot password?",
+      "submit": "Sign in",
+      "noAccount": "Don't have an account?",
+      "signup": "Sign up"
+    },
+    "signup": {
+      "title": "Sign Up",
+      "subtitle": "Create your free account",
+      "name": "Name",
+      "email": "Email",
+      "password": "Password",
+      "confirmPassword": "Confirm password",
+      "terms": "I accept the terms of service",
+      "submit": "Sign up",
+      "hasAccount": "Already have an account?",
+      "login": "Sign in"
+    },
+    "forgot": {
+      "title": "Forgot password",
+      "subtitle": "Enter your email to reset",
+      "email": "Email",
+      "submit": "Send reset link",
+      "back": "Back to login"
+    },
+    "reset": {
+      "title": "New password",
+      "subtitle": "Choose a new password",
+      "password": "New password",
+      "confirm": "Confirm password",
+      "submit": "Reset password"
+    },
+    "errors": {
+      "invalidEmail": "Invalid email",
+      "invalidPassword": "Password too short (min. 8 characters)",
+      "passwordMismatch": "Passwords don't match",
+      "emailInUse": "This email is already in use",
+      "invalidCredentials": "Invalid email or password",
+      "generic": "An error occurred"
+    }
+  },
+  "profile": {
+    "title": "My Profile",
+    "stats": "My statistics",
+    "favorites": "My favorites",
+    "settings": "Settings",
+    "subscription": {
+      "title": "Subscription",
+      "free": "Free",
+      "pro": "Pro",
+      "elite": "Elite",
+      "upgrade": "Upgrade to Pro"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "appearance": {
+      "title": "Appearance",
+      "theme": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "language": {
+      "title": "Language",
+      "select": "Select language"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "push": "Push notifications",
+      "email": "Email notifications",
+      "daily": "Daily summary"
+    }
+  },
+  "footer": {
+    "about": "About",
+    "contact": "Contact",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "copyright": "All rights reserved"
+  },
+  "errors": {
+    "404": {
+      "title": "Page not found",
+      "description": "The page you're looking for doesn't exist.",
+      "back": "Back to home"
+    },
+    "500": {
+      "title": "Server error",
+      "description": "An unexpected error occurred.",
+      "retry": "Retry"
+    },
+    "offline": {
+      "title": "You're offline",
+      "description": "Check your internet connection."
+    }
+  },
+  "pwa": {
+    "install": {
+      "title": "Install Paris Sportif",
+      "description": "Quick access from your home screen",
+      "button": "Install",
+      "later": "Later"
+    },
+    "update": {
+      "title": "Update available",
+      "button": "Update"
+    }
+  },
+  "notifications": {
+    "notSupported": "Notifications not supported",
+    "blocked": "Notifications blocked in settings",
+    "enabled": "Notifications enabled",
+    "disabled": "Notifications disabled",
+    "enable": "Enable",
+    "disable": "Disable",
+    "later": "Later",
+    "bannerTitle": "Stay informed about picks",
+    "bannerDescription": "Get notified when new predictions are available",
+    "newPicks": "New picks available",
+    "pickReady": "Your 5 daily picks are ready!"
+  }
+}

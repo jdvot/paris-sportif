@@ -1,0 +1,257 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "error": "Une erreur est survenue",
+    "retry": "Reessayer",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Precedent",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "all": "Tous",
+    "none": "Aucun",
+    "yes": "Oui",
+    "no": "Non",
+    "or": "ou",
+    "and": "et"
+  },
+  "nav": {
+    "home": "Accueil",
+    "picks": "Picks du jour",
+    "matches": "Matchs",
+    "history": "Historique",
+    "favorites": "Favoris",
+    "standings": "Classements",
+    "profile": "Profil",
+    "settings": "Parametres",
+    "login": "Connexion",
+    "signup": "Inscription",
+    "logout": "Deconnexion"
+  },
+  "home": {
+    "title": "Paris Sportif",
+    "subtitle": "Predictions Football IA",
+    "hero": {
+      "headline": "Pronostics Football par Intelligence Artificielle",
+      "subheadline": "5 picks premium par jour analyses par nos modeles Poisson, ELO, xG et Machine Learning",
+      "cta": "Voir les picks du jour"
+    },
+    "stats": {
+      "accuracy": "Taux de reussite",
+      "predictions": "Predictions",
+      "roi": "ROI simule"
+    },
+    "features": {
+      "title": "Pourquoi Paris Sportif ?",
+      "ai": {
+        "title": "IA Avancee",
+        "description": "4 modeles statistiques combines pour des predictions precises"
+      },
+      "daily": {
+        "title": "5 Picks Quotidiens",
+        "description": "Selection rigoureuse des meilleures opportunites"
+      },
+      "leagues": {
+        "title": "5 Grands Championnats",
+        "description": "Premier League, Ligue 1, La Liga, Serie A, Bundesliga"
+      }
+    }
+  },
+  "picks": {
+    "title": "Picks du Jour",
+    "subtitle": "Nos 5 meilleures predictions",
+    "empty": "Aucun pick disponible pour aujourd'hui",
+    "confidence": "Confiance",
+    "value": "Value",
+    "topPick": "Top Pick",
+    "recommended": "Recommande",
+    "tabs": {
+      "today": "Aujourd'hui",
+      "tomorrow": "Demain",
+      "week": "Cette semaine"
+    }
+  },
+  "matches": {
+    "title": "Matchs a Venir",
+    "subtitle": "Tous les matchs avec predictions",
+    "empty": "Aucun match trouve",
+    "filters": {
+      "competition": "Competition",
+      "date": "Date",
+      "all": "Toutes les competitions"
+    },
+    "kickoff": "Coup d'envoi",
+    "viewPrediction": "Voir la prediction"
+  },
+  "match": {
+    "prediction": "Prediction",
+    "probabilities": "Probabilites",
+    "homeWin": "Victoire domicile",
+    "draw": "Match nul",
+    "awayWin": "Victoire exterieur",
+    "recentForm": "Forme recente",
+    "headToHead": "Confrontations directes",
+    "teamStrength": "Force de l'equipe",
+    "attack": "Attaque",
+    "defense": "Defense",
+    "models": {
+      "title": "Contributions des modeles",
+      "poisson": "Poisson",
+      "elo": "ELO",
+      "xg": "xG",
+      "xgboost": "XGBoost"
+    },
+    "llmAnalysis": "Analyse IA",
+    "injuries": "Blessures",
+    "news": "Actualites"
+  },
+  "history": {
+    "title": "Historique",
+    "subtitle": "Suivi de nos predictions passees",
+    "empty": "Aucune prediction passee",
+    "result": {
+      "correct": "Correct",
+      "incorrect": "Incorrect",
+      "pending": "En attente"
+    },
+    "stats": {
+      "total": "Total predictions",
+      "correct": "Predictions correctes",
+      "accuracy": "Taux de reussite",
+      "roi": "ROI"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Connexion",
+      "subtitle": "Connectez-vous a votre compte",
+      "email": "Email",
+      "password": "Mot de passe",
+      "remember": "Se souvenir de moi",
+      "forgot": "Mot de passe oublie ?",
+      "submit": "Se connecter",
+      "noAccount": "Pas encore de compte ?",
+      "signup": "S'inscrire"
+    },
+    "signup": {
+      "title": "Inscription",
+      "subtitle": "Creez votre compte gratuit",
+      "name": "Nom",
+      "email": "Email",
+      "password": "Mot de passe",
+      "confirmPassword": "Confirmer le mot de passe",
+      "terms": "J'accepte les conditions d'utilisation",
+      "submit": "S'inscrire",
+      "hasAccount": "Deja un compte ?",
+      "login": "Se connecter"
+    },
+    "forgot": {
+      "title": "Mot de passe oublie",
+      "subtitle": "Entrez votre email pour reinitialiser",
+      "email": "Email",
+      "submit": "Envoyer le lien",
+      "back": "Retour a la connexion"
+    },
+    "reset": {
+      "title": "Nouveau mot de passe",
+      "subtitle": "Choisissez un nouveau mot de passe",
+      "password": "Nouveau mot de passe",
+      "confirm": "Confirmer le mot de passe",
+      "submit": "Reinitialiser"
+    },
+    "errors": {
+      "invalidEmail": "Email invalide",
+      "invalidPassword": "Mot de passe trop court (min. 8 caracteres)",
+      "passwordMismatch": "Les mots de passe ne correspondent pas",
+      "emailInUse": "Cet email est deja utilise",
+      "invalidCredentials": "Email ou mot de passe incorrect",
+      "generic": "Une erreur est survenue"
+    }
+  },
+  "profile": {
+    "title": "Mon Profil",
+    "stats": "Mes statistiques",
+    "favorites": "Mes favoris",
+    "settings": "Parametres",
+    "subscription": {
+      "title": "Abonnement",
+      "free": "Gratuit",
+      "pro": "Pro",
+      "elite": "Elite",
+      "upgrade": "Passer a Pro"
+    }
+  },
+  "settings": {
+    "title": "Parametres",
+    "appearance": {
+      "title": "Apparence",
+      "theme": "Theme",
+      "light": "Clair",
+      "dark": "Sombre",
+      "system": "Systeme"
+    },
+    "language": {
+      "title": "Langue",
+      "select": "Choisir la langue"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "push": "Notifications push",
+      "email": "Notifications email",
+      "daily": "Resume quotidien"
+    }
+  },
+  "footer": {
+    "about": "A propos",
+    "contact": "Contact",
+    "terms": "Conditions",
+    "privacy": "Confidentialite",
+    "copyright": "Tous droits reserves"
+  },
+  "errors": {
+    "404": {
+      "title": "Page non trouvee",
+      "description": "La page que vous cherchez n'existe pas.",
+      "back": "Retour a l'accueil"
+    },
+    "500": {
+      "title": "Erreur serveur",
+      "description": "Une erreur inattendue s'est produite.",
+      "retry": "Reessayer"
+    },
+    "offline": {
+      "title": "Vous etes hors ligne",
+      "description": "Verifiez votre connexion internet."
+    }
+  },
+  "pwa": {
+    "install": {
+      "title": "Installer Paris Sportif",
+      "description": "Acces rapide depuis votre ecran d'accueil",
+      "button": "Installer",
+      "later": "Plus tard"
+    },
+    "update": {
+      "title": "Mise a jour disponible",
+      "button": "Mettre a jour"
+    }
+  },
+  "notifications": {
+    "notSupported": "Notifications non supportees",
+    "blocked": "Notifications bloquees dans les parametres",
+    "enabled": "Notifications activees",
+    "disabled": "Notifications desactivees",
+    "enable": "Activer",
+    "disable": "Desactiver",
+    "later": "Plus tard",
+    "bannerTitle": "Restez informe des picks",
+    "bannerDescription": "Recevez une alerte quand nos nouveaux pronostics sont disponibles",
+    "newPicks": "Nouveaux picks disponibles",
+    "pickReady": "Vos 5 picks du jour sont prets !"
+  }
+}

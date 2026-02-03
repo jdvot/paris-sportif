@@ -1,9 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
 import { Providers } from "./providers";
 import { AppShell } from "@/components/AppShell";
 import { Analytics } from "@/components/Analytics";
+import { PWAProvider } from "@/components/PWAProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -11,6 +14,18 @@ const inter = Inter({
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://paris-sportif.vercel.app";
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#3b82f6" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -76,6 +91,20 @@ export const metadata: Metadata = {
     canonical: siteUrl,
   },
   category: "sports",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Paris Sportif",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 const jsonLd = {
@@ -98,13 +127,16 @@ const jsonLd = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="fr" className={inter.variable} suppressHydrationWarning>
+    <html lang={locale} className={inter.variable} suppressHydrationWarning>
       <head>
         <script
           type="application/ld+json"
@@ -113,9 +145,13 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <Analytics />
-        <Providers>
-          <AppShell>{children}</AppShell>
-        </Providers>
+        <NextIntlClientProvider messages={messages}>
+          <Providers>
+            <PWAProvider>
+              <AppShell>{children}</AppShell>
+            </PWAProvider>
+          </Providers>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

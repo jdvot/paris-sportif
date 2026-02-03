@@ -44,6 +44,8 @@ import { cn } from "@/lib/utils";
 import { ROLE_PERMISSIONS, type UserRole } from "@/lib/supabase/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { Achievements } from "@/components/Achievements";
+import { StreakTracker } from "@/components/StreakTracker";
 
 export default function ProfilePage() {
   const { user, profile, loading, isAuthenticated, isPremium, isAdmin, resetPassword } =
@@ -706,6 +708,15 @@ export default function ProfilePage() {
             </Link>
           </div>
         </div>
+      </div>
+
+      {/* Gamification Section - Hit & Win */}
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Streak Tracker */}
+        <StreakTracker variant="full" />
+
+        {/* Achievements */}
+        <Achievements variant="full" maxDisplay={9} />
       </div>
 
       {/* Recent Bets Section */}

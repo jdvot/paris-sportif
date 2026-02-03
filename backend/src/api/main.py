@@ -19,6 +19,7 @@ from src.api.routes import (
     health,
     matches,
     ml,
+    notifications,
     predictions,
     prompts,
     rag,
@@ -176,6 +177,11 @@ app.include_router(
     prompts.router,
     prefix=f"{settings.api_v1_prefix}/prompts",
     tags=["Prompt Versioning"],
+)
+app.include_router(
+    notifications.router,
+    prefix=f"{settings.api_v1_prefix}",
+    tags=["Notifications"],
 )
 
 

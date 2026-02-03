@@ -253,3 +253,32 @@ class NewsItem(Base):
         Index("ix_news_published", "published_at"),
         Index("ix_news_injury", "is_injury_news", "published_at"),
     )
+
+
+class PushSubscription(Base):
+    """Web push notification subscription."""
+
+    __tablename__ = "push_subscriptions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    endpoint: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+
+    # Push subscription keys
+    p256dh_key: Mapped[str] = mapped_column(Text, nullable=False)
+    auth_key: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # User association (optional - anonymous subscriptions allowed)
+    user_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+
+    # Preferences
+    daily_picks: Mapped[bool] = mapped_column(Boolean, default=True)
+    match_start: Mapped[bool] = mapped_column(Boolean, default=False)
+    result_updates: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Status
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    failed_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
