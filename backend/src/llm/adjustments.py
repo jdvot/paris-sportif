@@ -5,21 +5,257 @@ based on injuries, form, sentiment, and other contextual factors.
 """
 
 import logging
-from typing import Optional
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.llm.client import get_llm_client
 from src.llm.prompts import (
-    SYSTEM_JSON_EXTRACTOR,
     INJURY_ANALYSIS_PROMPT,
     SENTIMENT_ANALYSIS_PROMPT,
+    SYSTEM_JSON_EXTRACTOR,
 )
 from src.llm.prompts_advanced import (
-    get_injury_impact_analysis_prompt,
     get_form_analysis_prompt,
+    get_injury_impact_analysis_prompt,
 )
 from src.prediction_engine.ensemble import LLMAdjustments
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Pydantic Validation Models for LLM JSON Responses
+# =============================================================================
+
+
+class InjuryAnalysis(BaseModel):
+    """Validated injury analysis from LLM."""
+
+    player_name: str | None = Field(default=None, description="Name of injured player")
+    position: str | None = Field(default=None, description="Player position")
+    impact_score: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Impact on team performance (0.0-1.0)",
+    )
+    confidence: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Confidence in analysis (0.0-1.0)"
+    )
+    is_key_player: bool = Field(default=False, description="Whether player is key")
+    expected_return: str | None = Field(
+        default=None, description="Expected return timeframe"
+    )
+    reasoning: str = Field(default="", description="Analysis reasoning")
+
+    @field_validator("impact_score", "confidence", mode="before")
+    @classmethod
+    def coerce_float(cls, v: Any) -> float:
+        """Coerce string values to float."""
+        if isinstance(v, str):
+            try:
+                return float(v)
+            except ValueError:
+                return 0.0
+        if v is None:
+            return 0.0
+        return float(v)
+
+    @field_validator("is_key_player", mode="before")
+    @classmethod
+    def coerce_bool(cls, v: Any) -> bool:
+        """Coerce various values to bool."""
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, str):
+            return v.lower() in ("true", "yes", "1", "oui")
+        return bool(v)
+
+
+class SentimentAnalysis(BaseModel):
+    """Validated sentiment analysis from LLM."""
+
+    sentiment_score: float = Field(
+        default=0.0,
+        ge=-1.0,
+        le=1.0,
+        description="Sentiment score (-1.0 to 1.0)",
+    )
+    confidence: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Confidence in analysis (0.0-1.0)"
+    )
+    morale_indicator: Literal[
+        "very_negative", "negative", "neutral", "positive", "very_positive"
+    ] = Field(default="neutral", description="Team morale level")
+    key_factors: list[str] = Field(
+        default_factory=list, description="Key factors affecting sentiment"
+    )
+    reasoning: str = Field(default="", description="Analysis reasoning")
+
+    @field_validator("sentiment_score", "confidence", mode="before")
+    @classmethod
+    def coerce_float(cls, v: Any) -> float:
+        """Coerce string values to float."""
+        if isinstance(v, str):
+            try:
+                return float(v)
+            except ValueError:
+                return 0.0
+        if v is None:
+            return 0.0
+        return float(v)
+
+    @field_validator("morale_indicator", mode="before")
+    @classmethod
+    def normalize_morale(cls, v: Any) -> str:
+        """Normalize morale indicator values."""
+        if v is None:
+            return "neutral"
+        v_str = str(v).lower().strip()
+        valid_values = {
+            "very_negative",
+            "negative",
+            "neutral",
+            "positive",
+            "very_positive",
+        }
+        if v_str in valid_values:
+            return v_str
+        # Map common variations
+        if "very" in v_str and "neg" in v_str:
+            return "very_negative"
+        if "very" in v_str and "pos" in v_str:
+            return "very_positive"
+        if "neg" in v_str or "bad" in v_str:
+            return "negative"
+        if "pos" in v_str or "good" in v_str:
+            return "positive"
+        return "neutral"
+
+
+class FormAssessment(BaseModel):
+    """Nested form assessment details."""
+
+    recent_performance: Literal[
+        "very_poor",
+        "poor",
+        "below_average",
+        "average",
+        "above_average",
+        "good",
+        "excellent",
+    ] = Field(default="average")
+    trend: Literal["declining", "stable", "improving"] = Field(default="stable")
+    trend_strength: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    @field_validator("recent_performance", mode="before")
+    @classmethod
+    def normalize_performance(cls, v: Any) -> str:
+        """Normalize performance values."""
+        if v is None:
+            return "average"
+        v_str = str(v).lower().strip().replace(" ", "_")
+        valid = {
+            "very_poor",
+            "poor",
+            "below_average",
+            "average",
+            "above_average",
+            "good",
+            "excellent",
+        }
+        if v_str in valid:
+            return v_str
+        # Map common variations
+        if "excel" in v_str or "great" in v_str:
+            return "excellent"
+        if "very" in v_str and "poor" in v_str:
+            return "very_poor"
+        if "poor" in v_str or "bad" in v_str:
+            return "poor"
+        if "good" in v_str:
+            return "good"
+        return "average"
+
+    @field_validator("trend", mode="before")
+    @classmethod
+    def normalize_trend(cls, v: Any) -> str:
+        """Normalize trend values."""
+        if v is None:
+            return "stable"
+        v_str = str(v).lower().strip()
+        if "improv" in v_str or "up" in v_str or "rising" in v_str:
+            return "improving"
+        if "declin" in v_str or "down" in v_str or "fall" in v_str:
+            return "declining"
+        return "stable"
+
+
+class FormAnalysis(BaseModel):
+    """Validated form analysis from LLM."""
+
+    sentiment_adjustment: float = Field(
+        default=0.0,
+        ge=-0.15,
+        le=0.15,
+        description="Form-based adjustment (-0.15 to 0.15)",
+    )
+    confidence: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Confidence in analysis (0.0-1.0)"
+    )
+    form_assessment: FormAssessment = Field(default_factory=FormAssessment)
+    reasoning: str = Field(default="", description="Analysis reasoning")
+
+    @field_validator("sentiment_adjustment", "confidence", mode="before")
+    @classmethod
+    def coerce_float(cls, v: Any) -> float:
+        """Coerce string values to float."""
+        if isinstance(v, str):
+            try:
+                return float(v)
+            except ValueError:
+                return 0.0
+        if v is None:
+            return 0.0
+        return float(v)
+
+    @field_validator("form_assessment", mode="before")
+    @classmethod
+    def ensure_form_assessment(cls, v: Any) -> dict:
+        """Ensure form_assessment is a dict."""
+        if v is None:
+            return {}
+        if isinstance(v, dict):
+            return v
+        return {}
+
+
+def validate_injury_analysis(raw_result: dict) -> InjuryAnalysis:
+    """Validate and parse raw LLM injury analysis result."""
+    try:
+        return InjuryAnalysis.model_validate(raw_result)
+    except Exception as e:
+        logger.warning(f"Injury analysis validation failed: {e}")
+        return InjuryAnalysis(reasoning="Validation failed")
+
+
+def validate_sentiment_analysis(raw_result: dict) -> SentimentAnalysis:
+    """Validate and parse raw LLM sentiment analysis result."""
+    try:
+        return SentimentAnalysis.model_validate(raw_result)
+    except Exception as e:
+        logger.warning(f"Sentiment analysis validation failed: {e}")
+        return SentimentAnalysis(reasoning="Validation failed")
+
+
+def validate_form_analysis(raw_result: dict) -> FormAnalysis:
+    """Validate and parse raw LLM form analysis result."""
+    try:
+        return FormAnalysis.model_validate(raw_result)
+    except Exception as e:
+        logger.warning(f"Form analysis validation failed: {e}")
+        return FormAnalysis(reasoning="Validation failed")
 
 
 async def analyze_injury_impact(
@@ -56,26 +292,17 @@ async def analyze_injury_impact(
             temperature=0.2,  # Low temperature for consistent extraction
         )
 
-        # Validate required fields
-        if "impact_score" not in result or "confidence" not in result:
-            logger.warning(f"Missing key fields in injury analysis for {team_name}")
-            return {
-                "player_name": result.get("player_name", "unknown"),
-                "impact_score": 0.0,
-                "confidence": 0.0,
-                "reasoning": "Incomplete analysis",
-            }
-
-        return result
+        # Validate with Pydantic model
+        validated = validate_injury_analysis(result)
+        logger.debug(
+            f"Injury analysis for {team_name}: impact={validated.impact_score:.2f}, "
+            f"confidence={validated.confidence:.2f}"
+        )
+        return validated.model_dump()
 
     except Exception as e:
         logger.error(f"Error analyzing injury for {team_name}: {str(e)}")
-        return {
-            "player_name": "unknown",
-            "impact_score": 0.0,
-            "confidence": 0.0,
-            "reasoning": "Analysis failed",
-        }
+        return InjuryAnalysis(reasoning="Analysis failed").model_dump()
 
 
 async def analyze_sentiment(
@@ -113,26 +340,17 @@ async def analyze_sentiment(
             temperature=0.2,
         )
 
-        # Validate sentiment score range
-        if "sentiment_score" in result:
-            score = result["sentiment_score"]
-            if not isinstance(score, (int, float)):
-                result["sentiment_score"] = 0.0
-            else:
-                result["sentiment_score"] = max(-1.0, min(1.0, float(score)))
-
-        if "confidence" not in result:
-            result["confidence"] = 0.0
-
-        return result
+        # Validate with Pydantic model
+        validated = validate_sentiment_analysis(result)
+        logger.debug(
+            f"Sentiment analysis for {team_name}: score={validated.sentiment_score:.2f}, "
+            f"morale={validated.morale_indicator}, confidence={validated.confidence:.2f}"
+        )
+        return validated.model_dump()
 
     except Exception as e:
         logger.error(f"Error analyzing sentiment for {team_name}: {str(e)}")
-        return {
-            "sentiment_score": 0.0,
-            "confidence": 0.0,
-            "reasoning": "Analysis failed",
-        }
+        return SentimentAnalysis(reasoning="Analysis failed").model_dump()
 
 
 async def analyze_form(
@@ -172,24 +390,18 @@ async def analyze_form(
             temperature=0.3,
         )
 
-        # Validate sentiment adjustment range
-        if "sentiment_adjustment" in result:
-            adjustment = result["sentiment_adjustment"]
-            if isinstance(adjustment, (int, float)):
-                result["sentiment_adjustment"] = max(-0.15, min(0.15, float(adjustment)))
-
-        if "confidence" not in result:
-            result["confidence"] = 0.5
-
-        return result
+        # Validate with Pydantic model
+        validated = validate_form_analysis(result)
+        logger.debug(
+            f"Form analysis for {team_name}: adjustment={validated.sentiment_adjustment:.3f}, "
+            f"performance={validated.form_assessment.recent_performance}, "
+            f"trend={validated.form_assessment.trend}"
+        )
+        return validated.model_dump()
 
     except Exception as e:
         logger.error(f"Error analyzing form for {team_name}: {str(e)}")
-        return {
-            "sentiment_adjustment": 0.0,
-            "confidence": 0.0,
-            "reasoning": "Analysis failed",
-        }
+        return FormAnalysis(reasoning="Analysis failed").model_dump()
 
 
 async def calculate_llm_adjustments(
