@@ -8,9 +8,9 @@ Improvements over basic ELO:
 """
 
 from dataclasses import dataclass
-from typing import Literal, Tuple
+from typing import Literal
+
 import numpy as np
-from datetime import datetime, timedelta
 
 
 @dataclass
@@ -113,7 +113,7 @@ class AdvancedELOSystem:
         # Recent performance adjustment
         # Teams on a hot streak (positive performance) get higher K
         if recent_performance > 0.1:
-            k *= (1.0 + recent_performance * 0.5)
+            k *= 1.0 + recent_performance * 0.5
 
         return k
 
@@ -139,7 +139,7 @@ class AdvancedELOSystem:
         adjusted_b = rating_b + (0 if is_a_home else self.home_advantage)
 
         # Standard ELO formula
-        return 1.0 / (1.0 + 10.0 ** ((adjusted_b - adjusted_a) / 400.0))
+        return float(1.0 / (1.0 + 10.0 ** ((adjusted_b - adjusted_a) / 400.0)))
 
     def calculate_outcome_probabilities(
         self,
@@ -147,7 +147,7 @@ class AdvancedELOSystem:
         away_rating: float,
         home_performance: float = 0.0,
         away_performance: float = 0.0,
-    ) -> Tuple[float, float, float]:
+    ) -> tuple[float, float, float]:
         """
         Calculate win/draw/loss probabilities with calibration.
 
@@ -193,7 +193,7 @@ class AdvancedELOSystem:
     def actual_score(
         self,
         result: Literal["home", "draw", "away"],
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Convert match result to actual scores.
 
@@ -234,7 +234,7 @@ class AdvancedELOSystem:
         home_goals: int,
         away_goals: int,
         is_major_match: bool = False,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Update ratings after a match.
 
@@ -310,8 +310,8 @@ class AdvancedELOSystem:
             weight = np.exp(-0.15 * i)
             weights.append(weight)
 
-        weights = np.array(weights)
-        weights /= weights.sum()
+        weights_arr = np.array(weights)
+        weights_arr /= weights_arr.sum()
 
         # Calculate win rate with weighting
         win_points = []
@@ -324,12 +324,12 @@ class AdvancedELOSystem:
                 win_points.append(0.0)
 
         # Weighted average
-        win_rate = np.average(win_points, weights=weights)
+        win_rate = np.average(win_points, weights=weights_arr)
 
         # Adjustment: 0.5 win rate = 0.0, 1.0 = +1.0, 0.0 = -1.0
         # Apply slight damping to prevent over-correction (max ~0.8)
         adjustment = (win_rate - 0.5) * 2.0
-        adjustment = np.clip(adjustment, -0.8, 0.8)  # Limit extreme swings
+        adjustment = float(np.clip(adjustment, -0.8, 0.8))  # Limit extreme swings
         return adjustment
 
     def predict(
@@ -352,16 +352,8 @@ class AdvancedELOSystem:
             AdvancedELOPrediction with probabilities and confidence
         """
         # Calculate performance ratings
-        home_perf = (
-            self.recent_performance_rating(home_recent_form)
-            if home_recent_form
-            else 0.0
-        )
-        away_perf = (
-            self.recent_performance_rating(away_recent_form)
-            if away_recent_form
-            else 0.0
-        )
+        home_perf = self.recent_performance_rating(home_recent_form) if home_recent_form else 0.0
+        away_perf = self.recent_performance_rating(away_recent_form) if away_recent_form else 0.0
 
         # Calculate adjusted ratings
         adj_home = home_rating + (home_perf * 50)

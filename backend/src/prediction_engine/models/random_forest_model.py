@@ -18,9 +18,8 @@ References:
 - Comparison with XGBoost: https://www.kaggle.com/getting-started/xgboost-vs-random-forest
 """
 
-from dataclasses import dataclass
-from typing import Optional, Dict, List
 import logging
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -28,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from sklearn.ensemble import RandomForestClassifier
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -89,7 +89,7 @@ class RandomForestModel:
         "n_jobs": -1,
     }
 
-    def __init__(self, pretrained_model: Optional[object] = None):
+    def __init__(self, pretrained_model: object | None = None):
         """
         Initialize Random Forest model.
 
@@ -98,16 +98,16 @@ class RandomForestModel:
         """
         self.model = pretrained_model
         self.is_trained = pretrained_model is not None
-        self.feature_importance: Dict[str, float] = {}
-        self.oob_score: Optional[float] = None
+        self.feature_importance: dict[str, float] = {}
+        self.oob_score: float | None = None
 
     def train(
         self,
         X_train: np.ndarray,
         y_train: np.ndarray,
-        X_val: Optional[np.ndarray] = None,
-        y_val: Optional[np.ndarray] = None,
-    ) -> Dict[str, float]:
+        X_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
+    ) -> dict[str, float]:
         """
         Train the Random Forest model on historical match data.
 
@@ -139,7 +139,7 @@ class RandomForestModel:
             )
 
             # Train the model
-            self.model.fit(X_train, y_train)
+            self.model.fit(X_train, y_train)  # type: ignore[union-attr]
 
             self.is_trained = True
 
@@ -155,7 +155,7 @@ class RandomForestModel:
             # Validation score if provided
             val_score = 0.0
             if X_val is not None and y_val is not None:
-                val_score = float(self.model.score(X_val, y_val))
+                val_score = float(self.model.score(X_val, y_val))  # type: ignore[union-attr]
 
             metrics = {
                 "oob_score": self.oob_score or 0.0,
@@ -197,26 +197,26 @@ class RandomForestModel:
         """
         # Fallback if model not available
         if not SKLEARN_AVAILABLE or not self.is_trained:
-            return self._fallback_prediction(
-                home_attack, home_defense, away_attack, away_defense
-            )
+            return self._fallback_prediction(home_attack, home_defense, away_attack, away_defense)
 
         try:
             # Prepare feature vector
-            features = np.array([
+            features = np.array(
                 [
-                    home_attack,
-                    home_defense,
-                    away_attack,
-                    away_defense,
-                    recent_form_home,
-                    recent_form_away,
-                    head_to_head_home,
+                    [
+                        home_attack,
+                        home_defense,
+                        away_attack,
+                        away_defense,
+                        recent_form_home,
+                        recent_form_away,
+                        head_to_head_home,
+                    ]
                 ]
-            ])
+            )
 
             # Get probability predictions
-            probs = self.model.predict_proba(features)[0]
+            probs = self.model.predict_proba(features)[0]  # type: ignore[union-attr]
 
             # Extract probabilities
             home_win_prob = float(probs[self.OUTCOME_HOME_WIN])
@@ -242,9 +242,7 @@ class RandomForestModel:
 
         except Exception as e:
             logger.error(f"Error during prediction: {e}")
-            return self._fallback_prediction(
-                home_attack, home_defense, away_attack, away_defense
-            )
+            return self._fallback_prediction(home_attack, home_defense, away_attack, away_defense)
 
     def predict_batch(self, features: np.ndarray) -> np.ndarray:
         """
@@ -260,7 +258,7 @@ class RandomForestModel:
             return np.ones((features.shape[0], 3)) / 3
 
         try:
-            return self.model.predict_proba(features)
+            return self.model.predict_proba(features)  # type: ignore[union-attr, no-any-return]
         except Exception as e:
             logger.error(f"Error during batch prediction: {e}")
             return np.ones((features.shape[0], 3)) / 3
@@ -295,7 +293,7 @@ class RandomForestModel:
             prediction_confidence=0.55,
         )
 
-    def get_feature_importance(self) -> Dict[str, float]:
+    def get_feature_importance(self) -> dict[str, float]:
         """Get feature importance scores."""
         return self.feature_importance.copy()
 
@@ -307,6 +305,7 @@ class RandomForestModel:
 
         try:
             import joblib
+
             joblib.dump(self.model, filepath)
             logger.info(f"Model saved to {filepath}")
             return True
@@ -322,6 +321,7 @@ class RandomForestModel:
 
         try:
             import joblib
+
             self.model = joblib.load(filepath)
             self.is_trained = True
             logger.info(f"Model loaded from {filepath}")

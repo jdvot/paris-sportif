@@ -5,14 +5,14 @@ Premium endpoints - require premium or admin role.
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any
 
-from fastapi import APIRouter, Query, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
+from src.auth import PREMIUM_RESPONSES, PremiumUser
 from src.data.data_enrichment import get_data_enrichment
 from src.data.sources.football_data import get_football_data_client
-from src.auth import PremiumUser, PREMIUM_RESPONSES
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ router = APIRouter()
 
 class FormData(BaseModel):
     """Team form data."""
+
     last_5: list[str] = []
     points: int = 0
     goals_scored: int = 0
@@ -34,6 +35,7 @@ class FormData(BaseModel):
 
 class XGEstimate(BaseModel):
     """Estimated xG metrics."""
+
     estimated_xg: float = 0.0
     estimated_xga: float = 0.0
     offensive_rating: float = 0.0
@@ -42,27 +44,30 @@ class XGEstimate(BaseModel):
 
 class OddsData(BaseModel):
     """Bookmaker odds data."""
-    home_win: Optional[float] = None
-    draw: Optional[float] = None
-    away_win: Optional[float] = None
+
+    home_win: float | None = None
+    draw: float | None = None
+    away_win: float | None = None
     bookmakers: list[str] = []
     value_detected: bool = False
 
 
 class WeatherData(BaseModel):
     """Match weather data."""
+
     available: bool = False
-    temperature: Optional[float] = None
-    feels_like: Optional[float] = None
-    humidity: Optional[int] = None
-    description: Optional[str] = None
-    wind_speed: Optional[float] = None
-    rain_probability: Optional[float] = None
-    impact: Optional[str] = None
+    temperature: float | None = None
+    feels_like: float | None = None
+    humidity: int | None = None
+    description: str | None = None
+    wind_speed: float | None = None
+    rain_probability: float | None = None
+    impact: str | None = None
 
 
 class H2HData(BaseModel):
     """Head-to-head data."""
+
     total_matches: int = 0
     home_wins: int = 0
     away_wins: int = 0
@@ -74,34 +79,36 @@ class H2HData(BaseModel):
 
 class StandingsContext(BaseModel):
     """Standings context."""
-    home_position: Optional[int] = None
-    away_position: Optional[int] = None
-    home_points: Optional[int] = None
-    away_points: Optional[int] = None
-    position_diff: Optional[int] = None
+
+    home_position: int | None = None
+    away_position: int | None = None
+    home_points: int | None = None
+    away_points: int | None = None
+    position_diff: int | None = None
     context_note: str = ""
 
 
 class FullEnrichmentResponse(BaseModel):
     """Full enrichment data for a match."""
+
     home_team: str
     away_team: str
     competition: str
     timestamp: str
 
     # Form data
-    home_form: Optional[FormData] = None
-    away_form: Optional[FormData] = None
+    home_form: FormData | None = None
+    away_form: FormData | None = None
 
     # xG estimates
-    home_xg_estimate: Optional[XGEstimate] = None
-    away_xg_estimate: Optional[XGEstimate] = None
+    home_xg_estimate: XGEstimate | None = None
+    away_xg_estimate: XGEstimate | None = None
 
     # External data
-    odds: Optional[OddsData] = None
-    weather: Optional[WeatherData] = None
-    h2h: Optional[H2HData] = None
-    standings: Optional[StandingsContext] = None
+    odds: OddsData | None = None
+    weather: WeatherData | None = None
+    h2h: H2HData | None = None
+    standings: StandingsContext | None = None
 
 
 @router.get("/full", response_model=FullEnrichmentResponse, responses=PREMIUM_RESPONSES)
@@ -110,7 +117,7 @@ async def get_full_enrichment(
     home_team: str = Query(..., description="Home team name"),
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code"),
-    match_date: Optional[str] = Query(None, description="Match date YYYY-MM-DD"),
+    match_date: str | None = Query(None, description="Match date YYYY-MM-DD"),
 ) -> FullEnrichmentResponse:
     """
     Get full enrichment data for a match including:
@@ -148,6 +155,7 @@ async def get_full_enrichment(
         # Get recent matches for both teams (from last 30 days)
         try:
             from datetime import date
+
             today = date.today()
             date_from = today - timedelta(days=60)
 
@@ -175,14 +183,18 @@ async def get_full_enrichment(
                     away_matches.append(match_dict)
 
                 # Check for H2H
-                if (home_team.lower() in home_name or home_name in home_team.lower()) and \
-                   (away_team.lower() in away_name or away_name in away_team.lower()):
+                if (home_team.lower() in home_name or home_name in home_team.lower()) and (
+                    away_team.lower() in away_name or away_name in away_team.lower()
+                ):
                     h2h_matches.append(match_dict)
-                elif (away_team.lower() in home_name or home_name in away_team.lower()) and \
-                     (home_team.lower() in away_name or away_name in home_team.lower()):
+                elif (away_team.lower() in home_name or home_name in away_team.lower()) and (
+                    home_team.lower() in away_name or away_name in home_team.lower()
+                ):
                     h2h_matches.append(match_dict)
 
-            logger.info(f"Found {len(home_matches)} home matches, {len(away_matches)} away matches, {len(h2h_matches)} H2H")
+            logger.info(
+                f"Found {len(home_matches)} home, {len(away_matches)} away, {len(h2h_matches)} H2H"
+            )
 
         except Exception as e:
             logger.warning(f"Could not fetch matches: {e}")
@@ -207,20 +219,27 @@ async def get_full_enrichment(
             timestamp=enrichment.get("timestamp", datetime.now().isoformat()),
             home_form=FormData(**enrichment["home_form"]) if enrichment.get("home_form") else None,
             away_form=FormData(**enrichment["away_form"]) if enrichment.get("away_form") else None,
-            home_xg_estimate=XGEstimate(**enrichment["home_xg_estimate"]) if enrichment.get("home_xg_estimate") else None,
-            away_xg_estimate=XGEstimate(**enrichment["away_xg_estimate"]) if enrichment.get("away_xg_estimate") else None,
+            home_xg_estimate=(
+                XGEstimate(**enrichment["home_xg_estimate"])
+                if enrichment.get("home_xg_estimate")
+                else None
+            ),
+            away_xg_estimate=(
+                XGEstimate(**enrichment["away_xg_estimate"])
+                if enrichment.get("away_xg_estimate")
+                else None
+            ),
             odds=OddsData(**enrichment["odds"]) if enrichment.get("odds") else None,
             weather=WeatherData(**enrichment["weather"]) if enrichment.get("weather") else None,
             h2h=H2HData(**enrichment["h2h"]) if enrichment.get("h2h") else None,
-            standings=StandingsContext(**enrichment["standings"]) if enrichment.get("standings") else None,
+            standings=(
+                StandingsContext(**enrichment["standings"]) if enrichment.get("standings") else None
+            ),
         )
 
     except Exception as e:
         logger.error(f"Enrichment error: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to enrich match data: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to enrich match data: {str(e)}")
 
 
 @router.get("/odds", responses=PREMIUM_RESPONSES)
@@ -229,7 +248,7 @@ async def get_match_odds(
     home_team: str = Query(..., description="Home team name"),
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code"),
-) -> dict:
+) -> dict[str, Any]:
     """Get bookmaker odds for a specific match."""
     try:
         enrichment_service = get_data_enrichment()
@@ -244,8 +263,8 @@ async def get_match_odds(
 async def get_match_weather(
     user: PremiumUser,
     home_team: str = Query(..., description="Home team name"),
-    match_date: Optional[str] = Query(None, description="Match date YYYY-MM-DD"),
-) -> dict:
+    match_date: str | None = Query(None, description="Match date YYYY-MM-DD"),
+) -> dict[str, Any]:
     """Get weather forecast for match day."""
     try:
         if match_date:
@@ -266,7 +285,7 @@ async def get_h2h(
     home_team: str = Query(..., description="Home team name"),
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code"),
-) -> dict:
+) -> dict[str, Any]:
     """Get head-to-head history between two teams."""
     try:
         football_client = get_football_data_client()
@@ -290,11 +309,13 @@ async def get_h2h(
             away_name = match.awayTeam.name.lower()
 
             is_h2h = False
-            if (home_team.lower() in home_name or home_name in home_team.lower()) and \
-               (away_team.lower() in away_name or away_name in away_team.lower()):
+            if (home_team.lower() in home_name or home_name in home_team.lower()) and (
+                away_team.lower() in away_name or away_name in away_team.lower()
+            ):
                 is_h2h = True
-            elif (away_team.lower() in home_name or home_name in away_team.lower()) and \
-                 (home_team.lower() in away_name or away_name in home_team.lower()):
+            elif (away_team.lower() in home_name or home_name in away_team.lower()) and (
+                home_team.lower() in away_name or away_name in home_team.lower()
+            ):
                 is_h2h = True
 
             if is_h2h:
@@ -314,7 +335,7 @@ async def get_team_form(
     team_name: str,
     user: PremiumUser,
     competition: str = Query("PL", description="Competition code"),
-) -> dict:
+) -> dict[str, Any]:
     """Get recent form for a team."""
     try:
         football_client = get_football_data_client()
@@ -351,30 +372,30 @@ async def get_team_form(
 
 
 @router.get("/status", responses=PREMIUM_RESPONSES)
-async def get_enrichment_status(user: PremiumUser) -> dict:
+async def get_enrichment_status(user: PremiumUser) -> dict[str, Any]:
     """Get status of all enrichment data sources."""
     import os
 
     return {
         "football_data": {
             "configured": bool(os.getenv("FOOTBALL_DATA_API_KEY")),
-            "description": "Matches, standings, H2H"
+            "description": "Matches, standings, H2H",
         },
         "odds_api": {
             "configured": bool(os.getenv("ODDS_API_KEY")),
-            "description": "Bookmaker odds (500 req/month free)"
+            "description": "Bookmaker odds (500 req/month free)",
         },
         "open_meteo": {
             "configured": True,  # Open-Meteo is always available, no API key needed
-            "description": "Match day weather (free, unlimited)"
+            "description": "Match day weather (free, unlimited)",
         },
         "groq_llm": {
             "configured": bool(os.getenv("GROQ_API_KEY")),
-            "description": "News analysis, sentiment"
+            "description": "News analysis, sentiment",
         },
         "calculated": {
             "form": "From recent matches",
             "xg_estimate": "Approximated from goals/form",
-            "h2h": "From historical matches"
-        }
+            "h2h": "From historical matches",
+        },
     }

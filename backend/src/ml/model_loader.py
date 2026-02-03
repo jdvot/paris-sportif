@@ -7,7 +7,7 @@ Provides a unified interface for predictions.
 import logging
 import pickle
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -23,24 +23,24 @@ class TrainedModelLoader:
     _instance = None
     _initialized = False
 
-    def __new__(cls):
+    def __new__(cls) -> "TrainedModelLoader":
         """Singleton pattern for model loading."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize model loader."""
         if TrainedModelLoader._initialized:
             return
 
-        self.xgb_model = None
-        self.rf_model = None
-        self.feature_state = None
+        self.xgb_model: Any = None
+        self.rf_model: Any = None
+        self.feature_state: Any = None
         self._load_models()
         TrainedModelLoader._initialized = True
 
-    def _load_models(self):
+    def _load_models(self) -> None:
         """Load trained models from disk."""
         # Load XGBoost
         xgb_path = MODELS_DIR / "xgboost_latest.pkl"
@@ -72,7 +72,7 @@ class TrainedModelLoader:
             except Exception as e:
                 logger.warning(f"Failed to load feature state: {e}")
 
-    def reload_models(self):
+    def reload_models(self) -> None:
         """Reload models from disk (useful after retraining)."""
         TrainedModelLoader._initialized = False
         self.xgb_model = None
@@ -91,7 +91,7 @@ class TrainedModelLoader:
             return False
         return team_id in self.feature_state.get("team_goals_scored", {})
 
-    def get_team_stats(self, team_id: int) -> Optional[Dict]:
+    def get_team_stats(self, team_id: int) -> dict[str, Any] | None:
         """Get historical stats for a team."""
         if not self.feature_state or not self.has_team_data(team_id):
             return None
@@ -166,20 +166,21 @@ class TrainedModelLoader:
                     points = wins * 3 + draws
                     h2h = points / (len(results) * 3)
 
-        return np.array([[
-            home_attack,
-            home_defense,
-            away_attack,
-            away_defense,
-            home_form / 100.0,
-            away_form / 100.0,
-            h2h,
-        ]])
+        return np.array(
+            [
+                [
+                    home_attack,
+                    home_defense,
+                    away_attack,
+                    away_defense,
+                    home_form / 100.0,
+                    away_form / 100.0,
+                    h2h,
+                ]
+            ]
+        )
 
-    def predict_xgboost(
-        self,
-        features: np.ndarray
-    ) -> Optional[Tuple[np.ndarray, float]]:
+    def predict_xgboost(self, features: np.ndarray) -> tuple[np.ndarray, float] | None:
         """
         Make prediction with XGBoost model.
 
@@ -200,10 +201,7 @@ class TrainedModelLoader:
             logger.error(f"XGBoost prediction failed: {e}")
             return None
 
-    def predict_random_forest(
-        self,
-        features: np.ndarray
-    ) -> Optional[Tuple[np.ndarray, float]]:
+    def predict_random_forest(self, features: np.ndarray) -> tuple[np.ndarray, float] | None:
         """
         Make prediction with Random Forest model.
 
@@ -236,7 +234,7 @@ class TrainedModelLoader:
         away_form: float = 50.0,
         xgb_weight: float = 0.7,
         rf_weight: float = 0.3,
-    ) -> Optional[Dict]:
+    ) -> dict[str, Any] | None:
         """
         Make ensemble prediction combining both models.
 
@@ -244,10 +242,14 @@ class TrainedModelLoader:
             Dictionary with probabilities and metadata
         """
         features = self.create_features(
-            home_team_id, away_team_id,
-            home_attack, home_defense,
-            away_attack, away_defense,
-            home_form, away_form
+            home_team_id,
+            away_team_id,
+            home_attack,
+            home_defense,
+            away_attack,
+            away_defense,
+            home_form,
+            away_form,
         )
 
         xgb_result = self.predict_xgboost(features)
@@ -262,7 +264,7 @@ class TrainedModelLoader:
             rf_probs, rf_conf = rf_result
 
             # Weighted average
-            combined_probs = (xgb_probs * xgb_weight + rf_probs * rf_weight)
+            combined_probs = xgb_probs * xgb_weight + rf_probs * rf_weight
             combined_probs = combined_probs / combined_probs.sum()  # Normalize
 
             confidence = xgb_conf * xgb_weight + rf_conf * rf_weight
@@ -273,6 +275,7 @@ class TrainedModelLoader:
             model_used = "xgboost"
 
         else:
+            assert rf_result is not None  # Guaranteed by earlier None check
             combined_probs, confidence = rf_result
             model_used = "random_forest"
 
@@ -299,7 +302,7 @@ def get_ml_prediction(
     away_defense: float = 1.3,
     home_form: float = 50.0,
     away_form: float = 50.0,
-) -> Optional[Dict]:
+) -> dict[str, Any] | None:
     """
     Convenience function to get ML prediction.
 
@@ -309,8 +312,12 @@ def get_ml_prediction(
         return None
 
     return model_loader.predict_ensemble(
-        home_team_id, away_team_id,
-        home_attack, home_defense,
-        away_attack, away_defense,
-        home_form, away_form
+        home_team_id,
+        away_team_id,
+        home_attack,
+        home_defense,
+        away_attack,
+        away_defense,
+        home_form,
+        away_form,
     )

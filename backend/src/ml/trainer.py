@@ -10,7 +10,7 @@ import pickle
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -29,22 +29,24 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 class FeatureEngineer:
     """Creates ML features from match and team data."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize feature engineering with team history tracking."""
         # Track team statistics over time
-        self.team_goals_scored = defaultdict(list)  # team_id -> [goals...]
-        self.team_goals_conceded = defaultdict(list)
-        self.team_results = defaultdict(list)  # team_id -> [0/1/2...]
-        self.head_to_head = defaultdict(lambda: defaultdict(list))  # team1 -> team2 -> [results]
+        self.team_goals_scored: defaultdict[Any, list[int]] = defaultdict(list)
+        self.team_goals_conceded: defaultdict[Any, list[int]] = defaultdict(list)
+        self.team_results: defaultdict[Any, list[int]] = defaultdict(list)
+        self.head_to_head: defaultdict[Any, defaultdict[Any, list[int]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset all tracked statistics."""
         self.team_goals_scored.clear()
         self.team_goals_conceded.clear()
         self.team_results.clear()
         self.head_to_head.clear()
 
-    def calculate_form(self, results: List[int], last_n: int = 5) -> float:
+    def calculate_form(self, results: list[int], last_n: int = 5) -> float:
         """
         Calculate team form from recent results.
 
@@ -64,14 +66,14 @@ class FeatureEngineer:
         max_points = len(recent) * 3
         return (points / max_points) * 100 if max_points > 0 else 50.0
 
-    def calculate_attack_strength(self, goals_scored: List[int], last_n: int = 10) -> float:
+    def calculate_attack_strength(self, goals_scored: list[int], last_n: int = 10) -> float:
         """Calculate attack strength from recent goals scored."""
         if not goals_scored:
             return 1.3  # League average
         recent = goals_scored[-last_n:]
         return sum(recent) / len(recent) if recent else 1.3
 
-    def calculate_defense_strength(self, goals_conceded: List[int], last_n: int = 10) -> float:
+    def calculate_defense_strength(self, goals_conceded: list[int], last_n: int = 10) -> float:
         """Calculate defense strength from recent goals conceded."""
         if not goals_conceded:
             return 1.3  # League average
@@ -97,10 +99,7 @@ class FeatureEngineer:
         return points / max_points if max_points > 0 else 0.5
 
     def create_features(
-        self,
-        home_team_id: int,
-        away_team_id: int,
-        use_current_state: bool = True
+        self, home_team_id: int, away_team_id: int, use_current_state: bool = True
     ) -> np.ndarray:
         """
         Create feature vector for a match.
@@ -122,18 +121,10 @@ class FeatureEngineer:
         Returns:
             Feature vector as numpy array
         """
-        home_attack = self.calculate_attack_strength(
-            self.team_goals_scored[home_team_id]
-        )
-        home_defense = self.calculate_defense_strength(
-            self.team_goals_conceded[home_team_id]
-        )
-        away_attack = self.calculate_attack_strength(
-            self.team_goals_scored[away_team_id]
-        )
-        away_defense = self.calculate_defense_strength(
-            self.team_goals_conceded[away_team_id]
-        )
+        home_attack = self.calculate_attack_strength(self.team_goals_scored[home_team_id])
+        home_defense = self.calculate_defense_strength(self.team_goals_conceded[home_team_id])
+        away_attack = self.calculate_attack_strength(self.team_goals_scored[away_team_id])
+        away_defense = self.calculate_defense_strength(self.team_goals_conceded[away_team_id])
 
         # Calculate form (need to track results per team correctly)
         home_form = self.calculate_form(self.team_results[home_team_id])
@@ -142,24 +133,21 @@ class FeatureEngineer:
         # Head-to-head
         h2h = self.calculate_h2h(home_team_id, away_team_id)
 
-        return np.array([
-            home_attack,
-            home_defense,
-            away_attack,
-            away_defense,
-            home_form / 100.0,  # Normalize to 0-1
-            away_form / 100.0,
-            h2h,
-        ])
+        return np.array(
+            [
+                home_attack,
+                home_defense,
+                away_attack,
+                away_defense,
+                home_form / 100.0,  # Normalize to 0-1
+                away_form / 100.0,
+                h2h,
+            ]
+        )
 
     def update_after_match(
-        self,
-        home_team_id: int,
-        away_team_id: int,
-        home_goals: int,
-        away_goals: int,
-        result: int
-    ):
+        self, home_team_id: int, away_team_id: int, home_goals: int, away_goals: int, result: int
+    ) -> None:
         """
         Update team statistics after a match.
 
@@ -189,27 +177,25 @@ class FeatureEngineer:
 class MLTrainer:
     """Trains XGBoost and Random Forest models."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize trainer."""
         self.feature_engineer = FeatureEngineer()
-        self.xgb_model = None
-        self.rf_model = None
+        self.xgb_model: Any = None
+        self.rf_model: Any = None
 
-    def load_historical_data(self) -> Optional[Dict]:
+    def load_historical_data(self) -> dict[str, Any] | None:
         """Load historical match data."""
         if not HISTORICAL_DATA_FILE.exists():
             logger.error(f"No historical data found at {HISTORICAL_DATA_FILE}")
             logger.info("Run data_collector.py first to collect data")
             return None
 
-        with open(HISTORICAL_DATA_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        with open(HISTORICAL_DATA_FILE, encoding="utf-8") as f:
+            return json.load(f)  # type: ignore[no-any-return]
 
     def prepare_training_data(
-        self,
-        matches: List[Dict],
-        min_history: int = 5
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        self, matches: list[dict[str, Any]], min_history: int = 5
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Prepare training data from historical matches.
 
@@ -228,7 +214,7 @@ class MLTrainer:
 
         features = []
         labels = []
-        team_match_count = defaultdict(int)
+        team_match_count: defaultdict[Any, int] = defaultdict(int)
 
         self.feature_engineer.reset()
 
@@ -240,8 +226,10 @@ class MLTrainer:
             away_goals = match["score"]["away"]
 
             # Only create training example if both teams have enough history
-            if (team_match_count[home_id] >= min_history and
-                team_match_count[away_id] >= min_history):
+            if (
+                team_match_count[home_id] >= min_history
+                and team_match_count[away_id] >= min_history
+            ):
 
                 # Create features BEFORE updating stats (no data leakage)
                 feature_vec = self.feature_engineer.create_features(home_id, away_id)
@@ -298,11 +286,7 @@ class MLTrainer:
         )
 
         # Train with early stopping
-        self.xgb_model.fit(
-            X_train, y_train,
-            eval_set=[(X_val, y_val)],
-            verbose=True
-        )
+        self.xgb_model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=True)
 
         # Evaluate
         val_accuracy = self.xgb_model.score(X_val, y_val)
@@ -355,7 +339,7 @@ class MLTrainer:
 
         return True
 
-    def save_models(self) -> Dict[str, Path]:
+    def save_models(self) -> dict[str, Path]:
         """
         Save trained models to disk.
 
@@ -390,12 +374,17 @@ class MLTrainer:
         # Save feature engineer state for inference
         fe_path = MODELS_DIR / "feature_engineer_state.pkl"
         with open(fe_path, "wb") as f:
-            pickle.dump({
-                "team_goals_scored": dict(self.feature_engineer.team_goals_scored),
-                "team_goals_conceded": dict(self.feature_engineer.team_goals_conceded),
-                "team_results": dict(self.feature_engineer.team_results),
-                "head_to_head": {k: dict(v) for k, v in self.feature_engineer.head_to_head.items()},
-            }, f)
+            pickle.dump(
+                {
+                    "team_goals_scored": dict(self.feature_engineer.team_goals_scored),
+                    "team_goals_conceded": dict(self.feature_engineer.team_goals_conceded),
+                    "team_results": dict(self.feature_engineer.team_results),
+                    "head_to_head": {
+                        k: dict(v) for k, v in self.feature_engineer.head_to_head.items()
+                    },
+                },
+                f,
+            )
         paths["feature_engineer"] = fe_path
         logger.info(f"Feature engineer state saved to {fe_path}")
 
@@ -428,7 +417,9 @@ class MLTrainer:
 
         # Log class distribution
         unique, counts = np.unique(y, return_counts=True)
-        logger.info(f"Class distribution: Home Win={counts[0]}, Draw={counts[1]}, Away Win={counts[2]}")
+        logger.info(
+            f"Class distribution: Home Win={counts[0]}, Draw={counts[1]}, Away Win={counts[2]}"
+        )
 
         # Train models
         xgb_success = self.train_xgboost(X, y)
@@ -441,7 +432,7 @@ class MLTrainer:
         return False
 
 
-def train_models_cli():
+def train_models_cli() -> None:
     """Command-line interface for training."""
     import argparse
 
@@ -450,10 +441,7 @@ def train_models_cli():
 
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     trainer = MLTrainer()
 

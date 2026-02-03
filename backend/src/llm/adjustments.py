@@ -5,16 +5,15 @@ based on injuries, form, sentiment, and other contextual factors.
 """
 
 import logging
-from typing import Optional
+from typing import Any
 
 from src.llm.client import get_llm_client
 from src.llm.prompts import (
-    SYSTEM_JSON_EXTRACTOR,
     INJURY_ANALYSIS_PROMPT,
     SENTIMENT_ANALYSIS_PROMPT,
+    SYSTEM_JSON_EXTRACTOR,
 )
 from src.llm.prompts_advanced import (
-    get_injury_impact_analysis_prompt,
     get_form_analysis_prompt,
 )
 from src.prediction_engine.ensemble import LLMAdjustments
@@ -26,7 +25,7 @@ async def analyze_injury_impact(
     team_name: str,
     news_text: str,
     team_strength: str = "medium",
-) -> dict:
+) -> dict[str, Any]:
     """
     Analyze injury news and extract detailed impact assessment.
 
@@ -82,7 +81,7 @@ async def analyze_sentiment(
     team_name: str,
     content: str,
     source_type: str = "news",
-) -> dict:
+) -> dict[str, Any]:
     """
     Analyze sentiment from news, media, or social content.
 
@@ -140,7 +139,7 @@ async def analyze_form(
     recent_results: list[str],
     media_sentiment: str = "neutral",
     tactical_changes: str = "",
-) -> dict:
+) -> dict[str, Any]:
     """
     Analyze team form and momentum with chain-of-thought reasoning.
 
@@ -195,12 +194,12 @@ async def analyze_form(
 async def calculate_llm_adjustments(
     home_team: str,
     away_team: str,
-    home_injuries: Optional[list[dict]] = None,
-    away_injuries: Optional[list[dict]] = None,
-    home_sentiment: Optional[dict] = None,
-    away_sentiment: Optional[dict] = None,
-    home_form: Optional[dict] = None,
-    away_form: Optional[dict] = None,
+    home_injuries: list[dict[str, Any]] | None = None,
+    away_injuries: list[dict[str, Any]] | None = None,
+    home_sentiment: dict[str, Any] | None = None,
+    away_sentiment: dict[str, Any] | None = None,
+    home_form: dict[str, Any] | None = None,
+    away_form: dict[str, Any] | None = None,
 ) -> LLMAdjustments:
     """
     Calculate comprehensive LLM-based adjustments for match prediction.
@@ -295,14 +294,16 @@ async def calculate_llm_adjustments(
     else:
         adjustments.overall_confidence = 0.5
 
-    logger.info(f"Final adjustments - Home: {adjustments.injury_impact_home:.3f}, "
-                f"Away: {adjustments.injury_impact_away:.3f}, "
-                f"Confidence: {adjustments.overall_confidence:.3f}")
+    logger.info(
+        f"Final adjustments - Home: {adjustments.injury_impact_home:.3f}, "
+        f"Away: {adjustments.injury_impact_away:.3f}, "
+        f"Confidence: {adjustments.overall_confidence:.3f}"
+    )
 
     return adjustments
 
 
-def _calculate_injury_impact(injuries: list[dict], team_name: str) -> dict:
+def _calculate_injury_impact(injuries: list[dict[str, Any]], team_name: str) -> dict[str, Any]:
     """
     Calculate cumulative injury impact factor.
 
@@ -321,8 +322,7 @@ def _calculate_injury_impact(injuries: list[dict], team_name: str) -> dict:
 
     # Weight injuries by impact score and confidence
     total_weighted_impact = sum(
-        inj.get("impact_score", 0) * inj.get("confidence", 0.5)
-        for inj in injuries
+        inj.get("impact_score", 0) * inj.get("confidence", 0.5) for inj in injuries
     )
 
     # Scale to -0.3 to 0.0 range (more conservative than simple multiplication)
@@ -344,7 +344,7 @@ def _calculate_injury_impact(injuries: list[dict], team_name: str) -> dict:
     return {"factor": impact_factor, "reasoning": reasoning}
 
 
-def _calculate_sentiment_adjustment(sentiment: dict, team_name: str) -> dict:
+def _calculate_sentiment_adjustment(sentiment: dict[str, Any], team_name: str) -> dict[str, Any]:
     """
     Calculate sentiment-based probability adjustment.
 
@@ -381,7 +381,7 @@ def _calculate_sentiment_adjustment(sentiment: dict, team_name: str) -> dict:
     return {"factor": adjustment_factor, "reasoning": reasoning}
 
 
-def _calculate_form_adjustment(form: dict, team_name: str) -> dict:
+def _calculate_form_adjustment(form: dict[str, Any], team_name: str) -> dict[str, Any]:
     """
     Calculate form-based probability adjustment.
 

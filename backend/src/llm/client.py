@@ -12,7 +12,7 @@ Get API key at: https://console.groq.com/
 """
 
 import json
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 from pydantic import BaseModel
@@ -44,7 +44,7 @@ class GroqClient:
     MODEL_LARGE = "llama-3.3-70b-versatile"  # For complex analysis
     MODEL_SMALL = "llama-3.1-8b-instant"  # For simple extraction
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         """
         Initialize Groq client.
 
@@ -57,7 +57,7 @@ class GroqClient:
             "Content-Type": "application/json",
         }
 
-    @retry(
+    @retry(  # type: ignore[misc]
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
     )
@@ -67,7 +67,7 @@ class GroqClient:
         model: str = MODEL_LARGE,
         temperature: float = 0.3,
         max_tokens: int = 1024,
-        response_format: Optional[dict] = None,
+        response_format: dict[str, str] | None = None,
     ) -> LLMResponse:
         """
         Make API request to Groq with comprehensive error handling.
@@ -145,8 +145,8 @@ class GroqClient:
     async def complete(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        model: Optional[str] = None,
+        system_prompt: str | None = None,
+        model: str | None = None,
         temperature: float = 0.3,
         max_tokens: int = 1024,
         json_mode: bool = False,
@@ -174,7 +174,7 @@ class GroqClient:
 
         response_format = {"type": "json_object"} if json_mode else None
 
-        response = await self._request(
+        response: LLMResponse = await self._request(
             messages=messages,
             model=model or self.MODEL_LARGE,
             temperature=temperature,
@@ -187,8 +187,9 @@ class GroqClient:
     async def analyze_json(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        model: Optional[str] = None,
+        system_prompt: str | None = None,
+        model: str | None = None,
+        temperature: float = 0.3,
     ) -> dict[str, Any]:
         """
         Get structured JSON response.
@@ -205,11 +206,13 @@ class GroqClient:
             prompt=prompt,
             system_prompt=system_prompt,
             model=model,
+            temperature=temperature,
             json_mode=True,
         )
 
         try:
-            return json.loads(content)
+            result: dict[str, Any] = json.loads(content)
+            return result
         except json.JSONDecodeError as e:
             raise LLMError(
                 "Failed to parse JSON response",
@@ -218,7 +221,7 @@ class GroqClient:
 
 
 # Will be initialized with API key from settings
-groq_client: Optional[GroqClient] = None
+groq_client: GroqClient | None = None
 
 
 def get_llm_client() -> GroqClient:

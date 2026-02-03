@@ -1,10 +1,9 @@
 """Generate match explanations using LLM."""
 
 from dataclasses import dataclass
-from typing import Optional
 
-from src.llm.client import get_llm_client, GroqClient
-from src.llm.prompts import SYSTEM_FOOTBALL_ANALYST, MATCH_EXPLANATION_PROMPT
+from src.llm.client import get_llm_client
+from src.llm.prompts import MATCH_EXPLANATION_PROMPT, SYSTEM_FOOTBALL_ANALYST
 from src.prediction_engine.ensemble import EnsemblePrediction
 
 
@@ -26,7 +25,7 @@ async def generate_match_explanation(
     prediction: EnsemblePrediction,
     home_form: str = "N/A",
     away_form: str = "N/A",
-    key_stats: Optional[str] = None,
+    key_stats: str | None = None,
 ) -> MatchExplanation:
     """
     Generate human-readable match explanation.
@@ -81,7 +80,7 @@ async def generate_match_explanation(
             betting_angle=result.get("betting_angle", ""),
         )
 
-    except Exception as e:
+    except Exception:
         # Fallback if LLM fails
         return MatchExplanation(
             summary=f"Match entre {home_team} et {away_team}. Prediction: {recommended_map.get(prediction.recommended_bet)} avec {round(prediction.confidence * 100)}% de confiance.",

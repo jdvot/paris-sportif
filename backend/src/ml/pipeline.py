@@ -8,9 +8,8 @@ Provides scheduled tasks for:
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +21,10 @@ MODELS_DIR = ML_DIR / "trained_models"
 class MLPipeline:
     """Automated ML pipeline manager."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize pipeline."""
-        self.last_collection: Optional[datetime] = None
-        self.last_training: Optional[datetime] = None
+        self.last_collection: datetime | None = None
+        self.last_training: datetime | None = None
         self.is_running = False
 
     async def collect_new_data(self) -> bool:
@@ -53,7 +52,7 @@ class MLPipeline:
 
             await collector.collect_all_historical_data(
                 seasons=[season - 2, season - 1, season],  # Last 3 seasons
-                competitions=["PL", "PD", "BL1", "SA", "FL1"]
+                competitions=["PL", "PD", "BL1", "SA", "FL1"],
             )
 
             self.last_collection = datetime.now()
@@ -71,8 +70,8 @@ class MLPipeline:
         Returns:
             True if training successful
         """
-        from .trainer import MLTrainer
         from .model_loader import model_loader
+        from .trainer import MLTrainer
 
         logger.info("Starting model retraining...")
         try:
@@ -149,7 +148,7 @@ class MLPipeline:
 
         return False
 
-    async def scheduled_task(self, interval_hours: int = 168):  # Default: weekly
+    async def scheduled_task(self, interval_hours: int = 168) -> None:  # Default: weekly
         """
         Background task that runs the pipeline on schedule.
 
@@ -173,7 +172,7 @@ class MLPipeline:
             # Wait for next run
             await asyncio.sleep(interval_hours * 3600)
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the scheduled task."""
         self.is_running = False
 
@@ -182,19 +181,19 @@ class MLPipeline:
 ml_pipeline = MLPipeline()
 
 
-async def start_ml_scheduler():
+async def start_ml_scheduler() -> None:
     """Start the ML pipeline scheduler as a background task."""
     asyncio.create_task(ml_pipeline.scheduled_task())
     logger.info("ML scheduler started")
 
 
-async def run_pipeline_now():
+async def run_pipeline_now() -> bool:
     """Run the ML pipeline immediately."""
     return await ml_pipeline.run_full_pipeline()
 
 
 # CLI interface
-async def main():
+async def main() -> None:
     """Command-line interface for pipeline operations."""
     import argparse
 
@@ -203,10 +202,7 @@ async def main():
 
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     pipeline = MLPipeline()
 
@@ -225,11 +221,13 @@ async def main():
         print(f"Should retrain: {pipeline.should_retrain()}")
 
         from .data_collector import HistoricalDataCollector
+
         collector = HistoricalDataCollector()
         age = collector.get_data_age_days()
         print(f"Data age: {age} days" if age else "No data collected")
 
         from .model_loader import model_loader
+
         print(f"Models loaded: {model_loader.is_trained()}")
 
 

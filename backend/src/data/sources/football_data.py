@@ -27,16 +27,16 @@ logger = logging.getLogger(__name__)
 class SimpleCache:
     """Simple in-memory cache with TTL (fallback when Redis unavailable)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._cache: dict[str, tuple[Any, datetime]] = {}
 
-    def _make_key(self, endpoint: str, params: dict | None) -> str:
+    def _make_key(self, endpoint: str, params: dict[str, Any] | None) -> str:
         """Create a unique cache key."""
         param_str = json.dumps(params or {}, sort_keys=True)
         key = f"{endpoint}:{param_str}"
         return hashlib.md5(key.encode()).hexdigest()
 
-    def get(self, endpoint: str, params: dict | None = None) -> Any | None:
+    def get(self, endpoint: str, params: dict[str, Any] | None = None) -> Any | None:
         """Get cached value if not expired."""
         key = self._make_key(endpoint, params)
         if key in self._cache:
@@ -50,14 +50,16 @@ class SimpleCache:
                 logger.debug(f"Memory Cache EXPIRED for {endpoint}")
         return None
 
-    def set(self, endpoint: str, params: dict | None, value: Any, ttl_seconds: int):
+    def set(
+        self, endpoint: str, params: dict[str, Any] | None, value: Any, ttl_seconds: int
+    ) -> None:
         """Cache a value with TTL."""
         key = self._make_key(endpoint, params)
         expires_at = datetime.now() + timedelta(seconds=ttl_seconds)
         self._cache[key] = (value, expires_at)
         logger.debug(f"Memory Cache SET for {endpoint} (TTL: {ttl_seconds}s)")
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear all cached data."""
         self._cache.clear()
         logger.info("Memory Cache CLEARED")
@@ -66,11 +68,11 @@ class SimpleCache:
 class RedisCache:
     """Redis-based cache for distributed caching across instances."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._fallback = SimpleCache()
         self._redis_available: bool | None = None
 
-    def _make_key(self, endpoint: str, params: dict | None) -> str:
+    def _make_key(self, endpoint: str, params: dict[str, Any] | None) -> str:
         """Create a unique cache key with namespace."""
         param_str = json.dumps(params or {}, sort_keys=True, default=str)
         key = f"{endpoint}:{param_str}"
@@ -83,6 +85,7 @@ class RedisCache:
             return self._redis_available
         try:
             from src.core.cache import health_check
+
             self._redis_available = await health_check()
             if self._redis_available:
                 logger.info("Redis cache available - using distributed caching")
@@ -93,11 +96,12 @@ class RedisCache:
             self._redis_available = False
         return self._redis_available
 
-    async def get(self, endpoint: str, params: dict | None = None) -> Any | None:
+    async def get(self, endpoint: str, params: dict[str, Any] | None = None) -> Any | None:
         """Get cached value from Redis or fallback."""
         if await self._check_redis():
             try:
                 from src.core.cache import cache_get
+
                 key = self._make_key(endpoint, params)
                 cached = await cache_get(key)
                 if cached:
@@ -108,11 +112,14 @@ class RedisCache:
         # Fallback to in-memory
         return self._fallback.get(endpoint, params)
 
-    async def set(self, endpoint: str, params: dict | None, value: Any, ttl_seconds: int):
+    async def set(
+        self, endpoint: str, params: dict[str, Any] | None, value: Any, ttl_seconds: int
+    ) -> None:
         """Cache a value in Redis or fallback."""
         if await self._check_redis():
             try:
                 from src.core.cache import cache_set
+
                 key = self._make_key(endpoint, params)
                 await cache_set(key, json.dumps(value, default=str), ttl_seconds)
                 logger.debug(f"Redis Cache SET for {endpoint} (TTL: {ttl_seconds}s)")
@@ -122,7 +129,7 @@ class RedisCache:
         # Fallback to in-memory
         self._fallback.set(endpoint, params, value, ttl_seconds)
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear fallback cache (Redis entries will expire naturally)."""
         self._fallback.clear()
 
@@ -132,10 +139,10 @@ _cache = RedisCache()
 _sync_cache = SimpleCache()  # For sync operations only
 
 # Cache TTLs (in seconds)
-CACHE_TTL_MATCHES = 300      # 5 minutes for matches
-CACHE_TTL_STANDINGS = 600    # 10 minutes for standings
-CACHE_TTL_H2H = 1800         # 30 minutes for head-to-head
-CACHE_TTL_TEAM = 900         # 15 minutes for team info
+CACHE_TTL_MATCHES = 300  # 5 minutes for matches
+CACHE_TTL_STANDINGS = 600  # 10 minutes for standings
+CACHE_TTL_H2H = 1800  # 30 minutes for head-to-head
+CACHE_TTL_TEAM = 900  # 15 minutes for team info
 
 
 class TeamData(BaseModel):
@@ -229,7 +236,7 @@ class FootballDataClient:
         else:
             logger.warning("FootballDataClient initialized WITHOUT API key!")
 
-    @retry(
+    @retry(  # type: ignore[misc]
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
     )
@@ -265,17 +272,18 @@ class FootballDataClient:
                     details={"response": response.text},
                 )
 
-            return response.json()
+            result: dict[str, Any] = response.json()
+            return result
 
     async def get_competitions(self) -> list[dict[str, Any]]:
         """Get list of available competitions."""
         data = await self._request("GET", "/competitions")
-        return data.get("competitions", [])
+        return data.get("competitions", [])  # type: ignore[no-any-return]
 
     async def get_competition(self, code: str) -> dict[str, Any]:
         """Get competition details."""
-        data = await self._request("GET", f"/competitions/{code}")
-        return data
+        result: dict[str, Any] = await self._request("GET", f"/competitions/{code}")
+        return result
 
     async def get_matches(
         self,
@@ -339,8 +347,8 @@ class FootballDataClient:
 
     async def get_team(self, team_id: int) -> dict[str, Any]:
         """Get team details."""
-        data = await self._request("GET", f"/teams/{team_id}")
-        return data
+        result: dict[str, Any] = await self._request("GET", f"/teams/{team_id}")
+        return result
 
     async def get_team_matches(
         self,
