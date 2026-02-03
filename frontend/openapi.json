@@ -455,6 +455,24 @@
               "default": 5,
               "title": "Matches Count"
             }
+          },
+          {
+            "name": "team_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional team name for fallback when API fails",
+              "title": "Team Name"
+            },
+            "description": "Optional team name for fallback when API fails"
           }
         ],
         "responses": {
@@ -2689,6 +2707,93 @@
         "title": "AdminStatsResponse",
         "description": "Admin dashboard statistics."
       },
+      "BTTSResponse": {
+        "properties": {
+          "yes_prob": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Yes Prob",
+            "description": "Probability both teams score"
+          },
+          "no_prob": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "No Prob",
+            "description": "Probability at least one team doesn't score"
+          },
+          "yes_odds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yes Odds",
+            "description": "Fair odds for BTTS Yes"
+          },
+          "no_odds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Odds",
+            "description": "Fair odds for BTTS No"
+          },
+          "recommended": {
+            "type": "string",
+            "title": "Recommended",
+            "description": "Recommended bet: yes or no",
+            "default": "yes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "yes_prob",
+          "no_prob"
+        ],
+        "title": "BTTSResponse",
+        "description": "Both Teams To Score response."
+      },
+      "CorrectScoreResponse": {
+        "properties": {
+          "scores": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Scores",
+            "description": "Top 6 most likely scores with probabilities"
+          },
+          "most_likely": {
+            "type": "string",
+            "title": "Most Likely",
+            "description": "Most likely score"
+          },
+          "most_likely_prob": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Most Likely Prob",
+            "description": "Probability of most likely score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scores",
+          "most_likely",
+          "most_likely_prob"
+        ],
+        "title": "CorrectScoreResponse",
+        "description": "Correct Score prediction response."
+      },
       "DailyPickResponse": {
         "properties": {
           "rank": {
@@ -2784,6 +2889,81 @@
         ],
         "title": "DbStatsResponse",
         "description": "Database statistics response."
+      },
+      "DoubleChanceResponse": {
+        "properties": {
+          "1X": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "1X",
+            "description": "Home win or Draw probability"
+          },
+          "X2": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X2",
+            "description": "Away win or Draw probability"
+          },
+          "12": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "12",
+            "description": "Home or Away win probability"
+          },
+          "home_or_draw_odds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Or Draw Odds",
+            "description": "Fair odds for 1X"
+          },
+          "away_or_draw_odds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Away Or Draw Odds",
+            "description": "Fair odds for X2"
+          },
+          "home_or_away_odds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Or Away Odds",
+            "description": "Fair odds for 12"
+          },
+          "recommended": {
+            "type": "string",
+            "title": "Recommended",
+            "description": "Recommended bet: 1X, X2, or 12",
+            "default": "1X"
+          }
+        },
+        "type": "object",
+        "required": [
+          "1X",
+          "X2",
+          "12"
+        ],
+        "title": "DoubleChanceResponse",
+        "description": "Double Chance market response."
       },
       "FormData": {
         "properties": {
@@ -3438,6 +3618,63 @@
         "title": "ModelContributions",
         "description": "Individual model contributions to the prediction."
       },
+      "MultiMarketsResponse": {
+        "properties": {
+          "over_under_15": {
+            "$ref": "#/components/schemas/OverUnderResponse",
+            "description": "Over/Under 1.5 goals"
+          },
+          "over_under_25": {
+            "$ref": "#/components/schemas/OverUnderResponse",
+            "description": "Over/Under 2.5 goals"
+          },
+          "over_under_35": {
+            "$ref": "#/components/schemas/OverUnderResponse",
+            "description": "Over/Under 3.5 goals"
+          },
+          "btts": {
+            "$ref": "#/components/schemas/BTTSResponse",
+            "description": "Both Teams To Score"
+          },
+          "double_chance": {
+            "$ref": "#/components/schemas/DoubleChanceResponse",
+            "description": "Double Chance markets"
+          },
+          "correct_score": {
+            "$ref": "#/components/schemas/CorrectScoreResponse",
+            "description": "Top correct score predictions"
+          },
+          "expected_home_goals": {
+            "type": "number",
+            "title": "Expected Home Goals",
+            "description": "Expected goals for home team"
+          },
+          "expected_away_goals": {
+            "type": "number",
+            "title": "Expected Away Goals",
+            "description": "Expected goals for away team"
+          },
+          "expected_total_goals": {
+            "type": "number",
+            "title": "Expected Total Goals",
+            "description": "Expected total goals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "over_under_15",
+          "over_under_25",
+          "over_under_35",
+          "btts",
+          "double_chance",
+          "correct_score",
+          "expected_home_goals",
+          "expected_away_goals",
+          "expected_total_goals"
+        ],
+        "title": "MultiMarketsResponse",
+        "description": "Complete multi-markets prediction response."
+      },
       "OddsData": {
         "properties": {
           "home_win": {
@@ -3490,6 +3727,91 @@
         "type": "object",
         "title": "OddsData",
         "description": "Bookmaker odds data."
+      },
+      "OverUnderResponse": {
+        "properties": {
+          "line": {
+            "type": "number",
+            "title": "Line",
+            "description": "Goal line (1.5, 2.5, 3.5)"
+          },
+          "over_prob": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Over Prob",
+            "description": "Probability of over"
+          },
+          "under_prob": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Under Prob",
+            "description": "Probability of under"
+          },
+          "over_odds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Over Odds",
+            "description": "Bookmaker odds for over"
+          },
+          "under_odds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Under Odds",
+            "description": "Bookmaker odds for under"
+          },
+          "over_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Over Value",
+            "description": "Value score for over (positive = value)"
+          },
+          "under_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Under Value",
+            "description": "Value score for under (positive = value)"
+          },
+          "recommended": {
+            "type": "string",
+            "title": "Recommended",
+            "description": "Recommended bet: over or under",
+            "default": "over"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line",
+          "over_prob",
+          "under_prob"
+        ],
+        "title": "OverUnderResponse",
+        "description": "Over/Under market response."
       },
       "PipelineResponse": {
         "properties": {
@@ -3632,6 +3954,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/LLMAdjustments"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "multi_markets": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MultiMarketsResponse"
               },
               {
                 "type": "null"

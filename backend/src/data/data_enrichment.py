@@ -40,10 +40,10 @@ class OddsAPIClient:
     async def get_odds(
         self,
         competition: str,
-        markets: str = "h2h",  # h2h, spreads, totals
+        markets: str = "h2h,totals",  # h2h, spreads, totals
         regions: str = "eu",
     ) -> list[dict]:
-        """Get current odds for a competition."""
+        """Get current odds for a competition including Over/Under markets."""
         if not self.api_key:
             return []
 
@@ -123,6 +123,62 @@ class OddsAPIClient:
                         result["draw"] = max(draw_odds)
                     if away_odds:
                         result["away_win"] = max(away_odds)
+
+                    break
+
+        return result
+
+    def extract_totals_odds(
+        self, odds_data: list[dict], home_team: str, away_team: str
+    ) -> dict:
+        """Extract Over/Under (totals) odds for a specific match."""
+        result = {
+            "over_25": None,
+            "under_25": None,
+            "over_15": None,
+            "under_15": None,
+            "over_35": None,
+            "under_35": None,
+            "available": False,
+        }
+
+        # Find the match
+        for match in odds_data:
+            match_home = match.get("home_team", "").lower()
+            match_away = match.get("away_team", "").lower()
+
+            if home_team.lower() in match_home or match_home in home_team.lower():
+                if away_team.lower() in match_away or match_away in away_team.lower():
+                    # Found the match - extract totals odds
+                    bookmakers = match.get("bookmakers", [])
+
+                    for bm in bookmakers[:3]:  # Top 3 bookmakers
+                        for market in bm.get("markets", []):
+                            if market.get("key") == "totals":
+                                for outcome in market.get("outcomes", []):
+                                    point = outcome.get("point")
+                                    name = outcome.get("name", "").lower()
+                                    price = outcome.get("price")
+
+                                    if point == 2.5:
+                                        if name == "over" and (result["over_25"] is None or price > result["over_25"]):
+                                            result["over_25"] = price
+                                        elif name == "under" and (result["under_25"] is None or price > result["under_25"]):
+                                            result["under_25"] = price
+                                    elif point == 1.5:
+                                        if name == "over" and (result["over_15"] is None or price > result["over_15"]):
+                                            result["over_15"] = price
+                                        elif name == "under" and (result["under_15"] is None or price > result["under_15"]):
+                                            result["under_15"] = price
+                                    elif point == 3.5:
+                                        if name == "over" and (result["over_35"] is None or price > result["over_35"]):
+                                            result["over_35"] = price
+                                        elif name == "under" and (result["under_35"] is None or price > result["under_35"]):
+                                            result["under_35"] = price
+
+                    # Check if we have at least Over/Under 2.5
+                    if result["over_25"] is not None or result["under_25"] is not None:
+                        result["available"] = True
 
                     break
 
@@ -455,15 +511,20 @@ class DataEnrichmentService:
             "competition": competition,
         }
 
-        # 1. Get bookmaker odds
+        # 1. Get bookmaker odds (1X2 + Over/Under)
         try:
-            odds_data = await self.odds_client.get_odds(competition)
+            odds_data = await self.odds_client.get_odds(competition, markets="h2h,totals")
             enrichment["odds"] = self.odds_client.extract_best_odds(
+                odds_data, home_team, away_team
+            )
+            # Also extract Over/Under odds
+            enrichment["totals_odds"] = self.odds_client.extract_totals_odds(
                 odds_data, home_team, away_team
             )
         except Exception as e:
             logger.error(f"Error getting odds: {e}")
             enrichment["odds"] = {"available": False}
+            enrichment["totals_odds"] = {"available": False}
 
         # 2. Get weather
         try:

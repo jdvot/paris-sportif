@@ -458,6 +458,7 @@ async def get_team_form(
     team_id: int,
     user: AuthenticatedUser,
     matches_count: int = Query(5, ge=3, le=10),
+    team_name: str | None = Query(None, description="Optional team name for fallback when API fails"),
 ) -> TeamFormResponse:
     """Get recent form for a team."""
     try:
@@ -535,10 +536,11 @@ async def get_team_form(
 
     except (RateLimitError, FootballDataAPIError, Exception) as e:
         logger.warning(f"API error for team form: {e}, using mock data")
-        # Return mock form data
+        # Return mock form data - use provided team_name if available
+        fallback_name = team_name if team_name else "Équipe inconnue"
         return TeamFormResponse(
             team_id=team_id,
-            team_name=f"Team {team_id}",
+            team_name=fallback_name,
             last_matches=[],
             form_string="WDWLW",
             points_last_5=10,

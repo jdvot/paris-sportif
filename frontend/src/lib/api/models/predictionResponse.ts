@@ -7,6 +7,7 @@
  */
 import type { LLMAdjustments } from './lLMAdjustments';
 import type { ModelContributions } from './modelContributions';
+import type { MultiMarketsResponse } from './multiMarketsResponse';
 import type { PredictionProbabilities } from './predictionProbabilities';
 import type { PredictionResponseRecommendedBet } from './predictionResponseRecommendedBet';
 
@@ -33,6 +34,7 @@ export interface PredictionResponse {
   risk_factors: string[];
   model_contributions?: ModelContributions | null;
   llm_adjustments?: LLMAdjustments | null;
+  multi_markets?: MultiMarketsResponse | null;
   created_at: string;
   is_daily_pick?: boolean;
 }

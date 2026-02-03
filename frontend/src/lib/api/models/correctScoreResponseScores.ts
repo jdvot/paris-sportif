@@ -6,14 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type GetTeamFormParams = {
 /**
- * @minimum 3
- * @maximum 10
+ * Top 6 most likely scores with probabilities
  */
-matches_count?: number;
-/**
- * Optional team name for fallback when API fails
- */
-team_name?: string | null;
-};
+export type CorrectScoreResponseScores = {[key: string]: number};

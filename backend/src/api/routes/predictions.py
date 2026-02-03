@@ -37,6 +37,8 @@ from src.llm.prompts_advanced import (
     get_prediction_analysis_prompt,
 )
 from src.prediction_engine.rag_enrichment import get_rag_enrichment
+from src.prediction_engine.multi_markets import get_multi_markets_prediction
+from src.data.data_enrichment import get_data_enrichment
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +82,67 @@ class LLMAdjustments(BaseModel):
     reasoning: str = ""
 
 
+# Multi-Markets Response Models
+class OverUnderResponse(BaseModel):
+    """Over/Under market response."""
+
+    line: float = Field(..., description="Goal line (1.5, 2.5, 3.5)")
+    over_prob: float = Field(..., ge=0, le=1, description="Probability of over")
+    under_prob: float = Field(..., ge=0, le=1, description="Probability of under")
+    over_odds: float | None = Field(None, description="Bookmaker odds for over")
+    under_odds: float | None = Field(None, description="Bookmaker odds for under")
+    over_value: float | None = Field(None, description="Value score for over (positive = value)")
+    under_value: float | None = Field(None, description="Value score for under (positive = value)")
+    recommended: str = Field("over", description="Recommended bet: over or under")
+
+
+class BTTSResponse(BaseModel):
+    """Both Teams To Score response."""
+
+    yes_prob: float = Field(..., ge=0, le=1, description="Probability both teams score")
+    no_prob: float = Field(..., ge=0, le=1, description="Probability at least one team doesn't score")
+    yes_odds: float | None = Field(None, description="Fair odds for BTTS Yes")
+    no_odds: float | None = Field(None, description="Fair odds for BTTS No")
+    recommended: str = Field("yes", description="Recommended bet: yes or no")
+
+
+class DoubleChanceResponse(BaseModel):
+    """Double Chance market response."""
+
+    home_or_draw: float = Field(..., ge=0, le=1, alias="1X", description="Home win or Draw probability")
+    away_or_draw: float = Field(..., ge=0, le=1, alias="X2", description="Away win or Draw probability")
+    home_or_away: float = Field(..., ge=0, le=1, alias="12", description="Home or Away win probability")
+    home_or_draw_odds: float | None = Field(None, description="Fair odds for 1X")
+    away_or_draw_odds: float | None = Field(None, description="Fair odds for X2")
+    home_or_away_odds: float | None = Field(None, description="Fair odds for 12")
+    recommended: str = Field("1X", description="Recommended bet: 1X, X2, or 12")
+
+    class Config:
+        populate_by_name = True
+
+
+class CorrectScoreResponse(BaseModel):
+    """Correct Score prediction response."""
+
+    scores: dict[str, float] = Field(..., description="Top 6 most likely scores with probabilities")
+    most_likely: str = Field(..., description="Most likely score")
+    most_likely_prob: float = Field(..., ge=0, le=1, description="Probability of most likely score")
+
+
+class MultiMarketsResponse(BaseModel):
+    """Complete multi-markets prediction response."""
+
+    over_under_15: OverUnderResponse = Field(..., description="Over/Under 1.5 goals")
+    over_under_25: OverUnderResponse = Field(..., description="Over/Under 2.5 goals")
+    over_under_35: OverUnderResponse = Field(..., description="Over/Under 3.5 goals")
+    btts: BTTSResponse = Field(..., description="Both Teams To Score")
+    double_chance: DoubleChanceResponse = Field(..., description="Double Chance markets")
+    correct_score: CorrectScoreResponse = Field(..., description="Top correct score predictions")
+    expected_home_goals: float = Field(..., description="Expected goals for home team")
+    expected_away_goals: float = Field(..., description="Expected goals for away team")
+    expected_total_goals: float = Field(..., description="Expected total goals")
+
+
 class PredictionResponse(BaseModel):
     """Full prediction response for a match."""
 
@@ -103,6 +166,9 @@ class PredictionResponse(BaseModel):
     # Model details (optional, for transparency)
     model_contributions: ModelContributions | None = None
     llm_adjustments: LLMAdjustments | None = None
+
+    # Multi-markets predictions (optional)
+    multi_markets: MultiMarketsResponse | None = None
 
     # Metadata
     created_at: datetime
@@ -574,6 +640,116 @@ async def _generate_prediction_from_api_match(
     # Reset random seed
     random.seed()
 
+    # Calculate multi-markets predictions
+    multi_markets = None
+    if include_model_details:
+        try:
+            # Fetch real bookmaker odds for Over/Under markets
+            real_odds_over_25 = None
+            real_odds_under_25 = None
+
+            try:
+                enrichment_service = get_data_enrichment()
+                odds_data = await enrichment_service.odds_client.get_odds(
+                    competition, markets="h2h,totals"
+                )
+                if odds_data:
+                    totals_odds = enrichment_service.odds_client.extract_totals_odds(
+                        odds_data, home_team, away_team
+                    )
+                    if totals_odds.get("available"):
+                        real_odds_over_25 = totals_odds.get("over_25")
+                        real_odds_under_25 = totals_odds.get("under_25")
+                        logger.info(
+                            f"Real O/U 2.5 odds for {home_team} vs {away_team}: "
+                            f"Over={real_odds_over_25}, Under={real_odds_under_25}"
+                        )
+            except Exception as e:
+                logger.warning(f"Failed to fetch real odds: {e}")
+
+            # Get expected goals from ensemble result or estimate from probabilities
+            exp_home = getattr(ensemble_result, 'expected_home_goals', None) if 'ensemble_result' in dir() else None
+            exp_away = getattr(ensemble_result, 'expected_away_goals', None) if 'ensemble_result' in dir() else None
+
+            # Fallback estimation if expected goals not available
+            if exp_home is None or exp_away is None:
+                # Estimate expected goals from 1X2 probabilities
+                # Higher home probability = more home goals expected
+                exp_home = 1.0 + (home_prob - 0.33) * 2.0
+                exp_away = 1.0 + (away_prob - 0.33) * 2.0
+                exp_home = max(0.5, min(3.5, exp_home))
+                exp_away = max(0.5, min(3.0, exp_away))
+
+            mm_prediction = get_multi_markets_prediction(
+                expected_home_goals=float(exp_home),
+                expected_away_goals=float(exp_away),
+                home_win_prob=home_prob,
+                draw_prob=draw_prob,
+                away_win_prob=away_prob,
+                odds_over_25=real_odds_over_25,
+                odds_under_25=real_odds_under_25,
+            )
+
+            multi_markets = MultiMarketsResponse(
+                over_under_15=OverUnderResponse(
+                    line=mm_prediction.over_under_15.line,
+                    over_prob=mm_prediction.over_under_15.over_prob,
+                    under_prob=mm_prediction.over_under_15.under_prob,
+                    over_odds=mm_prediction.over_under_15.over_odds,
+                    under_odds=mm_prediction.over_under_15.under_odds,
+                    over_value=mm_prediction.over_under_15.over_value,
+                    under_value=mm_prediction.over_under_15.under_value,
+                    recommended=mm_prediction.over_under_15.recommended,
+                ),
+                over_under_25=OverUnderResponse(
+                    line=mm_prediction.over_under_25.line,
+                    over_prob=mm_prediction.over_under_25.over_prob,
+                    under_prob=mm_prediction.over_under_25.under_prob,
+                    over_odds=mm_prediction.over_under_25.over_odds,
+                    under_odds=mm_prediction.over_under_25.under_odds,
+                    over_value=mm_prediction.over_under_25.over_value,
+                    under_value=mm_prediction.over_under_25.under_value,
+                    recommended=mm_prediction.over_under_25.recommended,
+                ),
+                over_under_35=OverUnderResponse(
+                    line=mm_prediction.over_under_35.line,
+                    over_prob=mm_prediction.over_under_35.over_prob,
+                    under_prob=mm_prediction.over_under_35.under_prob,
+                    over_odds=mm_prediction.over_under_35.over_odds,
+                    under_odds=mm_prediction.over_under_35.under_odds,
+                    over_value=mm_prediction.over_under_35.over_value,
+                    under_value=mm_prediction.over_under_35.under_value,
+                    recommended=mm_prediction.over_under_35.recommended,
+                ),
+                btts=BTTSResponse(
+                    yes_prob=mm_prediction.btts.yes_prob,
+                    no_prob=mm_prediction.btts.no_prob,
+                    yes_odds=mm_prediction.btts.yes_odds,
+                    no_odds=mm_prediction.btts.no_odds,
+                    recommended=mm_prediction.btts.recommended,
+                ),
+                double_chance=DoubleChanceResponse(
+                    home_or_draw=mm_prediction.double_chance.home_or_draw_prob,
+                    away_or_draw=mm_prediction.double_chance.away_or_draw_prob,
+                    home_or_away=mm_prediction.double_chance.home_or_away_prob,
+                    home_or_draw_odds=mm_prediction.double_chance.home_or_draw_odds,
+                    away_or_draw_odds=mm_prediction.double_chance.away_or_draw_odds,
+                    home_or_away_odds=mm_prediction.double_chance.home_or_away_odds,
+                    recommended=mm_prediction.double_chance.recommended,
+                ),
+                correct_score=CorrectScoreResponse(
+                    scores=mm_prediction.correct_score.scores,
+                    most_likely=mm_prediction.correct_score.most_likely,
+                    most_likely_prob=mm_prediction.correct_score.most_likely_prob,
+                ),
+                expected_home_goals=mm_prediction.expected_home_goals,
+                expected_away_goals=mm_prediction.expected_away_goals,
+                expected_total_goals=mm_prediction.expected_total_goals,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to calculate multi-markets: {e}")
+            multi_markets = None
+
     return PredictionResponse(
         match_id=api_match.id,
         home_team=home_team,
@@ -593,6 +769,7 @@ async def _generate_prediction_from_api_match(
         risk_factors=risk_factors,
         model_contributions=model_contributions,
         llm_adjustments=llm_adjustments,
+        multi_markets=multi_markets,
         created_at=datetime.now(),
         is_daily_pick=False,
     )
@@ -878,6 +1055,83 @@ def _generate_fallback_prediction(
             reasoning="Prédiction générée en mode fallback. Données contextuelles limitées.",
         )
 
+    # Multi-markets for fallback
+    multi_markets = None
+    if include_model_details:
+        try:
+            exp_home = 1.0 + (home_prob - 0.33) * 2.0
+            exp_away = 1.0 + (away_prob - 0.33) * 2.0
+            exp_home = max(0.5, min(3.5, exp_home))
+            exp_away = max(0.5, min(3.0, exp_away))
+
+            mm_prediction = get_multi_markets_prediction(
+                expected_home_goals=exp_home,
+                expected_away_goals=exp_away,
+                home_win_prob=home_prob,
+                draw_prob=draw_prob,
+                away_win_prob=away_prob,
+            )
+
+            multi_markets = MultiMarketsResponse(
+                over_under_15=OverUnderResponse(
+                    line=mm_prediction.over_under_15.line,
+                    over_prob=mm_prediction.over_under_15.over_prob,
+                    under_prob=mm_prediction.over_under_15.under_prob,
+                    over_odds=mm_prediction.over_under_15.over_odds,
+                    under_odds=mm_prediction.over_under_15.under_odds,
+                    over_value=mm_prediction.over_under_15.over_value,
+                    under_value=mm_prediction.over_under_15.under_value,
+                    recommended=mm_prediction.over_under_15.recommended,
+                ),
+                over_under_25=OverUnderResponse(
+                    line=mm_prediction.over_under_25.line,
+                    over_prob=mm_prediction.over_under_25.over_prob,
+                    under_prob=mm_prediction.over_under_25.under_prob,
+                    over_odds=mm_prediction.over_under_25.over_odds,
+                    under_odds=mm_prediction.over_under_25.under_odds,
+                    over_value=mm_prediction.over_under_25.over_value,
+                    under_value=mm_prediction.over_under_25.under_value,
+                    recommended=mm_prediction.over_under_25.recommended,
+                ),
+                over_under_35=OverUnderResponse(
+                    line=mm_prediction.over_under_35.line,
+                    over_prob=mm_prediction.over_under_35.over_prob,
+                    under_prob=mm_prediction.over_under_35.under_prob,
+                    over_odds=mm_prediction.over_under_35.over_odds,
+                    under_odds=mm_prediction.over_under_35.under_odds,
+                    over_value=mm_prediction.over_under_35.over_value,
+                    under_value=mm_prediction.over_under_35.under_value,
+                    recommended=mm_prediction.over_under_35.recommended,
+                ),
+                btts=BTTSResponse(
+                    yes_prob=mm_prediction.btts.yes_prob,
+                    no_prob=mm_prediction.btts.no_prob,
+                    yes_odds=mm_prediction.btts.yes_odds,
+                    no_odds=mm_prediction.btts.no_odds,
+                    recommended=mm_prediction.btts.recommended,
+                ),
+                double_chance=DoubleChanceResponse(
+                    home_or_draw=mm_prediction.double_chance.home_or_draw_prob,
+                    away_or_draw=mm_prediction.double_chance.away_or_draw_prob,
+                    home_or_away=mm_prediction.double_chance.home_or_away_prob,
+                    home_or_draw_odds=mm_prediction.double_chance.home_or_draw_odds,
+                    away_or_draw_odds=mm_prediction.double_chance.away_or_draw_odds,
+                    home_or_away_odds=mm_prediction.double_chance.home_or_away_odds,
+                    recommended=mm_prediction.double_chance.recommended,
+                ),
+                correct_score=CorrectScoreResponse(
+                    scores=mm_prediction.correct_score.scores,
+                    most_likely=mm_prediction.correct_score.most_likely,
+                    most_likely_prob=mm_prediction.correct_score.most_likely_prob,
+                ),
+                expected_home_goals=mm_prediction.expected_home_goals,
+                expected_away_goals=mm_prediction.expected_away_goals,
+                expected_total_goals=mm_prediction.expected_total_goals,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to calculate fallback multi-markets: {e}")
+            multi_markets = None
+
     random.seed()  # Reset random seed
 
     return PredictionResponse(
@@ -899,6 +1153,7 @@ def _generate_fallback_prediction(
         risk_factors=risk_factors,
         model_contributions=model_contributions,
         llm_adjustments=llm_adjustments,
+        multi_markets=multi_markets,
         created_at=datetime.now(),
         is_daily_pick=False,
     )
