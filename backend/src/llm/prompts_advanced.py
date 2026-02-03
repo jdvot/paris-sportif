@@ -200,6 +200,114 @@ IMPACT SCORING:
 - -0.25: Major impact (several key players)
 - -0.30: Critical impact (star player + multiple starters)
 
+## FEW-SHOT EXAMPLES
+
+### Example 1: Star player absent (critical impact)
+Input:
+Team: Manchester City
+Absent Players: Kevin De Bruyne (midfielder), Erling Haaland (forward)
+Team Strength: strong
+Match Importance: important
+Output:
+{{
+    "impact_assessment": {{
+        "injury_impact_factor": -0.28,
+        "severity_level": "major",
+        "primary_concern": "Creative and goal-scoring void",
+        "replacement_quality": "adequate"
+    }},
+    "player_analysis": [
+        {{
+            "player": "Kevin De Bruyne",
+            "position": "midfielder",
+            "importance": "star",
+            "expected_minutes_lost": 90,
+            "impact_rating": 0.9
+        }},
+        {{
+            "player": "Erling Haaland",
+            "position": "forward",
+            "importance": "star",
+            "expected_minutes_lost": 90,
+            "impact_rating": 0.95
+        }}
+    ],
+    "tactical_implications": {{
+        "formation_flexibility": "medium",
+        "defense_vulnerability": "low",
+        "attack_reduction": 0.25,
+        "midfield_control_loss": 0.2
+    }},
+    "confidence": 0.9,
+    "reasoning": "Two irreplaceable attacking talents missing. Squad depth exists but creativity and finishing quality significantly reduced."
+}}
+
+### Example 2: Squad rotation (minimal impact)
+Input:
+Team: Arsenal
+Absent Players: Eddie Nketiah (forward - backup)
+Team Strength: strong
+Match Importance: regular
+Output:
+{{
+    "impact_assessment": {{
+        "injury_impact_factor": -0.02,
+        "severity_level": "minimal",
+        "primary_concern": "Bench options slightly reduced",
+        "replacement_quality": "excellent"
+    }},
+    "player_analysis": [
+        {{
+            "player": "Eddie Nketiah",
+            "position": "forward",
+            "importance": "backup",
+            "expected_minutes_lost": 15,
+            "impact_rating": 0.15
+        }}
+    ],
+    "tactical_implications": {{
+        "formation_flexibility": "high",
+        "defense_vulnerability": "low",
+        "attack_reduction": 0.02,
+        "midfield_control_loss": 0.0
+    }},
+    "confidence": 0.95,
+    "reasoning": "Backup striker absence has negligible impact. First-choice attackers available, ample alternatives on bench."
+}}
+
+### Example 3: Key defender absent (significant impact)
+Input:
+Team: Chelsea
+Absent Players: Reece James (defender - captain)
+Team Strength: medium
+Match Importance: critical
+Output:
+{{
+    "impact_assessment": {{
+        "injury_impact_factor": -0.18,
+        "severity_level": "significant",
+        "primary_concern": "Right flank weakness and leadership gap",
+        "replacement_quality": "weak"
+    }},
+    "player_analysis": [
+        {{
+            "player": "Reece James",
+            "position": "defender",
+            "importance": "key",
+            "expected_minutes_lost": 90,
+            "impact_rating": 0.75
+        }}
+    ],
+    "tactical_implications": {{
+        "formation_flexibility": "low",
+        "defense_vulnerability": "high",
+        "attack_reduction": 0.1,
+        "midfield_control_loss": 0.05
+    }},
+    "confidence": 0.85,
+    "reasoning": "Captain and elite attacking full-back missing. No comparable replacement available. Right side significantly weakened in both phases."
+}}
+
 RESPONSE FORMAT - JSON ONLY:
 {{
     "impact_assessment": {{
@@ -234,6 +342,7 @@ def get_form_analysis_prompt(
     media_sentiment: str = "neutral",
     tactical_changes: str = "",
     key_player_form: str = "",
+    opponent_results: list[str] | None = None,
 ) -> str:
     """
     Generate prompt for team form and sentiment analysis with trends.
@@ -244,16 +353,19 @@ def get_form_analysis_prompt(
         media_sentiment: Overall media sentiment (very_negative/negative/neutral/positive/very_positive)
         tactical_changes: Recent tactical changes
         key_player_form: Form of key players
+        opponent_results: List of opponent strength for recent matches (e.g., ['strong', 'weak'])
 
     Returns:
         Formatted prompt for form analysis
     """
     results_str = " → ".join(recent_results) if recent_results else "No data"
+    opponent_str = " → ".join(opponent_results) if opponent_results else "Not specified"
 
     return f"""Analyze team form, momentum, and psychological state for {team_name}.
 
 TEAM: {team_name}
 Recent Results (last 5-10): {results_str}
+Opponent Strength (matching results): {opponent_str}
 Media Sentiment: {media_sentiment}
 Tactical Changes: {tactical_changes or "None"}
 Key Players Form: {key_player_form or "Not specified"}
@@ -265,23 +377,124 @@ FORM ANALYSIS FRAMEWORK:
    - Performance consistency
    - Recent trajectory (improving/declining/stable)
 
-2. PSYCHOLOGICAL FACTORS
+2. OPPONENT QUALITY ADJUSTMENT
+   - Assess quality of recent opponents
+   - Adjust form rating for strength of schedule
+   - Consider if wins came against weak/strong teams
+   - Weight recent results by opponent quality
+
+3. PSYCHOLOGICAL FACTORS
    - Team confidence level
    - Motivation indicators
    - Pressure/stress signs
    - Cohesion indicators
 
-3. MOMENTUM ASSESSMENT
+4. MOMENTUM ASSESSMENT
    - Winning streak or losing streak
    - Clean sheet consistency
    - High-pressure game responses
    - Recent comeback ability
 
-4. EXTERNAL SIGNALS
+5. EXTERNAL SIGNALS
    - Media perception and criticism
    - Coach comments and decisions
    - Player interviews/statements
    - Transfer/tactical changes
+
+## FEW-SHOT EXAMPLES
+
+### Example 1: Improving form against strong opponents
+Input:
+Team: Liverpool
+Results: L → D → W → W → W
+Opponent Strength: strong → strong → average → strong → strong
+Output:
+{{
+    "form_assessment": {{
+        "recent_performance": "good",
+        "trend": "improving",
+        "trend_direction": "upward",
+        "confidence_level": "high"
+    }},
+    "momentum_analysis": {{
+        "momentum_indicator": 0.12,
+        "win_streak_status": "active",
+        "defensive_solidity": "strong",
+        "attack_effectiveness": "strong"
+    }},
+    "opponent_quality_adjusted": true,
+    "adjusted_form_rating": 0.85,
+    "sentiment_adjustment": 0.10,
+    "key_observations": [
+        "3-game winning streak with increasing confidence",
+        "Wins against quality opposition validate form",
+        "Defensive improvements visible in recent matches"
+    ],
+    "confidence": 0.85,
+    "reasoning": "Strong upward trajectory confirmed by quality of opposition faced. True form likely better than raw results suggest."
+}}
+
+### Example 2: Declining form despite wins
+Input:
+Team: Newcastle
+Results: W → W → W → D → L
+Opponent Strength: weak → weak → weak → average → average
+Output:
+{{
+    "form_assessment": {{
+        "recent_performance": "below_average",
+        "trend": "deteriorating",
+        "trend_direction": "downward",
+        "confidence_level": "low"
+    }},
+    "momentum_analysis": {{
+        "momentum_indicator": -0.08,
+        "win_streak_status": "broken",
+        "defensive_solidity": "average",
+        "attack_effectiveness": "weak"
+    }},
+    "opponent_quality_adjusted": true,
+    "adjusted_form_rating": 0.45,
+    "sentiment_adjustment": -0.05,
+    "key_observations": [
+        "Early wins flattered by weak opposition",
+        "Momentum lost against quality teams",
+        "Underlying performance weaker than results showed"
+    ],
+    "confidence": 0.8,
+    "reasoning": "Form regression evident when facing better teams. Adjusted rating accounts for soft schedule."
+}}
+
+### Example 3: Stable form
+Input:
+Team: Brighton
+Results: D → W → D → W → D
+Opponent Strength: average → average → strong → average → average
+Output:
+{{
+    "form_assessment": {{
+        "recent_performance": "average",
+        "trend": "stable",
+        "trend_direction": "flat",
+        "confidence_level": "medium"
+    }},
+    "momentum_analysis": {{
+        "momentum_indicator": 0.02,
+        "win_streak_status": "none",
+        "defensive_solidity": "average",
+        "attack_effectiveness": "average"
+    }},
+    "opponent_quality_adjusted": true,
+    "adjusted_form_rating": 0.55,
+    "sentiment_adjustment": 0.0,
+    "key_observations": [
+        "Consistent mid-table performance",
+        "Neither improving nor declining",
+        "Predictable output against varied opposition"
+    ],
+    "confidence": 0.75,
+    "reasoning": "Stable performer with no clear trend direction. Results align with expected level."
+}}
 
 SENTIMENT ADJUSTMENT SCALE:
 - +0.15: Exceptional form, very strong confidence, media very positive
@@ -297,6 +510,7 @@ RESPONSE FORMAT - JSON ONLY:
     "form_assessment": {{
         "recent_performance": "very_poor|poor|below_average|average|above_average|good|excellent",
         "trend": "deteriorating|stable|improving",
+        "trend_direction": "downward|flat|upward",
         "confidence_level": "very_low|low|medium|high|very_high"
     }},
     "momentum_analysis": {{
@@ -305,6 +519,8 @@ RESPONSE FORMAT - JSON ONLY:
         "defensive_solidity": "weak|average|strong",
         "attack_effectiveness": "weak|average|strong"
     }},
+    "opponent_quality_adjusted": true or false,
+    "adjusted_form_rating": 0.0 to 1.0,
     "sentiment_adjustment": -0.15 to 0.15,
     "key_observations": [
         "observation1",

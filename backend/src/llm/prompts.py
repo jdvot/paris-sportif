@@ -36,7 +36,7 @@ Break down analyses into clear logical steps:
 Provide reasoning that is transparent and can be followed by others.
 Use French for football match analysis."""
 
-# Injury analysis prompt - improved with structured output
+# Injury analysis prompt - improved with structured output and few-shot examples
 INJURY_ANALYSIS_PROMPT = """Analyze this injury news for {team_name}:
 
 {news_text}
@@ -57,7 +57,63 @@ Extract structured injury information in JSON format:
     "reasoning": "brief explanation of assessment"
 }}
 
-impact_score guidelines:
+## FEW-SHOT EXAMPLES
+
+### Example 1: Star player major injury
+Input: "Mohamed Salah ruled out for 3-4 weeks with hamstring injury sustained in training"
+Output:
+{{
+    "player_name": "Mohamed Salah",
+    "position": "forward",
+    "injury_type": "hamstring strain",
+    "severity": "moderate",
+    "expected_return": null,
+    "weeks_out": 4,
+    "impact_score": 0.85,
+    "is_key_player": true,
+    "is_starter": true,
+    "replacement_quality": "adequate",
+    "confidence": 0.9,
+    "reasoning": "Star forward and top scorer, hamstring injuries typically 3-4 weeks. Luis Diaz can cover but significant attacking threat reduction."
+}}
+
+### Example 2: Minor injury to squad player
+Input: "Reserve goalkeeper James Smith minor knock in training, expected back tomorrow"
+Output:
+{{
+    "player_name": "James Smith",
+    "position": "goalkeeper",
+    "injury_type": "minor knock",
+    "severity": "minor",
+    "expected_return": null,
+    "weeks_out": 0,
+    "impact_score": 0.05,
+    "is_key_player": false,
+    "is_starter": false,
+    "replacement_quality": "excellent",
+    "confidence": 0.95,
+    "reasoning": "Third-choice goalkeeper with minor issue, no impact on matchday squad."
+}}
+
+### Example 3: Key defender long-term injury
+Input: "Virgil van Dijk to miss 6 months after ACL surgery confirmed"
+Output:
+{{
+    "player_name": "Virgil van Dijk",
+    "position": "defender",
+    "injury_type": "ACL tear",
+    "severity": "critical",
+    "expected_return": null,
+    "weeks_out": 26,
+    "impact_score": 0.95,
+    "is_key_player": true,
+    "is_starter": true,
+    "replacement_quality": "weak",
+    "confidence": 0.95,
+    "reasoning": "Captain and defensive leader, ACL requires 6+ months. Massive defensive stability loss, no comparable replacement available."
+}}
+
+## IMPACT SCORE GUIDELINES
 - 0.0-0.2: Backup player with minimal impact
 - 0.2-0.4: Squad player, some impact
 - 0.4-0.6: Regular starter, significant impact
@@ -66,7 +122,7 @@ impact_score guidelines:
 
 Consider team depth, position scarcity, and quality of replacements."""
 
-# Sentiment analysis prompt - improved
+# Sentiment analysis prompt - improved with few-shot examples
 SENTIMENT_ANALYSIS_PROMPT = """Analyze the sentiment of this content regarding {team_name}:
 
 Source: {source_type}
@@ -83,7 +139,54 @@ Evaluate in JSON format:
     "reasoning": "brief explanation"
 }}
 
-sentiment_score:
+## FEW-SHOT EXAMPLES
+
+### Example 1: Crisis situation
+Input:
+Source: news_article
+Content: "Manager sacked after 5 consecutive defeats, players reportedly unhappy with board decisions, fans protesting outside stadium"
+Output:
+{{
+    "sentiment_score": -0.85,
+    "confidence": 0.9,
+    "key_themes": ["managerial change", "player unrest", "fan discontent"],
+    "morale_indicator": "very_negative",
+    "forward_outlook": "pessimistic",
+    "affects_performance": true,
+    "reasoning": "Multiple crisis indicators: leadership vacuum, squad instability, external pressure from fans."
+}}
+
+### Example 2: Positive momentum
+Input:
+Source: press_conference
+Content: "Captain praises team spirit after 4th straight win, manager highlights excellent training sessions and squad depth"
+Output:
+{{
+    "sentiment_score": 0.7,
+    "confidence": 0.85,
+    "key_themes": ["winning streak", "team cohesion", "squad confidence"],
+    "morale_indicator": "very_positive",
+    "forward_outlook": "optimistic",
+    "affects_performance": true,
+    "reasoning": "Strong winning run with positive leadership signals, high squad morale evident."
+}}
+
+### Example 3: Neutral situation
+Input:
+Source: media_report
+Content: "Team continues preparation ahead of weekend fixture, no major news from training ground"
+Output:
+{{
+    "sentiment_score": 0.0,
+    "confidence": 0.7,
+    "key_themes": ["routine preparation", "no significant updates"],
+    "morale_indicator": "neutral",
+    "forward_outlook": "neutral",
+    "affects_performance": false,
+    "reasoning": "Standard pre-match routine with no positive or negative indicators."
+}}
+
+## SENTIMENT SCORE GUIDELINES
 - -1.0: Severe crisis, major negative sentiment
 - -0.5: Concerning situation, negative sentiment
 - 0.0: Neutral or balanced sentiment
