@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
   // Enable React strict mode for development
   reactStrictMode: true,
 
+  // Output standalone for Docker deployment
+  output: "standalone",
+
   // Security headers
   async headers() {
     return [

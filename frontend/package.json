@@ -11,7 +11,9 @@
     "generate:api": "orval",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "docker:build": "docker build -t winrate-frontend .",
+    "docker:run": "docker run -p 3000:3000 winrate-frontend"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
