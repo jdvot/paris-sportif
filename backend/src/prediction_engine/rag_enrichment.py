@@ -16,9 +16,9 @@ from datetime import datetime
 from typing import Any
 
 import httpx
-from groq import Groq
 
 from src.core.config import settings
+from src.llm.client import get_llm_client, GroqClient
 
 logger = logging.getLogger(__name__)
 
@@ -292,9 +292,11 @@ class RAGEnrichment:
     }
 
     def __init__(self) -> None:
-        self.groq_client: Groq | None = None
+        # Use centralized LLM client with retry logic and error handling
+        self.llm_client: GroqClient | None = None
         if settings.groq_api_key:
-            self.groq_client = Groq(api_key=settings.groq_api_key)
+            self.llm_client = get_llm_client()
+            logger.info("RAG enrichment initialized with LLM client")
 
     async def get_team_context(self, team_name: str) -> dict[str, Any]:
         """
@@ -332,12 +334,12 @@ class RAGEnrichment:
                 context["form_notes"] = form_data.get("summary", "")
 
             # Analyze sentiment if we have news
-            if context["news"] and self.groq_client:
+            if context["news"] and self.llm_client:
                 context["sentiment"] = await self._analyze_sentiment(team_name, context["news"])
 
             # Generate key info from all sources
             has_content = context["news"] or context["injuries"] or context["recent_form"]
-            if self.groq_client and has_content:
+            if self.llm_client and has_content:
                 context["key_info"] = await self._extract_key_info(team_name, context)
 
         except Exception as e:
@@ -520,71 +522,86 @@ class RAGEnrichment:
         return form_data
 
     async def _extract_key_info(self, team_name: str, context: dict[str, Any]) -> list[str]:
-        """Extract key insights from all context data using LLM."""
-        if not self.groq_client:
+        """Extract key insights from all context data using centralized LLM client."""
+        if not self.llm_client:
             return []
 
         try:
             # Build context summary
-            news_titles = [n.get("title", "")[:80] for n in context.get("news", [])[:3]]
-            injuries = [i.get("type", "")[:60] for i in context.get("injuries", [])[:2]]
+            news_titles = [n.get("title", "")[:100] for n in context.get("news", [])[:5]]
+            injuries = [
+                f"{i.get('player_name', 'Joueur inconnu')}: {i.get('injury_type', i.get('type', 'blessure'))}"
+                for i in context.get("injuries", [])[:3]
+            ]
             form = context.get("form_notes", "")
 
             if not news_titles and not injuries:
                 return []
 
-            prompt = f"""Extract 2-3 key facts about {team_name} from this info.
-Be concise (max 15 words per fact). Focus on: injuries, transfers, form.
+            prompt = f"""Tu es un analyste football expert. Extrais les 3 informations les plus importantes pour prédire le prochain match de {team_name}.
 
-Recent news: {news_titles}
-Injury reports: {injuries}
-Form: {form}
+DONNÉES:
+- Actualités: {news_titles}
+- Blessures/Absences: {injuries if injuries else 'Aucune signalée'}
+- Forme récente: {form if form else 'Non disponible'}
 
-Reply with bullet points only, in French:"""
+INSTRUCTIONS:
+- Retourne exactement 3 points clés
+- Maximum 20 mots par point
+- Focus: blessures majeures, forme, moral, contexte tactique
+- Format: une ligne par point, sans numérotation ni puces
 
-            response = self.groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                max_tokens=150,
-                messages=[{"role": "user", "content": prompt}],
+Réponds en français:"""
+
+            # Use centralized async client with retry logic
+            content = await self.llm_client.complete(
+                prompt=prompt,
+                max_tokens=200,
+                temperature=0.2,
             )
 
-            content = response.choices[0].message.content
             result = content.strip() if content else ""
-            # Parse bullet points
-            lines = [line.strip().lstrip("•-").strip() for line in result.split("\n")]
-            key_info = [line for line in lines if line]
+            # Parse lines
+            lines = [line.strip().lstrip("•-123.").strip() for line in result.split("\n")]
+            key_info = [line for line in lines if line and len(line) > 5]
             return key_info[:3]
 
         except Exception as e:
-            logger.error(f"Error extracting key info: {e}")
+            logger.error(f"Error extracting key info for {team_name}: {e}")
             return []
 
     async def _analyze_sentiment(self, team_name: str, news: list[dict[str, Any]]) -> str:
-        """Analyze sentiment from news articles using Groq."""
-        if not self.groq_client or not news:
+        """Analyze sentiment from news articles using centralized LLM client."""
+        if not self.llm_client or not news:
             return "neutral"
 
         try:
-            news_text = "\n".join([n.get("title", "") for n in news[:5]])
+            news_text = "\n".join([f"- {n.get('title', '')}" for n in news[:5]])
 
-            prompt = f"""Analyze the sentiment of these headlines about {team_name}.
-Headlines:
+            prompt = f"""Analyse le sentiment général des actualités concernant {team_name}.
+
+TITRES RÉCENTS:
 {news_text}
 
-Reply with exactly one word: positive, negative, or neutral"""
-            response = self.groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                max_tokens=50,
-                messages=[{"role": "user", "content": prompt}],
+INSTRUCTION: Réponds par UN SEUL mot parmi: positive, negative, neutral
+- positive = bonnes nouvelles, victoires, confiance
+- negative = défaites, blessures, crises
+- neutral = actualités mixtes ou sans impact
+
+Réponse:"""
+
+            content = await self.llm_client.complete(
+                prompt=prompt,
+                max_tokens=10,
+                temperature=0.1,
             )
 
-            content = response.choices[0].message.content
-            sentiment = content.strip().lower() if content else "neutral"
+            sentiment = content.strip().lower().split()[0] if content else "neutral"
             if sentiment in ["positive", "negative", "neutral"]:
                 return sentiment
 
         except Exception as e:
-            logger.error(f"Error analyzing sentiment: {e}")
+            logger.error(f"Error analyzing sentiment for {team_name}: {e}")
 
         return "neutral"
 
@@ -694,7 +711,7 @@ Reply with exactly one word: positive, negative, or neutral"""
         Returns:
             Enhanced analysis text
         """
-        if not self.groq_client:
+        if not self.llm_client:
             return str(base_prediction.get("explanation", ""))
 
         try:
@@ -739,35 +756,50 @@ Reply with exactly one word: positive, negative, or neutral"""
             if match_ctx.get("importance") == "high":
                 context_parts.append("Importance: Match crucial pour le classement")
 
-            no_context_msg = "Pas d'informations contextuelles"
-            context_str = "\n".join(context_parts) if context_parts else no_context_msg
+            no_context_msg = "Aucune information contextuelle disponible"
+            context_str = "\n".join(f"• {part}" for part in context_parts) if context_parts else no_context_msg
 
-            prompt = f"""Analyse ce match de football et génère une prédiction enrichie.
+            home_prob = base_prediction.get('home_win', 0)
+            draw_prob = base_prediction.get('draw', 0)
+            away_prob = base_prediction.get('away_win', 0)
+            confidence = base_prediction.get('confidence', 0.5)
 
-Match: {home_team} vs {away_team}
-Compétition: {match_ctx.get('competition', 'League')}
+            prompt = f"""Tu es un analyste football professionnel. Génère une analyse experte pour ce match.
 
-Prédiction de base:
-- Victoire {home_team}: {base_prediction.get('home_win', 0):.1%}
-- Match nul: {base_prediction.get('draw', 0):.1%}
-- Victoire {away_team}: {base_prediction.get('away_win', 0):.1%}
+═══════════════════════════════════════════════════
+MATCH: {home_team} (domicile) vs {away_team} (extérieur)
+COMPÉTITION: {match_ctx.get('competition', 'Championnat')}
+═══════════════════════════════════════════════════
 
-Contexte supplémentaire:
+PROBABILITÉS (modèle ML):
+• Victoire {home_team}: {home_prob:.0%}
+• Match nul: {draw_prob:.0%}
+• Victoire {away_team}: {away_prob:.0%}
+• Confiance du modèle: {confidence:.0%}
+
+CONTEXTE ACTUEL:
 {context_str}
 
-Génère une analyse de 2-3 phrases en français qui prend en compte ces informations contextuelles."""
+═══════════════════════════════════════════════════
 
-            response = self.groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                max_tokens=300,
-                messages=[{"role": "user", "content": prompt}],
+INSTRUCTIONS:
+1. Analyse les probabilités vs le contexte actuel
+2. Identifie les facteurs qui pourraient influencer le résultat
+3. Donne ton avis d'expert en 2-3 phrases percutantes
+4. Mentionne le pick recommandé avec la raison principale
+
+Réponds en français, style professionnel:"""
+
+            content = await self.llm_client.complete(
+                prompt=prompt,
+                max_tokens=350,
+                temperature=0.4,
             )
 
-            content = response.choices[0].message.content
             return content.strip() if content else ""
 
         except Exception as e:
-            logger.error(f"Error generating enriched analysis: {e}")
+            logger.error(f"Error generating enriched analysis for {home_team} vs {away_team}: {e}")
             return str(base_prediction.get("explanation", ""))
 
 
