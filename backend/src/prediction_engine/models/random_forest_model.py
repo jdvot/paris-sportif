@@ -139,7 +139,7 @@ class RandomForestModel:
             )
 
             # Train the model
-            self.model.fit(X_train, y_train)
+            self.model.fit(X_train, y_train)  # type: ignore[union-attr]
 
             self.is_trained = True
 
@@ -155,7 +155,7 @@ class RandomForestModel:
             # Validation score if provided
             val_score = 0.0
             if X_val is not None and y_val is not None:
-                val_score = float(self.model.score(X_val, y_val))
+                val_score = float(self.model.score(X_val, y_val))  # type: ignore[union-attr]
 
             metrics = {
                 "oob_score": self.oob_score or 0.0,
@@ -216,7 +216,7 @@ class RandomForestModel:
             )
 
             # Get probability predictions
-            probs = self.model.predict_proba(features)[0]
+            probs = self.model.predict_proba(features)[0]  # type: ignore[union-attr]
 
             # Extract probabilities
             home_win_prob = float(probs[self.OUTCOME_HOME_WIN])
@@ -258,7 +258,7 @@ class RandomForestModel:
             return np.ones((features.shape[0], 3)) / 3
 
         try:
-            return self.model.predict_proba(features)
+            return self.model.predict_proba(features)  # type: ignore[union-attr, no-any-return]
         except Exception as e:
             logger.error(f"Error during batch prediction: {e}")
             return np.ones((features.shape[0], 3)) / 3

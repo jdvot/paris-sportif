@@ -100,7 +100,7 @@ class AdvancedEnsemblePrediction:
     value_score: float | None = None
 
     # Model contributions for transparency
-    model_contributions: list[ModelContribution] = None
+    model_contributions: list[ModelContribution] | None = None
 
     # LLM adjustments applied
     llm_adjustments: AdvancedLLMAdjustments | None = None

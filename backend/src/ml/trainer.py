@@ -10,6 +10,7 @@ import pickle
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -28,15 +29,17 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 class FeatureEngineer:
     """Creates ML features from match and team data."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize feature engineering with team history tracking."""
         # Track team statistics over time
-        self.team_goals_scored = defaultdict(list)  # team_id -> [goals...]
-        self.team_goals_conceded = defaultdict(list)
-        self.team_results = defaultdict(list)  # team_id -> [0/1/2...]
-        self.head_to_head = defaultdict(lambda: defaultdict(list))  # team1 -> team2 -> [results]
+        self.team_goals_scored: defaultdict[Any, list[int]] = defaultdict(list)
+        self.team_goals_conceded: defaultdict[Any, list[int]] = defaultdict(list)
+        self.team_results: defaultdict[Any, list[int]] = defaultdict(list)
+        self.head_to_head: defaultdict[Any, defaultdict[Any, list[int]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset all tracked statistics."""
         self.team_goals_scored.clear()
         self.team_goals_conceded.clear()
@@ -144,7 +147,7 @@ class FeatureEngineer:
 
     def update_after_match(
         self, home_team_id: int, away_team_id: int, home_goals: int, away_goals: int, result: int
-    ):
+    ) -> None:
         """
         Update team statistics after a match.
 
@@ -174,13 +177,13 @@ class FeatureEngineer:
 class MLTrainer:
     """Trains XGBoost and Random Forest models."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize trainer."""
         self.feature_engineer = FeatureEngineer()
-        self.xgb_model = None
-        self.rf_model = None
+        self.xgb_model: Any = None
+        self.rf_model: Any = None
 
-    def load_historical_data(self) -> dict | None:
+    def load_historical_data(self) -> dict[str, Any] | None:
         """Load historical match data."""
         if not HISTORICAL_DATA_FILE.exists():
             logger.error(f"No historical data found at {HISTORICAL_DATA_FILE}")
@@ -188,10 +191,10 @@ class MLTrainer:
             return None
 
         with open(HISTORICAL_DATA_FILE, encoding="utf-8") as f:
-            return json.load(f)
+            return json.load(f)  # type: ignore[no-any-return]
 
     def prepare_training_data(
-        self, matches: list[dict], min_history: int = 5
+        self, matches: list[dict[str, Any]], min_history: int = 5
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Prepare training data from historical matches.
@@ -211,7 +214,7 @@ class MLTrainer:
 
         features = []
         labels = []
-        team_match_count = defaultdict(int)
+        team_match_count: defaultdict[Any, int] = defaultdict(int)
 
         self.feature_engineer.reset()
 
@@ -429,7 +432,7 @@ class MLTrainer:
         return False
 
 
-def train_models_cli():
+def train_models_cli() -> None:
     """Command-line interface for training."""
     import argparse
 

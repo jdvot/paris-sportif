@@ -10,7 +10,7 @@ This module handles:
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -62,7 +62,7 @@ class ModelTrainer:
     5. Model persistence
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize trainer."""
         self.xgboost_model = XGBoostModel()
         self.random_forest_model = RandomForestModel()
@@ -70,7 +70,7 @@ class ModelTrainer:
 
     def prepare_data(
         self,
-        match_data: list[dict],
+        match_data: list[dict[str, Any]],
         test_size: float = 0.2,
         random_state: int = 42,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -235,7 +235,7 @@ class ModelTrainer:
 
     def train_both_models(
         self,
-        match_data: list[dict],
+        match_data: list[dict[str, Any]],
         test_size: float = 0.2,
     ) -> dict[str, ModelMetrics | None]:
         """
@@ -284,7 +284,7 @@ class ModelTrainer:
 
     def _evaluate_model(
         self,
-        model,
+        model: Any,
         X_test: np.ndarray,
         y_test: np.ndarray,
         model_name: str = "Model",

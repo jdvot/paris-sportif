@@ -8,9 +8,11 @@ import json
 import logging
 import os
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ if USE_POSTGRES:
 DB_PATH = Path(__file__).parent / "football_data.db"
 
 
-def get_db_connection():
+def get_db_connection() -> Any:
     """Get database connection (PostgreSQL or SQLite)."""
     if USE_POSTGRES:
         conn = psycopg2.connect(DATABASE_URL)
@@ -43,15 +45,15 @@ def get_db_connection():
         return conn
 
 
-def dict_row_factory(cursor):
+def dict_row_factory(cursor: Any) -> list[dict[str, Any]]:
     """Convert PostgreSQL rows to dict-like objects."""
     if USE_POSTGRES:
         columns = [col.name for col in cursor.description]
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
-    return cursor.fetchall()
+    return cursor.fetchall()  # type: ignore[no-any-return]
 
 
-def get_placeholder():
+def get_placeholder() -> str:
     """Get the correct SQL placeholder for the database type."""
     return "%s" if USE_POSTGRES else "?"
 
@@ -64,7 +66,7 @@ def adapt_query(query: str) -> str:
     return query
 
 
-def fetch_one_dict(cursor) -> dict | None:
+def fetch_one_dict(cursor: Any) -> dict[str, Any] | None:
     """Fetch one row as a dictionary."""
     row = cursor.fetchone()
     if row is None:
@@ -75,7 +77,7 @@ def fetch_one_dict(cursor) -> dict | None:
     return dict(row)
 
 
-def fetch_all_dict(cursor) -> list[dict]:
+def fetch_all_dict(cursor: Any) -> list[dict[str, Any]]:
     """Fetch all rows as dictionaries."""
     rows = cursor.fetchall()
     if USE_POSTGRES:
@@ -87,7 +89,7 @@ def fetch_all_dict(cursor) -> list[dict]:
 
 
 @contextmanager
-def db_session():
+def db_session() -> Generator[Any, None, None]:
     """Context manager for database sessions."""
     conn = get_db_connection()
     try:
@@ -101,7 +103,7 @@ def db_session():
         conn.close()
 
 
-def init_database():
+def init_database() -> None:
     """Initialize database schema (PostgreSQL or SQLite)."""
     with db_session() as conn:
         cursor = conn.cursor()
@@ -349,7 +351,7 @@ def init_database():
         logger.info("Database initialized successfully")
 
 
-def save_match(match_data: dict) -> bool:
+def save_match(match_data: dict[str, Any]) -> bool:
     """Save a single match to database."""
     try:
         with db_session() as conn:
@@ -422,7 +424,7 @@ def save_match(match_data: dict) -> bool:
         return False
 
 
-def save_matches(matches: list[dict]) -> int:
+def save_matches(matches: list[dict[str, Any]]) -> int:
     """Save multiple matches to database. Returns count of saved matches."""
     saved = 0
     for match in matches:
@@ -437,7 +439,7 @@ def get_matches_from_db(
     date_to: date | None = None,
     competition: str | None = None,
     status: str | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Get matches from database."""
     with db_session() as conn:
         cursor = conn.cursor()
@@ -466,7 +468,7 @@ def get_matches_from_db(
         return [json.loads(row["raw_data"]) for row in rows]
 
 
-def save_standings(competition_code: str, standings: list[dict]) -> int:
+def save_standings(competition_code: str, standings: list[dict[str, Any]]) -> int:
     """Save standings for a competition."""
     try:
         with db_session() as conn:
@@ -519,7 +521,7 @@ def save_standings(competition_code: str, standings: list[dict]) -> int:
         return 0
 
 
-def get_standings_from_db(competition_code: str) -> list[dict]:
+def get_standings_from_db(competition_code: str) -> list[dict[str, Any]]:
     """Get standings from database."""
     with db_session() as conn:
         cursor = conn.cursor()
@@ -555,7 +557,7 @@ def get_standings_from_db(competition_code: str) -> list[dict]:
         ]
 
 
-def log_sync(sync_type: str, status: str, records: int, error: str | None = None):
+def log_sync(sync_type: str, status: str, records: int, error: str | None = None) -> None:
     """Log a sync operation."""
     with db_session() as conn:
         cursor = conn.cursor()
@@ -578,7 +580,7 @@ def log_sync(sync_type: str, status: str, records: int, error: str | None = None
         )
 
 
-def get_last_sync(sync_type: str) -> dict | None:
+def get_last_sync(sync_type: str) -> dict[str, Any] | None:
     """Get last sync info for a sync type."""
     with db_session() as conn:
         cursor = conn.cursor()
@@ -594,7 +596,7 @@ def get_last_sync(sync_type: str) -> dict | None:
         return fetch_one_dict(cursor)
 
 
-def get_db_stats() -> dict:
+def get_db_stats() -> dict[str, Any]:
     """Get database statistics."""
     with db_session() as conn:
         cursor = conn.cursor()
@@ -626,7 +628,7 @@ def get_db_stats() -> dict:
 # ============== PREDICTIONS ==============
 
 
-def save_prediction(prediction: dict) -> bool:
+def save_prediction(prediction: dict[str, Any]) -> bool:
     """Save a prediction to database."""
     try:
         with db_session() as conn:
@@ -689,7 +691,7 @@ def save_prediction(prediction: dict) -> bool:
         return False
 
 
-def get_prediction_from_db(match_id: int) -> dict | None:
+def get_prediction_from_db(match_id: int) -> dict[str, Any] | None:
     """Get a prediction by match ID."""
     with db_session() as conn:
         cursor = conn.cursor()
@@ -698,7 +700,7 @@ def get_prediction_from_db(match_id: int) -> dict | None:
         return fetch_one_dict(cursor)
 
 
-def get_predictions_by_date(target_date: date) -> list[dict]:
+def get_predictions_by_date(target_date: date) -> list[dict[str, Any]]:
     """Get all predictions for a specific date."""
     with db_session() as conn:
         cursor = conn.cursor()
@@ -718,7 +720,7 @@ def get_scheduled_matches_from_db(
     date_from: date | None = None,
     date_to: date | None = None,
     competition: str | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Get scheduled (not finished) matches from database."""
     with db_session() as conn:
         cursor = conn.cursor()
@@ -809,7 +811,7 @@ def verify_prediction(match_id: int, home_score: int, away_score: int) -> bool:
         return False
 
 
-def get_prediction_statistics(days: int = 30) -> dict:
+def get_prediction_statistics(days: int = 30) -> dict[str, Any]:
     """
     Calculate prediction performance statistics.
     Returns accuracy, ROI, and breakdowns by competition and bet type.
@@ -859,7 +861,7 @@ def get_prediction_statistics(days: int = 30) -> dict:
             for row in rows:
                 comp = row["competition_code"] or "Unknown"
                 if comp not in by_competition:
-                    by_competition[comp] = {"total": 0, "correct": 0}
+                    by_competition[comp] = {"total": 0.0, "correct": 0.0, "accuracy": 0.0}
                 by_competition[comp]["total"] += 1
                 if row["was_correct"]:
                     by_competition[comp]["correct"] += 1
@@ -875,7 +877,7 @@ def get_prediction_statistics(days: int = 30) -> dict:
             for row in rows:
                 bet = row["recommendation"] or "unknown"
                 if bet not in by_bet_type:
-                    by_bet_type[bet] = {"total": 0, "correct": 0}
+                    by_bet_type[bet] = {"total": 0.0, "correct": 0.0, "accuracy": 0.0}
                 by_bet_type[bet]["total"] += 1
                 if row["was_correct"]:
                     by_bet_type[bet]["correct"] += 1
@@ -915,7 +917,7 @@ def get_prediction_statistics(days: int = 30) -> dict:
         }
 
 
-def get_all_predictions_stats(days: int = 30) -> dict:
+def get_all_predictions_stats(days: int = 30) -> dict[str, Any]:
     """
     Get statistics from all predictions (including unverified).
     Used when no verified predictions exist yet to show distribution data.
@@ -1060,7 +1062,7 @@ def save_ml_model(
         return False
 
 
-def get_ml_model(model_name: str) -> dict | None:
+def get_ml_model(model_name: str) -> dict[str, Any] | None:
     """Get a trained ML model from database."""
     with db_session() as conn:
         cursor = conn.cursor()
@@ -1078,7 +1080,7 @@ def get_ml_model(model_name: str) -> dict | None:
         return None
 
 
-def get_all_ml_models() -> list[dict]:
+def get_all_ml_models() -> list[dict[str, Any]]:
     """Get all ML models metadata (without binary)."""
     with db_session() as conn:
         cursor = conn.cursor()

@@ -139,7 +139,7 @@ class AdvancedELOSystem:
         adjusted_b = rating_b + (0 if is_a_home else self.home_advantage)
 
         # Standard ELO formula
-        return 1.0 / (1.0 + 10.0 ** ((adjusted_b - adjusted_a) / 400.0))
+        return float(1.0 / (1.0 + 10.0 ** ((adjusted_b - adjusted_a) / 400.0)))
 
     def calculate_outcome_probabilities(
         self,
@@ -310,8 +310,8 @@ class AdvancedELOSystem:
             weight = np.exp(-0.15 * i)
             weights.append(weight)
 
-        weights = np.array(weights)
-        weights /= weights.sum()
+        weights_arr = np.array(weights)
+        weights_arr /= weights_arr.sum()
 
         # Calculate win rate with weighting
         win_points = []
@@ -324,12 +324,12 @@ class AdvancedELOSystem:
                 win_points.append(0.0)
 
         # Weighted average
-        win_rate = np.average(win_points, weights=weights)
+        win_rate = np.average(win_points, weights=weights_arr)
 
         # Adjustment: 0.5 win rate = 0.0, 1.0 = +1.0, 0.0 = -1.0
         # Apply slight damping to prevent over-correction (max ~0.8)
         adjustment = (win_rate - 0.5) * 2.0
-        adjustment = np.clip(adjustment, -0.8, 0.8)  # Limit extreme swings
+        adjustment = float(np.clip(adjustment, -0.8, 0.8))  # Limit extreme swings
         return adjustment
 
     def predict(

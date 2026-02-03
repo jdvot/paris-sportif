@@ -147,7 +147,7 @@ class XGBoostModel:
             )
 
             # Train with early stopping
-            self.model.fit(
+            self.model.fit(  # type: ignore[union-attr]
                 X_train,
                 y_train,
                 eval_set=eval_set,
@@ -216,7 +216,7 @@ class XGBoostModel:
             )
 
             # Get probability predictions
-            probs = self.model.predict_proba(features)[0]
+            probs = self.model.predict_proba(features)[0]  # type: ignore[union-attr]
 
             # Extract probabilities for each outcome
             home_win_prob = float(probs[self.OUTCOME_HOME_WIN])
@@ -262,7 +262,7 @@ class XGBoostModel:
             return np.ones((features.shape[0], 3)) / 3
 
         try:
-            return self.model.predict_proba(features)
+            return self.model.predict_proba(features)  # type: ignore[union-attr, no-any-return]
         except Exception as e:
             logger.error(f"Error during batch prediction: {e}")
             return np.ones((features.shape[0], 3)) / 3
@@ -330,7 +330,7 @@ class XGBoostModel:
             return False
 
         try:
-            self.model.save_model(filepath)
+            self.model.save_model(filepath)  # type: ignore[union-attr]
             logger.info(f"Model saved to {filepath}")
             return True
         except Exception as e:
@@ -353,7 +353,7 @@ class XGBoostModel:
 
         try:
             self.model = xgb.XGBClassifier()
-            self.model.load_model(filepath)
+            self.model.load_model(filepath)  # type: ignore[union-attr]
             self.is_trained = True
             logger.info(f"Model loaded from {filepath}")
             return True

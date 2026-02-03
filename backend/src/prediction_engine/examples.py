@@ -12,7 +12,7 @@ import numpy as np
 
 
 # Example 1: Using the Ensemble Predictor
-def example_ensemble_prediction():
+def example_ensemble_prediction() -> None:
     """Demonstrate ensemble prediction with all models."""
     from src.prediction_engine.ensemble import EnsemblePredictor
 
@@ -68,7 +68,7 @@ def example_ensemble_prediction():
 
 
 # Example 2: Feature Engineering
-def example_feature_engineering():
+def example_feature_engineering() -> None:
     """Demonstrate feature engineering capabilities."""
     from src.prediction_engine.feature_engineering import FeatureEngineer
 
@@ -109,7 +109,7 @@ def example_feature_engineering():
 
 
 # Example 3: Training Models
-def example_training():
+def example_training() -> None:
     """Demonstrate model training."""
     from src.prediction_engine.model_trainer import ModelTrainer
 
@@ -177,7 +177,7 @@ def example_training():
 
 
 # Example 4: Direct Model Usage
-def example_direct_models():
+def example_direct_models() -> None:
     """Demonstrate using models directly."""
     from src.prediction_engine.models.random_forest_model import RandomForestModel
     from src.prediction_engine.models.xgboost_model import XGBoostModel
@@ -223,7 +223,7 @@ def example_direct_models():
 
 
 # Example 5: Batch Predictions
-def example_batch_predictions():
+def example_batch_predictions() -> None:
     """Demonstrate batch predictions for multiple matches."""
     import numpy as np
 
@@ -250,7 +250,7 @@ def example_batch_predictions():
 
 
 # Example 6: Feature Importance
-def example_feature_importance():
+def example_feature_importance() -> None:
     """Demonstrate feature importance inspection."""
     import numpy as np
 
@@ -279,7 +279,7 @@ def example_feature_importance():
         print(f"Note: {e}")
 
 
-def run_all_examples():
+def run_all_examples() -> None:
     """Run all examples."""
     print("=" * 60)
     print("ML Models and Ensemble Predictor Examples")

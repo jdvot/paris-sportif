@@ -21,7 +21,7 @@ MODELS_DIR = ML_DIR / "trained_models"
 class MLPipeline:
     """Automated ML pipeline manager."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize pipeline."""
         self.last_collection: datetime | None = None
         self.last_training: datetime | None = None
@@ -148,7 +148,7 @@ class MLPipeline:
 
         return False
 
-    async def scheduled_task(self, interval_hours: int = 168):  # Default: weekly
+    async def scheduled_task(self, interval_hours: int = 168) -> None:  # Default: weekly
         """
         Background task that runs the pipeline on schedule.
 
@@ -172,7 +172,7 @@ class MLPipeline:
             # Wait for next run
             await asyncio.sleep(interval_hours * 3600)
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the scheduled task."""
         self.is_running = False
 
@@ -181,19 +181,19 @@ class MLPipeline:
 ml_pipeline = MLPipeline()
 
 
-async def start_ml_scheduler():
+async def start_ml_scheduler() -> None:
     """Start the ML pipeline scheduler as a background task."""
     asyncio.create_task(ml_pipeline.scheduled_task())
     logger.info("ML scheduler started")
 
 
-async def run_pipeline_now():
+async def run_pipeline_now() -> bool:
     """Run the ML pipeline immediately."""
     return await ml_pipeline.run_full_pipeline()
 
 
 # CLI interface
-async def main():
+async def main() -> None:
     """Command-line interface for pipeline operations."""
     import argparse
 

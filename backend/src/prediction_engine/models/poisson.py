@@ -260,7 +260,7 @@ class PoissonModel:
         home_scores = 1 - poisson.pmf(0, expected_home)
         away_scores = 1 - poisson.pmf(0, expected_away)
 
-        return home_scores * away_scores
+        return float(home_scores * away_scores)
 
 
 # Default instance

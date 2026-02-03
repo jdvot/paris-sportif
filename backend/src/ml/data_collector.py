@@ -12,6 +12,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import aiohttp
 
@@ -54,13 +55,13 @@ class HistoricalDataCollector:
 
     async def fetch_with_retry(
         self, session: aiohttp.ClientSession, url: str, max_retries: int = 3
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Fetch URL with retry logic and rate limiting."""
         for attempt in range(max_retries):
             try:
                 async with session.get(url, headers=self.headers) as response:
                     if response.status == 200:
-                        return await response.json()
+                        return await response.json()  # type: ignore[no-any-return]
                     elif response.status == 429:  # Rate limited
                         logger.warning("Rate limited, waiting 60s...")
                         await asyncio.sleep(60)
@@ -74,7 +75,7 @@ class HistoricalDataCollector:
 
     async def collect_season_matches(
         self, session: aiohttp.ClientSession, competition: str, season: int
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """
         Collect all matches for a specific competition and season.
 
@@ -144,7 +145,7 @@ class HistoricalDataCollector:
 
     async def collect_team_stats(
         self, session: aiohttp.ClientSession, competition: str
-    ) -> dict[int, dict]:
+    ) -> dict[int, dict[str, Any]]:
         """
         Collect current team statistics for a competition.
 
@@ -191,7 +192,7 @@ class HistoricalDataCollector:
 
     async def collect_all_historical_data(
         self, seasons: list[int] | None = None, competitions: list[str] | None = None
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Collect historical data for multiple seasons and competitions.
 
@@ -241,17 +242,17 @@ class HistoricalDataCollector:
         logger.info(f"Collection complete: {len(all_matches)} matches from {len(seasons)} seasons")
         return result
 
-    def _save_data(self, data: dict) -> None:
+    def _save_data(self, data: dict[str, Any]) -> None:
         """Save collected data to JSON file."""
         with open(HISTORICAL_DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         logger.info(f"Data saved to {HISTORICAL_DATA_FILE}")
 
-    def load_data(self) -> dict | None:
+    def load_data(self) -> dict[str, Any] | None:
         """Load previously collected data."""
         if HISTORICAL_DATA_FILE.exists():
             with open(HISTORICAL_DATA_FILE, encoding="utf-8") as f:
-                return json.load(f)
+                return json.load(f)  # type: ignore[no-any-return]
         return None
 
     def get_data_age_days(self) -> int | None:
@@ -263,7 +264,7 @@ class HistoricalDataCollector:
         return None
 
 
-async def collect_data_cli():
+async def collect_data_cli() -> None:
     """Command-line interface for data collection."""
     import argparse
 

@@ -13,6 +13,7 @@ References:
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from scipy.stats import poisson
@@ -109,7 +110,7 @@ class DixonColesModel:
 
         # Ensure correction factor stays reasonable (between 0.5 and 1.5)
         # This prevents extreme adjustments
-        correction = np.clip(correction, 0.5, 1.5)
+        correction = float(np.clip(correction, 0.5, 1.5))
         return correction
 
     def calculate_expected_goals(
@@ -296,11 +297,11 @@ class DixonColesModel:
         Returns:
             Weight factor (0-1, where 1 = full weight)
         """
-        return np.exp(-self.time_decay_xi * days_since_match)
+        return float(np.exp(-self.time_decay_xi * days_since_match))
 
     def weighted_team_stats(
         self,
-        matches: list[dict],
+        matches: list[dict[str, Any]],
         team_name: str,
         is_home: bool,
         stat_type: str = "goals",
