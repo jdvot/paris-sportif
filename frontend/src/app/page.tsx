@@ -4,9 +4,13 @@ import { DailyPicks } from "@/components/DailyPicks";
 import { UpcomingMatches } from "@/components/UpcomingMatches";
 import { StatsOverview } from "@/components/StatsOverview";
 import { TrendingUp, Calendar, Trophy, Loader2 } from "lucide-react";
+import { useTranslations, useLocale } from "next-intl";
 import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
 
 export default function Home() {
+  const t = useTranslations("home");
+  const tStats = useTranslations("stats");
+  const locale = useLocale();
   const { data: statsResponse, isLoading: statsLoading } = useGetPredictionStats(
     { days: 30 },
     { query: { staleTime: 5 * 60 * 1000 } }
@@ -31,12 +35,10 @@ export default function Home() {
       {/* Hero Section */}
       <section className="text-center py-6 sm:py-8">
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
-          Predictions Football IA
+          {t("hero.headline")}
         </h1>
         <p className="text-gray-600 dark:text-dark-300 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto px-4">
-          Analyse statistique avancee combinant modeles Poisson, ELO, xG et
-          machine learning pour identifier les meilleures opportunites de paris
-          sur le football europeen.
+          {t("hero.subheadline")}
         </p>
       </section>
 
@@ -48,7 +50,7 @@ export default function Home() {
               <TrendingUp className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400" />
             </div>
             <div className="text-center sm:text-left">
-              <p className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">Taux de reussite</p>
+              <p className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">{tStats("successRate")}</p>
               {statsLoading ? (
                 <Loader2 className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 animate-spin mt-1 mx-auto sm:mx-0" />
               ) : (
@@ -61,7 +63,7 @@ export default function Home() {
               <Calendar className="w-5 sm:w-6 h-5 sm:h-6 text-accent-400" />
             </div>
             <div className="text-center sm:text-left">
-              <p className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">Predictions analysees</p>
+              <p className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">{t("stats.predictionsAnalyzed")}</p>
               {statsLoading ? (
                 <Loader2 className="w-5 sm:w-6 h-5 sm:h-6 text-accent-400 animate-spin mt-1 mx-auto sm:mx-0" />
               ) : (
@@ -74,7 +76,7 @@ export default function Home() {
               <Trophy className="w-5 sm:w-6 h-5 sm:h-6 text-yellow-400" />
             </div>
             <div className="text-center sm:text-left">
-              <p className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">Championnats couverts</p>
+              <p className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">{t("stats.leaguesCovered")}</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{competitionsWithData}</p>
             </div>
           </div>
@@ -85,10 +87,10 @@ export default function Home() {
       <section>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-0 px-4 sm:px-0">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-            5 Picks du Jour
+            {t("sections.dailyPicks")}
           </h2>
           <span className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">
-            Mis a jour: {new Date().toLocaleDateString("fr-FR")}
+            {t("sections.updated")}: {new Date().toLocaleDateString(locale === "fr" ? "fr-FR" : "en-US")}
           </span>
         </div>
         <DailyPicks />
@@ -97,7 +99,7 @@ export default function Home() {
       {/* Upcoming Matches */}
       <section>
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 px-4 sm:px-0">
-          Matchs a Venir
+          {t("sections.upcomingMatches")}
         </h2>
         <UpcomingMatches />
       </section>
@@ -105,7 +107,7 @@ export default function Home() {
       {/* Stats Overview */}
       <section>
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 px-4 sm:px-0">
-          Performance des Predictions
+          {t("sections.performance")}
         </h2>
         <StatsOverview />
       </section>

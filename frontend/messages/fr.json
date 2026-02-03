@@ -57,14 +57,22 @@
     "title": "WinRate AI",
     "subtitle": "Predictions Football IA",
     "hero": {
-      "headline": "Pronostics Football par Intelligence Artificielle",
-      "subheadline": "5 picks premium par jour analyses par nos modeles Poisson, ELO, xG et Machine Learning",
+      "headline": "Predictions Football IA",
+      "subheadline": "Analyse statistique avancee combinant modeles Poisson, ELO, xG et machine learning pour identifier les meilleures opportunites de paris sur le football europeen.",
       "cta": "Voir les picks du jour"
     },
     "stats": {
       "accuracy": "Taux de reussite",
       "predictions": "Predictions",
-      "roi": "ROI simule"
+      "roi": "ROI simule",
+      "predictionsAnalyzed": "Predictions analysees",
+      "leaguesCovered": "Championnats couverts"
+    },
+    "sections": {
+      "dailyPicks": "5 Picks du Jour",
+      "upcomingMatches": "Matchs a Venir",
+      "performance": "Performance des Predictions",
+      "updated": "Mis a jour"
     },
     "features": {
       "title": "Pourquoi WinRate AI ?",
