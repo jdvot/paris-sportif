@@ -14,6 +14,7 @@ from starlette.responses import Response
 
 from src.api.routes import (
     admin,
+    dashboard,
     debug,
     enrichment,
     health,
@@ -182,6 +183,11 @@ app.include_router(
     notifications.router,
     prefix=f"{settings.api_v1_prefix}",
     tags=["Notifications"],
+)
+app.include_router(
+    dashboard.router,
+    prefix=f"{settings.api_v1_prefix}/dashboard",
+    tags=["Dashboard"],
 )
 
 

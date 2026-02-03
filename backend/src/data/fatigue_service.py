@@ -9,11 +9,16 @@ Part of ML-007: Integrate fatigue data from API.
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any
 
 from src.data.sources.football_data import FootballDataClient, MatchData, get_football_data_client
 from src.prediction_engine.feature_engineering import FeatureEngineer
 
 logger = logging.getLogger(__name__)
+
+# Simple in-memory cache for fatigue data (TTL: 1 hour)
+_fatigue_cache: dict[str, tuple[datetime, Any]] = {}
+CACHE_TTL_SECONDS = 3600  # 1 hour
 
 
 @dataclass
@@ -110,6 +115,14 @@ class FatigueService:
             except ValueError:
                 match_date = datetime.now()
 
+        # Check cache first
+        cache_key = f"fatigue:{team_id}:{match_date.date()}"
+        if cache_key in _fatigue_cache:
+            cached_time, cached_data = _fatigue_cache[cache_key]
+            if (datetime.now() - cached_time).total_seconds() < CACHE_TTL_SECONDS:
+                logger.debug(f"Cache hit for {team_name} fatigue data")
+                return cached_data
+
         try:
             client = self._get_client()
 
@@ -157,7 +170,7 @@ class FatigueService:
                 f"congestion={fixture_congestion_score:.2f}"
             )
 
-            return TeamFatigueData(
+            result = TeamFatigueData(
                 team_id=team_id,
                 team_name=team_name,
                 last_match_date=last_match_date,
@@ -165,6 +178,11 @@ class FatigueService:
                 rest_days_score=rest_days_score,
                 fixture_congestion_score=fixture_congestion_score,
             )
+
+            # Cache the result
+            _fatigue_cache[cache_key] = (datetime.now(), result)
+
+            return result
 
         except Exception as e:
             logger.error(f"Error fetching fatigue data for {team_name}: {e}")
