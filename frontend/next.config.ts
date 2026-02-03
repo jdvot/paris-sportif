@@ -8,8 +8,9 @@ const nextConfig: NextConfig = {
   // Enable React strict mode for development
   reactStrictMode: true,
 
-  // Output standalone for Docker deployment
-  output: "standalone",
+  // Output standalone only for Docker (not Vercel)
+  // Vercel sets VERCEL=1 automatically
+  ...(process.env.VERCEL ? {} : { output: "standalone" }),
 
   // Security headers
   async headers() {
