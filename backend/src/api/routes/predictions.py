@@ -27,6 +27,7 @@ from src.data.database import (
     get_predictions_by_date,
     get_scheduled_matches_from_db,
     save_prediction,
+    verify_prediction,
 )
 from src.data.sources.football_data import MatchData, get_football_data_client
 from src.llm.prompts_advanced import (
@@ -1248,6 +1249,60 @@ async def get_prediction(
         # Catch-all for any other errors, use fallback
         logger.error(f"Unexpected error for match {match_id}: {e}. Using fallback prediction.")
         return _generate_fallback_prediction(match_id, include_model_details)
+
+
+class VerifyPredictionRequest(BaseModel):
+    """Request body for verifying a prediction."""
+
+    home_score: int = Field(..., ge=0, description="Final home team score")
+    away_score: int = Field(..., ge=0, description="Final away team score")
+
+
+class VerifyPredictionResponse(BaseModel):
+    """Response after verifying a prediction."""
+
+    match_id: int
+    home_score: int
+    away_score: int
+    actual_result: str
+    was_correct: bool
+    message: str
+
+
+@router.post(
+    "/{match_id}/verify",
+    responses=AUTH_RESPONSES,
+    operation_id="verifyPrediction",
+    response_model=VerifyPredictionResponse,
+)
+async def verify_prediction_endpoint(
+    match_id: int,
+    request: VerifyPredictionRequest,
+    user: AuthenticatedUser,
+) -> VerifyPredictionResponse:
+    """
+    Verify a prediction against actual match result.
+
+    Updates the prediction record with actual scores and correctness.
+    Used for tracking prediction accuracy and ROI.
+    """
+    # Verify the prediction
+    result = verify_prediction(match_id, request.home_score, request.away_score)
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No prediction found for match {match_id}",
+        )
+
+    return VerifyPredictionResponse(
+        match_id=match_id,
+        home_score=request.home_score,
+        away_score=request.away_score,
+        actual_result=result["actual_result"],
+        was_correct=result["was_correct"],
+        message=f"Prediction for match {match_id} verified successfully",
+    )
 
 
 @router.post("/{match_id}/refresh", responses=AUTH_RESPONSES, operation_id="refreshPrediction")

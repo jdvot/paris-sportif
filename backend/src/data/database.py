@@ -749,10 +749,15 @@ def get_scheduled_matches_from_db(
 # ============== PREDICTION TRACKING ==============
 
 
-def verify_prediction(match_id: int, home_score: int, away_score: int) -> bool:
+def verify_prediction(
+    match_id: int, home_score: int, away_score: int
+) -> dict[str, Any] | None:
     """
     Verify a prediction against actual match result.
     Updates the prediction record with actual scores and correctness.
+
+    Returns:
+        Dict with verification details or None if prediction not found.
     """
     try:
         with db_session() as conn:
@@ -765,7 +770,7 @@ def verify_prediction(match_id: int, home_score: int, away_score: int) -> bool:
 
             if not pred:
                 logger.warning(f"No prediction found for match {match_id}")
-                return False
+                return None
 
             # Determine actual result
             if home_score > away_score:
@@ -777,7 +782,7 @@ def verify_prediction(match_id: int, home_score: int, away_score: int) -> bool:
 
             # Check if prediction was correct
             recommendation = pred["recommendation"]
-            was_correct = 1 if recommendation == actual_result else 0
+            was_correct = recommendation == actual_result
 
             # Update the prediction
             update_query = adapt_query(
@@ -797,18 +802,25 @@ def verify_prediction(match_id: int, home_score: int, away_score: int) -> bool:
                     home_score,
                     away_score,
                     actual_result,
-                    was_correct,
+                    1 if was_correct else 0,
                     datetime.now().isoformat(),
                     match_id,
                 ),
             )
 
             logger.info(f"Verified prediction for match {match_id}: {was_correct=}")
-            return True
+            return {
+                "match_id": match_id,
+                "home_score": home_score,
+                "away_score": away_score,
+                "actual_result": actual_result,
+                "predicted_result": recommendation,
+                "was_correct": was_correct,
+            }
 
     except Exception as e:
         logger.error(f"Error verifying prediction {match_id}: {e}")
-        return False
+        return None
 
 
 def get_prediction_statistics(days: int = 30) -> dict[str, Any]:
