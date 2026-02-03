@@ -242,6 +242,7 @@ class PredictionStatsResponse(BaseModel):
     """Historical prediction performance stats."""
 
     total_predictions: int
+    verified_predictions: int  # Number of predictions with verified results
     correct_predictions: int
     accuracy: float
     roi_simulated: float
@@ -1120,6 +1121,7 @@ async def get_prediction_stats(
         if simulated_stats["total_predictions"] > 0:
             return PredictionStatsResponse(
                 total_predictions=simulated_stats["total_predictions"],
+                verified_predictions=0,  # No verified predictions yet
                 correct_predictions=0,  # Not yet verified
                 accuracy=0.0,  # Will be calculated after verification
                 roi_simulated=0.0,
@@ -1130,6 +1132,7 @@ async def get_prediction_stats(
 
     return PredictionStatsResponse(
         total_predictions=stats["total_predictions"],
+        verified_predictions=stats.get("verified_predictions", stats["total_predictions"]),
         correct_predictions=stats["correct_predictions"],
         accuracy=stats["accuracy"],
         roi_simulated=stats["roi_simulated"],
