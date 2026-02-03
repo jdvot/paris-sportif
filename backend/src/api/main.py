@@ -10,9 +10,13 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 from src.api.routes import matches, predictions, health, debug, ml, sync, rag, enrichment, users, admin
 from src.core.config import settings
 from src.core.exceptions import ParisportifError
+from src.core.rate_limit import limiter
 from src.core.sentry import init_sentry
 
 # Initialize Sentry for error monitoring
@@ -73,6 +77,10 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Security Headers Middleware
 app.add_middleware(SecurityHeadersMiddleware)
