@@ -1770,3 +1770,206 @@ class TestModelTrainerOptuna:
 
         # max_features should have valid options
         assert "sqrt" in space["max_features"]
+
+
+# ============== Fatigue Service Tests ==============
+
+
+class TestTeamFatigueData:
+    """Tests for TeamFatigueData dataclass."""
+
+    def test_defaults(self):
+        """Test default values for TeamFatigueData."""
+        from src.data.fatigue_service import TeamFatigueData
+
+        data = TeamFatigueData(team_id=1, team_name="Test Team")
+        assert data.team_id == 1
+        assert data.team_name == "Test Team"
+        assert data.last_match_date is None
+        assert data.recent_match_dates is None
+        assert data.rest_days_score == 0.5
+        assert data.fixture_congestion_score == 0.5
+
+    def test_combined_fatigue_score(self):
+        """Test combined fatigue score calculation."""
+        from src.data.fatigue_service import TeamFatigueData
+
+        data = TeamFatigueData(
+            team_id=1,
+            team_name="Test Team",
+            rest_days_score=0.8,
+            fixture_congestion_score=0.6,
+        )
+        assert data.combined_fatigue_score == 0.7
+
+    def test_combined_fatigue_score_extremes(self):
+        """Test combined score at extremes."""
+        from src.data.fatigue_service import TeamFatigueData
+
+        # Well-rested team
+        rested = TeamFatigueData(
+            team_id=1,
+            team_name="Rested",
+            rest_days_score=1.0,
+            fixture_congestion_score=1.0,
+        )
+        assert rested.combined_fatigue_score == 1.0
+
+        # Fatigued team
+        fatigued = TeamFatigueData(
+            team_id=2,
+            team_name="Fatigued",
+            rest_days_score=0.0,
+            fixture_congestion_score=0.0,
+        )
+        assert fatigued.combined_fatigue_score == 0.0
+
+
+class TestMatchFatigueData:
+    """Tests for MatchFatigueData dataclass."""
+
+    def test_fatigue_advantage_home_rested(self):
+        """Test fatigue advantage when home team is more rested."""
+        from datetime import datetime
+
+        from src.data.fatigue_service import MatchFatigueData, TeamFatigueData
+
+        home = TeamFatigueData(
+            team_id=1, team_name="Home", rest_days_score=0.9, fixture_congestion_score=0.8
+        )
+        away = TeamFatigueData(
+            team_id=2, team_name="Away", rest_days_score=0.3, fixture_congestion_score=0.4
+        )
+
+        match_data = MatchFatigueData(
+            home_team=home, away_team=away, match_date=datetime.now()
+        )
+
+        # Home is more rested, so advantage should be positive
+        assert match_data.fatigue_advantage > 0
+        # (0.9+0.8)/2 - (0.3+0.4)/2 = 0.85 - 0.35 = 0.5
+        assert abs(match_data.fatigue_advantage - 0.5) < 0.01
+
+    def test_fatigue_advantage_away_rested(self):
+        """Test fatigue advantage when away team is more rested."""
+        from datetime import datetime
+
+        from src.data.fatigue_service import MatchFatigueData, TeamFatigueData
+
+        home = TeamFatigueData(
+            team_id=1, team_name="Home", rest_days_score=0.2, fixture_congestion_score=0.3
+        )
+        away = TeamFatigueData(
+            team_id=2, team_name="Away", rest_days_score=0.9, fixture_congestion_score=0.9
+        )
+
+        match_data = MatchFatigueData(
+            home_team=home, away_team=away, match_date=datetime.now()
+        )
+
+        # Away is more rested, so advantage should be negative
+        assert match_data.fatigue_advantage < 0
+
+    def test_fatigue_advantage_balanced(self):
+        """Test fatigue advantage when both teams equally rested."""
+        from datetime import datetime
+
+        from src.data.fatigue_service import MatchFatigueData, TeamFatigueData
+
+        home = TeamFatigueData(
+            team_id=1, team_name="Home", rest_days_score=0.6, fixture_congestion_score=0.6
+        )
+        away = TeamFatigueData(
+            team_id=2, team_name="Away", rest_days_score=0.6, fixture_congestion_score=0.6
+        )
+
+        match_data = MatchFatigueData(
+            home_team=home, away_team=away, match_date=datetime.now()
+        )
+
+        assert match_data.fatigue_advantage == 0.0
+
+
+class TestFatigueServiceHelpers:
+    """Tests for FatigueService helper methods."""
+
+    def test_extract_match_dates_valid(self):
+        """Test extracting dates from valid match data."""
+        from src.data.fatigue_service import FatigueService
+        from src.data.sources.football_data import MatchData, TeamData, CompetitionData
+
+        service = FatigueService()
+
+        # Create mock match data
+        matches = [
+            MatchData(
+                id=1,
+                competition=CompetitionData(id=1, name="Test", code="TEST"),
+                homeTeam=TeamData(id=1, name="Home"),
+                awayTeam=TeamData(id=2, name="Away"),
+                utcDate="2024-01-15T15:00:00Z",
+                status="FINISHED",
+            ),
+            MatchData(
+                id=2,
+                competition=CompetitionData(id=1, name="Test", code="TEST"),
+                homeTeam=TeamData(id=1, name="Home"),
+                awayTeam=TeamData(id=3, name="Away2"),
+                utcDate="2024-01-20T20:00:00Z",
+                status="FINISHED",
+            ),
+        ]
+
+        dates = service._extract_match_dates(matches)
+        assert len(dates) == 2
+        assert dates[0].day == 15
+        assert dates[1].day == 20
+
+    def test_extract_match_dates_invalid(self):
+        """Test extracting dates handles invalid dates gracefully."""
+        from src.data.fatigue_service import FatigueService
+        from src.data.sources.football_data import MatchData, TeamData, CompetitionData
+
+        service = FatigueService()
+
+        matches = [
+            MatchData(
+                id=1,
+                competition=CompetitionData(id=1, name="Test", code="TEST"),
+                homeTeam=TeamData(id=1, name="Home"),
+                awayTeam=TeamData(id=2, name="Away"),
+                utcDate="invalid-date",
+                status="FINISHED",
+            ),
+        ]
+
+        dates = service._extract_match_dates(matches)
+        assert len(dates) == 0
+
+    def test_extract_match_dates_empty(self):
+        """Test extracting dates from empty list."""
+        from src.data.fatigue_service import FatigueService
+
+        service = FatigueService()
+        dates = service._extract_match_dates([])
+        assert len(dates) == 0
+
+
+class TestFatigueServiceSingleton:
+    """Tests for fatigue service singleton."""
+
+    def test_get_fatigue_service_returns_instance(self):
+        """Test that get_fatigue_service returns a valid instance."""
+        from src.data.fatigue_service import get_fatigue_service, FatigueService
+
+        service = get_fatigue_service()
+        assert service is not None
+        assert isinstance(service, FatigueService)
+
+    def test_singleton_returns_same_instance(self):
+        """Test that singleton returns the same instance."""
+        from src.data.fatigue_service import get_fatigue_service
+
+        service1 = get_fatigue_service()
+        service2 = get_fatigue_service()
+        assert service1 is service2
