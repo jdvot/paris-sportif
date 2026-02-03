@@ -26,8 +26,13 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class FeatureVector:
-    """Structured feature vector for ML predictions."""
+    """Structured feature vector for ML predictions.
 
+    Contains 7 base features and 7 computed interaction features.
+    Interaction features capture non-linear relationships like attack vs defense matchups.
+    """
+
+    # Base features (7)
     home_attack: float
     home_defense: float
     away_attack: float
@@ -36,19 +41,104 @@ class FeatureVector:
     recent_form_away: float
     head_to_head_home: float
 
-    def to_array(self) -> np.ndarray:
-        """Convert to numpy array for model input."""
-        return np.array(
-            [
-                self.home_attack,
-                self.home_defense,
-                self.away_attack,
-                self.away_defense,
-                self.recent_form_home,
-                self.recent_form_away,
-                self.head_to_head_home,
-            ]
+    # Interaction features (computed, with defaults for backwards compatibility)
+    home_attack_vs_away_defense: float = 0.0
+    away_attack_vs_home_defense: float = 0.0
+    home_strength_ratio: float = 1.0
+    away_strength_ratio: float = 1.0
+    form_advantage: float = 0.0
+    home_total_strength: float = 0.5
+    away_total_strength: float = 0.5
+
+    def compute_interactions(self) -> "FeatureVector":
+        """Compute interaction features from base features.
+
+        Returns a new FeatureVector with interaction features populated.
+        """
+        eps = 0.01  # Avoid division by zero
+
+        return FeatureVector(
+            # Copy base features
+            home_attack=self.home_attack,
+            home_defense=self.home_defense,
+            away_attack=self.away_attack,
+            away_defense=self.away_defense,
+            recent_form_home=self.recent_form_home,
+            recent_form_away=self.recent_form_away,
+            head_to_head_home=self.head_to_head_home,
+            # Compute interaction features
+            home_attack_vs_away_defense=self.home_attack * self.away_defense,
+            away_attack_vs_home_defense=self.away_attack * self.home_defense,
+            home_strength_ratio=self.home_attack / (self.home_defense + eps),
+            away_strength_ratio=self.away_attack / (self.away_defense + eps),
+            form_advantage=self.recent_form_home - self.recent_form_away,
+            home_total_strength=self.home_attack + (1 - self.home_defense),
+            away_total_strength=self.away_attack + (1 - self.away_defense),
         )
+
+    def to_array(self, include_interactions: bool = False) -> np.ndarray:
+        """Convert to numpy array for model input.
+
+        Args:
+            include_interactions: If True, include 7 interaction features (14 total).
+                                 If False, return only 7 base features.
+        """
+        base_features = [
+            self.home_attack,
+            self.home_defense,
+            self.away_attack,
+            self.away_defense,
+            self.recent_form_home,
+            self.recent_form_away,
+            self.head_to_head_home,
+        ]
+
+        if not include_interactions:
+            return np.array(base_features)
+
+        interaction_features = [
+            self.home_attack_vs_away_defense,
+            self.away_attack_vs_home_defense,
+            self.home_strength_ratio,
+            self.away_strength_ratio,
+            self.form_advantage,
+            self.home_total_strength,
+            self.away_total_strength,
+        ]
+
+        return np.array(base_features + interaction_features)
+
+    @classmethod
+    def get_feature_names(cls, include_interactions: bool = False) -> list[str]:
+        """Get ordered list of feature names.
+
+        Args:
+            include_interactions: If True, include interaction feature names.
+        """
+        base_names = [
+            "home_attack",
+            "home_defense",
+            "away_attack",
+            "away_defense",
+            "recent_form_home",
+            "recent_form_away",
+            "head_to_head_home",
+        ]
+
+        if not include_interactions:
+            return base_names
+
+        interaction_names = [
+            "home_attack_vs_away_defense",
+            "away_attack_vs_home_defense",
+            "home_strength_ratio",
+            "away_strength_ratio",
+            "form_advantage",
+            "home_total_strength",
+            "away_total_strength",
+        ]
+
+        return base_names + interaction_names
 
 
 class FeatureEngineer:
@@ -260,7 +350,7 @@ class FeatureEngineer:
         if h2h_results:
             h2h_home = FeatureEngineer.calculate_head_to_head(h2h_results, is_home=True)
 
-        return FeatureVector(
+        base_features = FeatureVector(
             home_attack=norm_home_attack,
             home_defense=norm_home_defense,
             away_attack=norm_away_attack,
@@ -269,6 +359,9 @@ class FeatureEngineer:
             recent_form_away=away_form_norm,
             head_to_head_home=h2h_home,
         )
+
+        # Compute interaction features automatically
+        return base_features.compute_interactions()
 
     @staticmethod
     def create_interaction_features(features: FeatureVector) -> dict[str, float]:
