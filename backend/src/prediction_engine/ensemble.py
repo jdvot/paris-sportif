@@ -183,13 +183,13 @@ class EnsemblePredictor:
         home_adj = np.clip(home_adj, -self.MAX_LLM_ADJUSTMENT * 0.8, self.MAX_LLM_ADJUSTMENT * 0.8)
         away_adj = np.clip(away_adj, -self.MAX_LLM_ADJUSTMENT * 0.8, self.MAX_LLM_ADJUSTMENT * 0.8)
 
-        # Apply adjustments to log-odds with scaling
-        # Scale by 0.7 to prevent over-adjustment
-        scale_factor = 0.7
-        home_logit += home_adj * scale_factor
-        away_logit += away_adj * scale_factor
+        # Apply adjustments to log-odds
+        # Note: adjustments are already calibrated in llm/adjustments.py
+        # with confidence weighting and 0.1 scaling, so no additional dampening needed
+        home_logit += home_adj
+        away_logit += away_adj
         # Draw logit slightly decreases when teams get stronger/weaker
-        draw_logit -= abs(home_adj - away_adj) * 0.3 * scale_factor
+        draw_logit -= abs(home_adj - away_adj) * 0.3
 
         # Convert back to probabilities (sigmoid)
         home_prob = 1.0 / (1.0 + np.exp(-home_logit))
