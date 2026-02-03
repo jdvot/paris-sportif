@@ -1,12 +1,39 @@
 """Rate limiting configuration for API protection."""
 
 import os
+import re
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+
+def parse_redis_url(raw_url: str) -> str:
+    """Parse and normalize Redis URL from environment.
+
+    Handles cases where the URL might be wrapped in a redis-cli command,
+    and ensures proper scheme for TLS connections.
+    """
+    if not raw_url:
+        return ""
+
+    # Extract URL if wrapped in redis-cli command
+    # e.g., "redis-cli --tls -u redis://..." -> "redis://..."
+    url_match = re.search(r"(rediss?://[^\s]+)", raw_url)
+    if url_match:
+        url = url_match.group(1)
+    else:
+        url = raw_url
+
+    # If --tls flag was present but URL uses redis://, convert to rediss://
+    if "--tls" in raw_url and url.startswith("redis://"):
+        url = url.replace("redis://", "rediss://", 1)
+
+    return url
+
+
 # Get Redis URL from environment for production, fallback to memory for dev
-REDIS_URL = os.getenv("REDIS_URL", "")
+RAW_REDIS_URL = os.getenv("REDIS_URL", "")
+REDIS_URL = parse_redis_url(RAW_REDIS_URL)
 STORAGE_URI = REDIS_URL if REDIS_URL else "memory://"
 
 # Create limiter instance with IP-based rate limiting
