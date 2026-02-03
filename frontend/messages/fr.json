@@ -350,22 +350,57 @@
   },
   "settings": {
     "title": "Parametres",
+    "loginRequired": "Vous devez etre connecte pour acceder aux parametres.",
+    "signIn": "Se connecter",
     "appearance": {
       "title": "Apparence",
       "theme": "Theme",
       "light": "Clair",
       "dark": "Sombre",
-      "system": "Systeme"
+      "system": "Systeme",
+      "darkMode": "Mode sombre",
+      "enabled": "Active",
+      "disabled": "Desactive",
+      "toggleDarkMode": "Activer/desactiver le mode sombre"
     },
     "language": {
       "title": "Langue",
-      "select": "Choisir la langue"
+      "select": "Choisir la langue",
+      "french": "Francais",
+      "comingSoon": "Bientot disponible"
     },
     "notifications": {
       "title": "Notifications",
       "push": "Notifications push",
       "email": "Notifications email",
-      "daily": "Resume quotidien"
+      "daily": "Resume quotidien",
+      "dailyPicks": "Picks quotidiens",
+      "dailyPicksDesc": "Recevoir une notification quand les picks du jour sont prets",
+      "toggleDailyPicks": "Activer/desactiver les notifications de picks",
+      "alerts": "Alertes importantes",
+      "alertsDesc": "Recevoir des alertes pour les matchs importants",
+      "toggleAlerts": "Activer/desactiver les alertes",
+      "promos": "Offres promotionnelles",
+      "promosDesc": "Recevoir des offres et promotions speciales",
+      "togglePromos": "Activer/desactiver les promotions"
+    },
+    "security": {
+      "title": "Securite",
+      "password": "Mot de passe",
+      "passwordDesc": "Modifier votre mot de passe via email",
+      "emailSent": "Email envoye !",
+      "reset": "Reinitialiser"
+    },
+    "dangerZone": {
+      "title": "Zone de danger",
+      "deleteAccount": "Supprimer le compte",
+      "deleteAccountDesc": "Supprimer definitivement votre compte et toutes vos donnees",
+      "delete": "Supprimer",
+      "areYouSure": "Etes-vous sur ?",
+      "warningMessage": "Cette action est irreversible. Toutes vos donnees seront supprimees definitivement.",
+      "cancel": "Annuler",
+      "deletePermanently": "Supprimer definitivement",
+      "deleting": "Suppression..."
     }
   },
   "standings": {

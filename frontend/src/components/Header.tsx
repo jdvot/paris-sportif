@@ -6,6 +6,7 @@ import { Goal, BarChart3, Calendar, Trophy, Heart, History } from "lucide-react"
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { AuthButton } from "./AuthButton";
 import { Logo } from "./Logo";
 
@@ -61,9 +62,10 @@ export function Header() {
             })}
           </nav>
 
-          {/* Status Badge, Theme Toggle & Auth */}
+          {/* Status Badge, Theme Toggle, Language & Auth */}
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
+            <LanguageSwitcher />
             <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-gray-100 dark:bg-dark-800 rounded-full flex-shrink-0">
               <span className="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-primary-500 rounded-full animate-pulse" />
               <span className="text-xs text-gray-600 dark:text-dark-300">{tHeader("live")}</span>

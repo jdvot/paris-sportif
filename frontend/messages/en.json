@@ -350,22 +350,57 @@
   },
   "settings": {
     "title": "Settings",
+    "loginRequired": "You must be logged in to access settings.",
+    "signIn": "Sign in",
     "appearance": {
       "title": "Appearance",
       "theme": "Theme",
       "light": "Light",
       "dark": "Dark",
-      "system": "System"
+      "system": "System",
+      "darkMode": "Dark mode",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "toggleDarkMode": "Toggle dark mode"
     },
     "language": {
       "title": "Language",
-      "select": "Select language"
+      "select": "Select language",
+      "french": "French",
+      "comingSoon": "Coming soon"
     },
     "notifications": {
       "title": "Notifications",
       "push": "Push notifications",
       "email": "Email notifications",
-      "daily": "Daily summary"
+      "daily": "Daily summary",
+      "dailyPicks": "Daily picks",
+      "dailyPicksDesc": "Get notified when daily picks are ready",
+      "toggleDailyPicks": "Toggle daily picks notifications",
+      "alerts": "Important alerts",
+      "alertsDesc": "Get alerts for important matches",
+      "toggleAlerts": "Toggle alerts",
+      "promos": "Promotional offers",
+      "promosDesc": "Receive special offers and promotions",
+      "togglePromos": "Toggle promotions"
+    },
+    "security": {
+      "title": "Security",
+      "password": "Password",
+      "passwordDesc": "Change your password via email",
+      "emailSent": "Email sent!",
+      "reset": "Reset"
+    },
+    "dangerZone": {
+      "title": "Danger Zone",
+      "deleteAccount": "Delete account",
+      "deleteAccountDesc": "Permanently delete your account and all your data",
+      "delete": "Delete",
+      "areYouSure": "Are you sure?",
+      "warningMessage": "This action is irreversible. All your data will be permanently deleted.",
+      "cancel": "Cancel",
+      "deletePermanently": "Delete permanently",
+      "deleting": "Deleting..."
     }
   },
   "standings": {
