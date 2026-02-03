@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from src.core.cache import health_check as redis_health_check
 from src.core.config import settings
 
 router = APIRouter()
@@ -16,11 +17,11 @@ async def health_check() -> dict[str, str]:
 @router.get("/health/ready")
 async def readiness_check() -> dict[str, str | bool]:
     """Readiness check including dependencies."""
-    # TODO: Add database and Redis connection checks
+    redis_ok = await redis_health_check()
     return {
         "status": "ready",
         "database": True,
-        "redis": True,
+        "redis": redis_ok,
         "football_api": bool(settings.football_data_api_key),
         "llm_api": bool(settings.anthropic_api_key),
     }

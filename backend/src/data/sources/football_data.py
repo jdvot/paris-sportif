@@ -4,11 +4,12 @@ Free tier: 10 requests/minute
 Documentation: https://www.football-data.org/documentation/api
 
 INCLUDES CACHING to avoid rate limits.
+Uses Redis for distributed caching when available, with in-memory fallback.
 """
 
-import logging
 import hashlib
 import json
+import logging
 from datetime import date, datetime, timedelta
 from typing import Any, Literal
 
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # ============== CACHE SYSTEM ==============
 class SimpleCache:
-    """Simple in-memory cache with TTL."""
+    """Simple in-memory cache with TTL (fallback when Redis unavailable)."""
 
     def __init__(self):
         self._cache: dict[str, tuple[Any, datetime]] = {}
@@ -41,12 +42,12 @@ class SimpleCache:
         if key in self._cache:
             value, expires_at = self._cache[key]
             if datetime.now() < expires_at:
-                logger.info(f"Cache HIT for {endpoint}")
+                logger.debug(f"Memory Cache HIT for {endpoint}")
                 return value
             else:
                 # Expired, remove it
                 del self._cache[key]
-                logger.info(f"Cache EXPIRED for {endpoint}")
+                logger.debug(f"Memory Cache EXPIRED for {endpoint}")
         return None
 
     def set(self, endpoint: str, params: dict | None, value: Any, ttl_seconds: int):
@@ -54,16 +55,81 @@ class SimpleCache:
         key = self._make_key(endpoint, params)
         expires_at = datetime.now() + timedelta(seconds=ttl_seconds)
         self._cache[key] = (value, expires_at)
-        logger.info(f"Cache SET for {endpoint} (TTL: {ttl_seconds}s)")
+        logger.debug(f"Memory Cache SET for {endpoint} (TTL: {ttl_seconds}s)")
 
     def clear(self):
         """Clear all cached data."""
         self._cache.clear()
-        logger.info("Cache CLEARED")
+        logger.info("Memory Cache CLEARED")
 
 
-# Global cache instance
-_cache = SimpleCache()
+class RedisCache:
+    """Redis-based cache for distributed caching across instances."""
+
+    def __init__(self):
+        self._fallback = SimpleCache()
+        self._redis_available: bool | None = None
+
+    def _make_key(self, endpoint: str, params: dict | None) -> str:
+        """Create a unique cache key with namespace."""
+        param_str = json.dumps(params or {}, sort_keys=True, default=str)
+        key = f"{endpoint}:{param_str}"
+        key_hash = hashlib.md5(key.encode()).hexdigest()[:16]
+        return f"football_api:{key_hash}"
+
+    async def _check_redis(self) -> bool:
+        """Check if Redis is available."""
+        if self._redis_available is not None:
+            return self._redis_available
+        try:
+            from src.core.cache import health_check
+            self._redis_available = await health_check()
+            if self._redis_available:
+                logger.info("Redis cache available - using distributed caching")
+            else:
+                logger.warning("Redis unavailable - falling back to in-memory cache")
+        except Exception as e:
+            logger.warning(f"Redis check failed: {e} - using in-memory cache")
+            self._redis_available = False
+        return self._redis_available
+
+    async def get(self, endpoint: str, params: dict | None = None) -> Any | None:
+        """Get cached value from Redis or fallback."""
+        if await self._check_redis():
+            try:
+                from src.core.cache import cache_get
+                key = self._make_key(endpoint, params)
+                cached = await cache_get(key)
+                if cached:
+                    logger.debug(f"Redis Cache HIT for {endpoint}")
+                    return json.loads(cached)
+            except Exception as e:
+                logger.warning(f"Redis GET failed: {e}")
+        # Fallback to in-memory
+        return self._fallback.get(endpoint, params)
+
+    async def set(self, endpoint: str, params: dict | None, value: Any, ttl_seconds: int):
+        """Cache a value in Redis or fallback."""
+        if await self._check_redis():
+            try:
+                from src.core.cache import cache_set
+                key = self._make_key(endpoint, params)
+                await cache_set(key, json.dumps(value, default=str), ttl_seconds)
+                logger.debug(f"Redis Cache SET for {endpoint} (TTL: {ttl_seconds}s)")
+                return
+            except Exception as e:
+                logger.warning(f"Redis SET failed: {e}")
+        # Fallback to in-memory
+        self._fallback.set(endpoint, params, value, ttl_seconds)
+
+    def clear(self):
+        """Clear fallback cache (Redis entries will expire naturally)."""
+        self._fallback.clear()
+
+
+# Global cache instance - uses Redis when available
+_cache = RedisCache()
+_sync_cache = SimpleCache()  # For sync operations only
 
 # Cache TTLs (in seconds)
 CACHE_TTL_MATCHES = 300      # 5 minutes for matches
@@ -157,7 +223,8 @@ class FootballDataClient:
         self.headers = {"X-Auth-Token": self.api_key} if self.api_key else {}
         # Debug logging
         if self.api_key:
-            masked_key = self.api_key[:4] + "..." + self.api_key[-4:] if len(self.api_key) > 8 else "***"
+            key = self.api_key
+            masked_key = key[:4] + "..." + key[-4:] if len(key) > 8 else "***"
             logger.info(f"FootballDataClient initialized with API key: {masked_key}")
         else:
             logger.warning("FootballDataClient initialized WITHOUT API key!")
@@ -251,8 +318,8 @@ class FootballDataClient:
                 # Filter to our supported competitions
                 params["competitions"] = ",".join(COMPETITIONS.keys())
 
-        # Check cache first
-        cached = _cache.get(endpoint, params)
+        # Check cache first (async Redis with fallback)
+        cached = await _cache.get(endpoint, params)
         if cached is not None:
             return [MatchData(**m) for m in cached]
 
@@ -261,7 +328,7 @@ class FootballDataClient:
         matches = data.get("matches", [])
 
         # Cache the raw data
-        _cache.set(endpoint, params, matches, CACHE_TTL_MATCHES)
+        await _cache.set(endpoint, params, matches, CACHE_TTL_MATCHES)
 
         return [MatchData(**m) for m in matches]
 
@@ -295,8 +362,8 @@ class FootballDataClient:
         """Get current standings for a competition. USES CACHE."""
         endpoint = f"/competitions/{competition}/standings"
 
-        # Check cache first
-        cached = _cache.get(endpoint, None)
+        # Check cache first (async Redis with fallback)
+        cached = await _cache.get(endpoint, None)
         if cached is not None:
             standings = []
             for standing_group in cached:
@@ -310,7 +377,7 @@ class FootballDataClient:
         data = await self._request("GET", endpoint)
 
         # Cache the raw standings data
-        _cache.set(endpoint, None, data.get("standings", []), CACHE_TTL_STANDINGS)
+        await _cache.set(endpoint, None, data.get("standings", []), CACHE_TTL_STANDINGS)
 
         standings = []
         for standing_group in data.get("standings", []):
