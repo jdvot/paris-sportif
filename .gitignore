@@ -50,11 +50,15 @@ Thumbs.db
 # Jupyter
 .ipynb_checkpoints/
 
-# ML Models
-*.pkl
+# ML Models (general)
 *.joblib
 *.h5
 models/*.bin
+
+# Pickle files ignored by default, but allow trained models for production
+*.pkl
+!backend/src/ml/trained_models/*_latest.pkl
+!backend/src/ml/trained_models/feature_engineer_state.pkl
 
 # Temp
 tmp/
