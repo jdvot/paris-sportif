@@ -23,6 +23,9 @@ from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.config import settings
 from src.core.rate_limit import RATE_LIMITS, limiter
 from src.core.exceptions import FootballDataAPIError, RateLimitError
+
+# Data source type for beta feedback
+DataSourceType = Literal["live_api", "cache", "database", "mock", "fallback"]
 from src.data.data_enrichment import get_data_enrichment
 from src.data.database import (
     get_predictions_by_date,
@@ -44,6 +47,17 @@ from src.prediction_engine.rag_enrichment import get_rag_enrichment
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+class DataSourceInfo(BaseModel):
+    """Information about data source and any warnings (Beta feature)."""
+
+    source: DataSourceType = "live_api"
+    is_fallback: bool = False
+    warning: str | None = None
+    warning_code: str | None = None
+    details: str | None = None
+    retry_after_seconds: int | None = None
 
 
 # Groq client initialization
@@ -202,6 +216,9 @@ class PredictionResponse(BaseModel):
     created_at: datetime
     is_daily_pick: bool = False
 
+    # Beta: data source info for transparency
+    data_source: DataSourceInfo | None = None
+
 
 class DailyPickResponse(BaseModel):
     """Daily pick with additional info."""
@@ -217,6 +234,8 @@ class DailyPicksResponse(BaseModel):
     date: str
     picks: list[DailyPickResponse]
     total_matches_analyzed: int
+    # Beta: data source info for transparency
+    data_source: DataSourceInfo | None = None
 
 
 class PredictionStatsResponse(BaseModel):
@@ -1045,17 +1064,28 @@ async def get_daily_picks(
             date=target_date_str,
             picks=daily_picks,
             total_matches_analyzed=len(api_matches),
+            data_source=DataSourceInfo(source="live_api"),
         )
 
-    except RateLimitError:
+    except RateLimitError as e:
+        retry_after = e.details.get("retry_after", 60) if e.details else 60
         raise HTTPException(
             status_code=429,
-            detail="Rate limit exceeded. Please try again later.",
+            detail={
+                "message": "[BETA] Limite API externe atteinte (football-data.org: 10 req/min)",
+                "warning_code": "EXTERNAL_API_RATE_LIMIT",
+                "retry_after_seconds": retry_after,
+                "tip": "Réessayez dans quelques instants ou consultez les picks en cache",
+            },
         )
     except FootballDataAPIError as e:
         raise HTTPException(
             status_code=502,
-            detail=f"Error fetching matches: {str(e)}",
+            detail={
+                "message": f"[BETA] Erreur API externe: {str(e)[:100]}",
+                "warning_code": "EXTERNAL_API_ERROR",
+                "tip": "L'API football-data.org est temporairement indisponible",
+            },
         )
 
 
@@ -1110,13 +1140,17 @@ async def get_prediction_stats(
 
 
 def _generate_fallback_prediction(
-    match_id: int, include_model_details: bool = False
+    match_id: int,
+    include_model_details: bool = False,
+    fallback_reason: str = "API externe indisponible",
+    is_rate_limit: bool = False,
+    retry_after: int | None = None,
 ) -> PredictionResponse:
     """
     Generate a basic prediction when external API fails.
     Uses deterministic values based on match_id to ensure consistency.
     """
-    logger.info(f"Generating fallback prediction for match {match_id}")
+    logger.info(f"Generating fallback prediction for match {match_id} - Reason: {fallback_reason}")
 
     random.seed(match_id)  # Deterministic randomness based on match_id
 
@@ -1275,6 +1309,16 @@ def _generate_fallback_prediction(
 
     random.seed()  # Reset random seed
 
+    # Build data source info for beta feedback
+    data_source = DataSourceInfo(
+        source="fallback",
+        is_fallback=True,
+        warning=f"[BETA] Prédiction estimée - {fallback_reason}",
+        warning_code="EXTERNAL_API_RATE_LIMIT" if is_rate_limit else "EXTERNAL_API_ERROR",
+        details="Données basées sur des modèles statistiques sans contexte temps réel",
+        retry_after_seconds=retry_after,
+    )
+
     return PredictionResponse(
         match_id=match_id,
         home_team="Équipe Domicile",
@@ -1297,6 +1341,7 @@ def _generate_fallback_prediction(
         multi_markets=multi_markets,
         created_at=datetime.now(),
         is_daily_pick=False,
+        data_source=data_source,
     )
 
 
@@ -1322,10 +1367,17 @@ async def get_prediction(
             api_match, include_model_details=include_model_details
         )
 
-    except RateLimitError:
+    except RateLimitError as e:
         # On rate limit, try fallback instead of failing
+        retry_after = e.details.get("retry_after", 60) if e.details else 60
         logger.warning(f"Rate limit hit for match {match_id}, using fallback prediction")
-        return _generate_fallback_prediction(match_id, include_model_details)
+        return _generate_fallback_prediction(
+            match_id,
+            include_model_details,
+            fallback_reason="Limite API externe atteinte (10 req/min)",
+            is_rate_limit=True,
+            retry_after=retry_after,
+        )
 
     except FootballDataAPIError as e:
         error_msg = str(e).lower()
@@ -1339,12 +1391,20 @@ async def get_prediction(
 
         # For other API failures (502, timeout, etc), use fallback
         logger.warning(f"API failed for match {match_id}: {e}. Using fallback prediction.")
-        return _generate_fallback_prediction(match_id, include_model_details)
+        return _generate_fallback_prediction(
+            match_id,
+            include_model_details,
+            fallback_reason=f"Erreur API externe: {str(e)[:50]}",
+        )
 
     except Exception as e:
         # Catch-all for any other errors, use fallback
         logger.error(f"Unexpected error for match {match_id}: {e}. Using fallback prediction.")
-        return _generate_fallback_prediction(match_id, include_model_details)
+        return _generate_fallback_prediction(
+            match_id,
+            include_model_details,
+            fallback_reason=f"Erreur inattendue: {str(e)[:50]}",
+        )
 
 
 class VerifyPredictionRequest(BaseModel):
@@ -1413,13 +1473,18 @@ async def refresh_prediction(request: Request, match_id: int, user: Authenticate
         await client.get_match(match_id)
         return {"status": "queued", "match_id": str(match_id)}
 
-    except RateLimitError:
+    except RateLimitError as e:
+        retry_after = e.details.get("retry_after", 60) if e.details else 60
         raise HTTPException(
             status_code=429,
-            detail="Rate limit exceeded. Please try again later.",
+            detail={
+                "message": "[BETA] Limite API externe atteinte (football-data.org: 10 req/min)",
+                "warning_code": "EXTERNAL_API_RATE_LIMIT",
+                "retry_after_seconds": retry_after,
+            },
         )
     except FootballDataAPIError as e:
         raise HTTPException(
             status_code=404 if "not found" in str(e).lower() else 502,
-            detail=f"Match {match_id} not found" if "not found" in str(e).lower() else str(e),
+            detail=f"Match {match_id} not found" if "not found" in str(e).lower() else f"[BETA] Erreur API: {str(e)}",
         )

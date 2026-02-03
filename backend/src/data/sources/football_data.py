@@ -5,8 +5,10 @@ Documentation: https://www.football-data.org/documentation/api
 
 INCLUDES CACHING to avoid rate limits.
 Uses Redis for distributed caching when available, with in-memory fallback.
+Also includes outgoing request throttling to prevent exceeding rate limits.
 """
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -15,12 +17,65 @@ from typing import Any, Literal
 
 import httpx
 from pydantic import BaseModel
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from src.core.config import settings
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 
 logger = logging.getLogger(__name__)
+
+
+# ============== OUTGOING RATE LIMITER ==============
+class AsyncRateLimiter:
+    """
+    Async rate limiter using token bucket algorithm.
+    Limits outgoing API requests to avoid hitting football-data.org rate limits.
+
+    Free tier allows 10 requests/minute, so we limit to 8/minute for safety margin.
+    """
+
+    def __init__(self, requests_per_minute: int = 8):
+        self.requests_per_minute = requests_per_minute
+        self.min_interval = 60.0 / requests_per_minute  # Seconds between requests
+        self._lock = asyncio.Lock()
+        self._last_request_time: float = 0
+        self._rate_limit_until: float = 0  # Timestamp when rate limit resets
+
+    async def acquire(self) -> None:
+        """Wait until we can make a request without exceeding rate limit."""
+        async with self._lock:
+            now = asyncio.get_event_loop().time()
+
+            # If we're in a rate limit period, wait for it to reset
+            if self._rate_limit_until > now:
+                wait_time = self._rate_limit_until - now
+                logger.info(f"Rate limit active, waiting {wait_time:.1f}s for reset")
+                await asyncio.sleep(wait_time)
+                now = asyncio.get_event_loop().time()
+
+            # Ensure minimum interval between requests
+            elapsed = now - self._last_request_time
+            if elapsed < self.min_interval:
+                wait_time = self.min_interval - elapsed
+                logger.debug(f"Throttling request, waiting {wait_time:.2f}s")
+                await asyncio.sleep(wait_time)
+
+            self._last_request_time = asyncio.get_event_loop().time()
+
+    def set_rate_limit(self, reset_seconds: int) -> None:
+        """Set rate limit lockout period based on API response."""
+        now = asyncio.get_event_loop().time()
+        self._rate_limit_until = now + reset_seconds
+        logger.warning(f"Rate limit set for {reset_seconds}s (until {self._rate_limit_until})")
+
+
+# Global rate limiter instance
+_rate_limiter = AsyncRateLimiter(requests_per_minute=8)
 
 
 # ============== CACHE SYSTEM ==============
@@ -143,6 +198,7 @@ CACHE_TTL_MATCHES = 300  # 5 minutes for matches
 CACHE_TTL_STANDINGS = 600  # 10 minutes for standings
 CACHE_TTL_H2H = 1800  # 30 minutes for head-to-head
 CACHE_TTL_TEAM = 900  # 15 minutes for team info
+CACHE_TTL_TEAM_MATCHES = 300  # 5 minutes for team recent matches
 
 
 class TeamData(BaseModel):
@@ -238,7 +294,8 @@ class FootballDataClient:
 
     @retry(  # type: ignore[misc]
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
+        wait=wait_exponential(multiplier=1, min=4, max=60),
+        retry=retry_if_exception_type(RateLimitError),
     )
     async def _request(
         self,
@@ -246,8 +303,11 @@ class FootballDataClient:
         endpoint: str,
         params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Make API request with retry logic."""
+        """Make API request with rate limiting and retry logic."""
         url = f"{self.BASE_URL}{endpoint}"
+
+        # Wait for rate limiter before making request
+        await _rate_limiter.acquire()
 
         async with httpx.AsyncClient() as client:
             response = await client.request(
@@ -259,10 +319,32 @@ class FootballDataClient:
             )
 
             if response.status_code == 429:
-                logger.error(f"Rate limit exceeded! Headers: {response.headers}")
+                # Parse rate limit reset time from headers
+                reset_seconds = 60  # Default to 60 seconds
+                if "x-requestcounter-reset" in response.headers:
+                    try:
+                        reset_seconds = int(response.headers["x-requestcounter-reset"])
+                    except (ValueError, TypeError):
+                        pass
+                elif "Retry-After" in response.headers:
+                    try:
+                        reset_seconds = int(response.headers["Retry-After"])
+                    except (ValueError, TypeError):
+                        pass
+
+                # Set the rate limiter to wait for reset
+                _rate_limiter.set_rate_limit(reset_seconds + 2)  # Add 2s buffer
+
+                logger.warning(
+                    f"Rate limit exceeded! Reset in {reset_seconds}s. "
+                    f"Headers: x-requests-available-minute={response.headers.get('x-requests-available-minute')}"
+                )
                 raise RateLimitError(
                     "Rate limit exceeded for football-data.org",
-                    details={"retry_after": response.headers.get("Retry-After")},
+                    details={
+                        "retry_after": reset_seconds,
+                        "requests_available": response.headers.get("x-requests-available-minute"),
+                    },
                 )
 
             if response.status_code != 200:
@@ -341,13 +423,37 @@ class FootballDataClient:
         return [MatchData(**m) for m in matches]
 
     async def get_match(self, match_id: int) -> MatchData:
-        """Get single match details."""
-        data = await self._request("GET", f"/matches/{match_id}")
+        """Get single match details. USES CACHE."""
+        endpoint = f"/matches/{match_id}"
+
+        # Check cache first
+        cached = await _cache.get(endpoint, None)
+        if cached is not None:
+            logger.debug(f"Cache HIT for match {match_id}")
+            return MatchData(**cached)
+
+        # Fetch from API
+        data = await self._request("GET", endpoint)
+
+        # Cache the result
+        await _cache.set(endpoint, None, data, CACHE_TTL_MATCHES)
         return MatchData(**data)
 
     async def get_team(self, team_id: int) -> dict[str, Any]:
-        """Get team details."""
-        result: dict[str, Any] = await self._request("GET", f"/teams/{team_id}")
+        """Get team details. USES CACHE."""
+        endpoint = f"/teams/{team_id}"
+
+        # Check cache first
+        cached = await _cache.get(endpoint, None)
+        if cached is not None:
+            logger.debug(f"Cache HIT for team {team_id}")
+            return cached
+
+        # Fetch from API
+        result: dict[str, Any] = await self._request("GET", endpoint)
+
+        # Cache the result
+        await _cache.set(endpoint, None, result, CACHE_TTL_TEAM)
         return result
 
     async def get_team_matches(
@@ -356,13 +462,24 @@ class FootballDataClient:
         status: Literal["SCHEDULED", "LIVE", "FINISHED"] | None = None,
         limit: int = 10,
     ) -> list[MatchData]:
-        """Get matches for a specific team."""
+        """Get matches for a specific team. USES CACHE."""
+        endpoint = f"/teams/{team_id}/matches"
         params: dict[str, Any] = {"limit": limit}
         if status:
             params["status"] = status
 
-        data = await self._request("GET", f"/teams/{team_id}/matches", params)
+        # Check cache first
+        cached = await _cache.get(endpoint, params)
+        if cached is not None:
+            logger.debug(f"Cache HIT for team {team_id} matches")
+            return [MatchData(**m) for m in cached]
+
+        # Fetch from API
+        data = await self._request("GET", endpoint, params)
         matches = data.get("matches", [])
+
+        # Cache the result
+        await _cache.set(endpoint, params, matches, CACHE_TTL_TEAM_MATCHES)
 
         return [MatchData(**m) for m in matches]
 
@@ -401,14 +518,23 @@ class FootballDataClient:
         match_id: int,
         limit: int = 10,
     ) -> list[MatchData]:
-        """Get head-to-head history for teams in a match."""
-        data = await self._request(
-            "GET",
-            f"/matches/{match_id}/head2head",
-            params={"limit": limit},
-        )
+        """Get head-to-head history for teams in a match. USES CACHE."""
+        endpoint = f"/matches/{match_id}/head2head"
+        params: dict[str, Any] = {"limit": limit}
 
+        # Check cache first
+        cached = await _cache.get(endpoint, params)
+        if cached is not None:
+            logger.debug(f"Cache HIT for H2H match {match_id}")
+            return [MatchData(**m) for m in cached]
+
+        # Fetch from API
+        data = await self._request("GET", endpoint, params)
         matches = data.get("matches", [])
+
+        # Cache the result
+        await _cache.set(endpoint, params, matches, CACHE_TTL_H2H)
+
         return [MatchData(**m) for m in matches]
 
     async def get_upcoming_matches(
