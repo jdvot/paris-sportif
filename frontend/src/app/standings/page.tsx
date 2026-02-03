@@ -5,6 +5,7 @@ import { Trophy, AlertCircle } from "lucide-react";
 import { useGetStandings } from "@/lib/api/endpoints/matches/matches";
 import type { StandingsResponse } from "@/lib/api/models";
 import { LeagueStandings } from "@/components/LeagueStandings";
+import { getErrorMessage } from "@/lib/errors";
 
 const COMPETITIONS = [
   { code: "PL", label: "Premier League", flag: "🇬🇧" },
@@ -67,12 +68,7 @@ export default function StandingsPage() {
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Erreur de chargement</h3>
             <p className="text-gray-500 dark:text-slate-400 text-sm">
-              {(() => {
-                const errorMsg = error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string'
-                  ? (error as any).message
-                  : "Impossible de charger les classements";
-                return errorMsg;
-              })()}
+              {getErrorMessage(error, "Impossible de charger les classements")}
             </p>
           </div>
         </section>

@@ -3,22 +3,30 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Goal, BarChart3, Calendar, Trophy, Heart, History } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 import { AuthButton } from "./AuthButton";
 import { Logo } from "./Logo";
 
-const navItems = [
-  { href: "/", label: "Accueil", icon: Goal },
-  { href: "/picks", label: "Picks", icon: BarChart3 },
-  { href: "/history", label: "Historique", icon: History },
-  { href: "/matches", label: "Matchs", icon: Calendar },
-  { href: "/standings", label: "Classements", icon: Trophy },
-  { href: "/favorites", label: "Favoris", icon: Heart },
+const navItemsConfig = [
+  { href: "/", labelKey: "home", icon: Goal },
+  { href: "/picks", labelKey: "picks", icon: BarChart3 },
+  { href: "/history", labelKey: "history", icon: History },
+  { href: "/matches", labelKey: "matches", icon: Calendar },
+  { href: "/standings", labelKey: "standings", icon: Trophy },
+  { href: "/favorites", labelKey: "favorites", icon: Heart },
 ];
 
 export function Header() {
   const pathname = usePathname();
+  const t = useTranslations("nav");
+  const tHeader = useTranslations("components.header");
+
+  const navItems = navItemsConfig.map(item => ({
+    ...item,
+    label: t(item.labelKey),
+  }));
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 dark:bg-dark-900/80 backdrop-blur-lg border-b border-gray-200 dark:border-dark-700">
@@ -58,7 +66,7 @@ export function Header() {
             <ThemeToggle />
             <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-gray-100 dark:bg-dark-800 rounded-full flex-shrink-0">
               <span className="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-primary-500 rounded-full animate-pulse" />
-              <span className="text-xs text-gray-600 dark:text-dark-300">Live</span>
+              <span className="text-xs text-gray-600 dark:text-dark-300">{tHeader("live")}</span>
             </div>
             <AuthButton />
           </div>

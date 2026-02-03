@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface TeamStrengthIndexProps {
   homeTeam: string;
@@ -20,12 +21,14 @@ function getStrengthPercentage(elo: number): number {
   return Math.min(100, Math.max(0, ((elo - ELO_MIN) / (ELO_MAX - ELO_MIN)) * 100));
 }
 
-function getStrengthLabel(elo: number): string {
-  if (elo >= 1800) return "Elite";
-  if (elo >= 1650) return "Fort";
-  if (elo >= 1500) return "Moyen+";
-  if (elo >= 1350) return "Moyen";
-  return "Faible";
+type StrengthLabelKey = "elite" | "strong" | "aboveAverage" | "average" | "weak";
+
+function getStrengthLabelKey(elo: number): StrengthLabelKey {
+  if (elo >= 1800) return "elite";
+  if (elo >= 1650) return "strong";
+  if (elo >= 1500) return "aboveAverage";
+  if (elo >= 1350) return "average";
+  return "weak";
 }
 
 function getStrengthColor(elo: number): string {
@@ -57,9 +60,10 @@ function FormBadges({ form }: { form: string }) {
   );
 }
 
-function TeamStrengthBar({ team, elo, form, isHome }: { team: string; elo: number; form?: string; isHome: boolean }) {
+function TeamStrengthBar({ team, elo, form, isHome, t }: { team: string; elo: number; form?: string; isHome: boolean; t: (key: string) => string }) {
   const percentage = getStrengthPercentage(elo);
-  const label = getStrengthLabel(elo);
+  const labelKey = getStrengthLabelKey(elo);
+  const label = t(labelKey);
   const colorClass = getStrengthColor(elo);
 
   return (
@@ -85,6 +89,7 @@ function TeamStrengthBar({ team, elo, form, isHome }: { team: string; elo: numbe
 }
 
 export function TeamStrengthIndex({ homeTeam, awayTeam, homeElo = 1500, awayElo = 1500, homeForm, awayForm, className }: TeamStrengthIndexProps) {
+  const t = useTranslations("components.teamStrength");
   const eloDiff = homeElo - awayElo;
   const advantage = Math.abs(eloDiff) > 50 ? (eloDiff > 0 ? "home" : "away") : "neutral";
 
@@ -93,24 +98,24 @@ export function TeamStrengthIndex({ homeTeam, awayTeam, homeElo = 1500, awayElo 
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-primary-500" />
-          Indice de Force
+          {t("title")}
         </h3>
         <div className="flex items-center gap-1.5">
-          {advantage === "home" && <><TrendingUp className="w-4 h-4 text-green-500" /><span className="text-xs text-green-600 dark:text-green-400 font-medium">+{eloDiff} DOM</span></>}
-          {advantage === "away" && <><TrendingDown className="w-4 h-4 text-red-500" /><span className="text-xs text-red-600 dark:text-red-400 font-medium">{eloDiff} EXT</span></>}
-          {advantage === "neutral" && <><Minus className="w-4 h-4 text-gray-400" /><span className="text-xs text-gray-500 dark:text-slate-400 font-medium">Equilibre</span></>}
+          {advantage === "home" && <><TrendingUp className="w-4 h-4 text-green-500" /><span className="text-xs text-green-600 dark:text-green-400 font-medium">+{eloDiff} {t("home")}</span></>}
+          {advantage === "away" && <><TrendingDown className="w-4 h-4 text-red-500" /><span className="text-xs text-red-600 dark:text-red-400 font-medium">{eloDiff} {t("away")}</span></>}
+          {advantage === "neutral" && <><Minus className="w-4 h-4 text-gray-400" /><span className="text-xs text-gray-500 dark:text-slate-400 font-medium">{t("balanced")}</span></>}
         </div>
       </div>
       <div className="space-y-4">
-        <TeamStrengthBar team={homeTeam} elo={homeElo} form={homeForm} isHome />
+        <TeamStrengthBar team={homeTeam} elo={homeElo} form={homeForm} isHome t={t} />
         <div className="relative py-2">
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200 dark:border-slate-700" /></div>
           <div className="relative flex justify-center"><span className="bg-white dark:bg-slate-800 px-2 text-xs text-gray-500 dark:text-slate-400">VS</span></div>
         </div>
-        <TeamStrengthBar team={awayTeam} elo={awayElo} form={awayForm} isHome={false} />
+        <TeamStrengthBar team={awayTeam} elo={awayElo} form={awayForm} isHome={false} t={t} />
       </div>
       <div className="mt-4 pt-3 border-t border-gray-100 dark:border-slate-700/50">
-        <div className="flex justify-between text-xs text-gray-400 dark:text-slate-500"><span>Faible</span><span>Moyen</span><span>Elite</span></div>
+        <div className="flex justify-between text-xs text-gray-400 dark:text-slate-500"><span>{t("weak")}</span><span>{t("average")}</span><span>{t("elite")}</span></div>
         <div className="h-1.5 mt-1 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 via-blue-500 to-emerald-500" />
       </div>
     </div>

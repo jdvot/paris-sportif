@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp,
@@ -23,8 +24,10 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import { useTranslations } from "next-intl";
 import { fetchPredictionStats } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { ROUNDED_TOP } from "@/lib/recharts-types";
 
 const COMPETITION_NAMES: Record<string, string> = {
   PL: "Premier League",
@@ -35,6 +38,7 @@ const COMPETITION_NAMES: Record<string, string> = {
 };
 
 export function StatsOverview() {
+  const t = useTranslations("stats");
   const { data: stats, isLoading, error } = useQuery({
     queryKey: ["predictionStats"],
     queryFn: () => fetchPredictionStats(30),
@@ -50,7 +54,7 @@ export function StatsOverview() {
             <div className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-dark-600" />
             <div className="absolute top-0 left-0 w-6 h-6 rounded-full border-2 border-transparent border-t-primary-500 animate-spin" />
           </div>
-          <span className="text-gray-600 dark:text-dark-400 text-sm animate-pulse">Chargement des statistiques...</span>
+          <span className="text-gray-600 dark:text-dark-400 text-sm animate-pulse">{t("loading")}</span>
         </div>
         {/* Key Metrics Cards Skeleton */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -135,7 +139,7 @@ export function StatsOverview() {
   if (error || !stats) {
     return (
       <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-6 text-center">
-        <p className="text-gray-600 dark:text-dark-400">Impossible de charger les statistiques</p>
+        <p className="text-gray-600 dark:text-dark-400">{t("loadError")}</p>
       </div>
     );
   }
@@ -143,10 +147,10 @@ export function StatsOverview() {
   // Transform byCompetition data - if no data, use placeholder data
   const hasRealData = Object.keys(stats.byCompetition || {}).length > 0;
 
-  // Use real data if available, otherwise show placeholder for 5 competitions
-  // Note: Backend already returns accuracy as percentage (0-100), not ratio
-  const competitionStats = hasRealData
-    ? Object.entries(stats.byCompetition)
+  // Memoize competition stats to prevent recalculation on every render
+  const competitionStats = useMemo(() => {
+    if (hasRealData) {
+      return Object.entries(stats.byCompetition)
         .map(([code, data]: [string, any]) => ({
           name: COMPETITION_NAMES[code] || code,
           code,
@@ -155,34 +159,40 @@ export function StatsOverview() {
           accuracy: data.accuracy || 0,  // Already a percentage from backend
           trend: data.accuracy >= 55 ? "up" : data.accuracy < 50 ? "down" : "neutral",
         }))
-        .sort((a, b) => b.predictions - a.predictions)
-    : Object.entries(COMPETITION_NAMES).map(([code, name]) => ({
-        name,
-        code,
-        predictions: 0,
-        correct: 0,
-        accuracy: 0,
-        trend: "neutral" as const,
-      }));
+        .sort((a, b) => b.predictions - a.predictions);
+    }
+    return Object.entries(COMPETITION_NAMES).map(([code, name]) => ({
+      name,
+      code,
+      predictions: 0,
+      correct: 0,
+      accuracy: 0,
+      trend: "neutral" as const,
+    }));
+  }, [hasRealData, stats.byCompetition]);
 
-  // Generate trend data for mini line chart
-  const generateTrendData = () => {
+  // Memoize trend data to prevent flickering from Math.random() on each render
+  const trendData = useMemo(() => {
     const data = [];
+    const baseAccuracy = stats.accuracy || 0;
+    // Use seeded random based on accuracy to keep data stable
     for (let i = 0; i < 7; i++) {
-      const baseAccuracy = stats.accuracy || 0;  // Already a percentage
+      const seed = (baseAccuracy * (i + 1)) % 1;
+      const variance = (seed - 0.5) * 8;
       data.push({
         day: i,
-        accuracy: baseAccuracy + (Math.random() - 0.5) * 8,
+        accuracy: Math.max(0, Math.min(100, baseAccuracy + variance)),
       });
     }
     return data;
-  };
+  }, [stats.accuracy]);
 
-  const trendData = generateTrendData();
-  // roiSimulated is already a percentage, convert to ratio for calculation
-  const roiAmount = stats.roiSimulated ? (stats.roiSimulated / 100) * stats.totalPredictions * 10 : 0;
+  // Memoize derived values
+  const roiAmount = useMemo(() => {
+    return stats.roiSimulated ? (stats.roiSimulated / 100) * stats.totalPredictions * 10 : 0;
+  }, [stats.roiSimulated, stats.totalPredictions]);
 
-  const COLORS = ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"];
+  const COLORS = useMemo(() => ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"], []);
 
   return (
     <div className="space-y-6 px-4 sm:px-0">
@@ -191,56 +201,56 @@ export function StatsOverview() {
         {/* Total Predictions */}
         <div className="bg-gradient-to-br from-primary-100 dark:from-primary-500/20 to-primary-200 dark:to-primary-600/20 border border-primary-300 dark:border-primary-500/30 rounded-xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">Predictions totales</p>
+            <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">{t("totalPredictions")}</p>
             <Target className="w-4 sm:w-5 h-4 sm:h-5 text-primary-600 dark:text-primary-400" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
             {stats.totalPredictions}
           </p>
           <p className="text-xs sm:text-sm text-primary-700 dark:text-primary-300">
-            {stats.correctPredictions} correctes
+            {stats.correctPredictions} {t("correct")}
           </p>
         </div>
 
         {/* Accuracy */}
         <div className="bg-gradient-to-br from-cyan-100 dark:from-accent-500/20 to-cyan-200 dark:to-accent-600/20 border border-cyan-300 dark:border-accent-500/30 rounded-xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">Taux de reussite</p>
+            <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">{t("successRate")}</p>
             <Award className="w-4 sm:w-5 h-4 sm:h-5 text-cyan-600 dark:text-accent-400" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
             {(stats.accuracy || 0).toFixed(1)}%
           </p>
           <p className="text-xs sm:text-sm text-cyan-700 dark:text-accent-300">
-            +{((stats.accuracy || 0) - 50).toFixed(1)}% vs baseline
+            +{((stats.accuracy || 0) - 50).toFixed(1)}% {t("vsBaseline")}
           </p>
         </div>
 
         {/* ROI Simulated */}
         <div className="bg-gradient-to-br from-green-100 dark:from-green-500/20 to-green-200 dark:to-green-600/20 border border-green-300 dark:border-green-500/30 rounded-xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">ROI simule</p>
+            <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">{t("roiSimulated")}</p>
             <Zap className="w-4 sm:w-5 h-4 sm:h-5 text-green-600 dark:text-green-400" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
             {(stats.roiSimulated || 0) >= 0 ? "+" : ""}{(stats.roiSimulated || 0).toFixed(1)}%
           </p>
           <p className="text-xs sm:text-sm text-green-700 dark:text-green-300">
-            {roiAmount > 0 ? "+" : ""}{Math.round(roiAmount)}€ profit
+            {roiAmount > 0 ? "+" : ""}{Math.round(roiAmount)}€ {t("profit")}
           </p>
         </div>
 
         {/* Competitions Tracked */}
         <div className="bg-gradient-to-br from-yellow-100 dark:from-yellow-500/20 to-yellow-200 dark:to-yellow-600/20 border border-yellow-300 dark:border-yellow-500/30 rounded-xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">Competitions</p>
+            <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">{t("competitions")}</p>
             <div className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-600 dark:text-yellow-400">🏆</div>
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
             {competitionStats.length}
           </p>
           <p className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-300">
-            {competitionStats.reduce((sum, c) => sum + c.predictions, 0)} total
+            {competitionStats.reduce((sum, c) => sum + c.predictions, 0)} {t("total")}
           </p>
         </div>
       </div>
@@ -253,9 +263,9 @@ export function StatsOverview() {
               <span className="text-xl">📊</span>
             </div>
             <div>
-              <p className="text-amber-800 dark:text-amber-200 font-medium">Statistiques en cours de collecte</p>
+              <p className="text-amber-800 dark:text-amber-200 font-medium">{t("collecting")}</p>
               <p className="text-amber-700 dark:text-amber-300/70 text-sm">
-                Les statistiques détaillées seront disponibles après vérification des prédictions.
+                {t("collectingHint")}
               </p>
             </div>
           </div>
@@ -267,7 +277,7 @@ export function StatsOverview() {
         {/* Competition Rankings Chart */}
         <div className="lg:col-span-2 bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Classement par competition
+            {t("rankingByCompetition")}
           </h3>
           <div className="w-full h-72 sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -298,7 +308,7 @@ export function StatsOverview() {
                   }}
                   labelStyle={{ color: "#e2e8f0" }}
                 />
-                <Bar dataKey="accuracy" fill="#4ade80" radius={[8, 8, 0, 0] as any}>
+                <Bar dataKey="accuracy" fill="#4ade80" radius={ROUNDED_TOP}>
                   {competitionStats.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
@@ -311,7 +321,7 @@ export function StatsOverview() {
         {/* Trend Indicator */}
         <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Tendance (7 derniers jours)
+            {t("trend7Days")}
           </h3>
           <div className="w-full h-72 sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -340,8 +350,8 @@ export function StatsOverview() {
                     borderRadius: "8px",
                   }}
                   labelStyle={{ color: "#e2e8f0" }}
-                  labelFormatter={(value) => `Jour ${Number(value) + 1}`}
-                  formatter={(value: number) => [`${value.toFixed(1)}%`, "Précision"]}
+                  labelFormatter={(value) => `${t("day")} ${Number(value) + 1}`}
+                  formatter={(value: number) => [`${value.toFixed(1)}%`, t("precision")]}
                 />
                 <Line
                   type="monotone"
@@ -361,7 +371,7 @@ export function StatsOverview() {
       {/* Competition Details */}
       <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Details par competition
+          {t("detailsByCompetition")}
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {competitionStats.length > 0 ? (
@@ -381,19 +391,19 @@ export function StatsOverview() {
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm text-gray-600 dark:text-dark-400">Precision</span>
+                    <span className="text-xs sm:text-sm text-gray-600 dark:text-dark-400">{t("precision")}</span>
                     <span className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
                       {stat.accuracy.toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm text-gray-600 dark:text-dark-400">Predictions</span>
+                    <span className="text-xs sm:text-sm text-gray-600 dark:text-dark-400">{t("predictions")}</span>
                     <span className="text-sm sm:text-base font-semibold text-primary-600 dark:text-primary-400">
                       {stat.correct}/{stat.predictions}
                     </span>
                   </div>
                   <div className="pt-2 border-t border-gray-200 dark:border-dark-600/50 flex items-center justify-between">
-                    <span className="text-xs text-gray-600 dark:text-dark-400">Tendance</span>
+                    <span className="text-xs text-gray-600 dark:text-dark-400">{t("trend")}</span>
                     {stat.trend === "up" && (
                       <TrendingUp className="w-4 sm:w-5 h-4 sm:h-5 text-primary-600 dark:text-primary-400 flex-shrink-0" />
                     )}
@@ -409,7 +419,7 @@ export function StatsOverview() {
             ))
           ) : (
             <div className="col-span-full text-center py-6">
-              <p className="text-gray-600 dark:text-dark-400 text-sm">Aucune donnee disponible</p>
+              <p className="text-gray-600 dark:text-dark-400 text-sm">{t("noData")}</p>
             </div>
           )}
         </div>

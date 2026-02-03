@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { StandingsResponse } from "@/lib/api/models";
 
 interface LeagueStandingsProps {
@@ -8,6 +9,8 @@ interface LeagueStandingsProps {
 }
 
 export function LeagueStandings({ standings, isLoading = false }: LeagueStandingsProps) {
+  const t = useTranslations("standings");
+  const tCommon = useTranslations("common");
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden">
@@ -17,7 +20,7 @@ export function LeagueStandings({ standings, isLoading = false }: LeagueStanding
             <div className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-slate-600" />
             <div className="absolute top-0 left-0 w-6 h-6 rounded-full border-2 border-transparent border-t-primary-500 animate-spin" />
           </div>
-          <span className="text-gray-600 dark:text-slate-400 text-sm animate-pulse">Chargement du classement...</span>
+          <span className="text-gray-600 dark:text-slate-400 text-sm animate-pulse">{tCommon("loadingStandings")}</span>
         </div>
         {/* Table Header Skeleton */}
         <div className="hidden md:grid grid-cols-12 gap-4 bg-gray-100 dark:bg-slate-900/50 border-b border-gray-200 dark:border-slate-700 px-4 sm:px-6 py-3 sm:py-4">
@@ -89,7 +92,7 @@ export function LeagueStandings({ standings, isLoading = false }: LeagueStanding
   if (!standings.standings || standings.standings.length === 0) {
     return (
       <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-6 sm:p-8 text-center">
-        <p className="text-gray-600 dark:text-slate-400">Aucun classement disponible</p>
+        <p className="text-gray-600 dark:text-slate-400">{t("noStandings")}</p>
       </div>
     );
   }
@@ -99,13 +102,13 @@ export function LeagueStandings({ standings, isLoading = false }: LeagueStanding
       {/* Table Header */}
       <div className="hidden md:grid grid-cols-12 gap-4 bg-gray-100 dark:bg-slate-900/50 border-b border-gray-200 dark:border-slate-700 px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-slate-300 sticky top-0">
         <div className="col-span-1">#</div>
-        <div className="col-span-4">Équipe</div>
-        <div className="col-span-1 text-center">J</div>
-        <div className="col-span-1 text-center">G</div>
-        <div className="col-span-1 text-center">N</div>
-        <div className="col-span-1 text-center">P</div>
-        <div className="col-span-1 text-center">+/-</div>
-        <div className="col-span-1 text-right">PTS</div>
+        <div className="col-span-4">{t("team")}</div>
+        <div className="col-span-1 text-center">{t("played")}</div>
+        <div className="col-span-1 text-center">{t("won")}</div>
+        <div className="col-span-1 text-center">{t("drawn")}</div>
+        <div className="col-span-1 text-center">{t("lost")}</div>
+        <div className="col-span-1 text-center">{t("goalDiff")}</div>
+        <div className="col-span-1 text-right">{t("points")}</div>
       </div>
 
       {/* Table Body */}
@@ -245,18 +248,18 @@ export function LeagueStandings({ standings, isLoading = false }: LeagueStanding
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs text-gray-600 dark:text-slate-400">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-blue-200 dark:bg-blue-900/50" />
-            <span>Ligue des Champions</span>
+            <span>{t("championsLeague")}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-purple-200 dark:bg-purple-900/50" />
-            <span>Ligue Europa</span>
+            <span>{t("europaLeague")}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded bg-red-200 dark:bg-red-900/50" />
-            <span>Relégation</span>
+            <span>{t("relegation")}</span>
           </div>
           <div className="text-xs text-gray-500 dark:text-slate-500 col-span-2 sm:col-span-1 lg:col-span-1">
-            J=Joués, V=Victoires, N=Nuls, D=Défaites
+            {t("legend")}
           </div>
         </div>
       </div>

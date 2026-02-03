@@ -10,6 +10,7 @@ import { PredictionCardPremium } from "@/components/PredictionCardPremium";
 import { LoadingState } from "@/components/LoadingState";
 import { CompetitionFilter } from "@/components/CompetitionFilter";
 import { ExportCSV } from "@/components/ExportCSV";
+import { getErrorMessage } from "@/lib/errors";
 import type { DailyPick } from "@/lib/api/models";
 
 const COMPETITIONS = [
@@ -182,12 +183,7 @@ export default function PicksPage() {
             Erreur de chargement
           </h3>
           <p className="text-gray-500 dark:text-dark-400 mb-3 sm:mb-4 text-sm sm:text-base">
-            {(() => {
-              const errorMsg = error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string'
-                ? (error as any).message
-                : "Impossible de charger les picks.";
-              return errorMsg;
-            })()}
+            {getErrorMessage(error, "Impossible de charger les picks.")}
           </p>
           <button
             onClick={() => window.location.reload()}

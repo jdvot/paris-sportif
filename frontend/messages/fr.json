@@ -1,11 +1,31 @@
 {
   "common": {
     "loading": "Chargement...",
+    "loadingInProgress": "Chargement en cours...",
+    "loadingContext": "Chargement du contexte...",
+    "loadingStandings": "Chargement du classement...",
     "error": "Une erreur est survenue",
+    "errorLoading": "Erreur de chargement",
+    "errorAuth": "Erreur d'authentification",
+    "errorSync": "Erreur de synchronisation",
+    "errorUpdate": "Erreur lors de la mise a jour du profil",
+    "errorDelete": "Erreur lors de la suppression du compte. Veuillez reessayer.",
+    "errorShare": "Erreur lors du partage",
+    "errorCopy": "Impossible de copier le lien",
+    "componentError": "Ce composant n'a pas pu etre affiche.",
     "retry": "Reessayer",
     "save": "Enregistrer",
     "cancel": "Annuler",
     "delete": "Supprimer",
+    "deleteAccount": "Supprimer mon compte",
+    "deleteAccountDesc": "Supprimer definitivement votre compte et vos donnees",
+    "deleteForever": "Supprimer definitivement",
+    "viewMatches": "Voir les matchs",
+    "viewPicks": "Voir les picks",
+    "viewStandings": "Voir les classements",
+    "viewOnTrustpilot": "Voir sur Trustpilot",
+    "showLess": "Voir moins",
+    "showAll": "Voir tout",
     "edit": "Modifier",
     "close": "Fermer",
     "back": "Retour",
@@ -206,6 +226,20 @@
       "daily": "Resume quotidien"
     }
   },
+  "standings": {
+    "team": "Equipe",
+    "played": "J",
+    "won": "G",
+    "drawn": "N",
+    "lost": "P",
+    "goalDiff": "+/-",
+    "points": "PTS",
+    "noStandings": "Aucun classement disponible",
+    "championsLeague": "Ligue des Champions",
+    "europaLeague": "Ligue Europa",
+    "relegation": "Relegation",
+    "legend": "J=Joues, G=Victoires, N=Nuls, P=Defaites"
+  },
   "footer": {
     "about": "A propos",
     "contact": "Contact",
@@ -253,5 +287,91 @@
     "bannerDescription": "Recevez une alerte quand nos nouveaux pronostics sont disponibles",
     "newPicks": "Nouveaux picks disponibles",
     "pickReady": "Vos 5 picks du jour sont prets !"
+  },
+  "components": {
+    "header": {
+      "live": "Live"
+    },
+    "teamStrength": {
+      "title": "Indice de Force",
+      "elite": "Elite",
+      "strong": "Fort",
+      "aboveAverage": "Moyen+",
+      "average": "Moyen",
+      "weak": "Faible",
+      "home": "DOM",
+      "away": "EXT",
+      "balanced": "Equilibre"
+    },
+    "favorite": {
+      "remove": "Retirer des favoris",
+      "add": "Ajouter aux favoris",
+      "active": "Favori",
+      "inactive": "Ajouter"
+    },
+    "confidence": {
+      "veryHigh": "Tres Haut",
+      "high": "Haut",
+      "medium": "Moyen",
+      "low": "Bas",
+      "label": "Confiance"
+    }
+  },
+  "dailyPicks": {
+    "loading": "Analyse des matchs en cours...",
+    "loadError": "Impossible de charger les picks du jour",
+    "checkBackend": "Verifiez que le backend est en cours d'execution",
+    "redirecting": "Redirection en cours...",
+    "empty": "Aucun pick disponible pour aujourd'hui",
+    "emptyHint": "Les picks seront disponibles quand des matchs sont programmes",
+    "homeWin": "Victoire {team}",
+    "awayWin": "Victoire {team}",
+    "draw": "Match nul",
+    "confidence": "confiance",
+    "sport": "Football",
+    "drawShort": "Nul"
+  },
+  "upcomingMatches": {
+    "loading": "Chargement des matchs...",
+    "loadError": "Impossible de charger les matchs",
+    "empty": "Aucun match a venir",
+    "viewAll": "Voir tous les matchs"
+  },
+  "stats": {
+    "loading": "Chargement des statistiques...",
+    "loadError": "Impossible de charger les statistiques",
+    "loadErrorDetailed": "Impossible de charger les statistiques detaillees",
+    "loadErrorHistory": "Impossible de charger l'historique de performance",
+    "totalPredictions": "Predictions totales",
+    "correct": "correctes",
+    "successRate": "Taux de reussite",
+    "vsBaseline": "vs baseline",
+    "roiSimulated": "ROI simule",
+    "profit": "profit",
+    "competitions": "Competitions",
+    "total": "total",
+    "collecting": "Statistiques en cours de collecte",
+    "collectingHint": "Les statistiques detaillees seront disponibles apres verification des predictions.",
+    "rankingByCompetition": "Classement par competition",
+    "trend7Days": "Tendance (7 derniers jours)",
+    "day": "Jour",
+    "precision": "Precision",
+    "detailsByCompetition": "Details par competition",
+    "noData": "Aucune donnee disponible",
+    "trend": "Tendance",
+    "predictions": "Predictions",
+    "byBetType": "Precision par type de pari",
+    "distribution": "Distribution des predictions",
+    "detailByCompetition": "Detail par competition",
+    "byConfidence": "Precision par niveau de confiance",
+    "averageValue": "Valeur moyenne",
+    "confidence": "Confiance",
+    "ofTotal": "du total",
+    "homeWin": "Victoire domicile",
+    "draw": "Match nul",
+    "awayWin": "Victoire exterieur",
+    "accuracyOverTime": "Precision au fil du temps (30 derniers jours)",
+    "predictionsByCompetition": "Predictions par competition",
+    "correctLabel": "Correctes"
   }
 }

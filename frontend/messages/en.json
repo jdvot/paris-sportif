@@ -1,11 +1,31 @@
 {
   "common": {
     "loading": "Loading...",
+    "loadingInProgress": "Loading in progress...",
+    "loadingContext": "Loading context...",
+    "loadingStandings": "Loading standings...",
     "error": "An error occurred",
+    "errorLoading": "Loading error",
+    "errorAuth": "Authentication error",
+    "errorSync": "Sync error",
+    "errorUpdate": "Error updating profile",
+    "errorDelete": "Error deleting account. Please try again.",
+    "errorShare": "Error sharing",
+    "errorCopy": "Could not copy link",
+    "componentError": "This component could not be displayed.",
     "retry": "Retry",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
+    "deleteAccount": "Delete my account",
+    "deleteAccountDesc": "Permanently delete your account and data",
+    "deleteForever": "Delete permanently",
+    "viewMatches": "View matches",
+    "viewPicks": "View picks",
+    "viewStandings": "View standings",
+    "viewOnTrustpilot": "View on Trustpilot",
+    "showLess": "Show less",
+    "showAll": "Show all",
     "edit": "Edit",
     "close": "Close",
     "back": "Back",
@@ -206,6 +226,20 @@
       "daily": "Daily summary"
     }
   },
+  "standings": {
+    "team": "Team",
+    "played": "P",
+    "won": "W",
+    "drawn": "D",
+    "lost": "L",
+    "goalDiff": "+/-",
+    "points": "PTS",
+    "noStandings": "No standings available",
+    "championsLeague": "Champions League",
+    "europaLeague": "Europa League",
+    "relegation": "Relegation",
+    "legend": "P=Played, W=Won, D=Drawn, L=Lost"
+  },
   "footer": {
     "about": "About",
     "contact": "Contact",
@@ -253,5 +287,91 @@
     "bannerDescription": "Get notified when new predictions are available",
     "newPicks": "New picks available",
     "pickReady": "Your 5 daily picks are ready!"
+  },
+  "components": {
+    "header": {
+      "live": "Live"
+    },
+    "teamStrength": {
+      "title": "Strength Index",
+      "elite": "Elite",
+      "strong": "Strong",
+      "aboveAverage": "Above Avg",
+      "average": "Average",
+      "weak": "Weak",
+      "home": "HOME",
+      "away": "AWAY",
+      "balanced": "Balanced"
+    },
+    "favorite": {
+      "remove": "Remove from favorites",
+      "add": "Add to favorites",
+      "active": "Favorite",
+      "inactive": "Add"
+    },
+    "confidence": {
+      "veryHigh": "Very High",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "label": "Confidence"
+    }
+  },
+  "dailyPicks": {
+    "loading": "Analyzing matches...",
+    "loadError": "Unable to load today's picks",
+    "checkBackend": "Check that the backend is running",
+    "redirecting": "Redirecting...",
+    "empty": "No picks available for today",
+    "emptyHint": "Picks will be available when matches are scheduled",
+    "homeWin": "{team} Win",
+    "awayWin": "{team} Win",
+    "draw": "Draw",
+    "confidence": "confidence",
+    "sport": "Football",
+    "drawShort": "Draw"
+  },
+  "upcomingMatches": {
+    "loading": "Loading matches...",
+    "loadError": "Unable to load matches",
+    "empty": "No upcoming matches",
+    "viewAll": "View all matches"
+  },
+  "stats": {
+    "loading": "Loading statistics...",
+    "loadError": "Unable to load statistics",
+    "loadErrorDetailed": "Unable to load detailed statistics",
+    "loadErrorHistory": "Unable to load performance history",
+    "totalPredictions": "Total predictions",
+    "correct": "correct",
+    "successRate": "Success rate",
+    "vsBaseline": "vs baseline",
+    "roiSimulated": "Simulated ROI",
+    "profit": "profit",
+    "competitions": "Competitions",
+    "total": "total",
+    "collecting": "Statistics being collected",
+    "collectingHint": "Detailed statistics will be available after prediction verification.",
+    "rankingByCompetition": "Ranking by competition",
+    "trend7Days": "Trend (last 7 days)",
+    "day": "Day",
+    "precision": "Precision",
+    "detailsByCompetition": "Details by competition",
+    "noData": "No data available",
+    "trend": "Trend",
+    "predictions": "Predictions",
+    "byBetType": "Precision by bet type",
+    "distribution": "Prediction distribution",
+    "detailByCompetition": "Detail by competition",
+    "byConfidence": "Precision by confidence level",
+    "averageValue": "Average value",
+    "confidence": "Confidence",
+    "ofTotal": "of total",
+    "homeWin": "Home win",
+    "draw": "Draw",
+    "awayWin": "Away win",
+    "accuracyOverTime": "Accuracy over time (last 30 days)",
+    "predictionsByCompetition": "Predictions by competition",
+    "correctLabel": "Correct"
   }
 }

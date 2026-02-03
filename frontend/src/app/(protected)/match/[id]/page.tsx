@@ -715,7 +715,7 @@ function PredictionSection({
         )}
       </div>
 
-      <PredictionCharts prediction={prediction as any} />
+      <PredictionCharts prediction={prediction} />
     </div>
   );
 }

@@ -15,7 +15,40 @@ import {
 } from "recharts";
 import { useTheme } from "next-themes";
 import type { DetailedPrediction, ModelContribution } from "@/lib/types";
+import type { PredictionResponse } from "@/lib/api/models";
 import { cn } from "@/lib/utils";
+
+/**
+ * Union type for prediction data - accepts both frontend (camelCase) and API (snake_case) formats.
+ * The component handles both formats with fallback logic.
+ */
+export type PredictionChartsInput = DetailedPrediction | PredictionResponse;
+
+/**
+ * Helper to safely extract a numeric value from either camelCase or snake_case property.
+ */
+function getNumericValue(obj: PredictionChartsInput, camelKey: string, snakeKey: string): number {
+  const record = obj as unknown as Record<string, unknown>;
+  if (typeof record[camelKey] === "number") return record[camelKey] as number;
+  if (typeof record[snakeKey] === "number") return record[snakeKey] as number;
+  return 0;
+}
+
+/**
+ * Helper to safely extract an object value from either camelCase or snake_case property.
+ */
+function getObjectValue(obj: PredictionChartsInput, camelKey: string, snakeKey: string): unknown {
+  const record = obj as unknown as Record<string, unknown>;
+  return record[camelKey] ?? record[snakeKey];
+}
+
+/**
+ * Helper to check if a property exists (with either naming convention).
+ */
+function hasProperty(obj: PredictionChartsInput, camelKey: string, snakeKey: string): boolean {
+  const record = obj as unknown as Record<string, unknown>;
+  return record[camelKey] !== undefined || record[snakeKey] !== undefined;
+}
 
 // Theme-aware color palette
 const getColors = (isDark: boolean) => ({
@@ -30,7 +63,7 @@ const getColors = (isDark: boolean) => ({
 });
 
 interface PredictionChartsProps {
-  prediction: DetailedPrediction;
+  prediction: PredictionChartsInput;
 }
 
 /**
@@ -42,27 +75,17 @@ function ProbabilityPieChart({ prediction }: PredictionChartsProps) {
 
   const probs = prediction?.probabilities as Record<string, number> | undefined;
 
-  const homeProb = typeof prediction?.homeProb === "number"
-    ? prediction.homeProb
-    : typeof probs?.home_win === "number"
-      ? probs.home_win
-      : typeof probs?.homeWin === "number"
-        ? probs.homeWin
-        : 0;
+  // Try direct properties first (DetailedPrediction), then nested probabilities (PredictionResponse)
+  const homeProb = getNumericValue(prediction, "homeProb", "homeProb") ||
+    (typeof probs?.home_win === "number" ? probs.home_win : 0) ||
+    (typeof probs?.homeWin === "number" ? probs.homeWin : 0);
 
-  const drawProb = typeof prediction?.drawProb === "number"
-    ? prediction.drawProb
-    : typeof probs?.draw === "number"
-      ? probs.draw
-      : 0;
+  const drawProb = getNumericValue(prediction, "drawProb", "drawProb") ||
+    (typeof probs?.draw === "number" ? probs.draw : 0);
 
-  const awayProb = typeof prediction?.awayProb === "number"
-    ? prediction.awayProb
-    : typeof probs?.away_win === "number"
-      ? probs.away_win
-      : typeof probs?.awayWin === "number"
-        ? probs.awayWin
-        : 0;
+  const awayProb = getNumericValue(prediction, "awayProb", "awayProb") ||
+    (typeof probs?.away_win === "number" ? probs.away_win : 0) ||
+    (typeof probs?.awayWin === "number" ? probs.awayWin : 0);
 
   const data = [
     { name: "Domicile", value: Math.round(homeProb * 100) },
@@ -127,12 +150,12 @@ function ModelComparisonChart({ prediction }: PredictionChartsProps) {
   const { resolvedTheme } = useTheme();
   const colors = getColors(resolvedTheme === "dark");
 
-  const modelContributions = prediction?.modelContributions;
+  const modelContributions = getObjectValue(prediction, "modelContributions", "model_contributions");
   if (!modelContributions || typeof modelContributions !== "object") {
     return null;
   }
 
-  const models = Object.entries(modelContributions)
+  const models = Object.entries(modelContributions as Record<string, unknown>)
     .filter(([, value]) => value && typeof value === "object")
     .slice(0, 4); // Limit to 4 models for readability
 
@@ -325,7 +348,7 @@ function ConfidenceGauge({ prediction }: PredictionChartsProps) {
  * Value Score Indicator - Show the value score with color coding
  */
 function ValueScoreIndicator({ prediction }: PredictionChartsProps) {
-  const valueScore = typeof prediction?.valueScore === "number" ? prediction.valueScore : 0;
+  const valueScore = getNumericValue(prediction, "valueScore", "value_score");
   const valuePercent = Math.round(valueScore * 100);
 
   const isPositiveValue = valueScore >= 0;
@@ -418,8 +441,8 @@ function ExpectedGoalsChart({ prediction }: PredictionChartsProps) {
   const { resolvedTheme } = useTheme();
   const colors = getColors(resolvedTheme === "dark");
 
-  const homeXg = typeof prediction?.expectedHomeGoals === "number" ? prediction.expectedHomeGoals : 0;
-  const awayXg = typeof prediction?.expectedAwayGoals === "number" ? prediction.expectedAwayGoals : 0;
+  const homeXg = getNumericValue(prediction, "expectedHomeGoals", "expected_home_goals");
+  const awayXg = getNumericValue(prediction, "expectedAwayGoals", "expected_away_goals");
 
   if (homeXg === 0 && awayXg === 0) {
     return null;
@@ -479,6 +502,10 @@ export function PredictionCharts({ prediction }: PredictionChartsProps) {
     return null;
   }
 
+  const hasModelContributions = hasProperty(prediction, "modelContributions", "model_contributions");
+  const hasExpectedGoals = hasProperty(prediction, "expectedHomeGoals", "expected_home_goals") ||
+    hasProperty(prediction, "expectedAwayGoals", "expected_away_goals");
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Charts Grid */}
@@ -490,7 +517,7 @@ export function PredictionCharts({ prediction }: PredictionChartsProps) {
         <ConfidenceGauge prediction={prediction} />
 
         {/* Model Comparison */}
-        {prediction.modelContributions && (
+        {hasModelContributions && (
           <div className="lg:col-span-2">
             <ModelComparisonChart prediction={prediction} />
           </div>
@@ -500,7 +527,7 @@ export function PredictionCharts({ prediction }: PredictionChartsProps) {
         <ValueScoreIndicator prediction={prediction} />
 
         {/* Expected Goals */}
-        {(prediction.expectedHomeGoals || prediction.expectedAwayGoals) && (
+        {hasExpectedGoals && (
           <ExpectedGoalsChart prediction={prediction} />
         )}
       </div>

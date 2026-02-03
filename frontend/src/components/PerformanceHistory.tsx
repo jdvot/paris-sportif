@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   LineChart,
@@ -15,8 +16,11 @@ import {
   Cell,
 } from "recharts";
 import { Loader2 } from "lucide-react";
+import { useTranslations, useLocale } from "next-intl";
 import { fetchPredictionStats } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { ROUNDED_TOP } from "@/lib/recharts-types";
+import type { CompetitionStats } from "@/lib/types/stats";
 
 const COMPETITION_NAMES: Record<string, string> = {
   PL: "Premier League",
@@ -41,6 +45,8 @@ interface CompetitionChartData {
 }
 
 export function PerformanceHistory() {
+  const t = useTranslations("stats");
+  const locale = useLocale();
   const { data: stats, isLoading, error } = useQuery({
     queryKey: ["predictionStats", 30],
     queryFn: () => fetchPredictionStats(30),
@@ -58,86 +64,89 @@ export function PerformanceHistory() {
   if (error || !stats) {
     return (
       <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 text-center">
-        <p className="text-dark-400">Impossible de charger l'historique de performance</p>
+        <p className="text-dark-400">{t("loadErrorHistory")}</p>
       </div>
     );
   }
 
-  // Generate historical data (simulated from stats)
-  const generateHistoryData = (): HistoryDataPoint[] => {
+  // Memoize historical data to prevent re-generation on each render
+  const historyData = useMemo((): HistoryDataPoint[] => {
     const data: HistoryDataPoint[] = [];
     const today = new Date();
     const totalPredictions = stats.totalPredictions || 1;
     const correctPredictions = stats.correctPredictions || 0;
+    const dateLocale = locale === "fr" ? "fr-FR" : "en-US";
 
     // Create 30 data points (one per day, going backward)
+    // Use seeded values based on stats to keep data stable
     for (let i = 29; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
 
-      // Simulate progressive accuracy curve
+      // Simulate progressive accuracy curve with stable seed
       const progressRatio = (29 - i) / 29;
-      const dailyPredictions = Math.floor(totalPredictions / 30) + Math.random() * 3;
+      const seed = ((stats.accuracy || 50) * (i + 1)) % 1;
+      const dailyPredictions = Math.floor(totalPredictions / 30) + seed * 3;
       const dailyCorrect = Math.floor(
-        dailyPredictions * (0.45 + progressRatio * 0.15 + Math.random() * 0.1)
+        dailyPredictions * (0.45 + progressRatio * 0.15 + seed * 0.1)
       );
 
       data.push({
-        date: date.toLocaleDateString("fr-FR", { month: "short", day: "numeric" }),
-        accuracy: Math.min(
-          100,
-          (dailyCorrect / dailyPredictions) * 100
-        ),
+        date: date.toLocaleDateString(dateLocale, { month: "short", day: "numeric" }),
+        accuracy: Math.min(100, (dailyCorrect / dailyPredictions) * 100),
         predictions: Math.floor(dailyPredictions),
         cumulative: correctPredictions,
       });
     }
     return data;
-  };
+  }, [stats.totalPredictions, stats.correctPredictions, stats.accuracy, locale]);
 
-  // Prepare competition chart data
-  // Note: Backend already returns accuracy as percentage (0-100), not ratio
-  const competitionData: CompetitionChartData[] = Object.entries(stats.byCompetition || {})
-    .map(([code, data]: [string, any]) => ({
-      name: COMPETITION_NAMES[code] || code,
-      predictions: data.total || data.predictions || 0,
-      correct: data.correct || 0,
-      accuracy: data.accuracy || 0,
-    }))
-    .filter((comp) => comp.predictions > 0)
-    .sort((a, b) => b.predictions - a.predictions);
+  // Memoize competition chart data with proper types
+  const competitionData = useMemo((): CompetitionChartData[] =>
+    Object.entries(stats.byCompetition || {})
+      .map(([code, data]: [string, CompetitionStats]) => ({
+        name: COMPETITION_NAMES[code] || code,
+        predictions: data.total || data.predictions || 0,
+        correct: data.correct || 0,
+        accuracy: data.accuracy || 0,
+      }))
+      .filter((comp) => comp.predictions > 0)
+      .sort((a, b) => b.predictions - a.predictions),
+    [stats.byCompetition]
+  );
 
-  const historyData = generateHistoryData();
+  // Memoize ROI calculation
+  const roiAmount = useMemo(() =>
+    stats.roiSimulated ? stats.roiSimulated * stats.totalPredictions * 10 : 0,
+    [stats.roiSimulated, stats.totalPredictions]
+  );
 
-  // Calculate ROI from simulated 10€ bets
-  const roiAmount = stats.roiSimulated ? stats.roiSimulated * stats.totalPredictions * 10 : 0;
-
-  // Stat cards data
-  const statCards = [
+  // Memoize stat cards data
+  const statCards = useMemo(() => [
     {
-      label: "Predictions totales",
+      label: t("totalPredictions"),
       value: stats.totalPredictions.toString(),
-      subtext: `${stats.correctPredictions} correctes`,
+      subtext: `${stats.correctPredictions} ${t("correct")}`,
       color: "from-primary-500/20 to-primary-600/20",
       borderColor: "border-primary-500/30",
     },
     {
-      label: "Taux de reussite",
+      label: t("successRate"),
       value: `${(stats.accuracy || 0).toFixed(1)}%`,
-      subtext: `+${((stats.accuracy || 0) - 50).toFixed(1)}% vs baseline`,
+      subtext: `+${((stats.accuracy || 0) - 50).toFixed(1)}% ${t("vsBaseline")}`,
       color: "from-accent-500/20 to-accent-600/20",
       borderColor: "border-accent-500/30",
     },
     {
-      label: "ROI simule",
+      label: t("roiSimulated"),
       value: `${((stats.roiSimulated || 0) * 100).toFixed(1)}%`,
-      subtext: `+${Math.round(roiAmount)}€ sur ${stats.totalPredictions} bets`,
+      subtext: `+${Math.round(roiAmount)}€ ${t("profit")}`,
       color: "from-green-500/20 to-green-600/20",
       borderColor: "border-green-500/30",
     },
-  ];
+  ], [t, stats.totalPredictions, stats.correctPredictions, stats.accuracy, stats.roiSimulated, roiAmount]);
 
-  const COLORS = ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"];
+  const COLORS = useMemo(() => ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"], []);
 
   return (
     <div className="space-y-6 px-4 sm:px-0">
@@ -162,7 +171,7 @@ export function PerformanceHistory() {
       {/* Accuracy Over Time Chart */}
       <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold text-white mb-4">
-          Precision au fil du temps (30 derniers jours)
+          {t("accuracyOverTime")}
         </h3>
         <div className="w-full h-64 sm:h-80">
           <ResponsiveContainer width="100%" height="100%">
@@ -178,7 +187,7 @@ export function PerformanceHistory() {
                 stroke="#94a3b8"
                 style={{ fontSize: "0.75rem" }}
                 tick={{ fill: "#94a3b8" }}
-                label={{ value: "Precision (%)", angle: -90, position: "insideLeft" }}
+                label={{ value: `${t("precision")} (%)`, angle: -90, position: "insideLeft" }}
                 domain={[0, 100]}
               />
               <Tooltip
@@ -208,7 +217,7 @@ export function PerformanceHistory() {
       {/* Predictions per Competition Chart */}
       <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold text-white mb-4">
-          Predictions par competition
+          {t("predictionsByCompetition")}
         </h3>
         <div className="w-full h-64 sm:h-80">
           <ResponsiveContainer width="100%" height="100%">
@@ -241,12 +250,12 @@ export function PerformanceHistory() {
                 }}
               />
               <Legend wrapperStyle={{ paddingTop: "20px" }} />
-              <Bar dataKey="predictions" fill="#4ade80" name="Predictions" radius={[8, 8, 0, 0] as any}>
+              <Bar dataKey="predictions" fill="#4ade80" name={t("predictions")} radius={ROUNDED_TOP}>
                 {competitionData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Bar>
-              <Bar dataKey="correct" fill="#60a5fa" name="Correctes" radius={[8, 8, 0, 0] as any} />
+              <Bar dataKey="correct" fill="#60a5fa" name={t("correctLabel")} radius={ROUNDED_TOP} />
             </BarChart>
           </ResponsiveContainer>
         </div>

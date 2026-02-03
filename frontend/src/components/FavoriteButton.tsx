@@ -1,6 +1,7 @@
 "use client";
 
 import { Heart } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useFavorites, FavoriteMatch } from "@/hooks/useFavorites";
 
@@ -17,6 +18,7 @@ export function FavoriteButton({
   showLabel = false,
   className,
 }: FavoriteButtonProps) {
+  const t = useTranslations("components.favorite");
   const { isFavorite, toggleFavorite } = useFavorites();
   const isActive = isFavorite(match.matchId);
 
@@ -50,7 +52,7 @@ export function FavoriteButton({
         showLabel && "flex items-center gap-2",
         className
       )}
-      title={isActive ? "Retirer des favoris" : "Ajouter aux favoris"}
+      title={isActive ? t("remove") : t("add")}
     >
       <Heart
         className={cn(
@@ -70,7 +72,7 @@ export function FavoriteButton({
               : "text-gray-600 dark:text-dark-400"
           )}
         >
-          {isActive ? "Favori" : "Ajouter"}
+          {isActive ? t("active") : t("inactive")}
         </span>
       )}
     </button>

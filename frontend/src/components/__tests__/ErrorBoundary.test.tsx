@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import React from "react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ErrorBoundary, withErrorBoundary } from "../ErrorBoundary";
 
@@ -113,7 +114,7 @@ describe("withErrorBoundary HOC", () => {
   });
 
   it("should catch errors in wrapped component", () => {
-    function FailingComponent() {
+    function FailingComponent(): React.ReactNode {
       throw new Error("Component error");
     }
 
@@ -124,7 +125,7 @@ describe("withErrorBoundary HOC", () => {
   });
 
   it("should use custom fallback in HOC", () => {
-    function FailingComponent() {
+    function FailingComponent(): React.ReactNode {
       throw new Error("Component error");
     }
 

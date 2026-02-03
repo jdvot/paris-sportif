@@ -68,3 +68,27 @@ export function isAuthError(error: unknown): boolean {
   const err = error as { status?: number; name?: string };
   return err?.name === 'ApiError' && [401, 403].includes(err?.status || 0);
 }
+
+/**
+ * Safely reload the page, handling SSR and potential errors
+ * Use this instead of directly calling window.location.reload()
+ */
+export function safeReload(): void {
+  if (typeof window !== "undefined") {
+    try {
+      window.location.reload();
+    } catch {
+      // Fallback: navigate to current URL
+      window.location.href = window.location.href;
+    }
+  }
+}
+
+/**
+ * Safely navigate to a URL, handling SSR
+ */
+export function safeNavigate(url: string): void {
+  if (typeof window !== "undefined") {
+    window.location.href = url;
+  }
+}

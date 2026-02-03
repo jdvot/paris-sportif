@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   PieChart,
@@ -15,8 +16,10 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { fetchPredictionStats } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { ROUNDED_TOP } from "@/lib/recharts-types";
 
 const COMPETITION_NAMES: Record<string, string> = {
   PL: "Premier League",
@@ -26,12 +29,14 @@ const COMPETITION_NAMES: Record<string, string> = {
   FL1: "Ligue 1",
 };
 
-const BET_TYPE_NAMES: Record<string, string> = {
-  home_win: "Victoire domicile",
-  draw: "Match nul",
-  away_win: "Victoire exterieur",
-  home: "Victoire domicile",
-  away: "Victoire exterieur",
+type BetTypeKey = "home_win" | "draw" | "away_win" | "home" | "away";
+
+const BET_TYPE_KEYS: Record<string, string> = {
+  home_win: "homeWin",
+  draw: "draw",
+  away_win: "awayWin",
+  home: "homeWin",
+  away: "awayWin",
 };
 
 interface BetTypeData {
@@ -50,6 +55,7 @@ interface ConfidenceData {
 }
 
 export function PerformanceStats() {
+  const t = useTranslations("stats");
   const { data: stats, isLoading, error } = useQuery({
     queryKey: ["predictionStats", 30],
     queryFn: () => fetchPredictionStats(30),
@@ -67,33 +73,39 @@ export function PerformanceStats() {
   if (error || !stats) {
     return (
       <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 text-center">
-        <p className="text-dark-400">Impossible de charger les statistiques detaillees</p>
+        <p className="text-dark-400">{t("loadErrorDetailed")}</p>
       </div>
     );
   }
 
-  // Prepare bet type data
-  const betTypeData: BetTypeData[] = Object.entries(stats.byBetType || {})
-    .map(([type, data]: [string, any]) => ({
-      name: BET_TYPE_NAMES[type] || type,
-      correct: data.correct || 0,
-      total: data.total || data.predictions || 0,
-      accuracy: data.accuracy || 0,
-      avgValue: data.avgValue,
-    }))
-    .filter((bt) => bt.total > 0);
+  // Memoize bet type data to prevent recalculation on every render
+  const betTypeData = useMemo<BetTypeData[]>(() =>
+    Object.entries(stats.byBetType || {})
+      .map(([type, data]: [string, any]) => ({
+        name: BET_TYPE_KEYS[type] ? t(BET_TYPE_KEYS[type]) : type,
+        correct: data.correct || 0,
+        total: data.total || data.predictions || 0,
+        accuracy: data.accuracy || 0,
+        avgValue: data.avgValue,
+      }))
+      .filter((bt) => bt.total > 0),
+    [stats.byBetType, t]
+  );
 
-  // Prepare competition data for pie chart
-  const competitionPieData = Object.entries(stats.byCompetition || {})
-    .map(([code, data]: [string, any]) => ({
-      name: COMPETITION_NAMES[code] || code,
-      value: data.total || data.predictions || 0,
-      accuracy: data.accuracy || 0,
-    }))
-    .filter((comp) => comp.value > 0);
+  // Memoize competition data for pie chart
+  const competitionPieData = useMemo(() =>
+    Object.entries(stats.byCompetition || {})
+      .map(([code, data]: [string, any]) => ({
+        name: COMPETITION_NAMES[code] || code,
+        value: data.total || data.predictions || 0,
+        accuracy: data.accuracy || 0,
+      }))
+      .filter((comp) => comp.value > 0),
+    [stats.byCompetition]
+  );
 
-  // Prepare confidence level data (simulated)
-  const confidenceData: ConfidenceData[] = [
+  // Memoize confidence level data
+  const confidenceData = useMemo<ConfidenceData[]>(() => [
     {
       range: ">70%",
       count: Math.floor(stats.totalPredictions * 0.35),
@@ -112,16 +124,16 @@ export function PerformanceStats() {
       accuracy: Math.max(35, (stats.accuracy || 0) - 12),
       color: "#fbbf24",
     },
-  ];
+  ], [stats.totalPredictions, stats.accuracy]);
 
-  const COLORS = ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"];
+  const COLORS = useMemo(() => ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"], []);
 
   return (
     <div className="space-y-6 px-4 sm:px-0">
       {/* Breakdown by Bet Type */}
       <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold text-white mb-4">
-          Precision par type de pari
+          {t("byBetType")}
         </h3>
         <div className="w-full h-80 sm:h-96">
           <ResponsiveContainer width="100%" height="100%">
@@ -165,8 +177,8 @@ export function PerformanceStats() {
                 }}
               />
               <Legend wrapperStyle={{ paddingTop: "20px" }} />
-              <Bar yAxisId="left" dataKey="total" fill="#4ade80" name="Predictions" radius={[8, 8, 0, 0] as any} />
-              <Bar yAxisId="right" dataKey="accuracy" fill="#60a5fa" name="Precision (%)" radius={[8, 8, 0, 0] as any} />
+              <Bar yAxisId="left" dataKey="total" fill="#4ade80" name="Predictions" radius={ROUNDED_TOP} />
+              <Bar yAxisId="right" dataKey="accuracy" fill="#60a5fa" name="Precision (%)" radius={ROUNDED_TOP} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -180,7 +192,7 @@ export function PerformanceStats() {
               </p>
               {bt.avgValue && (
                 <p className="text-xs text-primary-400 mt-1">
-                  Valeur moyenne: {bt.avgValue.toFixed(2)}
+                  {t("averageValue")}: {bt.avgValue.toFixed(2)}
                 </p>
               )}
             </div>
@@ -193,7 +205,7 @@ export function PerformanceStats() {
         {/* Pie Chart */}
         <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
           <h3 className="text-base sm:text-lg font-semibold text-white mb-4">
-            Distribution des predictions
+            {t("distribution")}
           </h3>
           <div className="w-full h-80 flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
@@ -228,7 +240,7 @@ export function PerformanceStats() {
         {/* Competition Details Table */}
         <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
           <h3 className="text-base sm:text-lg font-semibold text-white mb-4">
-            Detail par competition
+            {t("detailByCompetition")}
           </h3>
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {competitionPieData.length > 0 ? (
@@ -248,12 +260,12 @@ export function PerformanceStats() {
                   </div>
                   <div className="flex items-center justify-between text-xs text-dark-300">
                     <span>{comp.value} predictions</span>
-                    <span className="text-dark-400">{((comp.value / stats.totalPredictions) * 100).toFixed(1)}% du total</span>
+                    <span className="text-dark-400">{((comp.value / stats.totalPredictions) * 100).toFixed(1)}% {t("ofTotal")}</span>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-dark-400 text-center py-6">Aucune donnee disponible</p>
+              <p className="text-dark-400 text-center py-6">{t("noData")}</p>
             )}
           </div>
         </div>
@@ -262,7 +274,7 @@ export function PerformanceStats() {
       {/* Breakdown by Confidence Level */}
       <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold text-white mb-4">
-          Precision par niveau de confiance
+          {t("byConfidence")}
         </h3>
         <div className="w-full h-64 sm:h-80">
           <ResponsiveContainer width="100%" height="100%">
@@ -291,7 +303,7 @@ export function PerformanceStats() {
                   return value;
                 }}
               />
-              <Bar dataKey="accuracy" fill="#4ade80" radius={[8, 8, 0, 0] as any}>
+              <Bar dataKey="accuracy" fill="#4ade80" radius={ROUNDED_TOP}>
                 {confidenceData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
@@ -306,7 +318,7 @@ export function PerformanceStats() {
               className="bg-dark-700/50 p-3 sm:p-4 rounded-lg border-l-4"
               style={{ borderLeftColor: conf.color }}
             >
-              <p className="text-dark-400 text-xs sm:text-sm mb-1">Confiance {conf.range}</p>
+              <p className="text-dark-400 text-xs sm:text-sm mb-1">{t("confidence")} {conf.range}</p>
               <p className="text-lg sm:text-xl font-bold text-white">{conf.accuracy.toFixed(1)}%</p>
               <p className="text-xs text-dark-300 mt-1">{conf.count} predictions</p>
             </div>

@@ -3,7 +3,8 @@
 import { ChevronRight, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr, enUS } from "date-fns/locale";
+import { useTranslations, useLocale } from "next-intl";
 import { useGetUpcomingMatches } from "@/lib/api/endpoints/matches/matches";
 import type { Match } from "@/lib/api/models";
 
@@ -18,6 +19,9 @@ const competitionColors: Record<string, string> = {
 };
 
 export function UpcomingMatches() {
+  const t = useTranslations("upcomingMatches");
+  const locale = useLocale();
+  const dateLocale = locale === "fr" ? fr : enUS;
   const { data: response, isLoading, error } = useGetUpcomingMatches(
     { days: 3 },
     { query: { staleTime: 5 * 60 * 1000 } }
@@ -35,7 +39,7 @@ export function UpcomingMatches() {
             <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-slate-600" />
             <div className="absolute top-0 left-0 w-5 h-5 rounded-full border-2 border-transparent border-t-primary-500 animate-spin" />
           </div>
-          <span className="text-gray-600 dark:text-slate-400 text-xs animate-pulse">Chargement des matchs...</span>
+          <span className="text-gray-600 dark:text-slate-400 text-xs animate-pulse">{t("loading")}</span>
         </div>
         {/* Skeleton rows */}
         <div className="divide-y divide-gray-200 dark:divide-slate-700">
@@ -76,7 +80,7 @@ export function UpcomingMatches() {
     return (
       <div className="bg-white dark:bg-slate-800/50 border border-red-200 dark:border-red-500/30 rounded-xl p-6 sm:p-8 text-center mx-4 sm:mx-0">
         <AlertCircle className="w-7 sm:w-8 h-7 sm:h-8 text-red-500 dark:text-red-400 mx-auto mb-2" />
-        <p className="text-gray-600 dark:text-slate-400 text-sm">Impossible de charger les matchs</p>
+        <p className="text-gray-600 dark:text-slate-400 text-sm">{t("loadError")}</p>
       </div>
     );
   }
@@ -84,7 +88,7 @@ export function UpcomingMatches() {
   if (!matches || matches.length === 0) {
     return (
       <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-6 sm:p-8 text-center mx-4 sm:mx-0">
-        <p className="text-gray-600 dark:text-slate-400 text-sm">Aucun match a venir</p>
+        <p className="text-gray-600 dark:text-slate-400 text-sm">{t("empty")}</p>
       </div>
     );
   }
@@ -93,7 +97,7 @@ export function UpcomingMatches() {
     <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden mx-4 sm:mx-0">
       <div className="divide-y divide-gray-200 dark:divide-slate-700">
         {matches.slice(0, 5).map((match) => (
-          <MatchRow key={match.id} match={match} />
+          <MatchRow key={match.id} match={match} dateLocale={dateLocale} />
         ))}
       </div>
 
@@ -101,14 +105,14 @@ export function UpcomingMatches() {
         href="/matches"
         className="flex items-center justify-center gap-2 py-3 sm:py-4 text-sm sm:text-base text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors border-t border-gray-200 dark:border-slate-700"
       >
-        <span>Voir tous les matchs</span>
+        <span>{t("viewAll")}</span>
         <ChevronRight className="w-4 h-4" />
       </Link>
     </div>
   );
 }
 
-function MatchRow({ match }: { match: Match }) {
+function MatchRow({ match, dateLocale }: { match: Match; dateLocale: typeof fr }) {
   // Use snake_case properties from Orval types
   const matchDate = new Date(match.match_date);
   const homeTeam = typeof match.home_team === 'string' ? match.home_team : match.home_team.name;
@@ -137,10 +141,10 @@ function MatchRow({ match }: { match: Match }) {
       <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0 w-full sm:w-auto justify-between sm:justify-end">
         <div className="text-right">
           <p className="text-xs sm:text-sm text-gray-900 dark:text-white">
-            {format(matchDate, "EEEE d MMM", { locale: fr })}
+            {format(matchDate, "EEEE d MMM", { locale: dateLocale })}
           </p>
           <p className="text-xs sm:text-sm text-gray-600 dark:text-slate-400">
-            {format(matchDate, "HH:mm", { locale: fr })}
+            {format(matchDate, "HH:mm", { locale: dateLocale })}
           </p>
         </div>
         <ChevronRight className="w-4 sm:w-5 h-4 sm:h-5 text-gray-400 dark:text-slate-500 flex-shrink-0" />

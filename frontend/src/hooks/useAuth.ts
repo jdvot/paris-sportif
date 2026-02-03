@@ -198,6 +198,41 @@ export function useAuth() {
     return { error };
   };
 
+  const deleteAccount = async () => {
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+
+    // First, delete user profile data
+    if (state.user?.id) {
+      const { error: profileError } = await supabase
+        .from("user_profiles")
+        .delete()
+        .eq("id", state.user.id);
+
+      if (profileError) {
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: "Failed to delete profile data"
+        }));
+        return { error: profileError };
+      }
+    }
+
+    // Sign out the user (actual account deletion requires admin API or edge function)
+    // For now, we clear local data and sign out
+    await supabase.auth.signOut();
+
+    setState({
+      user: null,
+      profile: null,
+      role: "free",
+      loading: false,
+      error: null,
+    });
+
+    return { error: null };
+  };
+
   return {
     ...state,
     signIn,
@@ -206,6 +241,7 @@ export function useAuth() {
     signInWithGoogle,
     signInWithGithub,
     resetPassword,
+    deleteAccount,
     isAuthenticated: !!state.user,
     isPremium: state.role === "premium" || state.role === "admin",
     isAdmin: state.role === "admin",

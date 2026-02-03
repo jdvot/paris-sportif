@@ -2,6 +2,7 @@
 
 import { AlertCircle, CheckCircle } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { cn, isAuthError } from "@/lib/utils";
 import { LoadingState } from "@/components/LoadingState";
 import { useGetDailyPicks } from "@/lib/api/endpoints/predictions/predictions";
@@ -10,6 +11,7 @@ import { ValueBetIndicator } from "@/components/ValueBetBadge";
 import { getConfidenceTier, formatConfidence, isValueBet, formatValue } from "@/lib/constants";
 
 export function DailyPicks() {
+  const t = useTranslations("dailyPicks");
   const { data: response, isLoading, error } = useGetDailyPicks(
     undefined,
     { query: { staleTime: 5 * 60 * 1000 } }
@@ -23,7 +25,7 @@ export function DailyPicks() {
       <LoadingState
         variant="picks"
         count={5}
-        message="Analyse des matchs en cours..."
+        message={t("loading")}
       />
     );
   }
@@ -33,8 +35,8 @@ export function DailyPicks() {
     return (
       <div className="bg-white dark:bg-dark-800/50 border border-red-200 dark:border-red-500/30 rounded-xl p-8 text-center">
         <AlertCircle className="w-12 h-12 text-red-500 dark:text-red-400 mx-auto mb-4" />
-        <p className="text-gray-700 dark:text-dark-300">Impossible de charger les picks du jour</p>
-        <p className="text-gray-500 dark:text-dark-500 text-sm mt-2">Verifiez que le backend est en cours d'execution</p>
+        <p className="text-gray-700 dark:text-dark-300">{t("loadError")}</p>
+        <p className="text-gray-500 dark:text-dark-500 text-sm mt-2">{t("checkBackend")}</p>
       </div>
     );
   }
@@ -45,7 +47,7 @@ export function DailyPicks() {
       <LoadingState
         variant="picks"
         count={5}
-        message="Redirection en cours..."
+        message={t("redirecting")}
       />
     );
   }
@@ -53,8 +55,8 @@ export function DailyPicks() {
   if (!picks || picks.length === 0) {
     return (
       <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-8 text-center">
-        <p className="text-gray-600 dark:text-dark-400">Aucun pick disponible pour aujourd'hui</p>
-        <p className="text-gray-500 dark:text-dark-500 text-sm mt-2">Les picks seront disponibles quand des matchs sont programmes</p>
+        <p className="text-gray-600 dark:text-dark-400">{t("empty")}</p>
+        <p className="text-gray-500 dark:text-dark-500 text-sm mt-2">{t("emptyHint")}</p>
       </div>
     );
   }
@@ -69,6 +71,7 @@ export function DailyPicks() {
 }
 
 function PickCard({ pick }: { pick: DailyPick }) {
+  const t = useTranslations("dailyPicks");
   const { prediction } = pick;
 
   // Use snake_case properties from Orval types
@@ -76,13 +79,13 @@ function PickCard({ pick }: { pick: DailyPick }) {
   const awayTeam = prediction.away_team;
   const matchId = prediction.match_id;
 
-  const betLabel = {
-    home: `Victoire ${homeTeam}`,
-    home_win: `Victoire ${homeTeam}`,
-    draw: "Match nul",
-    away: `Victoire ${awayTeam}`,
-    away_win: `Victoire ${awayTeam}`,
-  }[prediction.recommended_bet] || prediction.recommended_bet;
+  const getBetLabel = (bet: string) => {
+    if (bet === "home" || bet === "home_win") return t("homeWin", { team: homeTeam });
+    if (bet === "draw") return t("draw");
+    if (bet === "away" || bet === "away_win") return t("awayWin", { team: awayTeam });
+    return bet;
+  };
+  const betLabel = getBetLabel(prediction.recommended_bet);
 
   const confidence = prediction.confidence || 0;
   const valueScore = prediction.value_score || 0;
@@ -95,7 +98,7 @@ function PickCard({ pick }: { pick: DailyPick }) {
   const awayProb = prediction.probabilities?.away_win || 0;
 
   // Get competition from match_date context or default
-  const competition = "Football";
+  const competition = t("sport");
 
   return (
     <Link
@@ -118,7 +121,7 @@ function PickCard({ pick }: { pick: DailyPick }) {
         <div className="text-left sm:text-right flex sm:flex-col gap-3 sm:gap-1 shrink-0">
           <div className="flex items-center gap-2">
             <p className={cn("font-semibold text-sm sm:text-base", confidenceColor)}>
-              {formatConfidence(confidence)} confiance
+              {formatConfidence(confidence)} {t("confidence")}
             </p>
             <span className={cn(
               "hidden sm:inline-flex text-xs font-medium px-1.5 py-0.5 rounded-full",
@@ -147,7 +150,7 @@ function PickCard({ pick }: { pick: DailyPick }) {
             isRecommended={prediction.recommended_bet === "home" || prediction.recommended_bet === "home_win"}
           />
           <ProbBar
-            label="Nul"
+            label={t("drawShort")}
             prob={drawProb}
             isRecommended={prediction.recommended_bet === "draw"}
           />

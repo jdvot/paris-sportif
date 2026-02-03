@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import { useTranslations } from "next-intl";
 import {
   Sun,
   Moon,
@@ -21,13 +23,17 @@ interface ToggleSwitchProps {
   enabled: boolean;
   onToggle: () => void;
   disabled?: boolean;
+  label: string;
 }
 
-function ToggleSwitch({ enabled, onToggle, disabled = false }: ToggleSwitchProps) {
+function ToggleSwitch({ enabled, onToggle, disabled = false, label }: ToggleSwitchProps) {
   return (
     <button
       onClick={onToggle}
       disabled={disabled}
+      role="switch"
+      aria-checked={enabled}
+      aria-label={label}
       className={`
         relative inline-flex h-6 w-11 items-center rounded-full transition-colors
         ${enabled ? "bg-primary-500" : "bg-gray-300 dark:bg-dark-600"}
@@ -45,8 +51,12 @@ function ToggleSwitch({ enabled, onToggle, disabled = false }: ToggleSwitchProps
 }
 
 export default function SettingsPage() {
-  const { user, loading, isAuthenticated, resetPassword } = useAuth();
+  const t = useTranslations("common");
+  const tSettings = useTranslations("settings");
+  const tNav = useTranslations("nav");
+  const { user, loading, isAuthenticated, resetPassword, deleteAccount } = useAuth();
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
 
   // Notification preferences (stored in localStorage for now)
   const [notifications, setNotifications] = useState({
@@ -58,6 +68,8 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [resetPasswordSent, setResetPasswordSent] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -106,10 +118,20 @@ export default function SettingsPage() {
     setResetPasswordSent(true);
   };
 
-  const handleDeleteAccount = () => {
-    // TODO: Implement account deletion
-    console.log("Delete account requested");
-    setShowDeleteConfirm(false);
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    const { error } = await deleteAccount();
+
+    if (error) {
+      setIsDeleting(false);
+      setDeleteError(t("errorDelete"));
+      return;
+    }
+
+    // Redirect to home after successful deletion
+    router.push("/");
   };
 
   return (
@@ -142,7 +164,7 @@ export default function SettingsPage() {
                 </p>
               </div>
             </div>
-            <ToggleSwitch enabled={isDarkMode} onToggle={handleThemeToggle} />
+            <ToggleSwitch enabled={isDarkMode} onToggle={handleThemeToggle} label="Activer le mode sombre" />
           </div>
         </div>
       </section>
@@ -170,6 +192,7 @@ export default function SettingsPage() {
             <ToggleSwitch
               enabled={notifications.dailyPicks}
               onToggle={() => handleNotificationToggle("dailyPicks")}
+              label="Activer les notifications de picks quotidiens"
             />
           </div>
 
@@ -188,6 +211,7 @@ export default function SettingsPage() {
             <ToggleSwitch
               enabled={notifications.alerts}
               onToggle={() => handleNotificationToggle("alerts")}
+              label="Activer les alertes importantes"
             />
           </div>
 
@@ -206,6 +230,7 @@ export default function SettingsPage() {
             <ToggleSwitch
               enabled={notifications.promos}
               onToggle={() => handleNotificationToggle("promos")}
+              label="Activer les notifications d'offres promotionnelles"
             />
           </div>
         </div>
@@ -297,18 +322,30 @@ export default function SettingsPage() {
                   </p>
                 </div>
               </div>
+              {deleteError && (
+                <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
+              )}
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-dark-300 bg-gray-100 dark:bg-dark-700 hover:bg-gray-200 dark:hover:bg-dark-600 rounded-lg transition-colors"
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-dark-300 bg-gray-100 dark:bg-dark-700 hover:bg-gray-200 dark:hover:bg-dark-600 rounded-lg transition-colors disabled:opacity-50"
                 >
                   Annuler
                 </button>
                 <button
                   onClick={handleDeleteAccount}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  Supprimer definitivement
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Suppression...
+                    </>
+                  ) : (
+                    "Supprimer definitivement"
+                  )}
                 </button>
               </div>
             </div>

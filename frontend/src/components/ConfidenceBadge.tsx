@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 interface ConfidenceBadgeProps {
@@ -10,6 +11,43 @@ interface ConfidenceBadgeProps {
   animated?: boolean;
 }
 
+type TierKey = "veryHigh" | "high" | "medium" | "low";
+
+function getTierConfig(confidence: number): { tierKey: TierKey; tierColor: string; tierBg: string; tierBorder: string; icon: string } {
+  if (confidence >= 0.75) {
+    return {
+      tierKey: "veryHigh",
+      tierColor: "from-primary-500 to-emerald-500",
+      tierBg: "bg-primary-500/20",
+      tierBorder: "border-primary-500/50",
+      icon: "🔥",
+    };
+  } else if (confidence >= 0.65) {
+    return {
+      tierKey: "high",
+      tierColor: "from-primary-400 to-blue-400",
+      tierBg: "bg-blue-500/20",
+      tierBorder: "border-blue-500/50",
+      icon: "⚡",
+    };
+  } else if (confidence >= 0.55) {
+    return {
+      tierKey: "medium",
+      tierColor: "from-yellow-400 to-orange-400",
+      tierBg: "bg-yellow-500/20",
+      tierBorder: "border-yellow-500/50",
+      icon: "⚠️",
+    };
+  }
+  return {
+    tierKey: "low",
+    tierColor: "from-orange-500 to-red-500",
+    tierBg: "bg-orange-500/20",
+    tierBorder: "border-orange-500/50",
+    icon: "📊",
+  };
+}
+
 export function ConfidenceBadge({
   confidence,
   valueScore = 0,
@@ -17,34 +55,12 @@ export function ConfidenceBadge({
   showLabel = true,
   animated = true,
 }: ConfidenceBadgeProps) {
+  const t = useTranslations("components.confidence");
   const confidencePercent = Math.round(confidence * 100);
 
   // Determine tier
-  let tier = "Bas";
-  let tierColor = "from-orange-500 to-red-500";
-  let tierBg = "bg-orange-500/20";
-  let tierBorder = "border-orange-500/50";
-  let icon = "📊";
-
-  if (confidence >= 0.75) {
-    tier = "Très Haut";
-    tierColor = "from-primary-500 to-emerald-500";
-    tierBg = "bg-primary-500/20";
-    tierBorder = "border-primary-500/50";
-    icon = "🔥";
-  } else if (confidence >= 0.65) {
-    tier = "Haut";
-    tierColor = "from-primary-400 to-blue-400";
-    tierBg = "bg-blue-500/20";
-    tierBorder = "border-blue-500/50";
-    icon = "⚡";
-  } else if (confidence >= 0.55) {
-    tier = "Moyen";
-    tierColor = "from-yellow-400 to-orange-400";
-    tierBg = "bg-yellow-500/20";
-    tierBorder = "border-yellow-500/50";
-    icon = "⚠️";
-  }
+  const { tierKey, tierColor, tierBg, tierBorder, icon } = getTierConfig(confidence);
+  const tier = t(tierKey);
 
   // Circular progress
   const circumference = 2 * Math.PI * 45;
@@ -138,7 +154,7 @@ export function ConfidenceBadge({
 
       {/* Text info */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-dark-400">Confiance</p>
+        <p className="text-sm text-dark-400">{t("label")}</p>
         <p className="text-base font-bold text-white">{tier}</p>
         {valueScore > 0 && (
           <p className="text-xs text-accent-300 mt-1">

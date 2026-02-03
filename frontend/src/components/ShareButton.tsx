@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Share2, Twitter, Facebook, Link2, Check } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Share2, Twitter, Facebook, Link2, Check, AlertCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -30,13 +31,21 @@ export function ShareButton({
   size = "sm",
   className,
 }: ShareButtonProps) {
+  const t = useTranslations("common");
   const [copied, setCopied] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   const shareUrl = typeof window !== "undefined"
     ? `${window.location.origin}/match/${matchId}`
     : "";
 
   const shareText = `🎯 Prediction: ${homeTeam} vs ${awayTeam}\n📊 ${prediction} (${Math.round(confidence * 100)}% confiance)\n\nVia WinRate AI`;
+
+  const clearError = useCallback(() => {
+    if (shareError) {
+      setTimeout(() => setShareError(null), 3000);
+    }
+  }, [shareError]);
 
   const handleNativeShare = async () => {
     if (navigator.share) {
@@ -48,7 +57,11 @@ export function ShareButton({
         });
         trackShare("native");
       } catch (err) {
-        // User cancelled or error
+        // AbortError means user cancelled - not an error
+        if (err instanceof Error && err.name !== "AbortError") {
+          setShareError(t("errorShare"));
+          clearError();
+        }
       }
     }
   };
@@ -73,14 +86,27 @@ export function ShareButton({
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       // Fallback for older browsers
-      const textArea = document.createElement("textarea");
-      textArea.value = shareUrl;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = shareUrl;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        const success = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        if (success) {
+          setCopied(true);
+          trackShare("copy");
+          setTimeout(() => setCopied(false), 2000);
+        } else {
+          setShareError(t("errorCopy"));
+          clearError();
+        }
+      } catch {
+        setShareError(t("errorCopy"));
+        clearError();
+      }
     }
   };
 
@@ -153,6 +179,12 @@ export function ShareButton({
             </>
           )}
         </DropdownMenuItem>
+        {shareError && (
+          <div className="px-2 py-1.5 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" />
+            {shareError}
+          </div>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
