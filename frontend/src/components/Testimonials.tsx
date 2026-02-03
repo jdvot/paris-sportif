@@ -1,6 +1,7 @@
 "use client";
 
 import { Star, Quote, ExternalLink } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 interface Testimonial {
@@ -61,6 +62,8 @@ export function Testimonials({
   showTrustpilot = true,
   className,
 }: TestimonialsProps) {
+  const t = useTranslations("testimonials");
+  const tCommon = useTranslations("common");
   const averageRating = testimonials.reduce((sum, t) => sum + t.rating, 0) / testimonials.length;
 
   return (
@@ -88,9 +91,9 @@ export function Testimonials({
               </div>
             </div>
             <div>
-              <p className="font-semibold text-gray-900 dark:text-white">Excellent</p>
+              <p className="font-semibold text-gray-900 dark:text-white">{t("excellent")}</p>
               <p className="text-sm text-gray-600 dark:text-dark-400">
-                Base sur {testimonials.length} avis
+                {t("basedOn", { count: testimonials.length })}
               </p>
             </div>
           </div>
@@ -101,7 +104,7 @@ export function Testimonials({
             className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-sm font-semibold rounded-lg hover:bg-green-600 transition-colors"
           >
             <Star className="w-4 h-4 fill-white" />
-            Voir sur Trustpilot
+            {tCommon("viewOnTrustpilot")}
             <ExternalLink className="w-3 h-3" />
           </a>
         </div>
@@ -199,6 +202,8 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
 
 // Widget for homepage
 export function TrustpilotWidget({ className }: { className?: string }) {
+  const t = useTranslations("testimonials");
+
   return (
     <div
       className={cn(
@@ -219,7 +224,7 @@ export function TrustpilotWidget({ className }: { className?: string }) {
       </div>
       <div className="h-4 w-px bg-gray-300 dark:bg-dark-600" />
       <span className="text-xs text-gray-600 dark:text-dark-400">
-        Note Excellent sur Trustpilot
+        {t("excellentOnTrustpilot")}
       </span>
     </div>
   );

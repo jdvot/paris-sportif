@@ -854,6 +854,13 @@
       "low": "Low"
     }
   },
+  "testimonials": {
+    "title": "Customer Reviews",
+    "excellent": "Excellent",
+    "basedOn": "Based on {count} reviews",
+    "excellentOnTrustpilot": "Excellent rating on Trustpilot",
+    "verifiedReview": "Verified review"
+  },
   "admin": {
     "title": "Administration",
     "accessDenied": "Access denied",
