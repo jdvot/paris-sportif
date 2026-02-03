@@ -4,16 +4,21 @@ Combines Poisson, ELO, xG, and XGBoost predictions with optional LLM adjustments
 
 Improvements:
 - Better calibration of probability estimates
-- Adaptive weighting based on data availability
+- Adaptive weighting based on rolling performance (PAR-69)
 - Improved confidence calculation using entropy
 - Better handling of edge cases
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Literal
 
 import numpy as np
 
+from src.prediction_engine.adaptive_weights import (
+    AdaptiveWeightCalculator,
+    AdaptiveWeights,
+)
 from src.prediction_engine.models.elo import ELOSystem
 from src.prediction_engine.models.poisson import PoissonModel
 from src.prediction_engine.models.random_forest_model import (
@@ -112,6 +117,11 @@ class EnsemblePredictor:
     - xG Model: 25%
     - XGBoost: 35%
 
+    Adaptive weights (PAR-69):
+    - When enabled, weights are calculated from rolling performance (30 days)
+    - Uses softmax(accuracy / temperature) with min_weight constraint
+    - Falls back to default weights when insufficient performance data
+
     LLM adjustments are applied as multiplicative factors on log-odds,
     bounded to ±0.5 to prevent runaway influence.
     """
@@ -131,12 +141,111 @@ class EnsemblePredictor:
         elo_system: ELOSystem | None = None,
         xgboost_model: XGBoostModel | None = None,
         random_forest_model: RandomForestModel | None = None,
+        use_adaptive_weights: bool = False,
+        adaptive_weight_calculator: AdaptiveWeightCalculator | None = None,
     ):
-        """Initialize ensemble with component models."""
+        """
+        Initialize ensemble with component models.
+
+        Args:
+            poisson_model: Poisson prediction model
+            elo_system: ELO rating system
+            xgboost_model: XGBoost ML model
+            random_forest_model: Random Forest ML model
+            use_adaptive_weights: Enable adaptive weight calculation
+            adaptive_weight_calculator: Custom calculator (uses default if None)
+        """
         self.poisson = poisson_model or PoissonModel()
         self.elo = elo_system or ELOSystem()
         self.xgboost_model = xgboost_model or XGBoostModel()
         self.random_forest_model = random_forest_model or RandomForestModel()
+
+        # Adaptive weights (PAR-69)
+        self.use_adaptive_weights = use_adaptive_weights
+        self._adaptive_calculator = adaptive_weight_calculator or AdaptiveWeightCalculator()
+        self._current_weights: AdaptiveWeights | None = None
+
+    def _get_model_weight(self, model_name: str) -> float:
+        """
+        Get the weight for a specific model.
+
+        Uses adaptive weights if enabled and available, otherwise falls back
+        to default static weights.
+        """
+        if self.use_adaptive_weights:
+            # Refresh adaptive weights if needed
+            if self._current_weights is None:
+                self._current_weights = self._adaptive_calculator.calculate_weights()
+
+            weight = self._current_weights.get_weight(model_name)
+            if weight > 0:
+                return weight
+
+        # Fall back to default weights
+        defaults = {
+            "poisson": self.WEIGHT_POISSON,
+            "elo": self.WEIGHT_ELO,
+            "xg": self.WEIGHT_XG,
+            "xgboost": self.WEIGHT_XGBOOST,
+            "random_forest": 0.15,
+        }
+        return defaults.get(model_name, 0.0)
+
+    def record_prediction_outcome(
+        self,
+        match_id: int,
+        actual_outcome: Literal["home", "draw", "away"],
+        model_predictions: dict[str, tuple[float, float, float]],
+        prediction_date: datetime | None = None,
+    ) -> None:
+        """
+        Record prediction outcomes for adaptive weight learning.
+
+        Call this after a match result is known to update model performance tracking.
+
+        Args:
+            match_id: Unique match identifier
+            actual_outcome: The actual match result
+            model_predictions: Dict of model_name -> (home_prob, draw_prob, away_prob)
+            prediction_date: When predictions were made (defaults to now)
+        """
+        for model_name, probs in model_predictions.items():
+            self._adaptive_calculator.record_prediction(
+                model_name=model_name,
+                match_id=match_id,
+                predicted_probs=probs,
+                actual_outcome=actual_outcome,
+                prediction_date=prediction_date,
+            )
+
+        # Invalidate cached weights so they're recalculated on next prediction
+        self._current_weights = None
+
+    def get_adaptive_weights(self, force_refresh: bool = False) -> AdaptiveWeights:
+        """
+        Get current adaptive weights.
+
+        Args:
+            force_refresh: Force recalculation even if cached
+
+        Returns:
+            AdaptiveWeights with current weights and metrics
+        """
+        if force_refresh:
+            self._current_weights = None
+
+        if self._current_weights is None:
+            self._current_weights = self._adaptive_calculator.calculate_weights(
+                force_refresh=force_refresh
+            )
+
+        return self._current_weights
+
+    def enable_adaptive_weights(self, enable: bool = True) -> None:
+        """Enable or disable adaptive weight calculation."""
+        self.use_adaptive_weights = enable
+        if enable:
+            self._current_weights = None  # Force recalculation
 
     def _normalize_probs(
         self,
@@ -348,6 +457,13 @@ class EnsemblePredictor:
         """
         contributions: list[tuple[float, float, float, float]] = []
 
+        # Get weights (adaptive or static)
+        weight_poisson = self._get_model_weight("poisson")
+        weight_elo = self._get_model_weight("elo")
+        weight_xg = self._get_model_weight("xg")
+        weight_xgboost = self._get_model_weight("xgboost")
+        weight_rf = self._get_model_weight("random_forest")
+
         # 1. Poisson model
         poisson_pred = self.poisson.predict(
             home_attack=home_attack,
@@ -360,14 +476,14 @@ class EnsemblePredictor:
                 poisson_pred.home_win_prob,
                 poisson_pred.draw_prob,
                 poisson_pred.away_win_prob,
-                self.WEIGHT_POISSON,
+                weight_poisson,
             )
         )
         poisson_contrib = ModelContribution(
             home_prob=poisson_pred.home_win_prob,
             draw_prob=poisson_pred.draw_prob,
             away_prob=poisson_pred.away_win_prob,
-            weight=self.WEIGHT_POISSON,
+            weight=weight_poisson,
         )
 
         # 2. ELO model
@@ -377,14 +493,14 @@ class EnsemblePredictor:
                 elo_pred.home_win_prob,
                 elo_pred.draw_prob,
                 elo_pred.away_win_prob,
-                self.WEIGHT_ELO,
+                weight_elo,
             )
         )
         elo_contrib = ModelContribution(
             home_prob=elo_pred.home_win_prob,
             draw_prob=elo_pred.draw_prob,
             away_prob=elo_pred.away_win_prob,
-            weight=self.WEIGHT_ELO,
+            weight=weight_elo,
         )
 
         # 3. xG model (if data available)
@@ -401,14 +517,14 @@ class EnsemblePredictor:
                     xg_pred.home_win_prob,
                     xg_pred.draw_prob,
                     xg_pred.away_win_prob,
-                    self.WEIGHT_XG,
+                    weight_xg,
                 )
             )
             xg_contrib = ModelContribution(
                 home_prob=xg_pred.home_win_prob,
                 draw_prob=xg_pred.draw_prob,
                 away_prob=xg_pred.away_win_prob,
-                weight=self.WEIGHT_XG,
+                weight=weight_xg,
             )
 
         # 4. XGBoost model (if available)
@@ -419,14 +535,14 @@ class EnsemblePredictor:
                     xgboost_probs[0],
                     xgboost_probs[1],
                     xgboost_probs[2],
-                    self.WEIGHT_XGBOOST,
+                    weight_xgboost,
                 )
             )
             xgboost_contrib = ModelContribution(
                 home_prob=xgboost_probs[0],
                 draw_prob=xgboost_probs[1],
                 away_prob=xgboost_probs[2],
-                weight=self.WEIGHT_XGBOOST,
+                weight=weight_xgboost,
             )
         elif self.xgboost_model and self.xgboost_model.is_trained:
             # Use trained model if available
@@ -444,14 +560,14 @@ class EnsemblePredictor:
                     xgb_pred.home_win_prob,
                     xgb_pred.draw_prob,
                     xgb_pred.away_win_prob,
-                    self.WEIGHT_XGBOOST,
+                    weight_xgboost,
                 )
             )
             xgboost_contrib = ModelContribution(
                 home_prob=xgb_pred.home_win_prob,
                 draw_prob=xgb_pred.draw_prob,
                 away_prob=xgb_pred.away_win_prob,
-                weight=self.WEIGHT_XGBOOST,
+                weight=weight_xgboost,
             )
 
         # 5. Random Forest model (if available)
@@ -462,14 +578,14 @@ class EnsemblePredictor:
                     random_forest_probs[0],
                     random_forest_probs[1],
                     random_forest_probs[2],
-                    0.15,  # Lower weight for backup model
+                    weight_rf,
                 )
             )
             random_forest_contrib = ModelContribution(
                 home_prob=random_forest_probs[0],
                 draw_prob=random_forest_probs[1],
                 away_prob=random_forest_probs[2],
-                weight=0.15,
+                weight=weight_rf,
             )
         elif self.random_forest_model and self.random_forest_model.is_trained:
             # Use trained model if available
@@ -487,14 +603,14 @@ class EnsemblePredictor:
                     rf_pred.home_win_prob,
                     rf_pred.draw_prob,
                     rf_pred.away_win_prob,
-                    0.15,
+                    weight_rf,
                 )
             )
             random_forest_contrib = ModelContribution(
                 home_prob=rf_pred.home_win_prob,
                 draw_prob=rf_pred.draw_prob,
                 away_prob=rf_pred.away_win_prob,
-                weight=0.15,
+                weight=weight_rf,
             )
 
         # Weighted average
