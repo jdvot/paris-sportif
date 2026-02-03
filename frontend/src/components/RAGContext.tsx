@@ -6,6 +6,7 @@ import { useEnrichMatch } from "@/lib/api/endpoints/rag/rag";
 import type { TeamContext, WeatherInfo } from "@/lib/api/models";
 import { format } from "date-fns";
 import { useTranslations, useLocale } from "next-intl";
+import { useAuth } from "@/hooks/useAuth";
 
 interface RAGContextProps {
   homeTeam: string;
@@ -193,6 +194,8 @@ export function RAGContext({
 }: RAGContextProps) {
   const t = useTranslations("rag");
   const locale = useLocale();
+  const { isPremium, loading: authLoading } = useAuth();
+
   const { data, isLoading, error } = useEnrichMatch(
     {
       home_team: homeTeam,
@@ -202,12 +205,17 @@ export function RAGContext({
     },
     {
       query: {
-        enabled: true,
+        enabled: isPremium && !authLoading, // Only fetch for premium users
         staleTime: 5 * 60 * 1000, // 5 minutes
         retry: 1,
       },
     }
   );
+
+  // Don't render anything for non-premium users
+  if (!authLoading && !isPremium) {
+    return null;
+  }
 
   // Extract the actual data from the response
   const ragContext = data?.data;
