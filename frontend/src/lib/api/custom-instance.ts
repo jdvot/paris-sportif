@@ -65,7 +65,7 @@ export const customInstance = async <T>(
         ...(token && { Authorization: `Bearer ${token}` }),
         ...options?.headers,
       },
-      body: options?.data ? JSON.stringify(options.data) : undefined,
+      body: options?.data ? JSON.stringify(options.data) : options?.body,
     });
   } catch (error) {
     // Re-throw AbortError as-is (React Query uses this for cancellation)
