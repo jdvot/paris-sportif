@@ -451,6 +451,23 @@
     "header": {
       "live": "Live"
     },
+    "authGuard": {
+      "verifying": "Verification en cours...",
+      "redirecting": "Redirection..."
+    },
+    "oddsDisplay": {
+      "predictedProbability": "Probabilite Predite",
+      "fairOdds": "Cote Juste (Fair Odds)",
+      "fairOddsExplanation": "Cette cote reflete exactement votre probabilite",
+      "tip": "Conseil:",
+      "tipDescription": "Comparez avec les cotes des bookmakers. Si elles sont superieures, c'est une opportunite value."
+    },
+    "competitionFilter": {
+      "title": "Filtres par competition",
+      "competitionsSelected": "{count} competition selectionnee",
+      "competitionsSelectedPlural": "{count} competitions selectionnees",
+      "reset": "Reinitialiser"
+    },
     "teamStrength": {
       "title": "Indice de Force",
       "elite": "Elite",
@@ -532,6 +549,99 @@
     "accuracyOverTime": "Precision au fil du temps (30 derniers jours)",
     "predictionsByCompetition": "Predictions par competition",
     "correctLabel": "Correctes"
+  },
+  "streak": {
+    "title": "Hit & Win",
+    "streak": "Serie",
+    "best": "Meilleure",
+    "currentStreak": "Serie Actuelle",
+    "bestStreak": "Meilleure Serie",
+    "winRate": "Taux Reussite",
+    "wins": "Victoires",
+    "recentResults": "Derniers Resultats",
+    "emptyResults": "Aucun resultat enregistre. Commencez a suivre vos paris!",
+    "goals": "Objectifs",
+    "milestones": {
+      "legendary": "Legendaire",
+      "legend": "Legende",
+      "expert": "Expert",
+      "pro": "Pro",
+      "onFire": "En Feu"
+    }
+  },
+  "rag": {
+    "loadingContext": "Chargement du contexte...",
+    "notAvailable": "Contexte RAG non disponible",
+    "noRecentNews": "Aucune actualite recente",
+    "matchContext": "Contexte du match",
+    "aiAnalysis": "Analyse IA",
+    "neutral": "Neutre",
+    "derby": "Derby",
+    "importance": {
+      "high": "Important",
+      "critical": "Crucial"
+    },
+    "weather": {
+      "favorable": "Favorable",
+      "cold": "Froid",
+      "hot": "Chaud",
+      "strongWind": "Vent fort",
+      "likelyRain": "Pluie probable",
+      "normalConditions": "Conditions normales"
+    }
+  },
+  "odds": {
+    "title": "Analyse des Cotes",
+    "description": "Comparez les cotes avec nos probabilites predites et identifiez les paris value",
+    "tabs": {
+      "comparison": "Comparaison des Cotes",
+      "roi": "Calculatrice ROI",
+      "kelly": "Kelly Criterion"
+    },
+    "outcomes": {
+      "homeWin": "Victoire {team}",
+      "draw": "Match nul",
+      "awayWin": "Victoire {team}"
+    },
+    "labels": {
+      "ourProbability": "Notre Probabilite",
+      "fairOdds": "Cote Juste",
+      "bookmakerOdds": "Cote Bookmaker",
+      "value": "Valeur",
+      "hasValue": "VALUE",
+      "noValue": "NO VALUE"
+    },
+    "formulas": {
+      "fairOddsTitle": "Formule: Cote Juste = 1 / Probabilite",
+      "fairOddsDesc": "Represente la cote mathematiquement juste pour cette probabilite",
+      "valueTitle": "Valeur: (Cote × Probabilite) - 1",
+      "valueDesc": "Positive = pari avec esperance positive (value bet)"
+    },
+    "roi": {
+      "stakeAmount": "Montant de la mise",
+      "potentialProfit": "Profit Potentiel",
+      "breakdown": "Breakdown par resultat:",
+      "noOddsEntered": "Aucune cote entree",
+      "noOddsHint": "Entrez les cotes du bookmaker dans l'onglet Comparaison pour calculer le ROI"
+    },
+    "kelly": {
+      "bankrollTotal": "Bankroll Total",
+      "bankrollHint": "Votre fond total disponible pour les paris",
+      "formula": "Formule de Kelly",
+      "formulaDesc": "Kelly = (odds × prob - 1) / (odds - 1)",
+      "formulaExplanation": "Calcule le tamano optimal de mise pour maximiser la croissance du bankroll",
+      "recommendedBets": "Mises recommandees (Kelly):",
+      "optimalBet": "Mise optimale:",
+      "ofBankroll": "du bankroll",
+      "probability": "Probabilite",
+      "odds": "Cote",
+      "noOddsEntered": "Aucune cote entree",
+      "noOddsHint": "Entrez les cotes du bookmaker pour voir les mises recommandees",
+      "safetyNotes": "Notes de Securite:",
+      "safetyNote1": "Le Kelly est plafonne a 25% du bankroll pour limiter les risques",
+      "safetyNote2": "Pour les debutants, utilisez la moitie (Half-Kelly) pour plus de stabilite",
+      "safetyNote3": "Ne jamais utiliser plus de Kelly a cause des erreurs de probabilite"
+    }
   },
   "admin": {
     "title": "Administration",

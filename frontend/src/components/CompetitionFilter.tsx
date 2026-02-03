@@ -2,6 +2,7 @@
 
 import { X, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 interface Competition {
   id: string;
@@ -35,6 +36,8 @@ export function CompetitionFilter({
   isOpen,
   onToggleOpen,
 }: CompetitionFilterProps) {
+  const t = useTranslations("components.competitionFilter");
+
   return (
     <div className="space-y-3 sm:space-y-4">
       {/* Filter Button */}
@@ -49,7 +52,7 @@ export function CompetitionFilter({
         )}
       >
         <Filter className="w-4 h-4 flex-shrink-0" />
-        <span className="text-sm">Filtres par compétition</span>
+        <span className="text-sm">{t("title")}</span>
         {selected.length > 0 && (
           <span className="ml-auto sm:ml-2 px-2 py-0.5 text-xs font-bold bg-primary-500/40 rounded-full flex-shrink-0">
             {selected.length}
@@ -110,14 +113,16 @@ export function CompetitionFilter({
           {selected.length > 0 && (
             <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-dark-600/50">
               <span className="text-xs sm:text-sm text-gray-500 dark:text-dark-400">
-                {selected.length} compétition{selected.length > 1 ? "s" : ""} sélectionnée{selected.length > 1 ? "s" : ""}
+                {selected.length > 1
+                  ? t("competitionsSelectedPlural", { count: selected.length })
+                  : t("competitionsSelected", { count: selected.length })}
               </span>
               <button
                 onClick={onClear}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm text-primary-400 hover:text-primary-300 transition-colors hover:bg-primary-500/10 rounded-lg"
               >
                 <X className="w-3.5 h-3.5" />
-                <span>Réinitialiser</span>
+                <span>{t("reset")}</span>
               </button>
             </div>
           )}

@@ -2,6 +2,7 @@
 
 import { TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 interface OddsDisplayProps {
   probability: number;
@@ -29,6 +30,7 @@ export function OddsDisplay({
   label,
   compact = false,
 }: OddsDisplayProps) {
+  const t = useTranslations("components.oddsDisplay");
   const fairOdds = calculateFairOdds(probability);
 
   const colorMap = {
@@ -93,7 +95,7 @@ export function OddsDisplay({
 
       {/* Probability */}
       <div>
-        <p className="text-xs text-dark-400 mb-1">Probabilite Predite</p>
+        <p className="text-xs text-dark-400 mb-1">{t("predictedProbability")}</p>
         <div className="flex items-center justify-between">
           <p className={cn("text-2xl font-bold", colors.text)}>
             {Math.round(probability * 100)}%
@@ -118,20 +120,19 @@ export function OddsDisplay({
 
       {/* Fair Odds */}
       <div className="bg-dark-800/50 rounded p-3">
-        <p className="text-xs text-dark-400 mb-1">Cote Juste (Fair Odds)</p>
+        <p className="text-xs text-dark-400 mb-1">{t("fairOdds")}</p>
         <p className={cn("text-xl font-bold", colors.text)}>
           {fairOdds === Infinity ? "∞" : fairOdds.toFixed(2)}
         </p>
         <p className="text-xs text-dark-500 mt-1">
-          Cette cote reflete exactement votre probabilite
+          {t("fairOddsExplanation")}
         </p>
       </div>
 
       {/* Information */}
       <div className="bg-dark-900/30 rounded p-3">
         <p className="text-xs text-dark-400">
-          <span className="font-semibold text-dark-300">Conseil:</span> Comparez avec les cotes des bookmakers. Si elles sont superieures,
-          c'est une opportunite value.
+          <span className="font-semibold text-dark-300">{t("tip")}</span> {t("tipDescription")}
         </p>
       </div>
     </div>

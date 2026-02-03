@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useStreak } from "@/hooks/useStreak";
 import { useAchievements } from "@/hooks/useAchievements";
 import { Achievements } from "@/components/Achievements";
+import { useTranslations } from "next-intl";
 
 interface StreakTrackerProps {
   variant?: "compact" | "full";
@@ -13,6 +14,7 @@ interface StreakTrackerProps {
 }
 
 export function StreakTracker({ variant = "compact", className }: StreakTrackerProps) {
+  const t = useTranslations("streak");
   const { currentStreak, bestStreak, totalWins, totalLosses, winRate, history, isLoaded } = useStreak();
   const { checkStreakAchievements, isLoaded: achievementsLoaded } = useAchievements();
 
@@ -37,10 +39,10 @@ export function StreakTracker({ variant = "compact", className }: StreakTrackerP
 
   // Milestone badges
   const getMilestoneBadge = (streak: number) => {
-    if (streak >= 10) return { label: "Legendaire", color: "text-yellow-400", bg: "bg-yellow-500/20" };
-    if (streak >= 7) return { label: "Expert", color: "text-purple-400", bg: "bg-purple-500/20" };
-    if (streak >= 5) return { label: "Pro", color: "text-blue-400", bg: "bg-blue-500/20" };
-    if (streak >= 3) return { label: "En Feu", color: "text-orange-400", bg: "bg-orange-500/20" };
+    if (streak >= 10) return { label: t("milestones.legendary"), color: "text-yellow-400", bg: "bg-yellow-500/20" };
+    if (streak >= 7) return { label: t("milestones.expert"), color: "text-purple-400", bg: "bg-purple-500/20" };
+    if (streak >= 5) return { label: t("milestones.pro"), color: "text-blue-400", bg: "bg-blue-500/20" };
+    if (streak >= 3) return { label: t("milestones.onFire"), color: "text-orange-400", bg: "bg-orange-500/20" };
     return null;
   };
 
@@ -61,7 +63,7 @@ export function StreakTracker({ variant = "compact", className }: StreakTrackerP
             <Flame className="w-5 h-5 text-orange-500" />
           </div>
           <div>
-            <p className="text-xs text-gray-600 dark:text-dark-400">Serie</p>
+            <p className="text-xs text-gray-600 dark:text-dark-400">{t("streak")}</p>
             <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
               {currentStreak}
             </p>
@@ -79,7 +81,7 @@ export function StreakTracker({ variant = "compact", className }: StreakTrackerP
           </span>
         )}
         <div className="ml-auto text-right">
-          <p className="text-xs text-gray-500 dark:text-dark-400">Meilleure</p>
+          <p className="text-xs text-gray-500 dark:text-dark-400">{t("best")}</p>
           <p className="text-sm font-semibold text-gray-900 dark:text-white">{bestStreak}</p>
         </div>
       </div>
@@ -98,7 +100,7 @@ export function StreakTracker({ variant = "compact", className }: StreakTrackerP
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
           <Zap className="w-5 h-5 text-yellow-500" />
-          Hit & Win
+          {t("title")}
         </h3>
         {milestone && (
           <span
@@ -122,7 +124,7 @@ export function StreakTracker({ variant = "compact", className }: StreakTrackerP
           <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
             {currentStreak}
           </p>
-          <p className="text-xs text-gray-600 dark:text-dark-400">Serie Actuelle</p>
+          <p className="text-xs text-gray-600 dark:text-dark-400">{t("currentStreak")}</p>
         </div>
 
         {/* Best Streak */}
@@ -131,7 +133,7 @@ export function StreakTracker({ variant = "compact", className }: StreakTrackerP
           <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
             {bestStreak}
           </p>
-          <p className="text-xs text-gray-600 dark:text-dark-400">Meilleure Serie</p>
+          <p className="text-xs text-gray-600 dark:text-dark-400">{t("bestStreak")}</p>
         </div>
 
         {/* Win Rate */}
@@ -140,7 +142,7 @@ export function StreakTracker({ variant = "compact", className }: StreakTrackerP
           <p className="text-2xl font-bold text-green-600 dark:text-green-400">
             {winRate.toFixed(0)}%
           </p>
-          <p className="text-xs text-gray-600 dark:text-dark-400">Taux Reussite</p>
+          <p className="text-xs text-gray-600 dark:text-dark-400">{t("winRate")}</p>
         </div>
 
         {/* Total Wins */}
@@ -149,7 +151,7 @@ export function StreakTracker({ variant = "compact", className }: StreakTrackerP
           <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
             {totalWins}/{totalWins + totalLosses}
           </p>
-          <p className="text-xs text-gray-600 dark:text-dark-400">Victoires</p>
+          <p className="text-xs text-gray-600 dark:text-dark-400">{t("wins")}</p>
         </div>
       </div>
 
@@ -157,7 +159,7 @@ export function StreakTracker({ variant = "compact", className }: StreakTrackerP
       {history.length > 0 && (
         <div>
           <p className="text-sm font-medium text-gray-600 dark:text-dark-400 mb-2">
-            Derniers Resultats
+            {t("recentResults")}
           </p>
           <div className="flex gap-1 flex-wrap">
             {history.slice(0, 10).map((result, i) => (
@@ -182,20 +184,20 @@ export function StreakTracker({ variant = "compact", className }: StreakTrackerP
       {history.length === 0 && (
         <div className="text-center py-4">
           <p className="text-gray-500 dark:text-dark-400 text-sm">
-            Aucun resultat enregistre. Commencez a suivre vos paris!
+            {t("emptyResults")}
           </p>
         </div>
       )}
 
       {/* Streak Milestones */}
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-dark-700">
-        <p className="text-xs text-gray-500 dark:text-dark-400 mb-2">Objectifs</p>
+        <p className="text-xs text-gray-500 dark:text-dark-400 mb-2">{t("goals")}</p>
         <div className="flex gap-2 overflow-x-auto pb-1">
           {[
-            { target: 3, label: "En Feu", icon: "🔥" },
-            { target: 5, label: "Pro", icon: "⚡" },
-            { target: 7, label: "Expert", icon: "🎯" },
-            { target: 10, label: "Legende", icon: "👑" },
+            { target: 3, label: t("milestones.onFire"), icon: "🔥" },
+            { target: 5, label: t("milestones.pro"), icon: "⚡" },
+            { target: 7, label: t("milestones.expert"), icon: "🎯" },
+            { target: 10, label: t("milestones.legend"), icon: "👑" },
           ].map((goal) => (
             <div
               key={goal.target}

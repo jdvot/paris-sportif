@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { useTranslations } from "next-intl";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -24,6 +25,7 @@ function redirectToLogin() {
  * Note: The middleware already handles server-side auth checks, so this is a client-side backup.
  */
 export function AuthGuard({ children }: AuthGuardProps) {
+  const t = useTranslations("components.authGuard");
   const [authState, setAuthState] = useState<"loading" | "authenticated" | "redirecting">("loading");
 
   useEffect(() => {
@@ -99,7 +101,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary-500" />
           <p className="text-gray-600 dark:text-slate-400 text-sm">
-            {authState === "loading" ? "Verification en cours..." : "Redirection..."}
+            {authState === "loading" ? t("verifying") : t("redirecting")}
           </p>
         </div>
       </div>

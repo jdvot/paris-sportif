@@ -451,6 +451,23 @@
     "header": {
       "live": "Live"
     },
+    "authGuard": {
+      "verifying": "Verifying...",
+      "redirecting": "Redirecting..."
+    },
+    "oddsDisplay": {
+      "predictedProbability": "Predicted Probability",
+      "fairOdds": "Fair Odds",
+      "fairOddsExplanation": "This odds reflects your exact probability",
+      "tip": "Tip:",
+      "tipDescription": "Compare with bookmaker odds. If they are higher, it's a value opportunity."
+    },
+    "competitionFilter": {
+      "title": "Filter by competition",
+      "competitionsSelected": "{count} competition selected",
+      "competitionsSelectedPlural": "{count} competitions selected",
+      "reset": "Reset"
+    },
     "teamStrength": {
       "title": "Strength Index",
       "elite": "Elite",
@@ -532,6 +549,99 @@
     "accuracyOverTime": "Accuracy over time (last 30 days)",
     "predictionsByCompetition": "Predictions by competition",
     "correctLabel": "Correct"
+  },
+  "streak": {
+    "title": "Hit & Win",
+    "streak": "Streak",
+    "best": "Best",
+    "currentStreak": "Current Streak",
+    "bestStreak": "Best Streak",
+    "winRate": "Win Rate",
+    "wins": "Wins",
+    "recentResults": "Recent Results",
+    "emptyResults": "No results recorded. Start tracking your bets!",
+    "goals": "Goals",
+    "milestones": {
+      "legendary": "Legendary",
+      "legend": "Legend",
+      "expert": "Expert",
+      "pro": "Pro",
+      "onFire": "On Fire"
+    }
+  },
+  "rag": {
+    "loadingContext": "Loading context...",
+    "notAvailable": "RAG context not available",
+    "noRecentNews": "No recent news",
+    "matchContext": "Match Context",
+    "aiAnalysis": "AI Analysis",
+    "neutral": "Neutral",
+    "derby": "Derby",
+    "importance": {
+      "high": "Important",
+      "critical": "Critical"
+    },
+    "weather": {
+      "favorable": "Favorable",
+      "cold": "Cold",
+      "hot": "Hot",
+      "strongWind": "Strong wind",
+      "likelyRain": "Likely rain",
+      "normalConditions": "Normal conditions"
+    }
+  },
+  "odds": {
+    "title": "Odds Analysis",
+    "description": "Compare odds with our predicted probabilities and identify value bets",
+    "tabs": {
+      "comparison": "Odds Comparison",
+      "roi": "ROI Calculator",
+      "kelly": "Kelly Criterion"
+    },
+    "outcomes": {
+      "homeWin": "{team} Win",
+      "draw": "Draw",
+      "awayWin": "{team} Win"
+    },
+    "labels": {
+      "ourProbability": "Our Probability",
+      "fairOdds": "Fair Odds",
+      "bookmakerOdds": "Bookmaker Odds",
+      "value": "Value",
+      "hasValue": "VALUE",
+      "noValue": "NO VALUE"
+    },
+    "formulas": {
+      "fairOddsTitle": "Formula: Fair Odds = 1 / Probability",
+      "fairOddsDesc": "Represents the mathematically fair odds for this probability",
+      "valueTitle": "Value: (Odds × Probability) - 1",
+      "valueDesc": "Positive = positive expected value bet (value bet)"
+    },
+    "roi": {
+      "stakeAmount": "Stake Amount",
+      "potentialProfit": "Potential Profit",
+      "breakdown": "Breakdown by outcome:",
+      "noOddsEntered": "No odds entered",
+      "noOddsHint": "Enter bookmaker odds in the Comparison tab to calculate ROI"
+    },
+    "kelly": {
+      "bankrollTotal": "Total Bankroll",
+      "bankrollHint": "Your total available funds for betting",
+      "formula": "Kelly Formula",
+      "formulaDesc": "Kelly = (odds × prob - 1) / (odds - 1)",
+      "formulaExplanation": "Calculates optimal bet size to maximize bankroll growth",
+      "recommendedBets": "Recommended bets (Kelly):",
+      "optimalBet": "Optimal bet:",
+      "ofBankroll": "of bankroll",
+      "probability": "Probability",
+      "odds": "Odds",
+      "noOddsEntered": "No odds entered",
+      "noOddsHint": "Enter bookmaker odds to see recommended bets",
+      "safetyNotes": "Safety Notes:",
+      "safetyNote1": "Kelly is capped at 25% of bankroll to limit risk",
+      "safetyNote2": "For beginners, use half (Half-Kelly) for more stability",
+      "safetyNote3": "Never use more than Kelly due to probability estimation errors"
+    }
   },
   "admin": {
     "title": "Administration",

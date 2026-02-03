@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { TrendingUp, AlertTriangle, CheckCircle, BarChart3, DollarSign, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 interface OddsComparisonProps {
   homeProb: number;
@@ -61,6 +62,7 @@ export function OddsComparison({
   homeTeam,
   awayTeam,
 }: OddsComparisonProps) {
+  const t = useTranslations("odds");
   const [selectedBookmakerOdds, setSelectedBookmakerOdds] = useState<Record<string, number>>({
     home: 0,
     draw: 0,
@@ -74,21 +76,21 @@ export function OddsComparison({
   const oddsData: OddsData[] = [
     {
       outcome: "home",
-      label: `Victoire ${homeTeam}`,
+      label: t("outcomes.homeWin", { team: homeTeam }),
       probability: homeProb,
       fairOdds: calculateFairOdds(homeProb),
       bookmakerOdds: selectedBookmakerOdds.home || undefined,
     },
     {
       outcome: "draw",
-      label: "Match nul",
+      label: t("outcomes.draw"),
       probability: drawProb,
       fairOdds: calculateFairOdds(drawProb),
       bookmakerOdds: selectedBookmakerOdds.draw || undefined,
     },
     {
       outcome: "away",
-      label: `Victoire ${awayTeam}`,
+      label: t("outcomes.awayWin", { team: awayTeam }),
       probability: awayProb,
       fairOdds: calculateFairOdds(awayProb),
       bookmakerOdds: selectedBookmakerOdds.away || undefined,
@@ -127,10 +129,10 @@ export function OddsComparison({
       <div className="p-4 sm:p-6 border-b border-dark-700">
         <div className="flex items-center gap-2 mb-2">
           <TrendingUp className="w-5 h-5 text-primary-400" />
-          <h2 className="text-lg sm:text-2xl font-bold text-white">Analyse des Cotes</h2>
+          <h2 className="text-lg sm:text-2xl font-bold text-white">{t("title")}</h2>
         </div>
         <p className="text-sm text-dark-400">
-          Comparez les cotes avec nos probabilites predites et identifiez les paris value
+          {t("description")}
         </p>
       </div>
 
@@ -145,7 +147,7 @@ export function OddsComparison({
               : "text-dark-400 hover:text-dark-300"
           )}
         >
-          Comparaison des Cotes
+          {t("tabs.comparison")}
         </button>
         <button
           onClick={() => setActiveTab("roi")}
@@ -156,7 +158,7 @@ export function OddsComparison({
               : "text-dark-400 hover:text-dark-300"
           )}
         >
-          Calculatrice ROI
+          {t("tabs.roi")}
         </button>
         <button
           onClick={() => setActiveTab("kelly")}
@@ -167,7 +169,7 @@ export function OddsComparison({
               : "text-dark-400 hover:text-dark-300"
           )}
         >
-          Kelly Criterion
+          {t("tabs.kelly")}
         </button>
       </div>
 
@@ -177,6 +179,18 @@ export function OddsComparison({
           <OddsComparisonTab
             oddsData={oddsDataWithValues}
             onOddsChange={(outcome, value) => setSelectedBookmakerOdds(prev => ({ ...prev, [outcome]: value }))}
+            translations={{
+              ourProbability: t("labels.ourProbability"),
+              fairOdds: t("labels.fairOdds"),
+              bookmakerOdds: t("labels.bookmakerOdds"),
+              value: t("labels.value"),
+              hasValue: t("labels.hasValue"),
+              noValue: t("labels.noValue"),
+              fairOddsTitle: t("formulas.fairOddsTitle"),
+              fairOddsDesc: t("formulas.fairOddsDesc"),
+              valueTitle: t("formulas.valueTitle"),
+              valueDesc: t("formulas.valueDesc"),
+            }}
           />
         )}
         {activeTab === "roi" && (
@@ -186,6 +200,13 @@ export function OddsComparison({
             setStakeAmount={setStakeAmount}
             totalProfit={totalProfit}
             roi={roi}
+            translations={{
+              stakeAmount: t("roi.stakeAmount"),
+              potentialProfit: t("roi.potentialProfit"),
+              breakdown: t("roi.breakdown"),
+              noOddsEntered: t("roi.noOddsEntered"),
+              noOddsHint: t("roi.noOddsHint"),
+            }}
           />
         )}
         {activeTab === "kelly" && (
@@ -193,11 +214,43 @@ export function OddsComparison({
             kellyData={kellyData}
             bankroll={bankroll}
             setBankroll={setBankroll}
+            translations={{
+              bankrollTotal: t("kelly.bankrollTotal"),
+              bankrollHint: t("kelly.bankrollHint"),
+              formula: t("kelly.formula"),
+              formulaDesc: t("kelly.formulaDesc"),
+              formulaExplanation: t("kelly.formulaExplanation"),
+              recommendedBets: t("kelly.recommendedBets"),
+              optimalBet: t("kelly.optimalBet"),
+              ofBankroll: t("kelly.ofBankroll"),
+              probability: t("kelly.probability"),
+              odds: t("kelly.odds"),
+              value: t("labels.value"),
+              noOddsEntered: t("kelly.noOddsEntered"),
+              noOddsHint: t("kelly.noOddsHint"),
+              safetyNotes: t("kelly.safetyNotes"),
+              safetyNote1: t("kelly.safetyNote1"),
+              safetyNote2: t("kelly.safetyNote2"),
+              safetyNote3: t("kelly.safetyNote3"),
+            }}
           />
         )}
       </div>
     </div>
   );
+}
+
+interface ComparisonTranslations {
+  ourProbability: string;
+  fairOdds: string;
+  bookmakerOdds: string;
+  value: string;
+  hasValue: string;
+  noValue: string;
+  fairOddsTitle: string;
+  fairOddsDesc: string;
+  valueTitle: string;
+  valueDesc: string;
 }
 
 /**
@@ -206,9 +259,11 @@ export function OddsComparison({
 function OddsComparisonTab({
   oddsData,
   onOddsChange,
+  translations,
 }: {
   oddsData: OddsData[];
   onOddsChange: (outcome: string, value: number) => void;
+  translations: ComparisonTranslations;
 }) {
   return (
     <div className="space-y-4">
@@ -217,6 +272,7 @@ function OddsComparisonTab({
           key={data.outcome}
           data={data}
           onOddsChange={(value) => onOddsChange(data.outcome, value)}
+          translations={translations}
         />
       ))}
 
@@ -225,15 +281,15 @@ function OddsComparisonTab({
         <div className="flex items-start gap-2">
           <CheckCircle className="w-4 h-4 text-primary-400 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="text-primary-300 font-semibold">Formule: Cote Juste = 1 / Probabilite</p>
-            <p className="text-dark-400 text-xs">Representa la cote mathematiquement juste pour cette probabilite</p>
+            <p className="text-primary-300 font-semibold">{translations.fairOddsTitle}</p>
+            <p className="text-dark-400 text-xs">{translations.fairOddsDesc}</p>
           </div>
         </div>
         <div className="flex items-start gap-2">
           <CheckCircle className="w-4 h-4 text-accent-400 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="text-accent-300 font-semibold">Valeur: (Cote × Probabilite) - 1</p>
-            <p className="text-dark-400 text-xs">Positive = pari avec espérance positive (value bet)</p>
+            <p className="text-accent-300 font-semibold">{translations.valueTitle}</p>
+            <p className="text-dark-400 text-xs">{translations.valueDesc}</p>
           </div>
         </div>
       </div>
@@ -247,9 +303,11 @@ function OddsComparisonTab({
 function OddsComparisonCard({
   data,
   onOddsChange,
+  translations,
 }: {
   data: OddsData;
   onOddsChange: (value: number) => void;
+  translations: ComparisonTranslations;
 }) {
   const colorMap: Record<string, "primary" | "yellow" | "accent"> = {
     home: "primary",
@@ -290,7 +348,7 @@ function OddsComparisonCard({
           <p className={cn("text-lg font-bold", classes.text)}>
             {Math.round(data.probability * 100)}%
           </p>
-          <p className="text-xs text-dark-400">Notre Probabilite</p>
+          <p className="text-xs text-dark-400">{translations.ourProbability}</p>
         </div>
       </div>
 
@@ -308,7 +366,7 @@ function OddsComparisonCard({
       <div className="grid grid-cols-3 gap-3">
         {/* Fair Odds */}
         <div className="bg-dark-800 rounded p-3 text-center">
-          <p className="text-xs text-dark-400 mb-1">Cote Juste</p>
+          <p className="text-xs text-dark-400 mb-1">{translations.fairOdds}</p>
           <p className={cn("font-bold text-lg", classes.text)}>
             {data.fairOdds === Infinity ? "∞" : data.fairOdds.toFixed(2)}
           </p>
@@ -316,7 +374,7 @@ function OddsComparisonCard({
 
         {/* Bookmaker Odds Input */}
         <div className="bg-dark-800 rounded p-3">
-          <p className="text-xs text-dark-400 mb-1">Cote Bookmaker</p>
+          <p className="text-xs text-dark-400 mb-1">{translations.bookmakerOdds}</p>
           <input
             type="number"
             step="0.01"
@@ -340,7 +398,7 @@ function OddsComparisonCard({
               data.hasValue ? "bg-primary-500/20" : "bg-red-500/20"
             )}
           >
-            <p className="text-xs text-dark-400 mb-1">Valeur</p>
+            <p className="text-xs text-dark-400 mb-1">{translations.value}</p>
             <p
               className={cn(
                 "font-bold text-lg",
@@ -350,18 +408,26 @@ function OddsComparisonCard({
               {data.valuePercentage !== undefined ? `${data.valuePercentage > 0 ? "+" : ""}${data.valuePercentage.toFixed(1)}%` : "-"}
             </p>
             <p className={cn("text-xs font-semibold", data.hasValue ? "text-primary-300" : "text-red-300")}>
-              {data.hasValue ? "✓ VALUE" : "✗ NO VALUE"}
+              {data.hasValue ? `✓ ${translations.hasValue}` : `✗ ${translations.noValue}`}
             </p>
           </div>
         ) : (
           <div className="bg-dark-700/30 rounded p-3 text-center">
-            <p className="text-xs text-dark-400">Valeur</p>
+            <p className="text-xs text-dark-400">{translations.value}</p>
             <p className="text-dark-500 text-sm mt-2">-</p>
           </div>
         )}
       </div>
     </div>
   );
+}
+
+interface ROITranslations {
+  stakeAmount: string;
+  potentialProfit: string;
+  breakdown: string;
+  noOddsEntered: string;
+  noOddsHint: string;
 }
 
 /**
@@ -373,12 +439,14 @@ function ROITab({
   setStakeAmount,
   totalProfit,
   roi,
+  translations,
 }: {
   oddsData: OddsData[];
   stakeAmount: number;
   setStakeAmount: (value: number) => void;
   totalProfit: number;
   roi: number;
+  translations: ROITranslations;
 }) {
   const selectedOdds = oddsData.filter((o) => o.bookmakerOdds && o.bookmakerOdds > 0);
 
@@ -387,7 +455,7 @@ function ROITab({
       {/* Stake Input */}
       <div className="bg-dark-700/50 rounded-lg p-4">
         <label className="block text-sm font-semibold text-dark-300 mb-2">
-          Montant de la mise
+          {translations.stakeAmount}
         </label>
         <div className="relative">
           <DollarSign className="absolute left-3 top-3 w-5 h-5 text-dark-400" />
@@ -405,7 +473,7 @@ function ROITab({
       {/* ROI Summary */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-primary-500/10 border border-primary-500/30 rounded-lg p-4 text-center">
-          <p className="text-sm text-dark-300 mb-1">Profit Potentiel</p>
+          <p className="text-sm text-dark-300 mb-1">{translations.potentialProfit}</p>
           <p className={cn("text-2xl font-bold", totalProfit >= 0 ? "text-primary-400" : "text-red-400")}>
             {totalProfit >= 0 ? "+" : ""}{totalProfit.toFixed(2)} €
           </p>
@@ -422,7 +490,7 @@ function ROITab({
       {/* Breakdown */}
       {selectedOdds.length > 0 && (
         <div className="bg-dark-700/30 rounded-lg p-4 space-y-3">
-          <h4 className="font-semibold text-white text-sm">Breakdown par resultat:</h4>
+          <h4 className="font-semibold text-white text-sm">{translations.breakdown}</h4>
           {selectedOdds.map((odd) => {
             const profit = stakeAmount * (odd.bookmakerOdds! - 1) * odd.probability;
             const oddsRoi = (profit / stakeAmount) * 100;
@@ -448,9 +516,9 @@ function ROITab({
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-yellow-300">Aucune cote entree</p>
+              <p className="text-sm font-semibold text-yellow-300">{translations.noOddsEntered}</p>
               <p className="text-xs text-yellow-200 mt-1">
-                Entrez les cotes du bookmaker dans l'onglet Comparaison pour calculer le ROI
+                {translations.noOddsHint}
               </p>
             </div>
           </div>
@@ -460,6 +528,26 @@ function ROITab({
   );
 }
 
+interface KellyTranslations {
+  bankrollTotal: string;
+  bankrollHint: string;
+  formula: string;
+  formulaDesc: string;
+  formulaExplanation: string;
+  recommendedBets: string;
+  optimalBet: string;
+  ofBankroll: string;
+  probability: string;
+  odds: string;
+  value: string;
+  noOddsEntered: string;
+  noOddsHint: string;
+  safetyNotes: string;
+  safetyNote1: string;
+  safetyNote2: string;
+  safetyNote3: string;
+}
+
 /**
  * Kelly Criterion Calculator Tab
  */
@@ -467,10 +555,12 @@ function KellyTab({
   kellyData,
   bankroll,
   setBankroll,
+  translations,
 }: {
   kellyData: (OddsData & { kellySize: number })[];
   bankroll: number;
   setBankroll: (value: number) => void;
+  translations: KellyTranslations;
 }) {
   const selectedKelly = kellyData.filter((k) => k.bookmakerOdds && k.bookmakerOdds > 0);
 
@@ -479,7 +569,7 @@ function KellyTab({
       {/* Bankroll Input */}
       <div className="bg-dark-700/50 rounded-lg p-4">
         <label className="block text-sm font-semibold text-dark-300 mb-2">
-          Bankroll Total
+          {translations.bankrollTotal}
         </label>
         <div className="relative">
           <DollarSign className="absolute left-3 top-3 w-5 h-5 text-dark-400" />
@@ -493,7 +583,7 @@ function KellyTab({
           />
         </div>
         <p className="text-xs text-dark-400 mt-2">
-          Votre fond total disponible pour les paris
+          {translations.bankrollHint}
         </p>
       </div>
 
@@ -502,12 +592,12 @@ function KellyTab({
         <div className="flex items-start gap-2">
           <Zap className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-primary-300 mb-1">Formule de Kelly</p>
+            <p className="font-semibold text-primary-300 mb-1">{translations.formula}</p>
             <p className="text-sm text-primary-200">
-              Kelly = (odds × prob - 1) / (odds - 1)
+              {translations.formulaDesc}
             </p>
             <p className="text-xs text-primary-300 mt-2">
-              Calcula el tamano optimo de apuesta para maximizar le croissance du bankroll
+              {translations.formulaExplanation}
             </p>
           </div>
         </div>
@@ -516,7 +606,7 @@ function KellyTab({
       {/* Kelly Bets */}
       {selectedKelly.length > 0 ? (
         <div className="space-y-3">
-          <h4 className="font-semibold text-white">Mises recommandees (Kelly):</h4>
+          <h4 className="font-semibold text-white">{translations.recommendedBets}</h4>
           {selectedKelly.map((kelly) => {
             const betSize = kelly.kellySize * bankroll;
             const colorMap = {
@@ -534,14 +624,14 @@ function KellyTab({
                 <div className="flex items-center justify-between mb-2">
                   <p className="font-semibold text-white">{kelly.label}</p>
                   <p className={cn("text-sm font-bold", textColor)}>
-                    {(kelly.kellySize * 100).toFixed(1)}% du bankroll
+                    {(kelly.kellySize * 100).toFixed(1)}% {translations.ofBankroll}
                   </p>
                 </div>
 
                 {/* Bet Size and Visualization */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-dark-300">Mise optimale:</p>
+                    <p className="text-sm text-dark-300">{translations.optimalBet}</p>
                     <p className={cn("font-bold text-lg", textColor)}>
                       {betSize.toFixed(2)} €
                     </p>
@@ -562,15 +652,15 @@ function KellyTab({
                   {/* Stats */}
                   <div className="grid grid-cols-3 gap-2 text-xs mt-2">
                     <div>
-                      <p className="text-dark-400">Probabilite</p>
+                      <p className="text-dark-400">{translations.probability}</p>
                       <p className="font-semibold text-white">{Math.round(kelly.probability * 100)}%</p>
                     </div>
                     <div>
-                      <p className="text-dark-400">Cote</p>
+                      <p className="text-dark-400">{translations.odds}</p>
                       <p className="font-semibold text-white">{kelly.bookmakerOdds?.toFixed(2)}</p>
                     </div>
                     <div>
-                      <p className="text-dark-400">Valeur</p>
+                      <p className="text-dark-400">{translations.value}</p>
                       <p className="font-semibold text-white">
                         {kelly.valuePercentage ? `+${kelly.valuePercentage.toFixed(1)}%` : "-"}
                       </p>
@@ -586,9 +676,9 @@ function KellyTab({
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-yellow-300">Aucune cote entree</p>
+              <p className="text-sm font-semibold text-yellow-300">{translations.noOddsEntered}</p>
               <p className="text-xs text-yellow-200 mt-1">
-                Entrez les cotes du bookmaker pour voir les mises recommandees
+                {translations.noOddsHint}
               </p>
             </div>
           </div>
@@ -597,11 +687,11 @@ function KellyTab({
 
       {/* Kelly Safety Notes */}
       <div className="bg-dark-700/30 rounded-lg p-4 space-y-2 text-xs text-dark-400">
-        <p className="font-semibold text-dark-300">Notes de Securite:</p>
+        <p className="font-semibold text-dark-300">{translations.safetyNotes}</p>
         <ul className="space-y-1 list-disc list-inside">
-          <li>Le Kelly est plafonne a 25% du bankroll pour limiter les risques</li>
-          <li>Pour les debutants, utilisez la moitie (Half-Kelly) pour plus de stabilite</li>
-          <li>Ne jamais utiliser plus de Kelly a cause des erreurs de probabilite</li>
+          <li>{translations.safetyNote1}</li>
+          <li>{translations.safetyNote2}</li>
+          <li>{translations.safetyNote3}</li>
         </ul>
       </div>
     </div>
