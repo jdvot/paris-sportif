@@ -445,11 +445,76 @@ export async function fetchHeadToHead(
   return transformHeadToHead(rawH2H);
 }
 
+// API response type for prediction stats (snake_case from backend)
+interface ApiPredictionStats {
+  total_predictions: number;
+  correct_predictions: number;
+  accuracy: number;
+  roi_simulated: number;
+  by_competition: Record<string, {
+    total?: number;
+    predictions?: number;
+    correct: number;
+    accuracy: number;
+  }>;
+  by_bet_type: Record<string, {
+    total?: number;
+    predictions?: number;
+    correct: number;
+    accuracy: number;
+    avg_value?: number;
+  }>;
+  last_updated?: string;
+}
+
+/**
+ * Transform API prediction stats response (snake_case) to frontend format (camelCase)
+ */
+function transformPredictionStats(apiStats: ApiPredictionStats): PredictionStats {
+  // Transform by_competition entries
+  const byCompetition: PredictionStats['byCompetition'] = {};
+  if (apiStats.by_competition) {
+    for (const [code, data] of Object.entries(apiStats.by_competition)) {
+      byCompetition[code] = {
+        total: data.total,
+        predictions: data.predictions,
+        correct: data.correct,
+        accuracy: data.accuracy,
+      };
+    }
+  }
+
+  // Transform by_bet_type entries
+  const byBetType: PredictionStats['byBetType'] = {};
+  if (apiStats.by_bet_type) {
+    for (const [type, data] of Object.entries(apiStats.by_bet_type)) {
+      byBetType[type] = {
+        total: data.total,
+        predictions: data.predictions,
+        correct: data.correct,
+        accuracy: data.accuracy,
+        avgValue: data.avg_value,
+      };
+    }
+  }
+
+  return {
+    totalPredictions: apiStats.total_predictions ?? 0,
+    correctPredictions: apiStats.correct_predictions ?? 0,
+    accuracy: apiStats.accuracy ?? 0,
+    roiSimulated: apiStats.roi_simulated ?? 0,
+    byCompetition,
+    byBetType,
+    lastUpdated: apiStats.last_updated,
+  };
+}
+
 /**
  * Fetch prediction statistics
  */
 export async function fetchPredictionStats(days: number = 30): Promise<PredictionStats> {
-  return fetchApi(`/api/v1/predictions/stats?days=${days}`);
+  const rawStats = await fetchApi<ApiPredictionStats>(`/api/v1/predictions/stats?days=${days}`);
+  return transformPredictionStats(rawStats);
 }
 
 /**
