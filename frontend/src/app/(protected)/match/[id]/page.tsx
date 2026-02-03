@@ -35,6 +35,9 @@ import {
   Medal,
   ArrowUpDown,
   Shield,
+  ChevronDown,
+  Flame,
+  Goal,
 } from "lucide-react";
 import { cn, isAuthError } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -754,7 +757,7 @@ function TeamFormCard({ form, isHome }: { form: TeamFormResponse; isHome: boolea
 }
 
 /* ============================================
-   COMPONENT: Head to Head Section
+   COMPONENT: Head to Head Section (Enhanced)
    ============================================ */
 function HeadToHeadSection({
   headToHead,
@@ -765,55 +768,210 @@ function HeadToHeadSection({
   homeTeam: string;
   awayTeam: string;
 }) {
+  const [showDetails, setShowDetails] = useState(false);
+
+  // Calculate additional stats from matches
+  const matches = headToHead.matches || [];
+  const totalGoalsHome = matches.reduce((sum, m) => {
+    // Count goals when homeTeam was playing (either as home or away)
+    if (m.home_team === homeTeam) return sum + m.home_score;
+    if (m.away_team === homeTeam) return sum + m.away_score;
+    return sum;
+  }, 0);
+  const totalGoalsAway = matches.reduce((sum, m) => {
+    if (m.home_team === awayTeam) return sum + m.home_score;
+    if (m.away_team === awayTeam) return sum + m.away_score;
+    return sum;
+  }, 0);
+
+  // Calculate winning streak
+  const calculateStreak = () => {
+    if (matches.length === 0) return null;
+    let streakTeam: string | null = null;
+    let streakCount = 0;
+
+    for (const match of matches) {
+      let winner: string | null = null;
+      if (match.home_score > match.away_score) {
+        winner = match.home_team;
+      } else if (match.away_score > match.home_score) {
+        winner = match.away_team;
+      }
+
+      if (streakTeam === null && winner) {
+        streakTeam = winner;
+        streakCount = 1;
+      } else if (winner === streakTeam) {
+        streakCount++;
+      } else {
+        break;
+      }
+    }
+
+    if (streakCount >= 2 && streakTeam) {
+      return { team: streakTeam, count: streakCount };
+    }
+    return null;
+  };
+
+  const streak = calculateStreak();
+  const lastMatch = matches[0];
+  const avgGoals = headToHead.avg_goals ?? 0;
+
+  // Format last match result
+  const formatLastMatchResult = () => {
+    if (!lastMatch) return null;
+    try {
+      const date = format(parseISO(lastMatch.date), "dd MMM yyyy", { locale: fr });
+      return { date, score: `${lastMatch.home_score} - ${lastMatch.away_score}`, teams: `${lastMatch.home_team} vs ${lastMatch.away_team}` };
+    } catch {
+      return null;
+    }
+  };
+  const lastMatchInfo = formatLastMatchResult();
+
   return (
-    <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-6 space-y-6 sticky top-8">
-      <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-        <Users className="w-5 h-5 text-accent-400" />
+    <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6 sticky top-8">
+      <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+        <Users className="w-5 h-5 text-accent-400 flex-shrink-0" />
         Head-to-Head
+        {headToHead.total_matches > 0 && (
+          <span className="text-xs text-gray-500 dark:text-slate-400 font-normal ml-auto">
+            {headToHead.total_matches} matchs
+          </span>
+        )}
       </h3>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between p-3 bg-primary-100 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/20 rounded-lg">
-          <span className="text-primary-700 dark:text-primary-300 font-semibold">Victoires {homeTeam}</span>
-          <span className="text-2xl font-bold text-primary-600 dark:text-primary-400">{headToHead.home_wins ?? 0}</span>
+      {/* Win/Draw/Lose Stats */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between p-2.5 sm:p-3 bg-primary-100 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/20 rounded-lg">
+          <span className="text-primary-700 dark:text-primary-300 font-semibold text-sm">Victoires {homeTeam}</span>
+          <span className="text-xl sm:text-2xl font-bold text-primary-600 dark:text-primary-400">{headToHead.home_wins ?? 0}</span>
         </div>
-        <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-500/10 border border-gray-200 dark:border-gray-500/20 rounded-lg">
-          <span className="text-gray-700 dark:text-gray-300 font-semibold">Matchs nuls</span>
-          <span className="text-2xl font-bold text-gray-600 dark:text-gray-400">{headToHead.draws ?? 0}</span>
+        <div className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-100 dark:bg-gray-500/10 border border-gray-200 dark:border-gray-500/20 rounded-lg">
+          <span className="text-gray-700 dark:text-gray-300 font-semibold text-sm">Matchs nuls</span>
+          <span className="text-xl sm:text-2xl font-bold text-gray-600 dark:text-gray-400">{headToHead.draws ?? 0}</span>
         </div>
-        <div className="flex items-center justify-between p-3 bg-accent-100 dark:bg-accent-500/10 border border-accent-200 dark:border-accent-500/20 rounded-lg">
-          <span className="text-accent-700 dark:text-accent-300 font-semibold">Victoires {awayTeam}</span>
-          <span className="text-2xl font-bold text-accent-600 dark:text-accent-400">{headToHead.away_wins ?? 0}</span>
+        <div className="flex items-center justify-between p-2.5 sm:p-3 bg-accent-100 dark:bg-accent-500/10 border border-accent-200 dark:border-accent-500/20 rounded-lg">
+          <span className="text-accent-700 dark:text-accent-300 font-semibold text-sm">Victoires {awayTeam}</span>
+          <span className="text-xl sm:text-2xl font-bold text-accent-600 dark:text-accent-400">{headToHead.away_wins ?? 0}</span>
         </div>
       </div>
 
-      {headToHead.matches && headToHead.matches.length > 0 && (
-        <div className="space-y-2 border-t border-gray-200 dark:border-slate-700 pt-4">
-          <h4 className="text-sm font-semibold text-gray-600 dark:text-slate-300">Derniers Matchs</h4>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {headToHead.matches.map((match) => {
-              const matchHomeTeam = getTeamName(match.home_team);
-              const matchAwayTeam = getTeamName(match.away_team);
+      {/* Quick Stats Row */}
+      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 dark:border-slate-700">
+        <div className="text-center p-2 bg-gray-50 dark:bg-slate-700/30 rounded-lg">
+          <div className="flex items-center justify-center gap-1 text-gray-500 dark:text-slate-400">
+            <Goal className="w-3.5 h-3.5" />
+            <span className="text-xs">Moy. buts/match</span>
+          </div>
+          <p className="text-lg font-bold text-gray-900 dark:text-white">{avgGoals.toFixed(1)}</p>
+        </div>
+        <div className="text-center p-2 bg-gray-50 dark:bg-slate-700/30 rounded-lg">
+          <div className="flex items-center justify-center gap-1 text-gray-500 dark:text-slate-400">
+            <Goal className="w-3.5 h-3.5" />
+            <span className="text-xs">Buts totaux</span>
+          </div>
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-sm font-bold text-primary-500">{totalGoalsHome}</span>
+            <span className="text-gray-400">-</span>
+            <span className="text-sm font-bold text-accent-500">{totalGoalsAway}</span>
+          </div>
+        </div>
+      </div>
 
-              const scoreDisplay = `${match.home_score} - ${match.away_score}`;
-              let dateDisplay = "";
-              if (match.date) {
+      {/* Winning Streak */}
+      {streak && (
+        <div className="flex items-center gap-2 p-2.5 bg-gradient-to-r from-orange-100 to-yellow-100 dark:from-orange-500/20 dark:to-yellow-500/20 rounded-lg border border-orange-200 dark:border-orange-500/30">
+          <Flame className="w-4 h-4 text-orange-500" />
+          <span className="text-sm text-orange-700 dark:text-orange-300">
+            <span className="font-bold">{streak.team}</span>: {streak.count} victoires consecutives
+          </span>
+        </div>
+      )}
+
+      {/* Last Confrontation */}
+      {lastMatchInfo && (
+        <div className="p-3 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-700/50 dark:to-slate-800/50 rounded-lg border border-gray-200 dark:border-slate-600">
+          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Derniere confrontation</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">{lastMatchInfo.teams}</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-white">{lastMatchInfo.score}</p>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">{lastMatchInfo.date}</p>
+        </div>
+      )}
+
+      {/* Collapsible Match History */}
+      {matches.length > 0 && (
+        <div className="border-t border-gray-200 dark:border-slate-700 pt-3">
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className="flex items-center justify-between w-full text-sm font-semibold text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+          >
+            <span>Historique ({matches.length} matchs)</span>
+            <ChevronDown
+              className={cn(
+                "w-4 h-4 transition-transform",
+                showDetails && "rotate-180"
+              )}
+            />
+          </button>
+
+          {showDetails && (
+            <div className="space-y-2 mt-3 max-h-64 overflow-y-auto">
+              {matches.map((match, index) => {
+                const matchHomeTeam = match.home_team;
+                const matchAwayTeam = match.away_team;
+                const homeWon = match.home_score > match.away_score;
+                const awayWon = match.away_score > match.home_score;
+
+                let dateDisplay = "";
                 try {
                   dateDisplay = format(parseISO(match.date), "dd MMM yyyy", { locale: fr });
                 } catch {
                   dateDisplay = "Date invalide";
                 }
-              }
 
-              return (
-                <div key={`h2h-${matchHomeTeam}-${matchAwayTeam}-${match.date}`} className="p-2 bg-gray-200 dark:bg-slate-700/50 rounded text-xs space-y-1">
-                  <p className="font-semibold text-gray-800 dark:text-slate-100">{matchHomeTeam} vs {matchAwayTeam}</p>
-                  <p className="text-gray-700 dark:text-slate-400">{scoreDisplay}</p>
-                  <p className="text-gray-600 dark:text-slate-500 text-xs">{dateDisplay}</p>
-                </div>
-              );
-            })}
-          </div>
+                // Determine which team in this H2H context won
+                const winnerIsHome = (homeWon && matchHomeTeam === homeTeam) || (awayWon && matchAwayTeam === homeTeam);
+                const winnerIsAway = (homeWon && matchHomeTeam === awayTeam) || (awayWon && matchAwayTeam === awayTeam);
+                const isDraw = match.home_score === match.away_score;
+
+                const borderColor = winnerIsHome
+                  ? "border-l-primary-500"
+                  : winnerIsAway
+                    ? "border-l-accent-500"
+                    : "border-l-gray-400";
+
+                return (
+                  <div
+                    key={`h2h-${index}-${match.date}`}
+                    className={cn(
+                      "p-2.5 bg-gray-100 dark:bg-slate-700/50 rounded-lg text-xs border-l-2",
+                      borderColor
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-semibold text-gray-800 dark:text-slate-100">
+                        {matchHomeTeam} vs {matchAwayTeam}
+                      </p>
+                      <p className={cn(
+                        "font-bold",
+                        isDraw ? "text-gray-500" : winnerIsHome ? "text-primary-500" : "text-accent-500"
+                      )}>
+                        {match.home_score} - {match.away_score}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between text-gray-500 dark:text-slate-400">
+                      <span>{dateDisplay}</span>
+                      <span className="text-[10px] truncate max-w-[100px]">{match.competition}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
