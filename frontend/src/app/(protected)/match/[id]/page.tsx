@@ -104,13 +104,14 @@ export default function MatchDetailPage() {
   // Fetch full enrichment data (odds, xG, standings)
   const homeTeamName = getTeamName(match?.home_team || "");
   const awayTeamName = getTeamName(match?.away_team || "");
-  const competition = typeof match?.competition === 'string' ? match.competition : '';
+  // Use competition_code (e.g., "SA") not competition name (e.g., "Serie A")
+  const competitionCode = typeof match?.competition_code === 'string' ? match.competition_code : 'PL';
 
   const { data: enrichmentResponse } = useGetFullEnrichmentApiV1EnrichmentFullGet(
     {
       home_team: homeTeamName,
       away_team: awayTeamName,
-      competition: competition || "PL",
+      competition: competitionCode,
     },
     { query: { enabled: !!homeTeamName && !!awayTeamName } }
   );

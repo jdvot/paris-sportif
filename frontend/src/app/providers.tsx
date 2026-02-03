@@ -6,8 +6,17 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { createClient } from "@/lib/supabase/client";
 import { setAuthToken, clearAuthToken } from "@/lib/auth/token-store";
 
-// Flag to prevent multiple redirects (reset on page load)
+// Flag to prevent multiple redirects
 let isRedirecting = false;
+
+// Check if we recently redirected (persists across page loads)
+function wasRecentlyRedirected(): boolean {
+  if (typeof window === 'undefined') return false;
+  const redirectTime = sessionStorage.getItem('auth_redirect_time');
+  if (!redirectTime) return false;
+  // Consider redirects within last 5 seconds as "recent"
+  return Date.now() - parseInt(redirectTime, 10) < 5000;
+}
 
 function handleAuthError(status: number) {
   // Prevent multiple redirects
@@ -21,9 +30,19 @@ function handleAuthError(status: number) {
     return;
   }
 
+  // Don't redirect if we just redirected (prevent race condition loops)
+  if (wasRecentlyRedirected()) {
+    console.log('[Auth] Recently redirected, skipping to prevent loop');
+    return;
+  }
+
   if (status === 401) {
     console.log('[Auth] 401 detected, forcing redirect to login...');
     isRedirecting = true;
+
+    // Mark that we're redirecting (persists across the navigation)
+    sessionStorage.setItem('auth_redirect_time', Date.now().toString());
+
     const loginUrl = `/auth/login?next=${encodeURIComponent(currentPath)}`;
 
     // Sign out in background, redirect immediately
@@ -132,15 +151,30 @@ export function Providers({ children }: { children: React.ReactNode }) {
             const expiresIn = session.expires_in;
             setAuthToken(session.access_token, expiresIn);
             console.log('[Providers] Token set, expires in:', expiresIn, 'seconds');
+
+            // Clear redirect marker - we're authenticated now
+            if (typeof window !== 'undefined') {
+              sessionStorage.removeItem('auth_redirect_time');
+            }
           }
         } else {
           // No valid user - clear any stale token
           clearAuthToken();
         }
       } catch (err) {
-        // Timeout or other error - log and continue without auth
-        console.error('[Providers] Auth init error:', err);
-        clearAuthToken();
+        // Handle different error types
+        const error = err as { name?: string; message?: string };
+
+        // AbortError = request cancelled (navigation, component unmount)
+        // Don't clear token - user may still be valid
+        if (error?.name === 'AbortError') {
+          console.log('[Providers] Auth init aborted (navigation), keeping existing token');
+          // Don't clear token on AbortError - just continue
+        } else {
+          // Timeout or other error - log and continue without auth
+          console.error('[Providers] Auth init error:', err);
+          clearAuthToken();
+        }
       } finally {
         // Always mark as ready, even on error
         setIsReady(true);
