@@ -1,80 +1,144 @@
-# CLAUDE.md - Paris Sportif App
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-Application de paris sportifs sur le football europeen. Predictions basees sur modeles statistiques (Poisson, ELO, xG) + ML (XGBoost) + LLM (Claude) pour l'analyse qualitative.
+
+Application de paris sportifs sur le football europeen. Predictions basees sur modeles statistiques (Poisson, ELO, xG) + ML (XGBoost) + LLM (Groq/Claude) pour l'analyse qualitative.
 
 ## Tech Stack
-- **Backend**: Python 3.11+ / FastAPI / SQLAlchemy / Pydantic
-- **Frontend**: Next.js 15 / TypeScript / Tailwind CSS / shadcn/ui
+
+- **Backend**: Python 3.11+ / FastAPI / SQLAlchemy / Pydantic / uv
+- **Frontend**: Next.js 15 / TypeScript / Tailwind CSS / shadcn/ui / React Query
 - **Database**: PostgreSQL + Redis (cache)
 - **ML**: scikit-learn, XGBoost, NumPy, SciPy
-- **LLM**: Claude API (Anthropic)
-- **Vector DB**: Qdrant (RAG)
-
-## Project Structure
-```
-/paris-sportif
-├── backend/src/
-│   ├── api/           # FastAPI routes
-│   ├── prediction_engine/  # ML models (Poisson, ELO, XGBoost)
-│   ├── llm/           # Claude integration
-│   ├── data/          # Data sources (football-data.org)
-│   └── db/            # SQLAlchemy models
-├── frontend/src/
-│   ├── app/           # Next.js App Router
-│   ├── components/    # React components
-│   └── lib/           # Utils, API client
-└── docs/              # Documentation
-```
+- **LLM**: Groq (Llama 3.3 70B) for production, Claude API for dev
+- **Auth**: Supabase (JWT)
+- **API Client**: Orval (generates React Query hooks from OpenAPI)
 
 ## Key Commands
+
 ```bash
 # Backend
-cd backend && uv run uvicorn src.api.main:app --reload
-cd backend && uv run pytest
+cd backend && uv run uvicorn src.api.main:app --reload  # Dev server (port 8000)
+cd backend && uv run pytest                              # Run all tests
+cd backend && uv run pytest tests/test_file.py -k "test_name"  # Single test
+cd backend && uv run alembic upgrade head               # Run migrations
+cd backend && uv run black src/ && uv run isort src/   # Format code
 
 # Frontend
-cd frontend && npm run dev
-cd frontend && npm run build
+cd frontend && npm run dev        # Dev server (port 3000)
+cd frontend && npm run build      # Production build
+cd frontend && npm run lint       # ESLint
+cd frontend && npm run type-check # TypeScript check
+cd frontend && npm run generate:api  # Regenerate API hooks from OpenAPI
 
 # Docker
-docker-compose up -d  # Start all services
+docker-compose up -d  # Start PostgreSQL + Redis
 ```
 
-## API Endpoints
-- `GET /api/v1/matches` - Liste des matchs
-- `GET /api/v1/predictions/daily` - 5 picks du jour
-- `GET /api/v1/predictions/{match_id}` - Prediction detaillee
+## Architecture
+
+### Backend Structure
+
+```
+backend/src/
+├── api/routes/          # FastAPI endpoints (matches, predictions, users, admin)
+├── prediction_engine/   # Core ML models
+│   ├── models/          # Poisson, ELO, XGBoost, RandomForest
+│   ├── ensemble.py      # Combines models with weighted average
+│   └── rag_enrichment.py # News/injury context via RAG
+├── llm/                 # LLM integration
+│   ├── client.py        # Groq/Anthropic client
+│   ├── adjustments.py   # Parse LLM output to probability adjustments
+│   └── prompts.py       # System prompts for analysis
+├── data/                # Data fetching (football-data.org, Understat)
+├── auth/                # Supabase JWT validation
+└── db/                  # SQLAlchemy models
+```
+
+### Frontend Structure
+
+```
+frontend/src/
+├── app/                 # Next.js App Router pages
+│   ├── (protected)/     # Auth-required routes (picks, match/[id], profile)
+│   └── auth/            # Login, signup, password reset
+├── components/          # React components (PredictionCard, StatsOverview, etc.)
+├── lib/
+│   ├── api/             # Orval-generated hooks and types
+│   │   ├── endpoints/   # React Query hooks by tag
+│   │   ├── models/      # TypeScript types from OpenAPI
+│   │   └── custom-instance.ts  # Fetch wrapper with auth
+│   ├── constants.ts     # Confidence/value thresholds and tier configs
+│   └── supabase/        # Supabase client setup
+├── hooks/               # Custom React hooks
+└── middleware.ts        # Auth redirect logic
+```
+
+### Prediction Models
+
+The ensemble predictor combines 4 models with weighted average:
+
+| Model | Weight | Description |
+|-------|--------|-------------|
+| Poisson | 25% | Goal distribution (lambda = attack × defense) |
+| ELO | 15% | Team strength rating (K=20, home advantage +100) |
+| xG | 25% | Expected Goals based predictions |
+| XGBoost | 35% | Gradient boosting classifier |
+
+LLM adjustments are applied via log-odds transformation, bounded to ±0.5 max.
+
+### API Client Generation
+
+Frontend uses **Orval** to generate React Query hooks from the backend OpenAPI spec:
+
+1. Backend exposes `/openapi.json`
+2. Run `npm run generate:api` to regenerate `src/lib/api/`
+3. Generated hooks use `customInstance` for auth and error handling
+
+## Key Files
+
+- `backend/src/prediction_engine/ensemble.py` - Model combination logic
+- `frontend/src/lib/constants.ts` - Confidence/value thresholds and colors
+- `frontend/src/lib/api/custom-instance.ts` - API fetch wrapper with Supabase auth
+- `frontend/orval.config.ts` - API generation config
 
 ## Environment Variables
-```
+
+```bash
 # Backend (.env)
 DATABASE_URL=postgresql://user:pass@localhost:5432/paris_sportif
 REDIS_URL=redis://localhost:6379
 FOOTBALL_DATA_API_KEY=your_key
-ANTHROPIC_API_KEY=your_key
+GROQ_API_KEY=your_key  # Primary LLM
+SUPABASE_JWT_SECRET=your_jwt_secret
 
 # Frontend (.env.local)
 NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_SUPABASE_URL=your_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
 ```
 
-## Prediction Models
-1. **Poisson (25%)** - Distribution des buts
-2. **XGBoost (35%)** - Classification match outcome
-3. **xG Model (25%)** - Expected Goals based
-4. **ELO (15%)** - Team strength rating
-
-## LLM Usage
-- Analyse news/blessures (Claude Haiku)
-- Generation explications (Claude Sonnet)
-- Ajustements bornes a +/-0.5 max
-
 ## Code Style
-- Python: Black, isort, mypy
+
+- Python: Black (line-length=100), isort, mypy strict
 - TypeScript: ESLint, Prettier
 - Commits: Conventional commits (feat:, fix:, docs:)
+- Dark mode: Use `dark:` Tailwind classes with `slate-*` colors for consistency
 
-## Data Sources
-- football-data.org (principal, gratuit)
-- Understat (xG scraping)
-- News RSS (Sky Sports, BBC, L'Equipe)
+## Data Flow
+
+1. **football-data.org** → Backend fetches matches/stats
+2. **Prediction Engine** → Ensemble model generates probabilities
+3. **LLM (Groq)** → Analyzes news/injuries, adjusts probabilities ±0.5 max
+4. **Daily Picks** → Top 5 matches by `value_score × confidence`
+5. **Frontend** → React Query hooks fetch and cache data
+
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md) | Git flow, branches, worktrees multi-agents |
+| [docs/ORVAL_API.md](docs/ORVAL_API.md) | Génération API client React Query |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Déploiement Vercel + Render |
