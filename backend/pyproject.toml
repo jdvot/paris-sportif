@@ -47,6 +47,7 @@ dependencies = [
     # Push Notifications
     "pywebpush>=2.0.0",
     "defusedxml>=0.7.1",
+    "stripe>=14.3.0",
 ]
 
 [project.optional-dependencies]

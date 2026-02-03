@@ -30,6 +30,7 @@ from src.api.routes import (
     predictions,
     prompts,
     rag,
+    stripe,
     sync,
     users,
 )
@@ -277,6 +278,11 @@ app.include_router(
     bets.router,
     prefix=f"{settings.api_v1_prefix}/bets",
     tags=["Bets & Bankroll"],
+)
+app.include_router(
+    stripe.router,
+    prefix=f"{settings.api_v1_prefix}/stripe",
+    tags=["Payments"],
 )
 
 

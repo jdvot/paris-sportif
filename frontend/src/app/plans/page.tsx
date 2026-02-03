@@ -1,16 +1,50 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Check, Crown, Zap, X, Sparkles, ArrowLeft, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { customInstance } from "@/lib/api/custom-instance";
 
 export default function PlansPage() {
   const { isPremium, isAdmin, loading, isAuthenticated } = useAuth();
   const t = useTranslations("plans");
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const currentPlan = isAdmin ? "admin" : isPremium ? "premium" : "free";
+
+  const handleCheckout = async (plan: "premium" | "elite") => {
+    if (!isAuthenticated) {
+      window.location.href = "/auth/login?redirect=/plans";
+      return;
+    }
+
+    setCheckoutLoading(true);
+    try {
+      const response = await customInstance<{ data: { checkout_url: string } }>(
+        "/api/v1/stripe/create-checkout-session",
+        {
+          method: "POST",
+          data: {
+            plan,
+            success_url: `${window.location.origin}/plans/success`,
+            cancel_url: `${window.location.origin}/plans`,
+          },
+        }
+      );
+
+      if (response.data.checkout_url) {
+        window.location.href = response.data.checkout_url;
+      }
+    } catch (error) {
+      console.error("Checkout error:", error);
+      alert(t("checkoutError"));
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -170,10 +204,18 @@ export default function PlansPage() {
               </div>
             ) : (
               <button
-                disabled
-                className="w-full text-center py-3 px-4 bg-yellow-500 text-black font-semibold rounded-lg opacity-60 cursor-not-allowed"
+                onClick={() => handleCheckout("premium")}
+                disabled={checkoutLoading}
+                className="w-full text-center py-3 px-4 bg-yellow-500 text-black font-semibold rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {t("comingSoon")}
+                {checkoutLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {t("loading")}
+                  </>
+                ) : (
+                  t("startFreeTrial")
+                )}
               </button>
             )}
           </div>
