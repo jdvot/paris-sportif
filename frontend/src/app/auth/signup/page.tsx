@@ -160,7 +160,7 @@ export default function SignUpPage() {
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-primary-500/30">
                 <span className="text-2xl">⚽</span>
               </div>
-              <span className="text-2xl font-bold text-gray-900 dark:text-white">Paris Sportif</span>
+              <span className="text-2xl font-bold text-gray-900 dark:text-white">WinRate AI</span>
             </Link>
           </div>
 

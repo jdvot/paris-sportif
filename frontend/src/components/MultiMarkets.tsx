@@ -102,7 +102,7 @@ export function MultiMarkets({
           return (
             <div
               key={market.id}
-              className="bg-gray-50 dark:bg-dark-700/40 border border-gray-200 dark:border-dark-600/50 rounded-lg p-3"
+              className="bg-gray-50 dark:bg-dark-700/40 border border-gray-200 dark:border-dark-600/50 rounded-lg p-3 overflow-visible"
             >
               <div className="flex items-center gap-2 mb-2">
                 <Icon className="w-4 h-4 text-gray-500 dark:text-dark-400" />
@@ -111,7 +111,7 @@ export function MultiMarkets({
                 </span>
               </div>
 
-              <div className="grid gap-2 pt-2" style={{ gridTemplateColumns: `repeat(${market.options.length}, 1fr)` }}>
+              <div className="grid gap-2 pt-4 overflow-visible" style={{ gridTemplateColumns: `repeat(${market.options.length}, 1fr)` }}>
                 {market.options.map((option) => (
                   <div
                     key={option.label}
@@ -123,8 +123,8 @@ export function MultiMarkets({
                     )}
                   >
                     {option.recommended && (
-                      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-10">
-                        <span className="px-1.5 py-0.5 bg-primary-500 text-white text-[8px] font-bold rounded-full whitespace-nowrap">
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20">
+                        <span className="px-2 py-0.5 bg-primary-500 text-white text-[9px] font-bold rounded-full whitespace-nowrap shadow-sm">
                           REC
                         </span>
                       </div>

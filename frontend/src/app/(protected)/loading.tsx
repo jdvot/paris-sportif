@@ -7,10 +7,10 @@ export default function Loading() {
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center">
-            <span className="text-white text-xl font-bold">PS</span>
+            <span className="text-white text-xl font-bold">WR</span>
           </div>
           <span className="text-2xl font-bold text-gray-900 dark:text-white">
-            Paris Sportif
+            WinRate AI
           </span>
         </div>
 

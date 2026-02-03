@@ -1,5 +1,5 @@
 /**
- * API client for the Paris Sportif backend
+ * API client for the WinRate AI backend
  */
 
 import type {

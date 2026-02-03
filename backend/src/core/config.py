@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     )
 
     # App
-    app_name: str = "Paris Sportif API"
+    app_name: str = "WinRate AI API"
     app_version: str = "0.1.0"
     app_env: Literal["development", "staging", "production"] = "development"
     debug: bool = True

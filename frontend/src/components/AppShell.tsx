@@ -24,7 +24,7 @@ export function AppShell({ children }: AppShellProps) {
         {children}
       </main>
       <footer className="border-t border-gray-200 dark:border-slate-700 py-6 text-center text-gray-600 dark:text-slate-400 text-sm">
-        <p>Paris Sportif - Predictions basees sur IA</p>
+        <p>WinRate AI - Predictions basees sur IA</p>
         <p className="mt-1 text-xs">
           Avertissement: Les paris comportent des risques. Jouez
           responsablement.

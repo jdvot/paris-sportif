@@ -1,5 +1,5 @@
 /**
- * Type definitions for the Paris Sportif application
+ * Type definitions for the WinRate AI application
  */
 
 export interface Match {

@@ -315,19 +315,23 @@ export function StatsOverview() {
           </h3>
           <div className="w-full h-72 sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+              <LineChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
                 <XAxis
                   dataKey="day"
                   stroke="#94a3b8"
                   style={{ fontSize: "0.75rem" }}
                   tick={{ fill: "#94a3b8" }}
+                  tickFormatter={(value) => `J${value + 1}`}
                 />
                 <YAxis
                   stroke="#94a3b8"
                   style={{ fontSize: "0.75rem" }}
                   tick={{ fill: "#94a3b8" }}
                   domain={[0, 100]}
+                  ticks={[0, 25, 50, 75, 100]}
+                  tickFormatter={(value) => `${value}%`}
+                  width={45}
                 />
                 <Tooltip
                   contentStyle={{
@@ -336,7 +340,8 @@ export function StatsOverview() {
                     borderRadius: "8px",
                   }}
                   labelStyle={{ color: "#e2e8f0" }}
-                  formatter={(value: number) => `${value.toFixed(1)}%`}
+                  labelFormatter={(value) => `Jour ${Number(value) + 1}`}
+                  formatter={(value: number) => [`${value.toFixed(1)}%`, "Précision"]}
                 />
                 <Line
                   type="monotone"
@@ -344,6 +349,7 @@ export function StatsOverview() {
                   stroke="#4ade80"
                   strokeWidth={2}
                   dot={{ fill: "#4ade80", r: 4 }}
+                  activeDot={{ r: 6, fill: "#22c55e" }}
                   isAnimationActive={false}
                 />
               </LineChart>

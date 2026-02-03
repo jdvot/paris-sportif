@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for Paris Sportif Backend
+# Multi-stage Dockerfile for WinRate AI Backend
 # Optimized for Render.com free tier
 
 FROM python:3.11-slim as builder

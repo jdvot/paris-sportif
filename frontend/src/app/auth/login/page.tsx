@@ -83,7 +83,7 @@ function LoginForm() {
             <h1 className="text-4xl xl:text-5xl font-bold text-white leading-tight mb-4">
               Bienvenue sur<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-emerald-200">
-                Paris Sportif
+                WinRate AI
               </span>
             </h1>
             <p className="text-lg text-white/80 max-w-md">
@@ -126,12 +126,12 @@ function LoginForm() {
               <div className="w-12 h-12 relative">
                 <Image
                   src="/logo.svg"
-                  alt="Paris Sportif"
+                  alt="WinRate AI"
                   fill
                   className="object-contain"
                 />
               </div>
-              <span className="text-2xl font-bold text-gray-900 dark:text-white">Paris Sportif</span>
+              <span className="text-2xl font-bold text-gray-900 dark:text-white">WinRate AI</span>
             </Link>
           </div>
 
@@ -285,7 +285,7 @@ function LoginForm() {
 
           {/* Sign Up Link */}
           <p className="mt-8 text-center text-gray-600 dark:text-dark-400">
-            Nouveau sur Paris Sportif ?{" "}
+            Nouveau sur WinRate AI ?{" "}
             <Link
               href="/auth/signup"
               className="text-primary-400 hover:text-primary-300 font-semibold transition-colors"

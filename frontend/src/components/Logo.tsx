@@ -27,7 +27,7 @@ export function Logo({ className, showText = false, size = "md" }: LogoProps) {
       <div className={cn(sizeClasses[size], "relative flex-shrink-0")}>
         <Image
           src="/logo.svg"
-          alt="Paris Sportif"
+          alt="WinRate AI"
           fill
           className="object-contain"
           priority
@@ -38,7 +38,7 @@ export function Logo({ className, showText = false, size = "md" }: LogoProps) {
           "font-bold text-gray-900 dark:text-white",
           textSizeClasses[size]
         )}>
-          Paris Sportif
+          WinRate AI
         </span>
       )}
     </div>

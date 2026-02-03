@@ -34,7 +34,7 @@
     "logout": "Logout"
   },
   "home": {
-    "title": "Paris Sportif",
+    "title": "WinRate AI",
     "subtitle": "AI Football Predictions",
     "hero": {
       "headline": "AI-Powered Football Predictions",
@@ -47,7 +47,7 @@
       "roi": "Simulated ROI"
     },
     "features": {
-      "title": "Why Paris Sportif?",
+      "title": "Why WinRate AI?",
       "ai": {
         "title": "Advanced AI",
         "description": "4 statistical models combined for accurate predictions"
@@ -231,7 +231,7 @@
   },
   "pwa": {
     "install": {
-      "title": "Install Paris Sportif",
+      "title": "Install WinRate AI",
       "description": "Quick access from your home screen",
       "button": "Install",
       "later": "Later"

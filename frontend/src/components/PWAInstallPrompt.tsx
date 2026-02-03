@@ -59,7 +59,7 @@ export function PWAInstallPrompt() {
 
           <div className="flex-1">
             <h3 className="font-semibold text-white">
-              Installer Paris Sportif
+              Installer WinRate AI
             </h3>
             <p className="mt-1 text-sm text-slate-400">
               Acces rapide depuis votre ecran d&apos;accueil. Fonctionne hors ligne.

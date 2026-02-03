@@ -30,13 +30,13 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Paris Sportif - Predictions Football IA",
-    template: "%s | Paris Sportif",
+    default: "WinRate AI - Predictions Football IA",
+    template: "%s | WinRate AI",
   },
   description:
     "Predictions de paris sportifs football analysees par IA. Modeles Poisson, ELO, xG et Machine Learning. 5 picks premium par jour sur les championnats europeens.",
   keywords: [
-    "paris sportifs",
+    "winrate",
     "football",
     "predictions",
     "pronostics",
@@ -49,9 +49,9 @@ export const metadata: Metadata = {
     "Serie A",
     "Bundesliga",
   ],
-  authors: [{ name: "Paris Sportif" }],
-  creator: "Paris Sportif",
-  publisher: "Paris Sportif",
+  authors: [{ name: "WinRate AI" }],
+  creator: "WinRate AI",
+  publisher: "WinRate AI",
   robots: {
     index: true,
     follow: true,
@@ -67,8 +67,8 @@ export const metadata: Metadata = {
     type: "website",
     locale: "fr_FR",
     url: siteUrl,
-    siteName: "Paris Sportif",
-    title: "Paris Sportif - Predictions Football IA",
+    siteName: "WinRate AI",
+    title: "WinRate AI - Predictions Football IA",
     description:
       "Predictions de paris sportifs football analysees par IA. 5 picks premium par jour.",
     images: [
@@ -76,13 +76,13 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Paris Sportif - Predictions Football",
+        alt: "WinRate AI - Predictions Football",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Paris Sportif - Predictions Football IA",
+    title: "WinRate AI - Predictions Football IA",
     description:
       "Predictions de paris sportifs football analysees par IA. 5 picks premium par jour.",
     images: ["/og-image.png"],
@@ -94,7 +94,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Paris Sportif",
+    title: "WinRate AI",
   },
   icons: {
     icon: [
@@ -110,7 +110,7 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  name: "Paris Sportif",
+  name: "WinRate AI",
   description:
     "Application de predictions de paris sportifs sur le football europeen analysees par IA",
   url: siteUrl,
@@ -123,7 +123,7 @@ const jsonLd = {
   },
   author: {
     "@type": "Organization",
-    name: "Paris Sportif",
+    name: "WinRate AI",
   },
 };
 

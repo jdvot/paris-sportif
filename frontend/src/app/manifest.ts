@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Paris Sportif - Predictions Football IA",
-    short_name: "Paris Sportif",
+    name: "WinRate AI - Predictions Football IA",
+    short_name: "WinRate AI",
     description:
       "Predictions de paris sportifs football analysees par IA. 5 picks premium par jour.",
     start_url: "/",
@@ -40,7 +40,7 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: "1280x720",
         type: "image/png",
         form_factor: "wide",
-        label: "Page d'accueil Paris Sportif",
+        label: "Page d'accueil WinRate AI",
       },
       {
         src: "/screenshots/picks.png",
