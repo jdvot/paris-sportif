@@ -1,16 +1,12 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = "paris-sportif-v1";
-const STATIC_CACHE = "paris-sportif-static-v1";
-const DYNAMIC_CACHE = "paris-sportif-dynamic-v1";
-const API_CACHE = "paris-sportif-api-v1";
+const CACHE_NAME = "paris-sportif-v2";
+const STATIC_CACHE = "paris-sportif-static-v2";
+const DYNAMIC_CACHE = "paris-sportif-dynamic-v2";
+const API_CACHE = "paris-sportif-api-v2";
 
-// Static assets to cache on install
+// Static assets to cache on install (avoid pages that redirect to locales)
 const STATIC_ASSETS = [
-  "/",
-  "/picks",
-  "/matches",
-  "/offline",
   "/icons/icon-192x192.png",
   "/icons/icon-512x512.png",
   "/logo.svg",
@@ -109,7 +105,8 @@ async function cacheFirst(request, cacheName) {
     }
     return networkResponse;
   } catch (error) {
-    return caches.match("/offline");
+    // Return a basic offline response instead of trying to match a page
+    return new Response("Offline", { status: 503, statusText: "Offline" });
   }
 }
 
