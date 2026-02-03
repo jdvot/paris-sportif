@@ -96,12 +96,13 @@ export function PerformanceHistory() {
   };
 
   // Prepare competition chart data
+  // Note: Backend already returns accuracy as percentage (0-100), not ratio
   const competitionData: CompetitionChartData[] = Object.entries(stats.byCompetition || {})
     .map(([code, data]: [string, any]) => ({
       name: COMPETITION_NAMES[code] || code,
       predictions: data.total || data.predictions || 0,
       correct: data.correct || 0,
-      accuracy: (data.accuracy || 0) * 100,
+      accuracy: data.accuracy || 0,
     }))
     .filter((comp) => comp.predictions > 0)
     .sort((a, b) => b.predictions - a.predictions);
@@ -122,8 +123,8 @@ export function PerformanceHistory() {
     },
     {
       label: "Taux de reussite",
-      value: `${((stats.accuracy || 0) * 100).toFixed(1)}%`,
-      subtext: `+${((stats.accuracy || 0) * 100 - 50).toFixed(1)}% vs baseline`,
+      value: `${(stats.accuracy || 0).toFixed(1)}%`,
+      subtext: `+${((stats.accuracy || 0) - 50).toFixed(1)}% vs baseline`,
       color: "from-accent-500/20 to-accent-600/20",
       borderColor: "border-accent-500/30",
     },
