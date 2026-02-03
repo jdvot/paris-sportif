@@ -23,18 +23,20 @@ export default function PlansPage() {
 
     setCheckoutLoading(true);
     try {
-      const response = await customInstance<{ checkout_url: string }>({
-        url: "/api/v1/stripe/create-checkout-session",
-        method: "POST",
-        data: {
-          plan,
-          success_url: `${window.location.origin}/plans/success`,
-          cancel_url: `${window.location.origin}/plans`,
-        },
-      });
+      const response = await customInstance<{ data: { checkout_url: string } }>(
+        "/api/v1/stripe/create-checkout-session",
+        {
+          method: "POST",
+          data: {
+            plan,
+            success_url: `${window.location.origin}/plans/success`,
+            cancel_url: `${window.location.origin}/plans`,
+          },
+        }
+      );
 
-      if (response.checkout_url) {
-        window.location.href = response.checkout_url;
+      if (response.data.checkout_url) {
+        window.location.href = response.data.checkout_url;
       }
     } catch (error) {
       console.error("Checkout error:", error);
