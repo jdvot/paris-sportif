@@ -1,9 +1,9 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = "paris-sportif-v2";
-const STATIC_CACHE = "paris-sportif-static-v2";
-const DYNAMIC_CACHE = "paris-sportif-dynamic-v2";
-const API_CACHE = "paris-sportif-api-v2";
+const CACHE_NAME = "paris-sportif-v3";
+const STATIC_CACHE = "paris-sportif-static-v3";
+const DYNAMIC_CACHE = "paris-sportif-dynamic-v3";
+const API_CACHE = "paris-sportif-api-v3";
 
 // Static assets to cache on install (avoid pages that redirect to locales)
 const STATIC_ASSETS = [
@@ -70,8 +70,14 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Skip external API requests (let main thread handle auth)
-  // This includes the Render backend API
   if (url.hostname !== self.location.hostname) {
+    return;
+  }
+
+  // IMPORTANT: Skip navigation requests to avoid redirect issues with i18n
+  // Navigation requests can redirect (e.g., / -> /fr/) which causes
+  // "redirect mode is not follow" errors in Chrome
+  if (request.mode === "navigate") {
     return;
   }
 
@@ -87,7 +93,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Pages - stale while revalidate
+  // Other requests (scripts, styles, etc.) - stale while revalidate
   event.respondWith(staleWhileRevalidate(request, DYNAMIC_CACHE));
 });
 
