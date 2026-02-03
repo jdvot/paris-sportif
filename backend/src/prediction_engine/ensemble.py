@@ -36,6 +36,7 @@ class LLMAdjustments:
     sentiment_home: float = 0.0  # -0.1 to 0.1
     sentiment_away: float = 0.0  # -0.1 to 0.1
     tactical_edge: float = 0.0  # -0.05 to 0.05
+    h2h_advantage: float = 0.0  # -0.05 to 0.05 (positive favors home)
     reasoning: str = ""
     # Additional fields used by adjustments module
     form_home: float = 0.0  # -0.15 to 0.15
@@ -50,6 +51,7 @@ class LLMAdjustments:
             - self.injury_impact_away  # Opponent injury helps
             + self.sentiment_home
             + self.tactical_edge
+            + self.h2h_advantage  # H2H historical advantage
         )
 
     @property
@@ -60,6 +62,7 @@ class LLMAdjustments:
             - self.injury_impact_home
             + self.sentiment_away
             - self.tactical_edge
+            - self.h2h_advantage  # Inverse of home H2H advantage
         )
 
 

@@ -26,9 +26,14 @@ from src.llm.adjustments import (
     SentimentAnalysis,
     FormAnalysis,
     FormAssessment,
+    H2HAnalysis,
+    H2HDominance,
+    H2HPatternAnalysis,
     validate_injury_analysis,
     validate_sentiment_analysis,
     validate_form_analysis,
+    validate_h2h_analysis,
+    _calculate_h2h_adjustment,
 )
 
 
@@ -746,6 +751,171 @@ class TestFormAnalysisValidation:
         analysis = FormAnalysis.model_validate({"form_assessment": None})
         assert analysis.form_assessment is not None
         assert analysis.form_assessment.recent_performance == "average"
+
+
+class TestH2HAnalysisValidation:
+    """Test cases for H2HAnalysis Pydantic model and adjustment calculation."""
+
+    def test_valid_input(self):
+        """Test validation with valid input."""
+        data = {
+            "h2h_dominance": {
+                "overall_record": "5-2-3",
+                "home_advantage": 0.05,
+                "trend": "home_improving",
+                "reliability": "strong",
+            },
+            "pattern_analysis": {
+                "most_common_result": "1",
+                "average_goals": 2.8,
+                "pattern_strength": "moderate",
+                "pattern_description": "Home team tends to win",
+            },
+            "h2h_adjustment": 0.03,
+            "confidence": 0.8,
+            "reasoning": "Historical home advantage",
+        }
+        analysis = H2HAnalysis.model_validate(data)
+        assert analysis.h2h_adjustment == 0.03
+        assert analysis.h2h_dominance.overall_record == "5-2-3"
+        assert analysis.h2h_dominance.trend == "home_improving"
+        assert analysis.pattern_analysis.most_common_result == "1"
+
+    def test_h2h_dominance_normalization(self):
+        """Test H2H dominance trend normalization."""
+        dom = H2HDominance(trend="home_improving")
+        assert dom.trend == "home_improving"
+
+        dom = H2HDominance(trend="away improving")
+        assert dom.trend == "away_improving"
+
+        dom = H2HDominance(trend="unknown")
+        assert dom.trend == "balanced"
+
+    def test_h2h_dominance_reliability_normalization(self):
+        """Test H2H dominance reliability normalization."""
+        assert H2HDominance(reliability="strong").reliability == "strong"
+        assert H2HDominance(reliability="high").reliability == "strong"
+        assert H2HDominance(reliability="weak").reliability == "weak"
+        assert H2HDominance(reliability="low").reliability == "weak"
+        assert H2HDominance(reliability="unknown").reliability == "moderate"
+
+    def test_pattern_analysis_result_normalization(self):
+        """Test pattern analysis result normalization."""
+        assert H2HPatternAnalysis(most_common_result="1").most_common_result == "1"
+        assert H2HPatternAnalysis(most_common_result="HOME").most_common_result == "1"
+        assert H2HPatternAnalysis(most_common_result="2").most_common_result == "2"
+        assert H2HPatternAnalysis(most_common_result="AWAY").most_common_result == "2"
+        assert H2HPatternAnalysis(most_common_result="draw").most_common_result == "X"
+
+    def test_h2h_adjustment_clamping(self):
+        """Test H2H adjustment rejects values outside valid range."""
+        from pydantic import ValidationError
+
+        # Values outside range should be rejected by Pydantic
+        with pytest.raises(ValidationError):
+            H2HAnalysis.model_validate({"h2h_adjustment": 0.1})
+
+        # Valid values should pass
+        analysis = H2HAnalysis.model_validate({"h2h_adjustment": 0.05})
+        assert analysis.h2h_adjustment == 0.05
+
+    def test_validate_h2h_analysis_helper(self):
+        """Test validate_h2h_analysis helper function."""
+        raw = {
+            "h2h_adjustment": "0.02",  # String to be coerced
+            "confidence": 0.7,
+        }
+        validated = validate_h2h_analysis(raw)
+        assert validated.h2h_adjustment == 0.02
+        assert validated.confidence == 0.7
+
+    def test_validate_h2h_analysis_invalid_input(self):
+        """Test validation failure returns default."""
+        # Pass completely invalid data
+        validated = validate_h2h_analysis({"invalid": "data", "h2h_adjustment": "abc"})
+        # Should return default values
+        assert validated.h2h_adjustment == 0.0  # Invalid string → 0.0
+        assert validated.confidence == 0.5  # Default
+
+    def test_calculate_h2h_adjustment_positive(self):
+        """Test H2H adjustment calculation favoring home."""
+        h2h = {
+            "h2h_adjustment": 0.04,
+            "confidence": 0.8,
+            "h2h_dominance": {
+                "overall_record": "6-2-2",
+                "trend": "home_improving",
+                "reliability": "strong",
+            },
+        }
+        result = _calculate_h2h_adjustment(h2h, "Liverpool", "Man United")
+        assert result["factor"] == pytest.approx(0.04 * 0.8, abs=0.001)
+        assert "Liverpool" in result["reasoning"] or result["reasoning"] == ""
+
+    def test_calculate_h2h_adjustment_negative(self):
+        """Test H2H adjustment calculation favoring away."""
+        h2h = {
+            "h2h_adjustment": -0.03,
+            "confidence": 0.75,
+            "h2h_dominance": {
+                "overall_record": "2-3-5",
+                "trend": "away_improving",
+                "reliability": "moderate",
+            },
+        }
+        result = _calculate_h2h_adjustment(h2h, "Liverpool", "Man United")
+        assert result["factor"] == pytest.approx(-0.03 * 0.75, abs=0.001)
+        assert "Man United" in result["reasoning"] or result["reasoning"] == ""
+
+    def test_calculate_h2h_adjustment_small_value(self):
+        """Test small H2H adjustment results in empty reasoning."""
+        h2h = {
+            "h2h_adjustment": 0.005,
+            "confidence": 0.5,
+        }
+        result = _calculate_h2h_adjustment(h2h, "TeamA", "TeamB")
+        # Small adjustment (0.005 * 0.5 = 0.0025 < 0.01) → empty reasoning
+        assert result["reasoning"] == ""
+
+    def test_empty_h2h_data(self):
+        """Test empty H2H data returns zero adjustment."""
+        result = _calculate_h2h_adjustment({}, "TeamA", "TeamB")
+        assert result["factor"] == 0.0
+        assert result["reasoning"] == ""
+
+
+class TestLLMAdjustmentsWithH2H:
+    """Test LLMAdjustments with H2H advantage field."""
+
+    def test_h2h_advantage_default(self):
+        """Test h2h_advantage defaults to 0."""
+        adj = LLMAdjustments()
+        assert adj.h2h_advantage == 0.0
+
+    def test_total_home_adjustment_with_h2h(self):
+        """Test total home adjustment includes H2H."""
+        adj = LLMAdjustments(
+            injury_impact_home=-0.1,
+            injury_impact_away=-0.15,
+            sentiment_home=0.05,
+            tactical_edge=0.02,
+            h2h_advantage=0.03,  # H2H favors home
+        )
+        # Total = -0.1 - (-0.15) + 0.05 + 0.02 + 0.03 = 0.15
+        assert abs(adj.total_home_adjustment - 0.15) < 0.001
+
+    def test_total_away_adjustment_with_h2h(self):
+        """Test total away adjustment includes inverted H2H."""
+        adj = LLMAdjustments(
+            injury_impact_home=-0.1,
+            injury_impact_away=-0.05,
+            sentiment_away=0.03,
+            tactical_edge=0.02,
+            h2h_advantage=0.03,  # H2H favors home (negative for away)
+        )
+        # Total = -0.05 - (-0.1) + 0.03 - 0.02 - 0.03 = 0.03
+        assert abs(adj.total_away_adjustment - 0.03) < 0.001
 
 
 # =============================================================================

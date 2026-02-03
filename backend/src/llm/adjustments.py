@@ -20,6 +20,7 @@ from src.llm.prompts import (
 )
 from src.llm.prompts_advanced import (
     get_form_analysis_prompt,
+    get_head_to_head_analysis_prompt,
     get_injury_impact_analysis_prompt,
 )
 from src.llm.prompt_versioning import (
@@ -238,6 +239,159 @@ class FormAnalysis(BaseModel):
         return {}
 
 
+class H2HDominance(BaseModel):
+    """Nested H2H dominance details."""
+
+    overall_record: str = Field(default="0-0-0", description="W-D-L record for home team")
+    home_advantage: float = Field(
+        default=0.0,
+        ge=-0.1,
+        le=0.1,
+        description="Home advantage adjustment (-0.1 to 0.1)",
+    )
+    trend: Literal["home_improving", "balanced", "away_improving"] = Field(
+        default="balanced"
+    )
+    reliability: Literal["strong", "moderate", "weak"] = Field(default="moderate")
+
+    @field_validator("home_advantage", mode="before")
+    @classmethod
+    def coerce_float(cls, v: Any) -> float:
+        """Coerce string values to float."""
+        if isinstance(v, str):
+            try:
+                return max(-0.1, min(0.1, float(v)))
+            except ValueError:
+                return 0.0
+        if v is None:
+            return 0.0
+        return max(-0.1, min(0.1, float(v)))
+
+    @field_validator("trend", mode="before")
+    @classmethod
+    def normalize_trend(cls, v: Any) -> str:
+        """Normalize trend values."""
+        if v is None:
+            return "balanced"
+        v_str = str(v).lower().strip().replace(" ", "_")
+        if "home" in v_str or "improv" in v_str and "away" not in v_str:
+            return "home_improving"
+        if "away" in v_str:
+            return "away_improving"
+        return "balanced"
+
+    @field_validator("reliability", mode="before")
+    @classmethod
+    def normalize_reliability(cls, v: Any) -> str:
+        """Normalize reliability values."""
+        if v is None:
+            return "moderate"
+        v_str = str(v).lower().strip()
+        if "strong" in v_str or "high" in v_str:
+            return "strong"
+        if "weak" in v_str or "low" in v_str:
+            return "weak"
+        return "moderate"
+
+
+class H2HPatternAnalysis(BaseModel):
+    """Nested H2H pattern analysis details."""
+
+    most_common_result: Literal["1", "X", "2"] = Field(default="X")
+    average_goals: float = Field(default=2.5, ge=0.0, le=10.0)
+    pattern_strength: Literal["strong", "moderate", "weak"] = Field(default="moderate")
+    pattern_description: str = Field(default="")
+
+    @field_validator("most_common_result", mode="before")
+    @classmethod
+    def normalize_result(cls, v: Any) -> str:
+        """Normalize result values."""
+        if v is None:
+            return "X"
+        v_str = str(v).upper().strip()
+        if v_str in ("1", "HOME", "H"):
+            return "1"
+        if v_str in ("2", "AWAY", "A"):
+            return "2"
+        return "X"
+
+    @field_validator("average_goals", mode="before")
+    @classmethod
+    def coerce_float(cls, v: Any) -> float:
+        """Coerce to float."""
+        if isinstance(v, str):
+            try:
+                return max(0.0, min(10.0, float(v)))
+            except ValueError:
+                return 2.5
+        if v is None:
+            return 2.5
+        return max(0.0, min(10.0, float(v)))
+
+    @field_validator("pattern_strength", mode="before")
+    @classmethod
+    def normalize_strength(cls, v: Any) -> str:
+        """Normalize strength values."""
+        if v is None:
+            return "moderate"
+        v_str = str(v).lower().strip()
+        if "strong" in v_str or "high" in v_str:
+            return "strong"
+        if "weak" in v_str or "low" in v_str:
+            return "weak"
+        return "moderate"
+
+
+class H2HAnalysis(BaseModel):
+    """Validated head-to-head analysis from LLM."""
+
+    h2h_dominance: H2HDominance = Field(default_factory=H2HDominance)
+    pattern_analysis: H2HPatternAnalysis = Field(default_factory=H2HPatternAnalysis)
+    h2h_adjustment: float = Field(
+        default=0.0,
+        ge=-0.05,
+        le=0.05,
+        description="H2H-based adjustment (-0.05 to 0.05, positive favors home)",
+    )
+    confidence: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Confidence in analysis (0.0-1.0)"
+    )
+    reasoning: str = Field(default="", description="Analysis reasoning")
+
+    @field_validator("h2h_adjustment", "confidence", mode="before")
+    @classmethod
+    def coerce_float(cls, v: Any) -> float:
+        """Coerce string values to float."""
+        if isinstance(v, str):
+            try:
+                return float(v)
+            except ValueError:
+                return 0.0
+        if v is None:
+            return 0.0
+        return float(v)
+
+    @field_validator("h2h_dominance", mode="before")
+    @classmethod
+    def ensure_h2h_dominance(cls, v: Any) -> dict:
+        """Ensure h2h_dominance is a dict."""
+        if v is None:
+            return {}
+        if isinstance(v, dict):
+            return v
+        return {}
+
+    @field_validator("pattern_analysis", mode="before")
+    @classmethod
+    def ensure_pattern_analysis(cls, v: Any) -> dict:
+        """Ensure pattern_analysis is a dict."""
+        if v is None:
+            return {}
+        if isinstance(v, dict):
+            return v
+        return {}
+
+
 def validate_injury_analysis(raw_result: dict) -> InjuryAnalysis:
     """Validate and parse raw LLM injury analysis result."""
     try:
@@ -263,6 +417,102 @@ def validate_form_analysis(raw_result: dict) -> FormAnalysis:
     except Exception as e:
         logger.warning(f"Form analysis validation failed: {e}")
         return FormAnalysis(reasoning="Validation failed")
+
+
+def validate_h2h_analysis(raw_result: dict) -> H2HAnalysis:
+    """Validate and parse raw LLM H2H analysis result."""
+    try:
+        return H2HAnalysis.model_validate(raw_result)
+    except Exception as e:
+        logger.warning(f"H2H analysis validation failed: {e}")
+        return H2HAnalysis(reasoning="Validation failed")
+
+
+async def analyze_h2h_impact(
+    home_team: str,
+    away_team: str,
+    h2h_history: str,
+    recent_h2h: str = "",
+) -> dict[str, Any]:
+    """
+    Analyze head-to-head history to extract patterns and adjustments.
+
+    Uses historical matchup data to identify dominance patterns, trends,
+    and statistically significant advantages.
+
+    Args:
+        home_team: Home team name
+        away_team: Away team name
+        h2h_history: Overall H2H record (e.g., "Home: 5W-3D-2L")
+        recent_h2h: Recent H2H results (last 5 matches)
+
+    Returns:
+        Dict with H2H analysis including adjustment, confidence, and patterns
+    """
+    client = get_llm_client()
+    start_time = time.time()
+    version_id = None
+
+    try:
+        # Get versioned prompt (supports A/B testing)
+        prompt, version_id = prompt_version_manager.get_prompt(
+            PromptType.HEAD_TO_HEAD,
+            home_team=home_team,
+            away_team=away_team,
+            h2h_history=h2h_history,
+            recent_h2h=recent_h2h,
+        )
+
+        # If no versioned prompt, use default
+        if not prompt:
+            prompt = get_head_to_head_analysis_prompt(
+                home_team=home_team,
+                away_team=away_team,
+                h2h_history=h2h_history,
+                recent_h2h=recent_h2h,
+            )
+
+        result = await client.analyze_json(
+            prompt=prompt,
+            system_prompt=SYSTEM_JSON_EXTRACTOR,
+            model=client.MODEL_SMALL,
+            temperature=0.2,
+        )
+
+        # Track latency
+        latency_ms = (time.time() - start_time) * 1000
+
+        # Validate with Pydantic model
+        validated = validate_h2h_analysis(result)
+
+        # Record metrics for version tracking
+        if version_id:
+            prompt_version_manager.record_result(
+                version_id=version_id,
+                was_correct=True,  # Will be verified later
+                latency_ms=latency_ms,
+            )
+
+        logger.debug(
+            f"H2H analysis {home_team} vs {away_team} (v={version_id}): "
+            f"adjustment={validated.h2h_adjustment:.3f}, "
+            f"trend={validated.h2h_dominance.trend}, "
+            f"confidence={validated.confidence:.2f}, latency={latency_ms:.0f}ms"
+        )
+
+        result_dict = validated.model_dump()
+        result_dict["_version_id"] = version_id
+        return result_dict
+
+    except Exception as e:
+        logger.error(f"Error analyzing H2H for {home_team} vs {away_team}: {str(e)}")
+        if version_id:
+            prompt_version_manager.record_result(
+                version_id=version_id,
+                was_correct=False,
+                latency_ms=(time.time() - start_time) * 1000,
+            )
+        return H2HAnalysis(reasoning="Analysis failed").model_dump()
 
 
 async def analyze_injury_impact(
@@ -474,12 +724,13 @@ async def calculate_llm_adjustments(
     away_sentiment: dict[str, Any] | None = None,
     home_form: dict[str, Any] | None = None,
     away_form: dict[str, Any] | None = None,
+    h2h_analysis: dict[str, Any] | None = None,
 ) -> LLMAdjustments:
     """
     Calculate comprehensive LLM-based adjustments for match prediction.
 
-    Synthesizes injury impact, sentiment analysis, and form evaluation into
-    probability adjustments with detailed reasoning.
+    Synthesizes injury impact, sentiment analysis, form evaluation, and
+    head-to-head patterns into probability adjustments with detailed reasoning.
 
     Args:
         home_team: Home team name
@@ -490,6 +741,7 @@ async def calculate_llm_adjustments(
         away_sentiment: Sentiment analysis for away team
         home_form: Form analysis for home team
         away_form: Form analysis for away team
+        h2h_analysis: Head-to-head analysis between the teams
 
     Returns:
         LLMAdjustments object with all adjustments and confidence scores
@@ -542,6 +794,14 @@ async def calculate_llm_adjustments(
             reasoning_parts.append(form_adjustment["reasoning"])
         logger.info(f"{away_team} form adjustment: {form_adjustment['factor']:.3f}")
 
+    # Apply H2H adjustment
+    if h2h_analysis:
+        h2h_adj = _calculate_h2h_adjustment(h2h_analysis, home_team, away_team)
+        adjustments.h2h_advantage = h2h_adj["factor"]
+        if abs(h2h_adj["factor"]) > 0.01:
+            reasoning_parts.append(h2h_adj["reasoning"])
+        logger.info(f"H2H advantage adjustment: {h2h_adj['factor']:.3f}")
+
     # Set comprehensive reasoning
     if reasoning_parts:
         adjustments.reasoning = "; ".join(reasoning_parts)
@@ -562,6 +822,8 @@ async def calculate_llm_adjustments(
         confidences.append(home_form.get("confidence", 0.5))
     if away_form:
         confidences.append(away_form.get("confidence", 0.5))
+    if h2h_analysis:
+        confidences.append(h2h_analysis.get("confidence", 0.5))
 
     if confidences:
         adjustments.overall_confidence = sum(confidences) / len(confidences)
@@ -569,8 +831,9 @@ async def calculate_llm_adjustments(
         adjustments.overall_confidence = 0.5
 
     logger.info(
-        f"Final adjustments - Home: {adjustments.injury_impact_home:.3f}, "
-        f"Away: {adjustments.injury_impact_away:.3f}, "
+        f"Final adjustments - Home injury: {adjustments.injury_impact_home:.3f}, "
+        f"Away injury: {adjustments.injury_impact_away:.3f}, "
+        f"H2H: {adjustments.h2h_advantage:.3f}, "
         f"Confidence: {adjustments.overall_confidence:.3f}"
     )
 
@@ -634,8 +897,12 @@ def _calculate_sentiment_adjustment(sentiment: dict[str, Any], team_name: str) -
     score = sentiment.get("sentiment_score", 0)
     confidence = sentiment.get("confidence", 0.5)
 
-    # Apply confidence weight (only use adjustment if confident)
-    adjustment_factor = score * confidence * 0.1  # Max ±0.1
+    # Only apply adjustment if confidence is above threshold
+    # (score already encodes sentiment strength, avoid double-dampening)
+    if confidence < 0.4:
+        adjustment_factor = 0.0
+    else:
+        adjustment_factor = score * 0.1  # Max ±0.1
 
     mood_indicator = sentiment.get("morale_indicator", "neutral")
     mood_descriptors = {
@@ -690,6 +957,52 @@ def _calculate_form_adjustment(form: dict[str, Any], team_name: str) -> dict[str
 
     if abs(adjustment_factor) > 0.02:
         reasoning = f"{team_name} in {perf_desc} form ({trend})"
+    else:
+        reasoning = ""
+
+    return {"factor": adjustment_factor, "reasoning": reasoning}
+
+
+def _calculate_h2h_adjustment(
+    h2h: dict[str, Any], home_team: str, away_team: str
+) -> dict[str, Any]:
+    """
+    Calculate head-to-head based probability adjustment.
+
+    Evaluates historical matchup patterns to adjust probabilities.
+
+    Args:
+        h2h: H2H analysis dictionary
+        home_team: Home team name
+        away_team: Away team name
+
+    Returns:
+        Dict with "factor" (-0.05 to 0.05) and "reasoning"
+    """
+    h2h_adjustment = h2h.get("h2h_adjustment", 0)
+    confidence = h2h.get("confidence", 0.5)
+    dominance = h2h.get("h2h_dominance", {})
+
+    # Clamp adjustment to valid range
+    h2h_adjustment = max(-0.05, min(0.05, h2h_adjustment))
+
+    # Apply confidence weighting
+    adjustment_factor = h2h_adjustment * confidence
+
+    # Build reasoning
+    trend = dominance.get("trend", "balanced")
+    reliability = dominance.get("reliability", "moderate")
+    record = dominance.get("overall_record", "unknown")
+
+    if abs(adjustment_factor) > 0.01:
+        if adjustment_factor > 0:
+            favored_team = home_team
+        else:
+            favored_team = away_team
+        reasoning = (
+            f"H2H ({record}) favors {favored_team} "
+            f"({trend} trend, {reliability} reliability)"
+        )
     else:
         reasoning = ""
 
