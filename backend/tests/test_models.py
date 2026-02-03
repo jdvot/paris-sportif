@@ -789,3 +789,326 @@ class TestIntegration:
         assert prediction.llm_adjustments is not None
         assert prediction.value_score is not None
         assert prediction.recommended_bet in ["home", "draw", "away"]
+
+
+# =============================================================================
+# Backtesting Framework Tests
+# =============================================================================
+
+
+from datetime import date, timedelta
+
+from src.prediction_engine.backtesting import (
+    BacktestMetrics,
+    BacktestResults,
+    CalibrationBin,
+    MatchData,
+    WalkForwardBacktest,
+    WalkForwardFold,
+    format_backtest_report,
+)
+
+
+class TestBacktestMetrics:
+    """Test cases for BacktestMetrics dataclass."""
+
+    def test_defaults(self):
+        """Test default values."""
+        metrics = BacktestMetrics()
+        assert metrics.accuracy == 0.0
+        assert metrics.total_predictions == 0
+        assert metrics.brier_score == 0.0
+        assert metrics.calibration_error == 0.0
+        assert metrics.roi == 0.0
+
+    def test_custom_values(self):
+        """Test custom values."""
+        metrics = BacktestMetrics(
+            accuracy=0.65,
+            total_predictions=100,
+            correct_predictions=65,
+            brier_score=0.18,
+            log_loss=0.95,
+            calibration_error=0.03,
+            roi=8.5,
+        )
+        assert metrics.accuracy == 0.65
+        assert metrics.brier_score == 0.18
+        assert metrics.roi == 8.5
+
+
+class TestMatchData:
+    """Test cases for MatchData dataclass."""
+
+    def test_match_data_creation(self):
+        """Test creating match data."""
+        match = MatchData(
+            match_id="12345",
+            match_date=date(2024, 1, 15),
+            home_team="Liverpool",
+            away_team="Chelsea",
+            home_attack=1.8,
+            home_defense=1.1,
+            away_attack=1.5,
+            away_defense=1.3,
+            outcome="home",
+            home_goals=2,
+            away_goals=1,
+            odds_home=1.85,
+            odds_draw=3.60,
+            odds_away=4.20,
+        )
+        assert match.match_id == "12345"
+        assert match.home_team == "Liverpool"
+        assert match.outcome == "home"
+
+    def test_match_data_defaults(self):
+        """Test default values."""
+        match = MatchData(
+            match_id="test",
+            match_date=date.today(),
+            home_team="A",
+            away_team="B",
+            home_attack=1.4,
+            home_defense=1.4,
+            away_attack=1.4,
+            away_defense=1.4,
+        )
+        assert match.home_xg is None
+        assert match.outcome == "draw"
+        assert match.odds_home is None
+
+
+class TestWalkForwardBacktest:
+    """Test cases for walk-forward backtesting."""
+
+    @pytest.fixture
+    def backtest(self) -> WalkForwardBacktest:
+        """Create a backtest instance."""
+        return WalkForwardBacktest(
+            train_window_days=60,
+            test_window_days=14,
+            min_confidence=0.0,
+            betting_threshold=0.50,
+        )
+
+    @pytest.fixture
+    def sample_matches(self) -> list[MatchData]:
+        """Create sample matches for testing."""
+        matches = []
+        start_date = date(2023, 1, 1)
+
+        for i in range(150):
+            match_date = start_date + timedelta(days=i // 2)
+
+            # Simulate different outcomes
+            if i % 3 == 0:
+                outcome = "home"
+                home_goals, away_goals = 2, 1
+            elif i % 3 == 1:
+                outcome = "draw"
+                home_goals, away_goals = 1, 1
+            else:
+                outcome = "away"
+                home_goals, away_goals = 0, 2
+
+            matches.append(
+                MatchData(
+                    match_id=f"match_{i}",
+                    match_date=match_date,
+                    home_team=f"Team_{i % 10}",
+                    away_team=f"Team_{(i + 5) % 10}",
+                    home_attack=1.3 + (i % 5) * 0.1,
+                    home_defense=1.2 + (i % 4) * 0.1,
+                    away_attack=1.2 + (i % 6) * 0.1,
+                    away_defense=1.3 + (i % 3) * 0.1,
+                    outcome=outcome,
+                    home_goals=home_goals,
+                    away_goals=away_goals,
+                    odds_home=1.80 + (i % 10) * 0.1,
+                    odds_draw=3.20 + (i % 5) * 0.1,
+                    odds_away=3.50 + (i % 8) * 0.1,
+                )
+            )
+
+        return matches
+
+    def test_initialization(self, backtest: WalkForwardBacktest):
+        """Test backtest initialization."""
+        assert backtest.train_window_days == 60
+        assert backtest.test_window_days == 14
+        assert backtest.min_confidence == 0.0
+        assert backtest.betting_threshold == 0.50
+
+    def test_empty_matches_returns_empty_results(self, backtest: WalkForwardBacktest):
+        """Test that empty matches list returns empty results."""
+        results = backtest.run([])
+        assert results.overall_metrics.total_predictions == 0
+        assert len(results.folds) == 0
+
+    def test_run_creates_folds(
+        self, backtest: WalkForwardBacktest, sample_matches: list[MatchData]
+    ):
+        """Test that run creates walk-forward folds."""
+        results = backtest.run(sample_matches, retrain_ml=False)
+
+        # Should have multiple folds
+        assert len(results.folds) > 0
+
+        # Each fold should have valid data
+        for fold in results.folds:
+            assert fold.train_size > 0
+            assert fold.test_size > 0
+            assert fold.train_start < fold.train_end
+            assert fold.test_start < fold.test_end
+            assert fold.train_end < fold.test_start
+
+    def test_metrics_are_calculated(
+        self, backtest: WalkForwardBacktest, sample_matches: list[MatchData]
+    ):
+        """Test that metrics are properly calculated."""
+        results = backtest.run(sample_matches, retrain_ml=False)
+        metrics = results.overall_metrics
+
+        # Accuracy should be between 0 and 1
+        assert 0 <= metrics.accuracy <= 1
+
+        # Brier score should be positive (lower is better)
+        assert metrics.brier_score >= 0
+
+        # Total predictions should match
+        assert metrics.total_predictions > 0
+
+    def test_per_outcome_metrics(
+        self, backtest: WalkForwardBacktest, sample_matches: list[MatchData]
+    ):
+        """Test per-outcome metrics are calculated."""
+        results = backtest.run(sample_matches, retrain_ml=False)
+        metrics = results.overall_metrics
+
+        # All per-outcome accuracies should be valid
+        assert 0 <= metrics.home_accuracy <= 1
+        assert 0 <= metrics.draw_accuracy <= 1
+        assert 0 <= metrics.away_accuracy <= 1
+
+        # Per-outcome Brier scores should be valid
+        assert metrics.home_brier >= 0
+        assert metrics.draw_brier >= 0
+        assert metrics.away_brier >= 0
+
+    def test_calibration_bins_created(
+        self, backtest: WalkForwardBacktest, sample_matches: list[MatchData]
+    ):
+        """Test calibration bins are created."""
+        results = backtest.run(sample_matches, retrain_ml=False)
+        metrics = results.overall_metrics
+
+        # Should have calibration bins
+        assert len(metrics.calibration_bins) > 0
+
+        # Each bin should be valid
+        for bin_data in metrics.calibration_bins:
+            assert 0 <= bin_data.bin_start < bin_data.bin_end <= 1
+            assert 0 <= bin_data.predicted_prob <= 1
+            assert 0 <= bin_data.actual_rate <= 1
+            assert bin_data.count > 0
+
+    def test_roi_calculation_with_odds(
+        self, backtest: WalkForwardBacktest, sample_matches: list[MatchData]
+    ):
+        """Test ROI calculation when odds are available."""
+        results = backtest.run(sample_matches, retrain_ml=False)
+        metrics = results.overall_metrics
+
+        # ROI metrics should be calculated
+        assert metrics.total_stake >= 0
+        # ROI can be positive or negative
+        assert isinstance(metrics.roi, float)
+
+    def test_rolling_metrics_calculated(
+        self, backtest: WalkForwardBacktest, sample_matches: list[MatchData]
+    ):
+        """Test rolling metrics are calculated."""
+        results = backtest.run(sample_matches, retrain_ml=False)
+
+        # Rolling accuracy should have entries
+        if results.rolling_accuracy:
+            for entry_date, value in results.rolling_accuracy:
+                assert isinstance(entry_date, date)
+                assert 0 <= value <= 1
+
+    def test_insufficient_data_returns_empty(self, backtest: WalkForwardBacktest):
+        """Test insufficient data returns empty results."""
+        # Create too few matches
+        matches = [
+            MatchData(
+                match_id="1",
+                match_date=date(2023, 1, 1),
+                home_team="A",
+                away_team="B",
+                home_attack=1.4,
+                home_defense=1.3,
+                away_attack=1.3,
+                away_defense=1.4,
+            )
+        ]
+        results = backtest.run(matches, retrain_ml=False)
+        assert len(results.folds) == 0
+
+
+class TestCalibrationBin:
+    """Test cases for CalibrationBin dataclass."""
+
+    def test_calibration_bin_creation(self):
+        """Test creating a calibration bin."""
+        bin_data = CalibrationBin(
+            bin_start=0.5,
+            bin_end=0.6,
+            predicted_prob=0.55,
+            actual_rate=0.52,
+            count=25,
+        )
+        assert bin_data.bin_start == 0.5
+        assert bin_data.predicted_prob == 0.55
+        assert bin_data.count == 25
+
+
+class TestFormatBacktestReport:
+    """Test cases for report formatting."""
+
+    def test_format_empty_results(self):
+        """Test formatting empty results."""
+        results = BacktestResults(
+            overall_metrics=BacktestMetrics(),
+            train_window_days=365,
+            test_window_days=30,
+        )
+        report = format_backtest_report(results)
+
+        assert "WALK-FORWARD BACKTEST REPORT" in report
+        assert "Train window: 365 days" in report
+        assert "Test window:  30 days" in report
+
+    def test_format_with_folds(self):
+        """Test formatting with fold results."""
+        fold = WalkForwardFold(
+            fold_number=1,
+            train_start=date(2023, 1, 1),
+            train_end=date(2023, 12, 31),
+            test_start=date(2024, 1, 1),
+            test_end=date(2024, 1, 31),
+            train_size=100,
+            test_size=20,
+            metrics=BacktestMetrics(accuracy=0.65, brier_score=0.20),
+        )
+
+        results = BacktestResults(
+            overall_metrics=BacktestMetrics(accuracy=0.65, total_predictions=50),
+            folds=[fold],
+            train_window_days=365,
+            test_window_days=30,
+        )
+
+        report = format_backtest_report(results)
+        assert "Per-Fold Results:" in report
+        assert "65.00%" in report
