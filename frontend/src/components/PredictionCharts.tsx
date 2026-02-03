@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import {
   PieChart,
   Pie,
@@ -13,23 +12,22 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  LineChart,
-  Line,
 } from "recharts";
+import { useTheme } from "next-themes";
 import type { DetailedPrediction, ModelContribution } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-// Color palette
-const COLORS = {
+// Theme-aware color palette
+const getColors = (isDark: boolean) => ({
   primary: "#10B981", // green - home
   yellow: "#F59E0B", // yellow - draw
   accent: "#3B82F6", // blue - away
-  background: "#1F2937", // dark background
-  dark700: "#374151",
-  dark600: "#4B5563",
-  text: "#F3F4F6",
-  textSecondary: "#D1D5DB",
-};
+  background: isDark ? "#1e293b" : "#ffffff", // slate-800 / white
+  gridLine: isDark ? "#334155" : "#e2e8f0", // slate-700 / slate-200
+  border: isDark ? "#475569" : "#cbd5e1", // slate-600 / slate-300
+  text: isDark ? "#f1f5f9" : "#1e293b", // slate-100 / slate-800
+  textSecondary: isDark ? "#94a3b8" : "#64748b", // slate-400 / slate-500
+});
 
 interface PredictionChartsProps {
   prediction: DetailedPrediction;
@@ -39,6 +37,9 @@ interface PredictionChartsProps {
  * Probability Pie Chart - Shows home/draw/away probabilities
  */
 function ProbabilityPieChart({ prediction }: PredictionChartsProps) {
+  const { resolvedTheme } = useTheme();
+  const colors = getColors(resolvedTheme === "dark");
+
   const probs = prediction?.probabilities as Record<string, number> | undefined;
 
   const homeProb = typeof prediction?.homeProb === "number"
@@ -69,11 +70,11 @@ function ProbabilityPieChart({ prediction }: PredictionChartsProps) {
     { name: "Extérieur", value: Math.round(awayProb * 100) },
   ];
 
-  const pieColors = [COLORS.primary, COLORS.yellow, COLORS.accent];
+  const pieColors = [colors.primary, colors.yellow, colors.accent];
 
   return (
-    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-4">
-      <h3 className="text-lg font-bold text-white">Probabilités de Résultat</h3>
+    <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4 transition-colors">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white">Probabilités de Résultat</h3>
       <ResponsiveContainer width="100%" height={300}>
         <PieChart>
           <Pie
@@ -92,10 +93,10 @@ function ProbabilityPieChart({ prediction }: PredictionChartsProps) {
           </Pie>
           <Tooltip
             contentStyle={{
-              backgroundColor: COLORS.background,
-              border: `1px solid ${COLORS.dark700}`,
+              backgroundColor: colors.background,
+              border: `1px solid ${colors.border}`,
               borderRadius: "8px",
-              color: COLORS.text,
+              color: colors.text,
             }}
             formatter={(value) => `${value}%`}
           />
@@ -104,15 +105,15 @@ function ProbabilityPieChart({ prediction }: PredictionChartsProps) {
       <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm">
         <div className="text-center p-2 bg-primary-500/10 rounded">
           <div className="font-bold text-primary-400">{Math.round(homeProb * 100)}%</div>
-          <div className="text-dark-400">Domicile</div>
+          <div className="text-gray-500 dark:text-slate-400">Domicile</div>
         </div>
         <div className="text-center p-2 bg-yellow-500/10 rounded">
           <div className="font-bold text-yellow-400">{Math.round(drawProb * 100)}%</div>
-          <div className="text-dark-400">Nul</div>
+          <div className="text-gray-500 dark:text-slate-400">Nul</div>
         </div>
         <div className="text-center p-2 bg-accent-500/10 rounded">
           <div className="font-bold text-accent-400">{Math.round(awayProb * 100)}%</div>
-          <div className="text-dark-400">Extérieur</div>
+          <div className="text-gray-500 dark:text-slate-400">Extérieur</div>
         </div>
       </div>
     </div>
@@ -123,6 +124,9 @@ function ProbabilityPieChart({ prediction }: PredictionChartsProps) {
  * Model Comparison Bar Chart - Compare predictions from different models
  */
 function ModelComparisonChart({ prediction }: PredictionChartsProps) {
+  const { resolvedTheme } = useTheme();
+  const colors = getColors(resolvedTheme === "dark");
+
   const modelContributions = prediction?.modelContributions;
   if (!modelContributions || typeof modelContributions !== "object") {
     return null;
@@ -161,26 +165,26 @@ function ModelComparisonChart({ prediction }: PredictionChartsProps) {
   });
 
   return (
-    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-4">
-      <h3 className="text-lg font-bold text-white">Comparaison des Modèles</h3>
+    <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4 transition-colors">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white">Comparaison des Modèles</h3>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.dark700} />
-          <XAxis dataKey="name" stroke={COLORS.textSecondary} />
-          <YAxis stroke={COLORS.textSecondary} />
+          <CartesianGrid strokeDasharray="3 3" stroke={colors.gridLine} />
+          <XAxis dataKey="name" stroke={colors.textSecondary} />
+          <YAxis stroke={colors.textSecondary} />
           <Tooltip
             contentStyle={{
-              backgroundColor: COLORS.background,
-              border: `1px solid ${COLORS.dark700}`,
+              backgroundColor: colors.background,
+              border: `1px solid ${colors.border}`,
               borderRadius: "8px",
-              color: COLORS.text,
+              color: colors.text,
             }}
             formatter={(value) => `${value}%`}
           />
-          <Legend wrapperStyle={{ color: COLORS.textSecondary }} />
-          <Bar dataKey="Domicile" fill={COLORS.primary} />
-          <Bar dataKey="Nul" fill={COLORS.yellow} />
-          <Bar dataKey="Extérieur" fill={COLORS.accent} />
+          <Legend wrapperStyle={{ color: colors.textSecondary }} />
+          <Bar dataKey="Domicile" fill={colors.primary} />
+          <Bar dataKey="Nul" fill={colors.yellow} />
+          <Bar dataKey="Extérieur" fill={colors.accent} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -191,6 +195,9 @@ function ModelComparisonChart({ prediction }: PredictionChartsProps) {
  * Confidence Gauge - Visual gauge showing confidence level (0-100%)
  */
 function ConfidenceGauge({ prediction }: PredictionChartsProps) {
+  const { resolvedTheme } = useTheme();
+  const colors = getColors(resolvedTheme === "dark");
+
   const confidence = typeof prediction?.confidence === "number" ? prediction.confidence : 0;
   const confidencePercent = Math.round(confidence * 100);
 
@@ -218,12 +225,12 @@ function ConfidenceGauge({ prediction }: PredictionChartsProps) {
   return (
     <div
       className={cn(
-        "bg-gradient-to-br rounded-xl p-4 sm:p-6 space-y-4 border",
+        "bg-gradient-to-br rounded-xl p-4 sm:p-6 space-y-4 border transition-colors",
         confidenceBg,
         confidenceBorder
       )}
     >
-      <h3 className="text-lg font-bold text-white">Niveau de Confiance</h3>
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white">Niveau de Confiance</h3>
 
       {/* Gauge visualization */}
       <div className="flex flex-col items-center space-y-3">
@@ -238,7 +245,7 @@ function ConfidenceGauge({ prediction }: PredictionChartsProps) {
               cy="50"
               r="45"
               fill="none"
-              stroke={COLORS.dark700}
+              stroke={colors.gridLine}
               strokeWidth="8"
             />
             {/* Confidence arc */}
@@ -249,9 +256,9 @@ function ConfidenceGauge({ prediction }: PredictionChartsProps) {
               fill="none"
               stroke={
                 confidencePercent >= 70
-                  ? COLORS.primary
+                  ? colors.primary
                   : confidencePercent >= 60
-                    ? COLORS.yellow
+                    ? colors.yellow
                     : "#FF6B35"
               }
               strokeWidth="8"
@@ -266,7 +273,7 @@ function ConfidenceGauge({ prediction }: PredictionChartsProps) {
               <div className={cn("text-3xl font-bold", confidenceColor)}>
                 {confidencePercent}%
               </div>
-              <div className="text-xs text-dark-400">Confiance</div>
+              <div className="text-xs text-gray-500 dark:text-slate-400">Confiance</div>
             </div>
           </div>
         </div>
@@ -286,7 +293,7 @@ function ConfidenceGauge({ prediction }: PredictionChartsProps) {
       </div>
 
       {/* Confidence scale */}
-      <div className="flex justify-between text-xs text-dark-400 px-2">
+      <div className="flex justify-between text-xs text-gray-500 dark:text-slate-400 px-2">
         <span>0%</span>
         <span>50%</span>
         <span>100%</span>
@@ -313,17 +320,17 @@ function ValueScoreIndicator({ prediction }: PredictionChartsProps) {
   return (
     <div
       className={cn(
-        "bg-gradient-to-br rounded-xl p-4 sm:p-6 space-y-4 border",
+        "bg-gradient-to-br rounded-xl p-4 sm:p-6 space-y-4 border transition-colors",
         valueBg,
         valueBorder
       )}
     >
-      <h3 className="text-lg font-bold text-white">Indice de Valeur (Cote)</h3>
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white">Indice de Valeur (Cote)</h3>
 
       <div className="space-y-4">
         {/* Main Value Display */}
         <div className="flex items-center justify-between">
-          <span className="text-dark-400 font-semibold">Valeur Estimée</span>
+          <span className="text-gray-500 dark:text-slate-400 font-semibold">Valeur Estimée</span>
           <div className={cn("text-3xl font-bold", valueColor)}>
             {isPositiveValue ? "+" : ""}{valuePercent}%
           </div>
@@ -332,12 +339,12 @@ function ValueScoreIndicator({ prediction }: PredictionChartsProps) {
         {/* Value Bar */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-dark-400">Risque</span>
+            <span className="text-gray-500 dark:text-slate-400">Risque</span>
             <span className={cn("font-semibold", valueColor)}>
               {isPositiveValue ? "Favorable" : "Défavorable"}
             </span>
           </div>
-          <div className="h-2 bg-dark-700 rounded-full overflow-hidden">
+          <div className="h-2 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
             <div
               className={cn(
                 "h-full rounded-full transition-all",
@@ -351,13 +358,13 @@ function ValueScoreIndicator({ prediction }: PredictionChartsProps) {
         </div>
 
         {/* Value Scale */}
-        <div className="grid grid-cols-3 gap-2 text-xs text-dark-400 text-center py-2 border-t border-dark-700 pt-3">
+        <div className="grid grid-cols-3 gap-2 text-xs text-gray-500 dark:text-slate-400 text-center py-2 border-t border-gray-200 dark:border-slate-700 pt-3">
           <div>
             <div className="text-red-400 font-semibold">-50%</div>
             <div>Très Mauvaise</div>
           </div>
           <div>
-            <div className="text-dark-400 font-semibold">0%</div>
+            <div className="text-gray-500 dark:text-slate-400 font-semibold">0%</div>
             <div>Neutre</div>
           </div>
           <div>
@@ -367,7 +374,7 @@ function ValueScoreIndicator({ prediction }: PredictionChartsProps) {
         </div>
 
         {/* Value Interpretation */}
-        <div className="p-2 bg-dark-700/50 rounded text-xs text-dark-300">
+        <div className="p-2 bg-gray-100 dark:bg-slate-700/50 rounded text-xs text-gray-600 dark:text-slate-300">
           {valuePercent > 30
             ? "Excellent ROI attendu sur le long terme"
             : valuePercent > 10
@@ -389,6 +396,9 @@ function ValueScoreIndicator({ prediction }: PredictionChartsProps) {
  * Expected Goals Chart - Show home vs away xG comparison
  */
 function ExpectedGoalsChart({ prediction }: PredictionChartsProps) {
+  const { resolvedTheme } = useTheme();
+  const colors = getColors(resolvedTheme === "dark");
+
   const homeXg = typeof prediction?.expectedHomeGoals === "number" ? prediction.expectedHomeGoals : 0;
   const awayXg = typeof prediction?.expectedAwayGoals === "number" ? prediction.expectedAwayGoals : 0;
 
@@ -405,25 +415,25 @@ function ExpectedGoalsChart({ prediction }: PredictionChartsProps) {
   ];
 
   return (
-    <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6 space-y-4">
-      <h3 className="text-lg font-bold text-white">Buts Attendus (xG)</h3>
+    <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4 transition-colors">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white">Buts Attendus (xG)</h3>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} layout="vertical">
-          <CartesianGrid strokeDasharray="3 3" stroke={COLORS.dark700} />
-          <XAxis type="number" stroke={COLORS.textSecondary} />
-          <YAxis dataKey="name" type="category" stroke={COLORS.textSecondary} width={120} />
+          <CartesianGrid strokeDasharray="3 3" stroke={colors.gridLine} />
+          <XAxis type="number" stroke={colors.textSecondary} />
+          <YAxis dataKey="name" type="category" stroke={colors.textSecondary} width={120} />
           <Tooltip
             contentStyle={{
-              backgroundColor: COLORS.background,
-              border: `1px solid ${COLORS.dark700}`,
+              backgroundColor: colors.background,
+              border: `1px solid ${colors.border}`,
               borderRadius: "8px",
-              color: COLORS.text,
+              color: colors.text,
             }}
             formatter={(value) => typeof value === 'number' ? value.toFixed(2) : value}
           />
-          <Legend wrapperStyle={{ color: COLORS.textSecondary }} />
-          <Bar dataKey="Domicile" fill={COLORS.primary} radius={[0, 8, 8, 0]} />
-          <Bar dataKey="Extérieur" fill={COLORS.accent} radius={[0, 8, 8, 0]} />
+          <Legend wrapperStyle={{ color: colors.textSecondary }} />
+          <Bar dataKey="Domicile" fill={colors.primary} radius={[0, 8, 8, 0]} />
+          <Bar dataKey="Extérieur" fill={colors.accent} radius={[0, 8, 8, 0]} />
         </BarChart>
       </ResponsiveContainer>
 
@@ -431,11 +441,11 @@ function ExpectedGoalsChart({ prediction }: PredictionChartsProps) {
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div className="p-3 bg-primary-500/10 rounded text-center">
           <div className="text-primary-400 font-bold">{homeXg.toFixed(2)}</div>
-          <div className="text-xs text-dark-400">xG Domicile</div>
+          <div className="text-xs text-gray-500 dark:text-slate-400">xG Domicile</div>
         </div>
         <div className="p-3 bg-accent-500/10 rounded text-center">
           <div className="text-accent-400 font-bold">{awayXg.toFixed(2)}</div>
-          <div className="text-xs text-dark-400">xG Extérieur</div>
+          <div className="text-xs text-gray-500 dark:text-slate-400">xG Extérieur</div>
         </div>
       </div>
     </div>
