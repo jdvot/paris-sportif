@@ -42,7 +42,7 @@ class OddsAPIClient:
         competition: str,
         markets: str = "h2h,totals",  # h2h, spreads, totals
         regions: str = "eu",
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Get current odds for a competition including Over/Under markets."""
         if not self.api_key:
             return []
@@ -65,7 +65,7 @@ class OddsAPIClient:
                 )
 
                 if response.status_code == 200:
-                    data = response.json()
+                    data: list[dict[str, Any]] = response.json()
                     logger.info(f"Fetched odds for {len(data)} matches in {competition}")
                     return data
                 elif response.status_code == 401:
@@ -80,9 +80,11 @@ class OddsAPIClient:
 
         return []
 
-    def extract_best_odds(self, odds_data: list[dict], home_team: str, away_team: str) -> dict:
+    def extract_best_odds(
+        self, odds_data: list[dict[str, Any]], home_team: str, away_team: str
+    ) -> dict[str, Any]:
         """Extract best odds for a specific match."""
-        result = {
+        result: dict[str, Any] = {
             "home_win": None,
             "draw": None,
             "away_win": None,
@@ -129,7 +131,9 @@ class OddsAPIClient:
 
         return result
 
-    def extract_totals_odds(self, odds_data: list[dict], home_team: str, away_team: str) -> dict:
+    def extract_totals_odds(
+        self, odds_data: list[dict[str, Any]], home_team: str, away_team: str
+    ) -> dict[str, Any]:
         """Extract Over/Under (totals) odds for a specific match."""
         result = {
             "over_25": None,
@@ -381,9 +385,9 @@ class FormCalculator:
     """Calculate team form from recent results."""
 
     @staticmethod
-    def calculate_form(matches: list[dict], team_name: str) -> dict:
+    def calculate_form(matches: list[dict[str, Any]], team_name: str) -> dict[str, Any]:
         """Calculate form stats from last N matches."""
-        form = {
+        form: dict[str, Any] = {
             "last_5": [],
             "points": 0,
             "goals_scored": 0,
@@ -449,7 +453,7 @@ class XGApproximator:
         goals_conceded: float,
         form_rating: float,
         is_home: bool = False,
-    ) -> dict:
+    ) -> dict[str, float]:
         """Estimate xG-like metrics from basic stats."""
         # Base xG approximation from goals
         base_xg = goals_scored * 0.9  # Regress slightly to mean
@@ -476,7 +480,7 @@ class XGApproximator:
 class DataEnrichmentService:
     """Main service that combines all data sources."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.odds_client = OddsAPIClient()
         self.weather_client = WeatherClient()
         self.form_calculator = FormCalculator()
@@ -488,13 +492,13 @@ class DataEnrichmentService:
         away_team: str,
         competition: str,
         match_date: datetime,
-        home_recent_matches: list[dict] | None = None,
-        away_recent_matches: list[dict] | None = None,
-        h2h_matches: list[dict] | None = None,
-        standings: list[dict] | None = None,
+        home_recent_matches: list[dict[str, Any]] | None = None,
+        away_recent_matches: list[dict[str, Any]] | None = None,
+        h2h_matches: list[dict[str, Any]] | None = None,
+        standings: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Get all enrichment data for a match."""
-        enrichment = {
+        enrichment: dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "home_team": home_team,
             "away_team": away_team,
@@ -545,27 +549,29 @@ class DataEnrichmentService:
 
         # 6. xG approximation
         if enrichment.get("home_form") and enrichment.get("away_form"):
-            home_form = enrichment["home_form"]
-            away_form = enrichment["away_form"]
+            home_form: dict[str, Any] = enrichment["home_form"]
+            away_form: dict[str, Any] = enrichment["away_form"]
 
             enrichment["home_xg_estimate"] = self.xg_approximator.estimate_team_xg(
-                home_form["goals_scored"] / max(1, len(home_form["last_5"])),
-                home_form["goals_conceded"] / max(1, len(home_form["last_5"])),
-                home_form["form_rating"],
+                float(home_form["goals_scored"]) / max(1, len(home_form["last_5"])),
+                float(home_form["goals_conceded"]) / max(1, len(home_form["last_5"])),
+                float(home_form["form_rating"]),
                 is_home=True,
             )
             enrichment["away_xg_estimate"] = self.xg_approximator.estimate_team_xg(
-                away_form["goals_scored"] / max(1, len(away_form["last_5"])),
-                away_form["goals_conceded"] / max(1, len(away_form["last_5"])),
-                away_form["form_rating"],
+                float(away_form["goals_scored"]) / max(1, len(away_form["last_5"])),
+                float(away_form["goals_conceded"]) / max(1, len(away_form["last_5"])),
+                float(away_form["form_rating"]),
                 is_home=False,
             )
 
         return enrichment
 
-    def _analyze_h2h(self, matches: list[dict], home_team: str, away_team: str) -> dict:
+    def _analyze_h2h(
+        self, matches: list[dict[str, Any]], home_team: str, away_team: str
+    ) -> dict[str, Any]:
         """Analyze head-to-head history."""
-        h2h = {
+        h2h: dict[str, Any] = {
             "total_matches": len(matches),
             "home_wins": 0,
             "away_wins": 0,
@@ -616,12 +622,12 @@ class DataEnrichmentService:
 
     def _extract_standings_context(
         self,
-        standings: list[dict],
+        standings: list[dict[str, Any]],
         home_team: str,
         away_team: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Extract standings context for both teams."""
-        context = {
+        context: dict[str, Any] = {
             "home_position": None,
             "away_position": None,
             "home_points": None,
@@ -639,15 +645,17 @@ class DataEnrichmentService:
                 context["away_position"] = team.get("position")
                 context["away_points"] = team.get("points")
 
-        if context["home_position"] and context["away_position"]:
-            context["position_diff"] = context["away_position"] - context["home_position"]
+        home_pos = context["home_position"]
+        away_pos = context["away_position"]
+        if home_pos is not None and away_pos is not None:
+            context["position_diff"] = int(away_pos) - int(home_pos)
 
             # Generate context note
-            if context["home_position"] <= 4 and context["away_position"] <= 4:
+            if int(home_pos) <= 4 and int(away_pos) <= 4:
                 context["context_note"] = "Top 4 clash"
-            elif context["home_position"] <= 4 or context["away_position"] <= 4:
+            elif int(home_pos) <= 4 or int(away_pos) <= 4:
                 context["context_note"] = "European spot battle"
-            elif context["home_position"] >= 17 or context["away_position"] >= 17:
+            elif int(home_pos) >= 17 or int(away_pos) >= 17:
                 context["context_note"] = "Relegation battle"
 
         return context
