@@ -4,12 +4,11 @@ Provides endpoints for user profile management.
 """
 
 import logging
-from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from src.auth import AuthenticatedUser, AUTH_RESPONSES
+from src.auth import AUTH_RESPONSES, AuthenticatedUser
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +17,7 @@ router = APIRouter()
 
 class UserProfileResponse(BaseModel):
     """User profile response."""
+
     id: str
     email: str | None
     full_name: str | None
@@ -27,11 +27,13 @@ class UserProfileResponse(BaseModel):
 
 class UserProfileUpdate(BaseModel):
     """User profile update request."""
+
     full_name: str | None = None
 
 
 class UserStatsResponse(BaseModel):
     """User statistics response."""
+
     total_predictions_viewed: int = 0
     favorite_competition: str | None = None
     member_since_days: int = 0

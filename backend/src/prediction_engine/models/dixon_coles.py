@@ -13,7 +13,7 @@ References:
 """
 
 from dataclasses import dataclass
-from typing import Tuple
+
 import numpy as np
 from scipy.stats import poisson
 
@@ -27,8 +27,8 @@ class DixonColesPrediction:
     away_win_prob: float
     expected_home_goals: float
     expected_away_goals: float
-    most_likely_score: Tuple[int, int]
-    score_probabilities: dict[Tuple[int, int], float]
+    most_likely_score: tuple[int, int]
+    score_probabilities: dict[tuple[int, int], float]
 
 
 class DixonColesModel:
@@ -119,7 +119,7 @@ class DixonColesModel:
         away_attack: float,
         away_defense: float,
         time_weight: float = 1.0,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Calculate expected goals for each team.
 
@@ -210,7 +210,7 @@ class DixonColesModel:
         )
 
         # Build score probability matrix with bias correction
-        score_probs: dict[Tuple[int, int], float] = {}
+        score_probs: dict[tuple[int, int], float] = {}
         home_win_prob = 0.0
         draw_prob = 0.0
         away_win_prob = 0.0
@@ -218,15 +218,12 @@ class DixonColesModel:
         for home_goals in range(self.MAX_GOALS + 1):
             for away_goals in range(self.MAX_GOALS + 1):
                 # Base Poisson probabilities
-                base_prob = (
-                    poisson.pmf(home_goals, lambda_home)
-                    * poisson.pmf(away_goals, lambda_away)
+                base_prob = poisson.pmf(home_goals, lambda_home) * poisson.pmf(
+                    away_goals, lambda_away
                 )
 
                 # Apply Dixon-Coles bias correction
-                correction = self._bias_correction(
-                    home_goals, away_goals, lambda_home, lambda_away
-                )
+                correction = self._bias_correction(home_goals, away_goals, lambda_home, lambda_away)
                 prob = base_prob * correction
 
                 score_probs[(home_goals, away_goals)] = prob

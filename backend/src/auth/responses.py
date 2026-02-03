@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 class HTTPErrorResponse(BaseModel):
     """Standard HTTP error response."""
+
     detail: str
 
 

@@ -23,7 +23,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # Database
-    database_url: str = "postgresql+asyncpg://paris_sportif:paris_sportif_secret@localhost:5432/paris_sportif"
+    database_url: str = (
+        "postgresql+asyncpg://paris_sportif:paris_sportif_secret@localhost:5432/paris_sportif"
+    )
 
     # Redis
     redis_url: str = "redis://localhost:6379"

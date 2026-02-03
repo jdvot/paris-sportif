@@ -6,24 +6,22 @@ Can also be triggered manually.
 """
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
-from fastapi import APIRouter, Query, HTTPException, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel
 
-from src.data.sources.football_data import get_football_data_client, COMPETITIONS
+from src.auth import ADMIN_RESPONSES, AdminUser
+from src.core.exceptions import FootballDataAPIError, RateLimitError
 from src.data.database import (
+    get_db_stats,
+    get_last_sync,
+    log_sync,
     save_matches,
     save_standings,
-    log_sync,
-    get_last_sync,
-    get_db_stats,
-    get_matches_from_db,
-    get_standings_from_db,
     verify_finished_matches,
 )
-from src.core.exceptions import FootballDataAPIError, RateLimitError
-from src.auth import AdminUser, ADMIN_RESPONSES
+from src.data.sources.football_data import COMPETITIONS, get_football_data_client
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +30,7 @@ router = APIRouter()
 
 class SyncResponse(BaseModel):
     """Response for sync operations."""
+
     status: str
     message: str
     matches_synced: int = 0
@@ -41,13 +40,16 @@ class SyncResponse(BaseModel):
 
 class DbStatsResponse(BaseModel):
     """Database statistics response."""
+
     total_matches: int
     competitions_with_standings: int
     last_match_sync: str | None
     last_standings_sync: str | None
 
 
-async def _sync_matches_for_week(days: int = 7, include_past_days: int = 3) -> tuple[int, list[str]]:
+async def _sync_matches_for_week(
+    days: int = 7, include_past_days: int = 3
+) -> tuple[int, list[str]]:
     """Sync matches for the next N days and past N days for score verification."""
     client = get_football_data_client()
     today = date.today()
@@ -80,6 +82,7 @@ async def _sync_matches_for_week(days: int = 7, include_past_days: int = 3) -> t
             errors.append(error_msg)
             # Wait a bit and continue with next competition
             import asyncio
+
             await asyncio.sleep(15)  # Wait 15 seconds before next request
 
         except FootballDataAPIError as e:
@@ -125,6 +128,7 @@ async def _sync_all_standings() -> tuple[int, list[str]]:
             logger.warning(error_msg)
             errors.append(error_msg)
             import asyncio
+
             await asyncio.sleep(15)
 
         except FootballDataAPIError as e:
@@ -170,8 +174,12 @@ async def sync_weekly_data(
         all_errors = match_errors + standings_errors
         status = "success" if not all_errors else "partial"
 
-        log_sync("weekly", status, matches_synced + standings_synced,
-                 "; ".join(all_errors) if all_errors else None)
+        log_sync(
+            "weekly",
+            status,
+            matches_synced + standings_synced,
+            "; ".join(all_errors) if all_errors else None,
+        )
 
         return SyncResponse(
             status=status,
@@ -290,6 +298,7 @@ async def sync_and_verify_predictions(
                 logger.warning(error_msg)
                 errors.append(error_msg)
                 import asyncio
+
                 await asyncio.sleep(15)
 
             except Exception as e:

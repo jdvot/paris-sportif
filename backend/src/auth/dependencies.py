@@ -12,7 +12,6 @@ from typing import Annotated, Any
 from fastapi import Depends
 
 from src.auth.supabase_auth import (
-    get_current_user,
     get_optional_user,
     require_admin,
     require_auth,

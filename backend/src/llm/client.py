@@ -12,7 +12,7 @@ Get API key at: https://console.groq.com/
 """
 
 import json
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 from pydantic import BaseModel
@@ -44,7 +44,7 @@ class GroqClient:
     MODEL_LARGE = "llama-3.3-70b-versatile"  # For complex analysis
     MODEL_SMALL = "llama-3.1-8b-instant"  # For simple extraction
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         """
         Initialize Groq client.
 
@@ -67,7 +67,7 @@ class GroqClient:
         model: str = MODEL_LARGE,
         temperature: float = 0.3,
         max_tokens: int = 1024,
-        response_format: Optional[dict] = None,
+        response_format: dict | None = None,
     ) -> LLMResponse:
         """
         Make API request to Groq with comprehensive error handling.
@@ -145,8 +145,8 @@ class GroqClient:
     async def complete(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        model: Optional[str] = None,
+        system_prompt: str | None = None,
+        model: str | None = None,
         temperature: float = 0.3,
         max_tokens: int = 1024,
         json_mode: bool = False,
@@ -187,8 +187,8 @@ class GroqClient:
     async def analyze_json(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        model: Optional[str] = None,
+        system_prompt: str | None = None,
+        model: str | None = None,
     ) -> dict[str, Any]:
         """
         Get structured JSON response.
@@ -218,7 +218,7 @@ class GroqClient:
 
 
 # Will be initialized with API key from settings
-groq_client: Optional[GroqClient] = None
+groq_client: GroqClient | None = None
 
 
 def get_llm_client() -> GroqClient:

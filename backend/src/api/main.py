@@ -1,19 +1,29 @@
 """FastAPI application entry point."""
 
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-
-from src.api.routes import matches, predictions, health, debug, ml, sync, rag, enrichment, users, admin
+from src.api.routes import (
+    admin,
+    debug,
+    enrichment,
+    health,
+    matches,
+    ml,
+    predictions,
+    rag,
+    sync,
+    users,
+)
 from src.core.config import settings
 from src.core.exceptions import ParisportifError
 from src.core.rate_limit import limiter
@@ -38,7 +48,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # HSTS - only in production
         if settings.app_env == "production":
-            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+            hsts_value = "max-age=63072000; includeSubDomains; preload"
+            response.headers["Strict-Transport-Security"] = hsts_value
 
         return response
 
@@ -101,9 +112,7 @@ app.add_middleware(
 
 # Exception handlers
 @app.exception_handler(ParisportifError)
-async def parisportif_exception_handler(
-    request: Request, exc: ParisportifError
-) -> JSONResponse:
+async def parisportif_exception_handler(request: Request, exc: ParisportifError) -> JSONResponse:
     """Handle custom application exceptions."""
     return JSONResponse(
         status_code=400,

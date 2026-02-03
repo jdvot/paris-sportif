@@ -14,7 +14,6 @@ import httpx
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-from jose.constants import ALGORITHMS
 
 logger = logging.getLogger(__name__)
 

@@ -9,8 +9,8 @@ Sources:
 
 import logging
 import os
-from datetime import date, datetime, timedelta
-from typing import Any, Optional
+from datetime import datetime
+from typing import Any
 
 import httpx
 
@@ -61,7 +61,7 @@ class OddsAPIClient:
                         "regions": regions,
                         "markets": markets,
                         "oddsFormat": "decimal",
-                    }
+                    },
                 )
 
                 if response.status_code == 200:
@@ -107,7 +107,8 @@ class OddsAPIClient:
                     for bm in bookmakers[:5]:  # Top 5 bookmakers
                         for market in bm.get("markets", []):
                             if market.get("key") == "h2h":
-                                outcomes = {o["name"]: o["price"] for o in market.get("outcomes", [])}
+                                market_outcomes = market.get("outcomes", [])
+                                outcomes = {o["name"]: o["price"] for o in market_outcomes}
                                 if match.get("home_team") in outcomes:
                                     home_odds.append(outcomes[match.get("home_team")])
                                 if "Draw" in outcomes:
@@ -128,9 +129,7 @@ class OddsAPIClient:
 
         return result
 
-    def extract_totals_odds(
-        self, odds_data: list[dict], home_team: str, away_team: str
-    ) -> dict:
+    def extract_totals_odds(self, odds_data: list[dict], home_team: str, away_team: str) -> dict:
         """Extract Over/Under (totals) odds for a specific match."""
         result = {
             "over_25": None,
@@ -160,21 +159,14 @@ class OddsAPIClient:
                                     name = outcome.get("name", "").lower()
                                     price = outcome.get("price")
 
-                                    if point == 2.5:
-                                        if name == "over" and (result["over_25"] is None or price > result["over_25"]):
-                                            result["over_25"] = price
-                                        elif name == "under" and (result["under_25"] is None or price > result["under_25"]):
-                                            result["under_25"] = price
-                                    elif point == 1.5:
-                                        if name == "over" and (result["over_15"] is None or price > result["over_15"]):
-                                            result["over_15"] = price
-                                        elif name == "under" and (result["under_15"] is None or price > result["under_15"]):
-                                            result["under_15"] = price
-                                    elif point == 3.5:
-                                        if name == "over" and (result["over_35"] is None or price > result["over_35"]):
-                                            result["over_35"] = price
-                                        elif name == "under" and (result["under_35"] is None or price > result["under_35"]):
-                                            result["under_35"] = price
+                                    # Map point value to result key suffix
+                                    point_map = {1.5: "15", 2.5: "25", 3.5: "35"}
+                                    suffix = point_map.get(point)
+                                    if suffix:
+                                        key = f"{name}_{suffix}"
+                                        current = result.get(key)
+                                        if current is None or price > current:
+                                            result[key] = price
 
                     # Check if we have at least Over/Under 2.5
                     if result["over_25"] is not None or result["under_25"] is not None:
@@ -257,11 +249,7 @@ class WeatherClient:
         # Open-Meteo doesn't need an API key - this param is kept for compatibility
         pass
 
-    async def get_match_weather(
-        self,
-        home_team: str,
-        match_date: datetime
-    ) -> dict[str, Any]:
+    async def get_match_weather(self, home_team: str, match_date: datetime) -> dict[str, Any]:
         """Get weather forecast for match day at stadium location using Open-Meteo."""
         # Find stadium coordinates
         coords = None
@@ -277,15 +265,19 @@ class WeatherClient:
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 # Open-Meteo forecast API
+                hourly_params = (
+                    "temperature_2m,relative_humidity_2m,apparent_temperature,"
+                    "precipitation_probability,weather_code,wind_speed_10m"
+                )
                 response = await client.get(
                     self.BASE_URL,
                     params={
                         "latitude": coords[0],
                         "longitude": coords[1],
-                        "hourly": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m",
+                        "hourly": hourly_params,
                         "forecast_days": 7,
                         "timezone": "auto",
-                    }
+                    },
                 )
 
                 if response.status_code == 200:
@@ -294,9 +286,8 @@ class WeatherClient:
                     times = hourly.get("time", [])
 
                     # Find forecast closest to match time
-                    match_date_str = match_date.strftime("%Y-%m-%dT%H:00")
                     closest_idx = 0
-                    min_diff = float('inf')
+                    min_diff = float("inf")
 
                     for idx, time_str in enumerate(times):
                         try:
@@ -327,8 +318,8 @@ class WeatherClient:
                             "impact": self._assess_weather_impact(
                                 temp or 15,
                                 wind_speed / 3.6,  # Convert km/h to m/s
-                                precip_prob / 100  # Convert to 0-1 range
-                            )
+                                precip_prob / 100,  # Convert to 0-1 range
+                            ),
                         }
 
         except Exception as e:
@@ -406,7 +397,6 @@ class FormCalculator:
 
         for match in matches[:5]:
             home_team = match.get("homeTeam", {}).get("name", "")
-            away_team = match.get("awayTeam", {}).get("name", "")
             score = match.get("score", {})
 
             if not score or not score.get("fullTime"):
@@ -514,9 +504,7 @@ class DataEnrichmentService:
         # 1. Get bookmaker odds (1X2 + Over/Under)
         try:
             odds_data = await self.odds_client.get_odds(competition, markets="h2h,totals")
-            enrichment["odds"] = self.odds_client.extract_best_odds(
-                odds_data, home_team, away_team
-            )
+            enrichment["odds"] = self.odds_client.extract_best_odds(odds_data, home_team, away_team)
             # Also extract Over/Under odds
             enrichment["totals_odds"] = self.odds_client.extract_totals_odds(
                 odds_data, home_team, away_team
@@ -575,12 +563,7 @@ class DataEnrichmentService:
 
         return enrichment
 
-    def _analyze_h2h(
-        self,
-        matches: list[dict],
-        home_team: str,
-        away_team: str
-    ) -> dict:
+    def _analyze_h2h(self, matches: list[dict], home_team: str, away_team: str) -> dict:
         """Analyze head-to-head history."""
         h2h = {
             "total_matches": len(matches),

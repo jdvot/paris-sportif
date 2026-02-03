@@ -3,13 +3,14 @@
 Admin only endpoints.
 """
 
-from fastapi import APIRouter
-import httpx
 import logging
 
+import httpx
+from fastapi import APIRouter
+
+from src.auth import ADMIN_RESPONSES, AdminUser
 from src.core.config import settings
 from src.data.sources.football_data import get_football_data_client
-from src.auth import AdminUser, ADMIN_RESPONSES
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -30,9 +31,7 @@ async def debug_api_status(user: AdminUser) -> dict:
     # Check API key
     api_key_present = bool(settings.football_data_api_key)
     api_key_length = len(settings.football_data_api_key) if api_key_present else 0
-    api_key_last_4 = (
-        settings.football_data_api_key[-4:] if api_key_present else "N/A"
-    )
+    api_key_last_4 = settings.football_data_api_key[-4:] if api_key_present else "N/A"
 
     # Check client headers
     headers_configured = bool(client.headers)

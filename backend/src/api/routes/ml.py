@@ -12,12 +12,11 @@ Provides endpoints for:
 import asyncio
 import logging
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from src.auth import AdminUser, ADMIN_RESPONSES
+from src.auth import ADMIN_RESPONSES, AdminUser
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -29,8 +28,8 @@ class MLStatusResponse(BaseModel):
     models_trained: bool
     xgboost_available: bool
     random_forest_available: bool
-    data_age_days: Optional[int]
-    last_training: Optional[datetime]
+    data_age_days: int | None
+    last_training: datetime | None
     feature_state_loaded: bool
 
 
@@ -39,7 +38,7 @@ class PipelineResponse(BaseModel):
 
     message: str
     status: str
-    task_id: Optional[str] = None
+    task_id: str | None = None
 
 
 # Track background task status
@@ -61,8 +60,8 @@ async def get_ml_status(user: AdminUser) -> MLStatusResponse:
     - Feature engineering state
     """
     try:
-        from src.ml.model_loader import model_loader
         from src.ml.data_collector import HistoricalDataCollector
+        from src.ml.model_loader import model_loader
 
         collector = HistoricalDataCollector()
         data_age = collector.get_data_age_days()
@@ -96,10 +95,7 @@ async def collect_data(user: AdminUser, background_tasks: BackgroundTasks) -> Pi
     This is a long-running task that runs in the background.
     """
     if _pipeline_status["running"]:
-        raise HTTPException(
-            status_code=409,
-            detail="A pipeline task is already running"
-        )
+        raise HTTPException(status_code=409, detail="A pipeline task is already running")
 
     def run_collection_sync():
         global _pipeline_status
@@ -137,17 +133,14 @@ async def train_models(user: AdminUser, background_tasks: BackgroundTasks) -> Pi
     Requires data to be collected first.
     """
     if _pipeline_status["running"]:
-        raise HTTPException(
-            status_code=409,
-            detail="A pipeline task is already running"
-        )
+        raise HTTPException(status_code=409, detail="A pipeline task is already running")
 
     def run_training():
         global _pipeline_status
         _pipeline_status["running"] = True
         try:
-            from src.ml.trainer import MLTrainer
             from src.ml.model_loader import model_loader
+            from src.ml.trainer import MLTrainer
 
             trainer = MLTrainer()
             success = trainer.train_all()
@@ -185,10 +178,7 @@ async def run_full_pipeline(user: AdminUser, background_tasks: BackgroundTasks) 
     This is a long-running task (5-15 minutes depending on API rate limits).
     """
     if _pipeline_status["running"]:
-        raise HTTPException(
-            status_code=409,
-            detail="A pipeline task is already running"
-        )
+        raise HTTPException(status_code=409, detail="A pipeline task is already running")
 
     def run_full_sync():
         global _pipeline_status

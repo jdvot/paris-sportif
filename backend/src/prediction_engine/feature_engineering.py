@@ -15,9 +15,8 @@ Features are designed to capture:
 4. Interaction effects (e.g., strong attack vs weak defense)
 """
 
-from typing import Tuple, Dict, List, Optional
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -39,15 +38,17 @@ class FeatureVector:
 
     def to_array(self) -> np.ndarray:
         """Convert to numpy array for model input."""
-        return np.array([
-            self.home_attack,
-            self.home_defense,
-            self.away_attack,
-            self.away_defense,
-            self.recent_form_home,
-            self.recent_form_away,
-            self.head_to_head_home,
-        ])
+        return np.array(
+            [
+                self.home_attack,
+                self.home_defense,
+                self.away_attack,
+                self.away_defense,
+                self.recent_form_home,
+                self.recent_form_away,
+                self.head_to_head_home,
+            ]
+        )
 
 
 class FeatureEngineer:
@@ -107,7 +108,7 @@ class FeatureEngineer:
 
     @staticmethod
     def calculate_recent_form(
-        recent_results: List[Tuple[int, int]],
+        recent_results: list[tuple[int, int]],
         is_home: bool = True,
         decay_rate: float = 0.9,
     ) -> float:
@@ -133,7 +134,7 @@ class FeatureEngineer:
 
         for i, (goals_for, goals_against) in enumerate(recent_results):
             # Weight decay: recent matches weighted more
-            weight = decay_rate ** i
+            weight = decay_rate**i
 
             # Calculate result: 1.0 for win, 0.5 for draw, 0 for loss
             if goals_for > goals_against:
@@ -158,7 +159,7 @@ class FeatureEngineer:
 
     @staticmethod
     def calculate_head_to_head(
-        h2h_results: List[Tuple[int, int]],
+        h2h_results: list[tuple[int, int]],
         is_home: bool = True,
     ) -> float:
         """
@@ -211,9 +212,9 @@ class FeatureEngineer:
         home_defense: float,
         away_attack: float,
         away_defense: float,
-        home_recent_results: Optional[List[Tuple[int, int]]] = None,
-        away_recent_results: Optional[List[Tuple[int, int]]] = None,
-        h2h_results: Optional[List[Tuple[int, int]]] = None,
+        home_recent_results: list[tuple[int, int]] | None = None,
+        away_recent_results: list[tuple[int, int]] | None = None,
+        h2h_results: list[tuple[int, int]] | None = None,
     ) -> FeatureVector:
         """
         Create engineered feature vector for ML models.
@@ -270,7 +271,7 @@ class FeatureEngineer:
         )
 
     @staticmethod
-    def create_interaction_features(features: FeatureVector) -> Dict[str, float]:
+    def create_interaction_features(features: FeatureVector) -> dict[str, float]:
         """
         Create interaction features from base features.
 
@@ -286,14 +287,11 @@ class FeatureEngineer:
             # Attack vs defense matchups
             "home_attack_vs_away_defense": features.home_attack * features.away_defense,
             "away_attack_vs_home_defense": features.away_attack * features.home_defense,
-
             # Team strength ratios
             "home_strength_ratio": features.home_attack / (features.home_defense + 0.01),
             "away_strength_ratio": features.away_attack / (features.away_defense + 0.01),
-
             # Form advantage
             "form_advantage": features.recent_form_home - features.recent_form_away,
-
             # Combined strength
             "home_total_strength": features.home_attack + (1 - features.home_defense),
             "away_total_strength": features.away_attack + (1 - features.away_defense),

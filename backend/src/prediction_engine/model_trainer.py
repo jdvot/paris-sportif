@@ -8,30 +8,29 @@ This module handles:
 - Performance metrics calculation
 """
 
-from typing import Tuple, Optional, Dict, List
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
+from src.prediction_engine.feature_engineering import FeatureEngineer
+from src.prediction_engine.models.random_forest_model import RandomForestModel
+from src.prediction_engine.models.xgboost_model import XGBoostModel
+
 logger = logging.getLogger(__name__)
 
+# Optional sklearn imports
 try:
-    import pandas as pd
-    PANDAS_AVAILABLE = True
-except ImportError:
-    PANDAS_AVAILABLE = False
+    from sklearn.metrics import accuracy_score, log_loss, precision_recall_fscore_support
+    from sklearn.model_selection import train_test_split
 
-try:
-    from sklearn.model_selection import train_test_split, cross_val_score
-    from sklearn.metrics import accuracy_score, precision_recall_fscore_support, log_loss
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
-
-from src.prediction_engine.models.xgboost_model import XGBoostModel
-from src.prediction_engine.models.random_forest_model import RandomForestModel
-from src.prediction_engine.feature_engineering import FeatureEngineer, FeatureVector
+    if TYPE_CHECKING:
+        from sklearn.metrics import accuracy_score, log_loss, precision_recall_fscore_support
+        from sklearn.model_selection import train_test_split
 
 
 @dataclass
@@ -67,14 +66,14 @@ class ModelTrainer:
         """Initialize trainer."""
         self.xgboost_model = XGBoostModel()
         self.random_forest_model = RandomForestModel()
-        self.training_metrics: Dict[str, ModelMetrics] = {}
+        self.training_metrics: dict[str, ModelMetrics] = {}
 
     def prepare_data(
         self,
-        match_data: List[Dict],
+        match_data: list[dict],
         test_size: float = 0.2,
         random_state: int = 42,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Prepare data for training.
 
@@ -130,7 +129,8 @@ class ModelTrainer:
 
             # Split data
             X_train, X_test, y_train, y_test = train_test_split(
-                X, y,
+                X,
+                y,
                 test_size=test_size,
                 random_state=random_state,
                 stratify=y,
@@ -147,9 +147,9 @@ class ModelTrainer:
         self,
         X_train: np.ndarray,
         y_train: np.ndarray,
-        X_val: Optional[np.ndarray] = None,
-        y_val: Optional[np.ndarray] = None,
-    ) -> Optional[ModelMetrics]:
+        X_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
+    ) -> ModelMetrics | None:
         """
         Train XGBoost model.
 
@@ -167,7 +167,8 @@ class ModelTrainer:
 
             # Train model
             self.xgboost_model.train(
-                X_train, y_train,
+                X_train,
+                y_train,
                 X_val=X_val,
                 y_val=y_val,
                 early_stopping_rounds=20,
@@ -177,7 +178,8 @@ class ModelTrainer:
             if X_val is not None and y_val is not None:
                 metrics = self._evaluate_model(
                     self.xgboost_model,
-                    X_val, y_val,
+                    X_val,
+                    y_val,
                     "XGBoost",
                 )
                 self.training_metrics["xgboost"] = metrics
@@ -193,9 +195,9 @@ class ModelTrainer:
         self,
         X_train: np.ndarray,
         y_train: np.ndarray,
-        X_val: Optional[np.ndarray] = None,
-        y_val: Optional[np.ndarray] = None,
-    ) -> Optional[ModelMetrics]:
+        X_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
+    ) -> ModelMetrics | None:
         """
         Train Random Forest model.
 
@@ -218,7 +220,8 @@ class ModelTrainer:
             if X_val is not None and y_val is not None:
                 metrics = self._evaluate_model(
                     self.random_forest_model,
-                    X_val, y_val,
+                    X_val,
+                    y_val,
                     "Random Forest",
                 )
                 self.training_metrics["random_forest"] = metrics
@@ -232,9 +235,9 @@ class ModelTrainer:
 
     def train_both_models(
         self,
-        match_data: List[Dict],
+        match_data: list[dict],
         test_size: float = 0.2,
-    ) -> Dict[str, Optional[ModelMetrics]]:
+    ) -> dict[str, ModelMetrics | None]:
         """
         Prepare data and train both XGBoost and Random Forest models.
 
@@ -256,7 +259,8 @@ class ModelTrainer:
 
             # Train XGBoost
             xgb_metrics = self.train_xgboost(
-                X_train, y_train,
+                X_train,
+                y_train,
                 X_val=X_test,
                 y_val=y_test,
             )
@@ -264,7 +268,8 @@ class ModelTrainer:
 
             # Train Random Forest
             rf_metrics = self.train_random_forest(
-                X_train, y_train,
+                X_train,
+                y_train,
                 X_val=X_test,
                 y_val=y_test,
             )
@@ -306,7 +311,8 @@ class ModelTrainer:
 
             # Per-class metrics
             precision, recall, f1, _ = precision_recall_fscore_support(
-                y_test, y_pred,
+                y_test,
+                y_pred,
                 average=None,
                 zero_division=0,
             )
@@ -361,6 +367,7 @@ class ModelTrainer:
         """
         try:
             import os
+
             os.makedirs(directory, exist_ok=True)
 
             xgb_path = os.path.join(directory, "xgboost_model.pkl")
@@ -390,11 +397,16 @@ class ModelTrainer:
         """
         try:
             import os
+
             xgb_path = os.path.join(directory, "xgboost_model.pkl")
             rf_path = os.path.join(directory, "random_forest_model.pkl")
 
-            xgb_loaded = self.xgboost_model.load_model(xgb_path) if os.path.exists(xgb_path) else False
-            rf_loaded = self.random_forest_model.load_model(rf_path) if os.path.exists(rf_path) else False
+            xgb_loaded = (
+                self.xgboost_model.load_model(xgb_path) if os.path.exists(xgb_path) else False
+            )
+            rf_loaded = (
+                self.random_forest_model.load_model(rf_path) if os.path.exists(rf_path) else False
+            )
 
             if xgb_loaded or rf_loaded:
                 logger.info(f"Models loaded from {directory}")

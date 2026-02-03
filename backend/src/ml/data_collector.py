@@ -9,11 +9,11 @@ Free tier: 10 requests/minute, 5 major leagues supported.
 import asyncio
 import json
 import logging
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Optional
-import aiohttp
 import os
+from datetime import datetime
+from pathlib import Path
+
+import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ TEAM_STATS_FILE = DATA_DIR / "team_stats.json"
 class HistoricalDataCollector:
     """Collects and processes historical match data for ML training."""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         """
         Initialize collector with optional API key.
 
@@ -53,11 +53,8 @@ class HistoricalDataCollector:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     async def fetch_with_retry(
-        self,
-        session: aiohttp.ClientSession,
-        url: str,
-        max_retries: int = 3
-    ) -> Optional[Dict]:
+        self, session: aiohttp.ClientSession, url: str, max_retries: int = 3
+    ) -> dict | None:
         """Fetch URL with retry logic and rate limiting."""
         for attempt in range(max_retries):
             try:
@@ -65,7 +62,7 @@ class HistoricalDataCollector:
                     if response.status == 200:
                         return await response.json()
                     elif response.status == 429:  # Rate limited
-                        logger.warning(f"Rate limited, waiting 60s...")
+                        logger.warning("Rate limited, waiting 60s...")
                         await asyncio.sleep(60)
                     else:
                         logger.error(f"HTTP {response.status} for {url}")
@@ -76,11 +73,8 @@ class HistoricalDataCollector:
         return None
 
     async def collect_season_matches(
-        self,
-        session: aiohttp.ClientSession,
-        competition: str,
-        season: int
-    ) -> List[Dict]:
+        self, session: aiohttp.ClientSession, competition: str, season: int
+    ) -> list[dict]:
         """
         Collect all matches for a specific competition and season.
 
@@ -125,8 +119,7 @@ class HistoricalDataCollector:
                     "away": match["score"]["fullTime"]["away"],
                 },
                 "result": self._determine_result(
-                    match["score"]["fullTime"]["home"],
-                    match["score"]["fullTime"]["away"]
+                    match["score"]["fullTime"]["home"], match["score"]["fullTime"]["away"]
                 ),
             }
             matches.append(processed)
@@ -150,10 +143,8 @@ class HistoricalDataCollector:
             return 2  # Away Win
 
     async def collect_team_stats(
-        self,
-        session: aiohttp.ClientSession,
-        competition: str
-    ) -> Dict[int, Dict]:
+        self, session: aiohttp.ClientSession, competition: str
+    ) -> dict[int, dict]:
         """
         Collect current team statistics for a competition.
 
@@ -199,10 +190,8 @@ class HistoricalDataCollector:
         return team_stats
 
     async def collect_all_historical_data(
-        self,
-        seasons: Optional[List[int]] = None,
-        competitions: Optional[List[str]] = None
-    ) -> Dict:
+        self, seasons: list[int] | None = None, competitions: list[str] | None = None
+    ) -> dict:
         """
         Collect historical data for multiple seasons and competitions.
 
@@ -228,9 +217,7 @@ class HistoricalDataCollector:
             # Collect matches for each competition and season
             for competition in competitions:
                 for season in seasons:
-                    matches = await self.collect_season_matches(
-                        session, competition, season
-                    )
+                    matches = await self.collect_season_matches(session, competition, season)
                     all_matches.extend(matches)
 
             # Collect current team stats
@@ -254,20 +241,20 @@ class HistoricalDataCollector:
         logger.info(f"Collection complete: {len(all_matches)} matches from {len(seasons)} seasons")
         return result
 
-    def _save_data(self, data: Dict) -> None:
+    def _save_data(self, data: dict) -> None:
         """Save collected data to JSON file."""
         with open(HISTORICAL_DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         logger.info(f"Data saved to {HISTORICAL_DATA_FILE}")
 
-    def load_data(self) -> Optional[Dict]:
+    def load_data(self) -> dict | None:
         """Load previously collected data."""
         if HISTORICAL_DATA_FILE.exists():
-            with open(HISTORICAL_DATA_FILE, "r", encoding="utf-8") as f:
+            with open(HISTORICAL_DATA_FILE, encoding="utf-8") as f:
                 return json.load(f)
         return None
 
-    def get_data_age_days(self) -> Optional[int]:
+    def get_data_age_days(self) -> int | None:
         """Get age of collected data in days."""
         data = self.load_data()
         if data and "collected_at" in data:
@@ -281,7 +268,9 @@ async def collect_data_cli():
     import argparse
 
     parser = argparse.ArgumentParser(description="Collect historical football data")
-    parser.add_argument("--seasons", type=int, nargs="+", help="Seasons to collect (e.g., 2022 2023)")
+    parser.add_argument(
+        "--seasons", type=int, nargs="+", help="Seasons to collect (e.g., 2022 2023)"
+    )
     parser.add_argument("--competitions", nargs="+", help="Competitions (e.g., PL PD)")
     parser.add_argument("--api-key", help="football-data.org API key")
 
@@ -291,8 +280,7 @@ async def collect_data_cli():
 
     collector = HistoricalDataCollector(api_key=args.api_key)
     await collector.collect_all_historical_data(
-        seasons=args.seasons,
-        competitions=args.competitions
+        seasons=args.seasons, competitions=args.competitions
     )
 
 

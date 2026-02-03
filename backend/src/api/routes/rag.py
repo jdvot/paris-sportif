@@ -5,14 +5,13 @@ Premium endpoints - require premium or admin role.
 
 import logging
 from datetime import datetime
-from typing import Optional
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from src.prediction_engine.rag_enrichment import get_rag_enrichment
+from src.auth import PREMIUM_RESPONSES, PremiumUser
 from src.data.data_enrichment import get_data_enrichment
-from src.auth import PremiumUser, PREMIUM_RESPONSES
+from src.prediction_engine.rag_enrichment import get_rag_enrichment
 
 logger = logging.getLogger(__name__)
 
@@ -21,18 +20,20 @@ router = APIRouter()
 
 class WeatherInfo(BaseModel):
     """Weather information for match day."""
+
     available: bool = False
-    temperature: Optional[float] = None
-    feels_like: Optional[float] = None
-    humidity: Optional[int] = None
-    description: Optional[str] = None
-    wind_speed: Optional[float] = None
-    rain_probability: Optional[float] = None
-    impact: Optional[str] = None
+    temperature: float | None = None
+    feels_like: float | None = None
+    humidity: int | None = None
+    description: str | None = None
+    wind_speed: float | None = None
+    rain_probability: float | None = None
+    impact: str | None = None
 
 
 class TeamContext(BaseModel):
     """Team context information."""
+
     team_name: str
     recent_news: list[str] = []
     injuries: list[str] = []
@@ -42,6 +43,7 @@ class TeamContext(BaseModel):
 
 class MatchContext(BaseModel):
     """Full match context from RAG enrichment."""
+
     home_team: str
     away_team: str
     competition: str
@@ -56,10 +58,10 @@ class MatchContext(BaseModel):
     match_importance: str = "normal"  # low, normal, high, critical
 
     # Weather
-    weather: Optional[WeatherInfo] = None
+    weather: WeatherInfo | None = None
 
     # Combined analysis
-    combined_analysis: Optional[str] = None
+    combined_analysis: str | None = None
 
     # Metadata
     enriched_at: datetime
@@ -68,9 +70,10 @@ class MatchContext(BaseModel):
 
 class RAGStatusResponse(BaseModel):
     """RAG system status."""
+
     enabled: bool
     groq_configured: bool
-    last_enrichment: Optional[datetime] = None
+    last_enrichment: datetime | None = None
     total_enrichments: int = 0
 
 
@@ -99,7 +102,7 @@ async def enrich_match(
     home_team: str = Query(..., description="Home team name"),
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code (PL, SA, etc.)"),
-    match_date: Optional[str] = Query(None, description="Match date in YYYY-MM-DD format"),
+    match_date: str | None = Query(None, description="Match date in YYYY-MM-DD format"),
 ) -> MatchContext:
     """
     Enrich a match with contextual information using RAG.
@@ -246,7 +249,7 @@ async def analyze_match_context(
     home_team: str = Query(..., description="Home team name"),
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code"),
-    additional_context: Optional[str] = Query(None, description="Additional context to include"),
+    additional_context: str | None = Query(None, description="Additional context to include"),
 ) -> dict:
     """
     Generate a detailed analysis of match context using LLM.

@@ -7,7 +7,6 @@ Provides a unified interface for predictions.
 import logging
 import pickle
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 import numpy as np
 
@@ -91,7 +90,7 @@ class TrainedModelLoader:
             return False
         return team_id in self.feature_state.get("team_goals_scored", {})
 
-    def get_team_stats(self, team_id: int) -> Optional[Dict]:
+    def get_team_stats(self, team_id: int) -> dict | None:
         """Get historical stats for a team."""
         if not self.feature_state or not self.has_team_data(team_id):
             return None
@@ -166,20 +165,21 @@ class TrainedModelLoader:
                     points = wins * 3 + draws
                     h2h = points / (len(results) * 3)
 
-        return np.array([[
-            home_attack,
-            home_defense,
-            away_attack,
-            away_defense,
-            home_form / 100.0,
-            away_form / 100.0,
-            h2h,
-        ]])
+        return np.array(
+            [
+                [
+                    home_attack,
+                    home_defense,
+                    away_attack,
+                    away_defense,
+                    home_form / 100.0,
+                    away_form / 100.0,
+                    h2h,
+                ]
+            ]
+        )
 
-    def predict_xgboost(
-        self,
-        features: np.ndarray
-    ) -> Optional[Tuple[np.ndarray, float]]:
+    def predict_xgboost(self, features: np.ndarray) -> tuple[np.ndarray, float] | None:
         """
         Make prediction with XGBoost model.
 
@@ -200,10 +200,7 @@ class TrainedModelLoader:
             logger.error(f"XGBoost prediction failed: {e}")
             return None
 
-    def predict_random_forest(
-        self,
-        features: np.ndarray
-    ) -> Optional[Tuple[np.ndarray, float]]:
+    def predict_random_forest(self, features: np.ndarray) -> tuple[np.ndarray, float] | None:
         """
         Make prediction with Random Forest model.
 
@@ -236,7 +233,7 @@ class TrainedModelLoader:
         away_form: float = 50.0,
         xgb_weight: float = 0.7,
         rf_weight: float = 0.3,
-    ) -> Optional[Dict]:
+    ) -> dict | None:
         """
         Make ensemble prediction combining both models.
 
@@ -244,10 +241,14 @@ class TrainedModelLoader:
             Dictionary with probabilities and metadata
         """
         features = self.create_features(
-            home_team_id, away_team_id,
-            home_attack, home_defense,
-            away_attack, away_defense,
-            home_form, away_form
+            home_team_id,
+            away_team_id,
+            home_attack,
+            home_defense,
+            away_attack,
+            away_defense,
+            home_form,
+            away_form,
         )
 
         xgb_result = self.predict_xgboost(features)
@@ -262,7 +263,7 @@ class TrainedModelLoader:
             rf_probs, rf_conf = rf_result
 
             # Weighted average
-            combined_probs = (xgb_probs * xgb_weight + rf_probs * rf_weight)
+            combined_probs = xgb_probs * xgb_weight + rf_probs * rf_weight
             combined_probs = combined_probs / combined_probs.sum()  # Normalize
 
             confidence = xgb_conf * xgb_weight + rf_conf * rf_weight
@@ -299,7 +300,7 @@ def get_ml_prediction(
     away_defense: float = 1.3,
     home_form: float = 50.0,
     away_form: float = 50.0,
-) -> Optional[Dict]:
+) -> dict | None:
     """
     Convenience function to get ML prediction.
 
@@ -309,8 +310,12 @@ def get_ml_prediction(
         return None
 
     return model_loader.predict_ensemble(
-        home_team_id, away_team_id,
-        home_attack, home_defense,
-        away_attack, away_defense,
-        home_form, away_form
+        home_team_id,
+        away_team_id,
+        home_attack,
+        home_defense,
+        away_attack,
+        away_defense,
+        home_form,
+        away_form,
     )

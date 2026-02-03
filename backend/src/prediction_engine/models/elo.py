@@ -7,7 +7,7 @@ Reference: https://www.eloratings.net/about
 """
 
 from dataclasses import dataclass
-from typing import Literal, Tuple
+from typing import Literal
 
 import numpy as np
 
@@ -97,7 +97,7 @@ class ELOSystem:
         self,
         home_rating: float,
         away_rating: float,
-    ) -> Tuple[float, float, float]:
+    ) -> tuple[float, float, float]:
         """
         Calculate win/draw/loss probabilities.
 
@@ -142,7 +142,7 @@ class ELOSystem:
     def actual_score(
         self,
         result: Literal["home", "draw", "away"],
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Convert match result to actual scores.
 
@@ -188,7 +188,7 @@ class ELOSystem:
         away_rating: float,
         home_goals: int,
         away_goals: int,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Update ratings after a match.
 

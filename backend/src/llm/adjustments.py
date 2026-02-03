@@ -5,16 +5,14 @@ based on injuries, form, sentiment, and other contextual factors.
 """
 
 import logging
-from typing import Optional
 
 from src.llm.client import get_llm_client
 from src.llm.prompts import (
-    SYSTEM_JSON_EXTRACTOR,
     INJURY_ANALYSIS_PROMPT,
     SENTIMENT_ANALYSIS_PROMPT,
+    SYSTEM_JSON_EXTRACTOR,
 )
 from src.llm.prompts_advanced import (
-    get_injury_impact_analysis_prompt,
     get_form_analysis_prompt,
 )
 from src.prediction_engine.ensemble import LLMAdjustments
@@ -195,12 +193,12 @@ async def analyze_form(
 async def calculate_llm_adjustments(
     home_team: str,
     away_team: str,
-    home_injuries: Optional[list[dict]] = None,
-    away_injuries: Optional[list[dict]] = None,
-    home_sentiment: Optional[dict] = None,
-    away_sentiment: Optional[dict] = None,
-    home_form: Optional[dict] = None,
-    away_form: Optional[dict] = None,
+    home_injuries: list[dict] | None = None,
+    away_injuries: list[dict] | None = None,
+    home_sentiment: dict | None = None,
+    away_sentiment: dict | None = None,
+    home_form: dict | None = None,
+    away_form: dict | None = None,
 ) -> LLMAdjustments:
     """
     Calculate comprehensive LLM-based adjustments for match prediction.
@@ -295,9 +293,11 @@ async def calculate_llm_adjustments(
     else:
         adjustments.overall_confidence = 0.5
 
-    logger.info(f"Final adjustments - Home: {adjustments.injury_impact_home:.3f}, "
-                f"Away: {adjustments.injury_impact_away:.3f}, "
-                f"Confidence: {adjustments.overall_confidence:.3f}")
+    logger.info(
+        f"Final adjustments - Home: {adjustments.injury_impact_home:.3f}, "
+        f"Away: {adjustments.injury_impact_away:.3f}, "
+        f"Confidence: {adjustments.overall_confidence:.3f}"
+    )
 
     return adjustments
 
@@ -321,8 +321,7 @@ def _calculate_injury_impact(injuries: list[dict], team_name: str) -> dict:
 
     # Weight injuries by impact score and confidence
     total_weighted_impact = sum(
-        inj.get("impact_score", 0) * inj.get("confidence", 0.5)
-        for inj in injuries
+        inj.get("impact_score", 0) * inj.get("confidence", 0.5) for inj in injuries
     )
 
     # Scale to -0.3 to 0.0 range (more conservative than simple multiplication)

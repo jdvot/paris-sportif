@@ -17,9 +17,8 @@ References:
 - Application to sports: https://www.sas.com/en_us/insights/analytics/xgboost.html
 """
 
-from dataclasses import dataclass
-from typing import Optional, Tuple, Dict, List
 import logging
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -27,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import xgboost as xgb
+
     XGBOOST_AVAILABLE = True
 except ImportError:
     XGBOOST_AVAILABLE = False
@@ -89,7 +89,7 @@ class XGBoostModel:
         "gamma": 0,
     }
 
-    def __init__(self, pretrained_model: Optional[object] = None):
+    def __init__(self, pretrained_model: object | None = None):
         """
         Initialize XGBoost model.
 
@@ -98,17 +98,17 @@ class XGBoostModel:
         """
         self.model = pretrained_model
         self.is_trained = pretrained_model is not None
-        self.feature_importance: Dict[str, float] = {}
-        self.training_history: Dict[str, List[float]] = {"loss": [], "validation": []}
+        self.feature_importance: dict[str, float] = {}
+        self.training_history: dict[str, list[float]] = {"loss": [], "validation": []}
 
     def train(
         self,
         X_train: np.ndarray,
         y_train: np.ndarray,
-        X_val: Optional[np.ndarray] = None,
-        y_val: Optional[np.ndarray] = None,
+        X_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
         early_stopping_rounds: int = 20,
-    ) -> Dict[str, List[float]]:
+    ) -> dict[str, list[float]]:
         """
         Train the XGBoost model on historical match data.
 
@@ -197,23 +197,23 @@ class XGBoostModel:
         """
         # If model not available or not trained, return neutral prediction
         if not XGBOOST_AVAILABLE or not self.is_trained:
-            return self._fallback_prediction(
-                home_attack, home_defense, away_attack, away_defense
-            )
+            return self._fallback_prediction(home_attack, home_defense, away_attack, away_defense)
 
         try:
             # Prepare feature vector
-            features = np.array([
+            features = np.array(
                 [
-                    home_attack,
-                    home_defense,
-                    away_attack,
-                    away_defense,
-                    recent_form_home,
-                    recent_form_away,
-                    head_to_head_home,
+                    [
+                        home_attack,
+                        home_defense,
+                        away_attack,
+                        away_defense,
+                        recent_form_home,
+                        recent_form_away,
+                        head_to_head_home,
+                    ]
                 ]
-            ])
+            )
 
             # Get probability predictions
             probs = self.model.predict_proba(features)[0]
@@ -242,9 +242,7 @@ class XGBoostModel:
 
         except Exception as e:
             logger.error(f"Error during prediction: {e}")
-            return self._fallback_prediction(
-                home_attack, home_defense, away_attack, away_defense
-            )
+            return self._fallback_prediction(home_attack, home_defense, away_attack, away_defense)
 
     def predict_batch(
         self,
@@ -308,7 +306,7 @@ class XGBoostModel:
             prediction_confidence=confidence,
         )
 
-    def get_feature_importance(self) -> Dict[str, float]:
+    def get_feature_importance(self) -> dict[str, float]:
         """
         Get feature importance scores from the trained model.
 

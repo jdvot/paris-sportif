@@ -12,21 +12,23 @@ Combines:
 This ensemble uses adaptive weighting based on data availability and match context.
 """
 
-from dataclasses import dataclass
-from typing import Literal, Optional
 import logging
+from dataclasses import dataclass
+from typing import Literal
+
 import numpy as np
 
-from src.prediction_engine.models.poisson import PoissonModel, PoissonPrediction
-from src.prediction_engine.models.dixon_coles import DixonColesModel, DixonColesPrediction
-from src.prediction_engine.models.elo import ELOSystem, ELOPrediction
-from src.prediction_engine.models.elo_advanced import AdvancedELOSystem, AdvancedELOPrediction
+from src.prediction_engine.models.dixon_coles import DixonColesModel
+from src.prediction_engine.models.elo import ELOSystem
+from src.prediction_engine.models.elo_advanced import AdvancedELOSystem
+from src.prediction_engine.models.poisson import PoissonModel
 
 logger = logging.getLogger(__name__)
 
 # Try to import ML models
 try:
     from src.ml.model_loader import get_ml_prediction, model_loader
+
     ML_AVAILABLE = True
 except ImportError:
     ML_AVAILABLE = False
@@ -95,13 +97,13 @@ class AdvancedEnsemblePrediction:
     calibration_score: float  # 0-1, how well calibrated the probabilities are
 
     # Value score (vs bookmaker odds)
-    value_score: Optional[float] = None
+    value_score: float | None = None
 
     # Model contributions for transparency
     model_contributions: list[ModelContribution] = None
 
     # LLM adjustments applied
-    llm_adjustments: Optional[AdvancedLLMAdjustments] = None
+    llm_adjustments: AdvancedLLMAdjustments | None = None
 
     # Expected goals
     expected_home_goals: float = 0.0
@@ -149,10 +151,10 @@ class AdvancedEnsemblePredictor:
 
     def __init__(
         self,
-        poisson_model: Optional[PoissonModel] = None,
-        dixon_coles_model: Optional[DixonColesModel] = None,
-        elo_system: Optional[ELOSystem] = None,
-        advanced_elo_system: Optional[AdvancedELOSystem] = None,
+        poisson_model: PoissonModel | None = None,
+        dixon_coles_model: DixonColesModel | None = None,
+        elo_system: ELOSystem | None = None,
+        advanced_elo_system: AdvancedELOSystem | None = None,
     ):
         """Initialize ensemble with component models."""
         self.poisson = poisson_model or PoissonModel()
@@ -237,8 +239,12 @@ class AdvancedEnsemblePredictor:
         away_adj = adjustments.total_away_adjustment
 
         # Clamp adjustments more conservatively
-        home_adj = np.clip(home_adj, -self.MAX_LLM_ADJUSTMENT * 0.75, self.MAX_LLM_ADJUSTMENT * 0.75)
-        away_adj = np.clip(away_adj, -self.MAX_LLM_ADJUSTMENT * 0.75, self.MAX_LLM_ADJUSTMENT * 0.75)
+        home_adj = np.clip(
+            home_adj, -self.MAX_LLM_ADJUSTMENT * 0.75, self.MAX_LLM_ADJUSTMENT * 0.75
+        )
+        away_adj = np.clip(
+            away_adj, -self.MAX_LLM_ADJUSTMENT * 0.75, self.MAX_LLM_ADJUSTMENT * 0.75
+        )
 
         # Apply adjustments with conservative scaling
         # Scale by 0.65 to keep LLM as a modifier, not override
@@ -259,8 +265,8 @@ class AdvancedEnsemblePredictor:
     def _calculate_value(
         self,
         prob: float,
-        odds: Optional[float],
-    ) -> Optional[float]:
+        odds: float | None,
+    ) -> float | None:
         """
         Calculate value score vs bookmaker odds.
 
@@ -306,9 +312,7 @@ class AdvancedEnsemblePredictor:
 
         # Combined confidence with better weighting
         # 50% from margin (most important), 25% each from entropy and agreement
-        confidence = (
-            margin_conf * 0.50 + entropy_conf * 0.25 + agreement_conf * 0.25
-        )
+        confidence = margin_conf * 0.50 + entropy_conf * 0.25 + agreement_conf * 0.25
 
         # Better calibrated range: 0.52 to 0.98
         return float(np.clip(confidence, 0.52, 0.98))
@@ -345,9 +349,7 @@ class AdvancedEnsemblePredictor:
         unique_outcomes = set(outcomes)
         outcome_probs = []
         for outcome in unique_outcomes:
-            prob = sum(
-                w for o, w in zip(outcomes, weights_arr) if o == outcome
-            )
+            prob = sum(w for o, w in zip(outcomes, weights_arr) if o == outcome)
             outcome_probs.append(prob)
 
         entropy = -sum(p * np.log(p + 1e-10) for p in outcome_probs)
@@ -361,9 +363,15 @@ class AdvancedEnsemblePredictor:
         away_probs = np.array([p[2] for p in predictions])
 
         # Weighted variance
-        home_var = np.average((home_probs - np.average(home_probs, weights=weights_arr)) ** 2, weights=weights_arr)
-        draw_var = np.average((draw_probs - np.average(draw_probs, weights=weights_arr)) ** 2, weights=weights_arr)
-        away_var = np.average((away_probs - np.average(away_probs, weights=weights_arr)) ** 2, weights=weights_arr)
+        home_var = np.average(
+            (home_probs - np.average(home_probs, weights=weights_arr)) ** 2, weights=weights_arr
+        )
+        draw_var = np.average(
+            (draw_probs - np.average(draw_probs, weights=weights_arr)) ** 2, weights=weights_arr
+        )
+        away_var = np.average(
+            (away_probs - np.average(away_probs, weights=weights_arr)) ** 2, weights=weights_arr
+        )
 
         avg_variance = (home_var + draw_var + away_var) / 3.0
         # Convert variance to agreement (lower variance = higher agreement)
@@ -386,24 +394,24 @@ class AdvancedEnsemblePredictor:
         home_elo: float,
         away_elo: float,
         # Optional xG data (improves predictions significantly)
-        home_xg_for: Optional[float] = None,
-        home_xg_against: Optional[float] = None,
-        away_xg_for: Optional[float] = None,
-        away_xg_against: Optional[float] = None,
+        home_xg_for: float | None = None,
+        home_xg_against: float | None = None,
+        away_xg_for: float | None = None,
+        away_xg_against: float | None = None,
         # Recent form for Advanced ELO
-        home_recent_form: Optional[list[Literal["W", "D", "L"]]] = None,
-        away_recent_form: Optional[list[Literal["W", "D", "L"]]] = None,
+        home_recent_form: list[Literal["W", "D", "L"]] | None = None,
+        away_recent_form: list[Literal["W", "D", "L"]] | None = None,
         # Time weight for Dixon-Coles
         time_weight: float = 1.0,
         # LLM adjustments
-        llm_adjustments: Optional[AdvancedLLMAdjustments] = None,
+        llm_adjustments: AdvancedLLMAdjustments | None = None,
         # Bookmaker odds
-        odds_home: Optional[float] = None,
-        odds_draw: Optional[float] = None,
-        odds_away: Optional[float] = None,
+        odds_home: float | None = None,
+        odds_draw: float | None = None,
+        odds_away: float | None = None,
         # Team IDs for ML models
-        home_team_id: Optional[int] = None,
-        away_team_id: Optional[int] = None,
+        home_team_id: int | None = None,
+        away_team_id: int | None = None,
         # Form scores for ML (0-100)
         home_form_score: float = 50.0,
         away_form_score: float = 50.0,
@@ -444,12 +452,14 @@ class AdvancedEnsemblePredictor:
 
         # 1. Dixon-Coles Model (Primary)
         # Check if xG data is available and meaningful
-        has_xg_data = all([
-            home_xg_for and home_xg_for > 0,
-            home_xg_against and home_xg_against > 0,
-            away_xg_for and away_xg_for > 0,
-            away_xg_against and away_xg_against > 0
-        ])
+        has_xg_data = all(
+            [
+                home_xg_for and home_xg_for > 0,
+                home_xg_against and home_xg_against > 0,
+                away_xg_for and away_xg_for > 0,
+                away_xg_against and away_xg_against > 0,
+            ]
+        )
 
         if has_xg_data:
             # Use xG if available - more predictive than actual goals
@@ -472,20 +482,24 @@ class AdvancedEnsemblePredictor:
             )
             dc_weight = dc_base_weight
 
-        predictions.append((
-            dc_pred.home_win_prob,
-            dc_pred.draw_prob,
-            dc_pred.away_win_prob,
-        ))
+        predictions.append(
+            (
+                dc_pred.home_win_prob,
+                dc_pred.draw_prob,
+                dc_pred.away_win_prob,
+            )
+        )
         weights_list.append(dc_weight)
-        contributions.append(ModelContribution(
-            name="Dixon-Coles",
-            home_prob=dc_pred.home_win_prob,
-            draw_prob=dc_pred.draw_prob,
-            away_prob=dc_pred.away_win_prob,
-            weight=dc_weight,
-            confidence=0.8,
-        ))
+        contributions.append(
+            ModelContribution(
+                name="Dixon-Coles",
+                home_prob=dc_pred.home_win_prob,
+                draw_prob=dc_pred.draw_prob,
+                away_prob=dc_pred.away_win_prob,
+                weight=dc_weight,
+                confidence=0.8,
+            )
+        )
 
         # 2. Advanced ELO (Secondary with recent form)
         adv_elo_pred = self.advanced_elo.predict(
@@ -494,20 +508,24 @@ class AdvancedEnsemblePredictor:
             home_recent_form=home_recent_form,
             away_recent_form=away_recent_form,
         )
-        predictions.append((
-            adv_elo_pred.home_win_prob,
-            adv_elo_pred.draw_prob,
-            adv_elo_pred.away_win_prob,
-        ))
+        predictions.append(
+            (
+                adv_elo_pred.home_win_prob,
+                adv_elo_pred.draw_prob,
+                adv_elo_pred.away_win_prob,
+            )
+        )
         weights_list.append(elo_adv_weight)
-        contributions.append(ModelContribution(
-            name="Advanced ELO",
-            home_prob=adv_elo_pred.home_win_prob,
-            draw_prob=adv_elo_pred.draw_prob,
-            away_prob=adv_elo_pred.away_win_prob,
-            weight=self.WEIGHT_ADVANCED_ELO,
-            confidence=adv_elo_pred.confidence,
-        ))
+        contributions.append(
+            ModelContribution(
+                name="Advanced ELO",
+                home_prob=adv_elo_pred.home_win_prob,
+                draw_prob=adv_elo_pred.draw_prob,
+                away_prob=adv_elo_pred.away_win_prob,
+                weight=self.WEIGHT_ADVANCED_ELO,
+                confidence=adv_elo_pred.confidence,
+            )
+        )
 
         # 3. Basic Poisson (Baseline validation)
         poisson_pred = self.poisson.predict(
@@ -516,37 +534,45 @@ class AdvancedEnsemblePredictor:
             away_attack=away_attack,
             away_defense=away_defense,
         )
-        predictions.append((
-            poisson_pred.home_win_prob,
-            poisson_pred.draw_prob,
-            poisson_pred.away_win_prob,
-        ))
+        predictions.append(
+            (
+                poisson_pred.home_win_prob,
+                poisson_pred.draw_prob,
+                poisson_pred.away_win_prob,
+            )
+        )
         weights_list.append(poisson_weight)
-        contributions.append(ModelContribution(
-            name="Poisson",
-            home_prob=poisson_pred.home_win_prob,
-            draw_prob=poisson_pred.draw_prob,
-            away_prob=poisson_pred.away_win_prob,
-            weight=self.WEIGHT_POISSON,
-            confidence=0.7,
-        ))
+        contributions.append(
+            ModelContribution(
+                name="Poisson",
+                home_prob=poisson_pred.home_win_prob,
+                draw_prob=poisson_pred.draw_prob,
+                away_prob=poisson_pred.away_win_prob,
+                weight=self.WEIGHT_POISSON,
+                confidence=0.7,
+            )
+        )
 
         # 4. Basic ELO (Reference)
         elo_pred = self.elo.predict(home_elo, away_elo)
-        predictions.append((
-            elo_pred.home_win_prob,
-            elo_pred.draw_prob,
-            elo_pred.away_win_prob,
-        ))
+        predictions.append(
+            (
+                elo_pred.home_win_prob,
+                elo_pred.draw_prob,
+                elo_pred.away_win_prob,
+            )
+        )
         weights_list.append(basic_elo_weight)
-        contributions.append(ModelContribution(
-            name="Basic ELO",
-            home_prob=elo_pred.home_win_prob,
-            draw_prob=elo_pred.draw_prob,
-            away_prob=elo_pred.away_win_prob,
-            weight=basic_elo_weight,
-            confidence=0.65,
-        ))
+        contributions.append(
+            ModelContribution(
+                name="Basic ELO",
+                home_prob=elo_pred.home_win_prob,
+                draw_prob=elo_pred.draw_prob,
+                away_prob=elo_pred.away_win_prob,
+                weight=basic_elo_weight,
+                confidence=0.65,
+            )
+        )
 
         # 5. ML Models (XGBoost & Random Forest) - if trained
         if ml_available and home_team_id is not None and away_team_id is not None:
@@ -564,21 +590,25 @@ class AdvancedEnsemblePredictor:
 
                 if ml_result:
                     # ML ensemble prediction
-                    predictions.append((
-                        ml_result["home_win"],
-                        ml_result["draw"],
-                        ml_result["away_win"],
-                    ))
+                    predictions.append(
+                        (
+                            ml_result["home_win"],
+                            ml_result["draw"],
+                            ml_result["away_win"],
+                        )
+                    )
                     ml_weight = self.WEIGHT_XGBOOST + self.WEIGHT_RANDOM_FOREST
                     weights_list.append(ml_weight)
-                    contributions.append(ModelContribution(
-                        name=f"ML ({ml_result['model_used']})",
-                        home_prob=ml_result["home_win"],
-                        draw_prob=ml_result["draw"],
-                        away_prob=ml_result["away_win"],
-                        weight=ml_weight,
-                        confidence=ml_result["confidence"],
-                    ))
+                    contributions.append(
+                        ModelContribution(
+                            name=f"ML ({ml_result['model_used']})",
+                            home_prob=ml_result["home_win"],
+                            draw_prob=ml_result["draw"],
+                            away_prob=ml_result["away_win"],
+                            weight=ml_weight,
+                            confidence=ml_result["confidence"],
+                        )
+                    )
                     logger.info(f"ML prediction added: {ml_result['model_used']}")
             except Exception as e:
                 logger.warning(f"ML prediction failed: {e}")
@@ -603,15 +633,10 @@ class AdvancedEnsemblePredictor:
         recommended_bet = max(probs, key=probs.get)  # type: ignore
 
         # Calculate confidence
-        confidence = self._calculate_confidence(
-            home_prob, draw_prob, away_prob, model_agreement
-        )
+        confidence = self._calculate_confidence(home_prob, draw_prob, away_prob, model_agreement)
 
         # Calculate uncertainty
-        entropy = -sum(
-            p * np.log(p + 1e-10)
-            for p in [home_prob, draw_prob, away_prob]
-        )
+        entropy = -sum(p * np.log(p + 1e-10) for p in [home_prob, draw_prob, away_prob])
         uncertainty = entropy / np.log(3)  # Normalize to [0, 1]
 
         # Calibration score (how well distributed probabilities are)

@@ -14,7 +14,7 @@ limiter = Limiter(
 RATE_LIMITS = {
     "default": "100/minute",
     "predictions": "30/minute",  # Heavy compute endpoints
-    "matches": "60/minute",      # Data fetching endpoints
-    "auth": "10/minute",         # Auth endpoints (strict)
-    "admin": "20/minute",        # Admin endpoints
+    "matches": "60/minute",  # Data fetching endpoints
+    "auth": "10/minute",  # Auth endpoints (strict)
+    "admin": "20/minute",  # Admin endpoints
 }
