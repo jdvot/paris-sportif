@@ -12,6 +12,8 @@ from pydantic import BaseModel
 from src.auth import ADMIN_RESPONSES, AdminUser
 from src.data.database import get_db_stats
 from src.data.quality_monitor import AlertLevel, run_quality_check, send_slack_alert
+from src.notifications.alert_scheduler import get_alert_scheduler
+from src.notifications.push_service import PushPayload, get_push_service
 
 logger = logging.getLogger(__name__)
 
@@ -203,3 +205,102 @@ async def trigger_data_quality_alert(
     except Exception as e:
         logger.error(f"Error in data quality alert: {e}")
         raise HTTPException(status_code=500, detail="Failed to run data quality check")
+
+
+# ============================================================================
+# Notification endpoints
+# ============================================================================
+
+
+class NotificationRequest(BaseModel):
+    """Manual notification request."""
+
+    title: str
+    body: str
+    url: str = "/"
+    preference_filter: str | None = None
+
+
+class AlertCheckResponse(BaseModel):
+    """Alert check response."""
+
+    match_alerts: list[dict[str, Any]]
+    daily_picks: dict[str, Any] | None
+    timestamp: str
+
+
+@router.post("/notifications/broadcast", responses=ADMIN_RESPONSES)
+async def broadcast_notification(
+    user: AdminUser,
+    notification: NotificationRequest,
+) -> dict[str, Any]:
+    """
+    Send a broadcast notification to all subscribed users.
+
+    Admin role required.
+
+    Args:
+        notification: Notification content and settings
+    """
+    push_service = get_push_service()
+
+    payload = PushPayload(
+        title=notification.title,
+        body=notification.body,
+        url=notification.url,
+    )
+
+    result = await push_service.broadcast_notification(
+        payload=payload,
+        preference=notification.preference_filter,
+    )
+
+    return {
+        "status": "success",
+        "sent": result["sent"],
+        "failed": result["failed"],
+        "total": result["total"],
+    }
+
+
+@router.post("/notifications/check-alerts", response_model=AlertCheckResponse, responses=ADMIN_RESPONSES)
+async def run_alert_check(user: AdminUser) -> AlertCheckResponse:
+    """
+    Manually trigger alert check for upcoming matches.
+
+    Admin role required.
+    Checks for matches starting within the alert window and sends notifications.
+    """
+    scheduler = get_alert_scheduler()
+
+    try:
+        result = await scheduler.run_alert_check()
+        return AlertCheckResponse(
+            match_alerts=result.get("match_alerts", []),
+            daily_picks=result.get("daily_picks"),
+            timestamp=result["timestamp"],
+        )
+    except Exception as e:
+        logger.error(f"Error running alert check: {e}")
+        raise HTTPException(status_code=500, detail=f"Alert check failed: {str(e)}")
+
+
+@router.post("/notifications/daily-picks", responses=ADMIN_RESPONSES)
+async def send_daily_picks_notification(user: AdminUser) -> dict[str, Any]:
+    """
+    Send daily picks notification to subscribed users.
+
+    Admin role required.
+    """
+    scheduler = get_alert_scheduler()
+
+    try:
+        result = await scheduler.send_daily_picks_alert()
+        return {
+            "status": "success",
+            "sent": result.get("sent", 0),
+            "already_sent": result.get("already_sent", False),
+        }
+    except Exception as e:
+        logger.error(f"Error sending daily picks notification: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send notification: {str(e)}")

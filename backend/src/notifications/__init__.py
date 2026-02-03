@@ -1,5 +1,9 @@
-"""Push notification module."""
+"""Notifications module for push notifications."""
 
-from src.notifications.push_service import PushNotification, push_service
+from src.notifications.push_service import (
+    PushNotificationService,
+    PushPayload,
+    get_push_service,
+)
 
-__all__ = ["push_service", "PushNotification"]
+__all__ = ["PushNotificationService", "PushPayload", "get_push_service"]

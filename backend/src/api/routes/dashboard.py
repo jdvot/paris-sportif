@@ -201,7 +201,7 @@ def _get_demo_stats(days: int) -> dict[str, Any]:
 
 @router.get("/export")
 async def export_user_data(
-    format: str = Query("csv", regex="^(csv|json)$"),
+    format: str = Query("csv", pattern="^(csv|json)$"),
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Export user prediction data."""
