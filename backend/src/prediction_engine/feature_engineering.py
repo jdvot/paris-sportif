@@ -350,6 +350,10 @@ class FeatureEngineer:
             except ValueError:
                 current_match_date = datetime.now()
 
+        # Make current_match_date timezone-naive for consistent comparisons
+        if current_match_date.tzinfo is not None:
+            current_match_date = current_match_date.replace(tzinfo=None)
+
         window_start = current_match_date - timedelta(days=window_days)
 
         # Count matches in the window
@@ -361,8 +365,8 @@ class FeatureEngineer:
                 except ValueError:
                     continue
 
-            # Handle timezone
-            if match_date.tzinfo is not None and window_start.tzinfo is None:
+            # Make match_date timezone-naive for comparison
+            if match_date.tzinfo is not None:
                 match_date = match_date.replace(tzinfo=None)
 
             if window_start <= match_date < current_match_date:
