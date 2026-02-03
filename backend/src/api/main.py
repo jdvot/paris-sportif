@@ -20,6 +20,7 @@ from src.api.routes import (
     matches,
     ml,
     predictions,
+    prompts,
     rag,
     sync,
     users,
@@ -170,6 +171,11 @@ app.include_router(
     admin.router,
     prefix=f"{settings.api_v1_prefix}/admin",
     tags=["Admin"],
+)
+app.include_router(
+    prompts.router,
+    prefix=f"{settings.api_v1_prefix}/prompts",
+    tags=["Prompt Versioning"],
 )
 
 

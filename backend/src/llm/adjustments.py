@@ -2,9 +2,12 @@
 
 Processes LLM analysis to compute probability adjustments and confidence scores
 based on injuries, form, sentiment, and other contextual factors.
+
+Integrates with prompt versioning system for A/B testing and metrics tracking.
 """
 
 import logging
+import time
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -18,6 +21,10 @@ from src.llm.prompts import (
 from src.llm.prompts_advanced import (
     get_form_analysis_prompt,
     get_injury_impact_analysis_prompt,
+)
+from src.llm.prompt_versioning import (
+    PromptType,
+    prompt_version_manager,
 )
 from src.prediction_engine.ensemble import LLMAdjustments
 
@@ -269,22 +276,28 @@ async def analyze_injury_impact(
     Provides structured injury information including severity, expected return,
     and impact score for prediction adjustments.
 
+    Uses versioned prompts with A/B testing support and metrics tracking.
+
     Args:
         team_name: Team name
         news_text: Injury news text
         team_strength: Team strength (weak/medium/strong)
 
     Returns:
-        Dict with injury analysis including impact_score and confidence
+        Dict with injury analysis including impact_score, confidence, and version_id
     """
     client = get_llm_client()
-
-    prompt = INJURY_ANALYSIS_PROMPT.format(
-        team_name=team_name,
-        news_text=news_text,
-    )
+    start_time = time.time()
+    version_id = None
 
     try:
+        # Get versioned prompt (supports A/B testing)
+        prompt, version_id = prompt_version_manager.get_prompt(
+            PromptType.INJURY_ANALYSIS,
+            team_name=team_name,
+            news_text=news_text,
+        )
+
         result = await client.analyze_json(
             prompt=prompt,
             system_prompt=SYSTEM_JSON_EXTRACTOR,
@@ -292,16 +305,37 @@ async def analyze_injury_impact(
             temperature=0.2,  # Low temperature for consistent extraction
         )
 
+        # Track latency
+        latency_ms = (time.time() - start_time) * 1000
+
         # Validate with Pydantic model
         validated = validate_injury_analysis(result)
-        logger.debug(
-            f"Injury analysis for {team_name}: impact={validated.impact_score:.2f}, "
-            f"confidence={validated.confidence:.2f}"
+
+        # Record metrics for version tracking
+        prompt_version_manager.record_result(
+            version_id=version_id,
+            was_correct=True,  # Will be verified later when match result is known
+            latency_ms=latency_ms,
         )
-        return validated.model_dump()
+
+        logger.debug(
+            f"Injury analysis for {team_name} (v={version_id}): "
+            f"impact={validated.impact_score:.2f}, confidence={validated.confidence:.2f}, "
+            f"latency={latency_ms:.0f}ms"
+        )
+
+        result_dict = validated.model_dump()
+        result_dict["_version_id"] = version_id
+        return result_dict
 
     except Exception as e:
         logger.error(f"Error analyzing injury for {team_name}: {str(e)}")
+        if version_id:
+            prompt_version_manager.record_result(
+                version_id=version_id,
+                was_correct=False,  # Error counts as incorrect
+                latency_ms=(time.time() - start_time) * 1000,
+            )
         return InjuryAnalysis(reasoning="Analysis failed").model_dump()
 
 
@@ -316,23 +350,29 @@ async def analyze_sentiment(
     Evaluates team morale, confidence, and forward outlook based on
     media sentiment and public perception.
 
+    Uses versioned prompts with A/B testing support and metrics tracking.
+
     Args:
         team_name: Team name
         content: Content to analyze (news, interview, social media, etc.)
         source_type: Source type (news/press_conference/social/interview)
 
     Returns:
-        Dict with sentiment analysis including score and confidence
+        Dict with sentiment analysis including score, confidence, and version_id
     """
     client = get_llm_client()
-
-    prompt = SENTIMENT_ANALYSIS_PROMPT.format(
-        team_name=team_name,
-        content=content,
-        source_type=source_type,
-    )
+    start_time = time.time()
+    version_id = None
 
     try:
+        # Get versioned prompt (supports A/B testing)
+        prompt, version_id = prompt_version_manager.get_prompt(
+            PromptType.SENTIMENT_ANALYSIS,
+            team_name=team_name,
+            content=content,
+            source_type=source_type,
+        )
+
         result = await client.analyze_json(
             prompt=prompt,
             system_prompt=SYSTEM_JSON_EXTRACTOR,
@@ -340,16 +380,37 @@ async def analyze_sentiment(
             temperature=0.2,
         )
 
+        # Track latency
+        latency_ms = (time.time() - start_time) * 1000
+
         # Validate with Pydantic model
         validated = validate_sentiment_analysis(result)
-        logger.debug(
-            f"Sentiment analysis for {team_name}: score={validated.sentiment_score:.2f}, "
-            f"morale={validated.morale_indicator}, confidence={validated.confidence:.2f}"
+
+        # Record metrics for version tracking
+        prompt_version_manager.record_result(
+            version_id=version_id,
+            was_correct=True,  # Will be verified later
+            latency_ms=latency_ms,
         )
-        return validated.model_dump()
+
+        logger.debug(
+            f"Sentiment analysis for {team_name} (v={version_id}): "
+            f"score={validated.sentiment_score:.2f}, morale={validated.morale_indicator}, "
+            f"confidence={validated.confidence:.2f}, latency={latency_ms:.0f}ms"
+        )
+
+        result_dict = validated.model_dump()
+        result_dict["_version_id"] = version_id
+        return result_dict
 
     except Exception as e:
         logger.error(f"Error analyzing sentiment for {team_name}: {str(e)}")
+        if version_id:
+            prompt_version_manager.record_result(
+                version_id=version_id,
+                was_correct=False,
+                latency_ms=(time.time() - start_time) * 1000,
+            )
         return SentimentAnalysis(reasoning="Analysis failed").model_dump()
 
 
