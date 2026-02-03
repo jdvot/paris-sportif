@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { CheckCircle, TrendingUp, AlertCircle, Zap } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -68,17 +69,20 @@ export function PredictionCardPremium({
     prediction.recommended_bet === bet ||
     prediction.recommended_bet === (bet === "home" ? "home_win" : bet === "away" ? "away_win" : bet);
 
+  const matchId = prediction.match_id;
+
   return (
-    <div
-      className={cn(
-        "group relative overflow-hidden rounded-xl border transition-smooth",
-        "bg-white dark:bg-gradient-to-br dark:from-dark-800/80 dark:to-dark-900/60",
-        "border-gray-200 dark:border-dark-700 hover:border-primary-400 dark:hover:border-primary-500/50",
-        "animate-stagger-in",
-        isTopPick && "border-primary-400 dark:border-primary-500/50 bg-gradient-to-br from-primary-50 dark:from-primary-950/40 to-white dark:to-dark-900/60"
-      )}
-      style={{ animationDelay: `${index * 50}ms` } as React.CSSProperties}
-    >
+    <Link href={`/match/${matchId}`} className="block">
+      <div
+        className={cn(
+          "group relative overflow-hidden rounded-xl border transition-smooth cursor-pointer",
+          "bg-white dark:bg-gradient-to-br dark:from-dark-800/80 dark:to-dark-900/60",
+          "border-gray-200 dark:border-dark-700 hover:border-primary-400 dark:hover:border-primary-500/50",
+          "animate-stagger-in",
+          isTopPick && "border-primary-400 dark:border-primary-500/50 bg-gradient-to-br from-primary-50 dark:from-primary-950/40 to-white dark:to-dark-900/60"
+        )}
+        style={{ animationDelay: `${index * 50}ms` } as React.CSSProperties}
+      >
       {/* Background glow effect on hover */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-10 bg-gradient-to-br from-primary-500 to-transparent transition-opacity duration-300 pointer-events-none" />
 
@@ -318,6 +322,7 @@ export function PredictionCardPremium({
         </div>
       </div>
     </div>
+    </Link>
   );
 }
 
