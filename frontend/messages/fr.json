@@ -643,6 +643,64 @@
       "safetyNote3": "Ne jamais utiliser plus de Kelly a cause des erreurs de probabilite"
     }
   },
+  "plans": {
+    "title": "Plans d'Abonnement",
+    "currentPlan": "Votre plan actuel",
+    "freePlan": "Gratuit",
+    "premiumPlan": "Premium",
+    "enterprisePlan": "Enterprise",
+    "adminPlan": "Admin",
+    "perMonth": "/mois",
+    "recommended": "Recommande",
+    "startFreeTrial": "Commencer l'essai gratuit",
+    "comingSoon": "Bientot disponible",
+    "contactUs": "Nous contacter",
+    "managePlan": "Gerer l'abonnement",
+    "upgradeToPremium": "Passez a Premium",
+    "alreadyPremiumDesc": "Vous beneficiez deja de toutes les fonctionnalites Premium. Gerez votre abonnement ci-dessous.",
+    "upgradeDesc": "Debloquez toutes les fonctionnalites et profitez d'une experience complete avec nos predictions IA avancees.",
+    "basePlan": "Plan de base",
+    "customPricing": "Sur mesure",
+    "checkoutError": "Une erreur est survenue lors du paiement. Veuillez reessayer.",
+    "features": {
+      "accessMatches": "Acces aux matchs",
+      "basicStats": "Statistiques de base",
+      "picksPerDay": "picks par jour",
+      "unlimitedPicks": "Picks illimites",
+      "detailedPredictions": "Predictions detaillees",
+      "aiRagAnalysis": "Analyse RAG IA",
+      "fullHistory": "Historique complet",
+      "prioritySupport": "Support prioritaire",
+      "allFreePlan": "Tout du plan Gratuit",
+      "allPremiumPlan": "Tout du plan Premium",
+      "apiAccess": "Acces API",
+      "customWebhooks": "Webhooks personnalises",
+      "dedicatedSupport": "Support dedie",
+      "slaGuaranteed": "SLA garantie"
+    },
+    "faq": {
+      "title": "Questions Frequentes",
+      "howItWorks": "Comment fonctionne Premium ?",
+      "howItWorksAnswer": "L'abonnement Premium vous donne acces a toutes les predictions detaillees, l'analyse IA, et des picks quotidiens illimites.",
+      "canCancel": "Puis-je annuler a tout moment ?",
+      "canCancelAnswer": "Oui, vous pouvez annuler votre abonnement a tout moment. Vous conservez l'acces jusqu'a la fin de la periode payee.",
+      "paymentMethods": "Quels moyens de paiement acceptez-vous ?",
+      "paymentMethodsAnswer": "Nous acceptons les cartes bancaires (Visa, Mastercard), PayPal, et les virements SEPA pour Enterprise.",
+      "freeTrial": "Y a-t-il un essai gratuit ?",
+      "freeTrialAnswer": "Oui, profitez de 7 jours d'essai Premium gratuit pour tester toutes les fonctionnalites."
+    },
+    "success": {
+      "title": "Bienvenue dans Premium !",
+      "description": "Votre abonnement a ete active avec succes. Vous avez maintenant acces a toutes les fonctionnalites Premium.",
+      "featuresUnlocked": "Fonctionnalites deverrouillees",
+      "viewPicks": "Voir les picks du jour",
+      "backToHome": "Retour a l'accueil",
+      "unlimitedPicks": "Picks illimites chaque jour",
+      "detailedPredictions": "Predictions detaillees avec analyse IA",
+      "fullHistory": "Historique complet des performances",
+      "prioritySupport": "Support prioritaire"
+    }
+  },
   "bookmakerOdds": {
     "title": "Comparaison des Cotes",
     "description": "Comparez les cotes des differents bookmakers et trouvez la meilleure value",
@@ -652,6 +710,7 @@
     "draw": "Match nul",
     "bookmaker": "Bookmaker",
     "updated": "Mise a jour",
+    "valueBet": "Value Bet",
     "legend": {
       "bestOdds": "Cotes les plus elevees",
       "valueBet": "Value bet detecte"

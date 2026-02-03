@@ -643,6 +643,64 @@
       "safetyNote3": "Never use more than Kelly due to probability estimation errors"
     }
   },
+  "plans": {
+    "title": "Subscription Plans",
+    "currentPlan": "Your current plan",
+    "freePlan": "Free",
+    "premiumPlan": "Premium",
+    "enterprisePlan": "Enterprise",
+    "adminPlan": "Admin",
+    "perMonth": "/month",
+    "recommended": "Recommended",
+    "startFreeTrial": "Start free trial",
+    "comingSoon": "Coming soon",
+    "contactUs": "Contact us",
+    "managePlan": "Manage subscription",
+    "upgradeToPremium": "Upgrade to Premium",
+    "alreadyPremiumDesc": "You already have access to all Premium features. Manage your subscription below.",
+    "upgradeDesc": "Unlock all features and enjoy the full experience with our advanced AI predictions.",
+    "basePlan": "Base plan",
+    "customPricing": "Custom pricing",
+    "checkoutError": "An error occurred during checkout. Please try again.",
+    "features": {
+      "accessMatches": "Access to matches",
+      "basicStats": "Basic statistics",
+      "picksPerDay": "picks per day",
+      "unlimitedPicks": "Unlimited picks",
+      "detailedPredictions": "Detailed predictions",
+      "aiRagAnalysis": "AI RAG analysis",
+      "fullHistory": "Full history",
+      "prioritySupport": "Priority support",
+      "allFreePlan": "Everything in Free plan",
+      "allPremiumPlan": "Everything in Premium plan",
+      "apiAccess": "API access",
+      "customWebhooks": "Custom webhooks",
+      "dedicatedSupport": "Dedicated support",
+      "slaGuaranteed": "Guaranteed SLA"
+    },
+    "faq": {
+      "title": "Frequently Asked Questions",
+      "howItWorks": "How does Premium work?",
+      "howItWorksAnswer": "Premium subscription gives you access to all detailed predictions, AI analysis, and unlimited daily picks.",
+      "canCancel": "Can I cancel anytime?",
+      "canCancelAnswer": "Yes, you can cancel your subscription at any time. You keep access until the end of the paid period.",
+      "paymentMethods": "What payment methods do you accept?",
+      "paymentMethodsAnswer": "We accept credit cards (Visa, Mastercard), PayPal, and SEPA transfers for Enterprise.",
+      "freeTrial": "Is there a free trial?",
+      "freeTrialAnswer": "Yes, enjoy 7 days of free Premium trial to test all features."
+    },
+    "success": {
+      "title": "Welcome to Premium!",
+      "description": "Your subscription has been activated successfully. You now have access to all Premium features.",
+      "featuresUnlocked": "Features unlocked",
+      "viewPicks": "View today's picks",
+      "backToHome": "Back to home",
+      "unlimitedPicks": "Unlimited picks every day",
+      "detailedPredictions": "Detailed predictions with AI analysis",
+      "fullHistory": "Full performance history",
+      "prioritySupport": "Priority support"
+    }
+  },
   "bookmakerOdds": {
     "title": "Bookmaker Odds Comparison",
     "description": "Compare odds from different bookmakers and find the best value",
@@ -652,6 +710,7 @@
     "draw": "Draw",
     "bookmaker": "Bookmaker",
     "updated": "Updated",
+    "valueBet": "Value Bet",
     "legend": {
       "bestOdds": "Highest odds",
       "valueBet": "Value bet detected"
