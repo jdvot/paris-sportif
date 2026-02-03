@@ -45,6 +45,55 @@ export function StatsOverview() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
+  // Transform byCompetition data - if no data, use placeholder data
+  const hasRealData = Object.keys(stats?.byCompetition || {}).length > 0;
+
+  // ALL useMemo hooks MUST be called before any early returns (React hooks rules)
+  const competitionStats = useMemo(() => {
+    if (!stats) return [];
+    if (hasRealData) {
+      return Object.entries(stats.byCompetition)
+        .map(([code, data]: [string, any]) => ({
+          name: COMPETITION_NAMES[code] || code,
+          code,
+          predictions: data.total || 0,
+          correct: data.correct || 0,
+          accuracy: data.accuracy || 0,
+          trend: data.accuracy >= 55 ? "up" : data.accuracy < 50 ? "down" : "neutral",
+        }))
+        .sort((a, b) => b.predictions - a.predictions);
+    }
+    return Object.entries(COMPETITION_NAMES).map(([code, name]) => ({
+      name,
+      code,
+      predictions: 0,
+      correct: 0,
+      accuracy: 0,
+      trend: "neutral" as const,
+    }));
+  }, [hasRealData, stats]);
+
+  const trendData = useMemo(() => {
+    const data = [];
+    const baseAccuracy = stats?.accuracy || 0;
+    for (let i = 0; i < 7; i++) {
+      const seed = (baseAccuracy * (i + 1)) % 1;
+      const variance = (seed - 0.5) * 8;
+      data.push({
+        day: i,
+        accuracy: Math.max(0, Math.min(100, baseAccuracy + variance)),
+      });
+    }
+    return data;
+  }, [stats?.accuracy]);
+
+  const roiAmount = useMemo(() => {
+    if (!stats) return 0;
+    return stats.roiSimulated ? (stats.roiSimulated / 100) * stats.totalPredictions * 10 : 0;
+  }, [stats]);
+
+  const COLORS = useMemo(() => ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"], []);
+
   if (isLoading) {
     return (
       <div className="space-y-6 px-4 sm:px-0">
@@ -143,56 +192,6 @@ export function StatsOverview() {
       </div>
     );
   }
-
-  // Transform byCompetition data - if no data, use placeholder data
-  const hasRealData = Object.keys(stats.byCompetition || {}).length > 0;
-
-  // Memoize competition stats to prevent recalculation on every render
-  const competitionStats = useMemo(() => {
-    if (hasRealData) {
-      return Object.entries(stats.byCompetition)
-        .map(([code, data]: [string, any]) => ({
-          name: COMPETITION_NAMES[code] || code,
-          code,
-          predictions: data.total || 0,
-          correct: data.correct || 0,
-          accuracy: data.accuracy || 0,  // Already a percentage from backend
-          trend: data.accuracy >= 55 ? "up" : data.accuracy < 50 ? "down" : "neutral",
-        }))
-        .sort((a, b) => b.predictions - a.predictions);
-    }
-    return Object.entries(COMPETITION_NAMES).map(([code, name]) => ({
-      name,
-      code,
-      predictions: 0,
-      correct: 0,
-      accuracy: 0,
-      trend: "neutral" as const,
-    }));
-  }, [hasRealData, stats.byCompetition]);
-
-  // Memoize trend data to prevent flickering from Math.random() on each render
-  const trendData = useMemo(() => {
-    const data = [];
-    const baseAccuracy = stats.accuracy || 0;
-    // Use seeded random based on accuracy to keep data stable
-    for (let i = 0; i < 7; i++) {
-      const seed = (baseAccuracy * (i + 1)) % 1;
-      const variance = (seed - 0.5) * 8;
-      data.push({
-        day: i,
-        accuracy: Math.max(0, Math.min(100, baseAccuracy + variance)),
-      });
-    }
-    return data;
-  }, [stats.accuracy]);
-
-  // Memoize derived values
-  const roiAmount = useMemo(() => {
-    return stats.roiSimulated ? (stats.roiSimulated / 100) * stats.totalPredictions * 10 : 0;
-  }, [stats.roiSimulated, stats.totalPredictions]);
-
-  const COLORS = useMemo(() => ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"], []);
 
   return (
     <div className="space-y-6 px-4 sm:px-0">
