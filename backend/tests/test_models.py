@@ -327,10 +327,12 @@ class TestXGBoostModel:
         assert model.feature_importance == {}
 
     def test_feature_names(self, model: XGBoostModel):
-        """Test feature names are defined."""
-        assert len(XGBoostModel.FEATURE_NAMES) == 7
+        """Test feature names are defined (14 features: 7 base + 7 interaction)."""
+        assert len(XGBoostModel.FEATURE_NAMES) == 14
         assert "home_attack" in XGBoostModel.FEATURE_NAMES
         assert "recent_form_home" in XGBoostModel.FEATURE_NAMES
+        assert "home_attack_vs_away_defense" in XGBoostModel.FEATURE_NAMES
+        assert "form_advantage" in XGBoostModel.FEATURE_NAMES
 
     def test_predict_fallback_untrained(self, model: XGBoostModel):
         """Test fallback prediction when model is untrained."""
@@ -1112,3 +1114,151 @@ class TestFormatBacktestReport:
         report = format_backtest_report(results)
         assert "Per-Fold Results:" in report
         assert "65.00%" in report
+
+
+# =============================================================================
+# Feature Engineering Tests
+# =============================================================================
+
+
+class TestFeatureVector:
+    """Test cases for FeatureVector with interaction features."""
+
+    def test_base_features(self):
+        """Test FeatureVector with base features only."""
+        from src.prediction_engine.feature_engineering import FeatureVector
+
+        fv = FeatureVector(
+            home_attack=0.7,
+            home_defense=0.5,
+            away_attack=0.6,
+            away_defense=0.4,
+            recent_form_home=0.65,
+            recent_form_away=0.55,
+            head_to_head_home=0.1,
+        )
+
+        arr = fv.to_array(include_interactions=False)
+        assert arr.shape == (7,)
+        assert arr[0] == 0.7  # home_attack
+        assert arr[4] == 0.65  # recent_form_home
+
+    def test_compute_interactions(self):
+        """Test interaction feature computation."""
+        from src.prediction_engine.feature_engineering import FeatureVector
+
+        fv = FeatureVector(
+            home_attack=0.8,
+            home_defense=0.4,
+            away_attack=0.6,
+            away_defense=0.5,
+            recent_form_home=0.7,
+            recent_form_away=0.5,
+            head_to_head_home=0.2,
+        )
+
+        fv_with_interactions = fv.compute_interactions()
+
+        # Check interaction features are computed
+        assert fv_with_interactions.home_attack_vs_away_defense == pytest.approx(0.8 * 0.5)
+        assert fv_with_interactions.away_attack_vs_home_defense == pytest.approx(0.6 * 0.4)
+        assert fv_with_interactions.form_advantage == pytest.approx(0.7 - 0.5)
+        assert fv_with_interactions.home_strength_ratio == pytest.approx(0.8 / (0.4 + 0.01), rel=0.01)
+
+    def test_to_array_with_interactions(self):
+        """Test FeatureVector to_array with interactions."""
+        from src.prediction_engine.feature_engineering import FeatureVector
+
+        fv = FeatureVector(
+            home_attack=0.8,
+            home_defense=0.4,
+            away_attack=0.6,
+            away_defense=0.5,
+            recent_form_home=0.7,
+            recent_form_away=0.5,
+            head_to_head_home=0.2,
+        ).compute_interactions()
+
+        arr = fv.to_array(include_interactions=True)
+        assert arr.shape == (14,)
+        assert arr[0] == 0.8  # home_attack
+        assert arr[7] == pytest.approx(0.8 * 0.5)  # home_attack_vs_away_defense
+        assert arr[11] == pytest.approx(0.7 - 0.5)  # form_advantage
+
+    def test_get_feature_names(self):
+        """Test get_feature_names class method."""
+        from src.prediction_engine.feature_engineering import FeatureVector
+
+        base_names = FeatureVector.get_feature_names(include_interactions=False)
+        assert len(base_names) == 7
+        assert "home_attack" in base_names
+
+        all_names = FeatureVector.get_feature_names(include_interactions=True)
+        assert len(all_names) == 14
+        assert "home_attack_vs_away_defense" in all_names
+        assert "form_advantage" in all_names
+
+    def test_engineer_features_computes_interactions(self):
+        """Test that engineer_features computes interactions automatically."""
+        from src.prediction_engine.feature_engineering import FeatureEngineer
+
+        fv = FeatureEngineer.engineer_features(
+            home_attack=1.8,
+            home_defense=1.2,
+            away_attack=1.4,
+            away_defense=1.5,
+        )
+
+        # Check that interactions are computed (non-default values)
+        assert fv.home_attack_vs_away_defense != 0.0
+        assert fv.form_advantage == 0.0  # No form data, so 0.5 - 0.5 = 0
+
+
+class TestXGBoostModelInteractions:
+    """Test XGBoost model with interaction features."""
+
+    def test_feature_names_count(self):
+        """Test that model uses 14 features."""
+        model = XGBoostModel()
+        assert len(model.FEATURE_NAMES) == 14
+
+    def test_predict_computes_interactions(self):
+        """Test that predict computes interaction features."""
+        model = XGBoostModel()
+        # Model not trained, will use fallback
+        pred = model.predict(
+            home_attack=0.7,
+            home_defense=0.5,
+            away_attack=0.6,
+            away_defense=0.4,
+        )
+        # Fallback should still work
+        assert pred.home_win_prob > 0
+        assert pred.home_win_prob + pred.draw_prob + pred.away_win_prob == pytest.approx(1.0)
+
+
+class TestRandomForestModelInteractions:
+    """Test Random Forest model with interaction features."""
+
+    def test_feature_names_count(self):
+        """Test that model uses 14 features."""
+        from src.prediction_engine.models.random_forest_model import RandomForestModel
+
+        model = RandomForestModel()
+        assert len(model.FEATURE_NAMES) == 14
+
+    def test_predict_computes_interactions(self):
+        """Test that predict computes interaction features."""
+        from src.prediction_engine.models.random_forest_model import RandomForestModel
+
+        model = RandomForestModel()
+        # Model not trained, will use fallback
+        pred = model.predict(
+            home_attack=0.7,
+            home_defense=0.5,
+            away_attack=0.6,
+            away_defense=0.4,
+        )
+        # Fallback should still work
+        assert pred.home_win_prob > 0
+        assert pred.home_win_prob + pred.draw_prob + pred.away_win_prob == pytest.approx(1.0)

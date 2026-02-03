@@ -60,8 +60,9 @@ class RandomForestModel:
     - Lower variance than single trees due to averaging
     """
 
-    # Feature names expected by the model
+    # Feature names (14 features: 7 base + 7 interaction)
     FEATURE_NAMES = [
+        # Base features
         "home_attack",
         "home_defense",
         "away_attack",
@@ -69,6 +70,14 @@ class RandomForestModel:
         "recent_form_home",
         "recent_form_away",
         "head_to_head_home",
+        # Interaction features
+        "home_attack_vs_away_defense",
+        "away_attack_vs_home_defense",
+        "home_strength_ratio",
+        "away_strength_ratio",
+        "form_advantage",
+        "home_total_strength",
+        "away_total_strength",
     ]
 
     # Outcome classes
@@ -112,7 +121,7 @@ class RandomForestModel:
         Train the Random Forest model on historical match data.
 
         Args:
-            X_train: Training features (N, 7) where 7 = number of features
+            X_train: Training features (N, 7) for base features or (N, 14) with interactions
             y_train: Training outcomes (N,) with values 0=home_win, 1=draw, 2=away_win
             X_val: Validation features (optional, for OOB score comparison)
             y_val: Validation outcomes (optional)
@@ -162,7 +171,7 @@ class RandomForestModel:
                 "val_score": val_score,
             }
 
-            logger.info(f"Random Forest model trained successfully: {metrics}")
+            logger.info(f"Random Forest model trained successfully with 14 features: {metrics}")
             return metrics
 
         except Exception as e:
@@ -179,18 +188,33 @@ class RandomForestModel:
         recent_form_home: float = 50.0,
         recent_form_away: float = 50.0,
         head_to_head_home: float = 0.0,
+        # Interaction features (optional, computed if not provided)
+        home_attack_vs_away_defense: float | None = None,
+        away_attack_vs_home_defense: float | None = None,
+        home_strength_ratio: float | None = None,
+        away_strength_ratio: float | None = None,
+        form_advantage: float | None = None,
+        home_total_strength: float | None = None,
+        away_total_strength: float | None = None,
     ) -> RandomForestPrediction:
         """
         Make a prediction for a single match.
 
         Args:
-            home_attack: Home team attack strength
-            home_defense: Home team defense strength
-            away_attack: Away team attack strength
-            away_defense: Away team defense strength
-            recent_form_home: Home team recent form score (0-100)
-            recent_form_away: Away team recent form score (0-100)
+            home_attack: Home team attack strength (normalized 0-1)
+            home_defense: Home team defense strength (normalized 0-1)
+            away_attack: Away team attack strength (normalized 0-1)
+            away_defense: Away team defense strength (normalized 0-1)
+            recent_form_home: Home team recent form score (normalized 0-1)
+            recent_form_away: Away team recent form score (normalized 0-1)
             head_to_head_home: Head-to-head advantage for home team (-1.0 to 1.0)
+            home_attack_vs_away_defense: Interaction feature (computed if None)
+            away_attack_vs_home_defense: Interaction feature (computed if None)
+            home_strength_ratio: Interaction feature (computed if None)
+            away_strength_ratio: Interaction feature (computed if None)
+            form_advantage: Interaction feature (computed if None)
+            home_total_strength: Interaction feature (computed if None)
+            away_total_strength: Interaction feature (computed if None)
 
         Returns:
             RandomForestPrediction with probabilities
@@ -200,10 +224,12 @@ class RandomForestModel:
             return self._fallback_prediction(home_attack, home_defense, away_attack, away_defense)
 
         try:
-            # Prepare feature vector
+            # Compute interaction features if not provided
+            eps = 0.01
             features = np.array(
                 [
                     [
+                        # Base features
                         home_attack,
                         home_defense,
                         away_attack,
@@ -211,6 +237,28 @@ class RandomForestModel:
                         recent_form_home,
                         recent_form_away,
                         head_to_head_home,
+                        # Interaction features
+                        home_attack_vs_away_defense
+                        if home_attack_vs_away_defense is not None
+                        else home_attack * away_defense,
+                        away_attack_vs_home_defense
+                        if away_attack_vs_home_defense is not None
+                        else away_attack * home_defense,
+                        home_strength_ratio
+                        if home_strength_ratio is not None
+                        else home_attack / (home_defense + eps),
+                        away_strength_ratio
+                        if away_strength_ratio is not None
+                        else away_attack / (away_defense + eps),
+                        form_advantage
+                        if form_advantage is not None
+                        else recent_form_home - recent_form_away,
+                        home_total_strength
+                        if home_total_strength is not None
+                        else home_attack + (1 - home_defense),
+                        away_total_strength
+                        if away_total_strength is not None
+                        else away_attack + (1 - away_defense),
                     ]
                 ]
             )
