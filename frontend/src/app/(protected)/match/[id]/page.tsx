@@ -131,9 +131,9 @@ export default function MatchDetailPage() {
   if (matchError || !match) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
-          <AlertTriangle className="w-5 h-5 text-red-400" />
-          <p className="text-red-300">
+        <div className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/30 rounded-xl">
+          <AlertTriangle className="w-5 h-5 text-red-500 dark:text-red-400" />
+          <p className="text-red-700 dark:text-red-300">
             Impossible de charger les details du match.
           </p>
         </div>
@@ -160,12 +160,12 @@ export default function MatchDetailPage() {
           )}
 
           {!predictionLoading && predictionError && !isAuthError(predictionError) ? (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 sm:p-6">
+            <div className="bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/30 rounded-xl p-4 sm:p-6">
               <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 sm:w-6 h-5 sm:h-6 text-red-400 flex-shrink-0" />
+                <AlertTriangle className="w-5 sm:w-6 h-5 sm:h-6 text-red-500 dark:text-red-400 flex-shrink-0" />
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">Erreur de chargement</h3>
-                  <p className="text-xs sm:text-sm text-red-300">
+                  <p className="text-xs sm:text-sm text-red-600 dark:text-red-300">
                     {(predictionError as Error)?.message || "Impossible de charger les predictions"}
                   </p>
                 </div>
@@ -271,10 +271,10 @@ function MatchHeader({ match }: { match: Match }) {
   };
 
   const statusColors: Record<string, string> = {
-    scheduled: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-    live: "bg-red-500/20 text-red-300 border-red-500/30 animate-pulse",
-    finished: "bg-gray-500/20 text-gray-300 border-gray-500/30",
-    postponed: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+    scheduled: "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-500/30",
+    live: "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 border-red-300 dark:border-red-500/30 animate-pulse",
+    finished: "bg-gray-100 dark:bg-gray-500/20 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-500/30",
+    postponed: "bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-500/30",
   };
 
   const status = typeof match?.status === 'string' ? match.status : 'scheduled';
@@ -395,7 +395,7 @@ function PredictionSection({
             <p className="font-bold text-base sm:text-lg">
               {Math.round(confidence * 100)}%
             </p>
-            <p className="text-xs text-gray-600 dark:text-slate-300">Confiance</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Confiance</p>
           </div>
         </div>
 
@@ -420,13 +420,13 @@ function PredictionSection({
           />
         </div>
 
-        <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 bg-primary-500/10 border border-primary-500/30 rounded-lg">
-          <CheckCircle className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 flex-shrink-0 mt-0.5 sm:mt-0" />
+        <div className="flex items-start sm:items-center gap-3 p-3 sm:p-4 bg-primary-100 dark:bg-primary-500/10 border border-primary-300 dark:border-primary-500/30 rounded-lg">
+          <CheckCircle className="w-5 sm:w-6 h-5 sm:h-6 text-primary-600 dark:text-primary-400 flex-shrink-0 mt-0.5 sm:mt-0" />
           <div className="min-w-0">
-            <p className="text-primary-400 font-bold text-sm sm:text-base">
+            <p className="text-primary-700 dark:text-primary-400 font-bold text-sm sm:text-base">
               {betLabels[recommendedBet] || "Prediction indisponible"}
             </p>
-            <p className="text-xs sm:text-sm text-primary-300">
+            <p className="text-xs sm:text-sm text-primary-600 dark:text-primary-300">
               Cote Value: +{typeof prediction?.value_score === 'number' && !isNaN(prediction.value_score)
                 ? Math.round(prediction.value_score * 100)
                 : 0}%
@@ -480,11 +480,11 @@ function KeyFactorsSection({
 
       {riskFactors.length > 0 && (
         <div className="space-y-2 pt-3 sm:pt-4 border-t border-gray-200 dark:border-slate-700">
-          <h4 className="text-xs sm:text-sm font-semibold text-yellow-400">Facteurs de Risque</h4>
+          <h4 className="text-xs sm:text-sm font-semibold text-yellow-600 dark:text-yellow-400">Facteurs de Risque</h4>
           {riskFactors.map((factor, index) => (
-            <div key={index} className="flex items-start gap-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-              <AlertTriangle className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-              <p className="text-yellow-200 text-xs sm:text-sm">{factor}</p>
+            <div key={index} className="flex items-start gap-3 p-3 bg-yellow-100 dark:bg-yellow-500/10 rounded-lg border border-yellow-300 dark:border-yellow-500/20">
+              <AlertTriangle className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+              <p className="text-yellow-800 dark:text-yellow-200 text-xs sm:text-sm">{factor}</p>
             </div>
           ))}
         </div>
@@ -619,17 +619,17 @@ function HeadToHeadSection({
       </h3>
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between p-3 bg-primary-500/10 border border-primary-500/20 rounded-lg">
-          <span className="text-primary-300 font-semibold">Victoires {homeTeam}</span>
-          <span className="text-2xl font-bold text-primary-400">{headToHead.home_wins ?? 0}</span>
+        <div className="flex items-center justify-between p-3 bg-primary-100 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/20 rounded-lg">
+          <span className="text-primary-700 dark:text-primary-300 font-semibold">Victoires {homeTeam}</span>
+          <span className="text-2xl font-bold text-primary-600 dark:text-primary-400">{headToHead.home_wins ?? 0}</span>
         </div>
-        <div className="flex items-center justify-between p-3 bg-gray-500/10 border border-gray-500/20 rounded-lg">
-          <span className="text-gray-300 font-semibold">Matchs nuls</span>
-          <span className="text-2xl font-bold text-gray-400">{headToHead.draws ?? 0}</span>
+        <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-500/10 border border-gray-200 dark:border-gray-500/20 rounded-lg">
+          <span className="text-gray-700 dark:text-gray-300 font-semibold">Matchs nuls</span>
+          <span className="text-2xl font-bold text-gray-600 dark:text-gray-400">{headToHead.draws ?? 0}</span>
         </div>
-        <div className="flex items-center justify-between p-3 bg-accent-500/10 border border-accent-500/20 rounded-lg">
-          <span className="text-accent-300 font-semibold">Victoires {awayTeam}</span>
-          <span className="text-2xl font-bold text-accent-400">{headToHead.away_wins ?? 0}</span>
+        <div className="flex items-center justify-between p-3 bg-accent-100 dark:bg-accent-500/10 border border-accent-200 dark:border-accent-500/20 rounded-lg">
+          <span className="text-accent-700 dark:text-accent-300 font-semibold">Victoires {awayTeam}</span>
+          <span className="text-2xl font-bold text-accent-600 dark:text-accent-400">{headToHead.away_wins ?? 0}</span>
         </div>
       </div>
 
@@ -831,12 +831,12 @@ function LLMAdjustmentsSection({ prediction }: { prediction: PredictionResponse 
       </div>
 
       {adjustments.reasoning && (
-        <div className="p-3 sm:p-4 bg-gradient-to-r from-primary-500/10 to-accent-500/10 rounded-lg border border-primary-500/20">
+        <div className="p-3 sm:p-4 bg-gradient-to-r from-primary-100 to-accent-100 dark:from-primary-500/10 dark:to-accent-500/10 rounded-lg border border-primary-200 dark:border-primary-500/20">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">🤖</span>
             <h4 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">Raisonnement IA</h4>
           </div>
-          <p className="text-xs sm:text-sm text-gray-600 dark:text-slate-300 leading-relaxed">{adjustments.reasoning}</p>
+          <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{adjustments.reasoning}</p>
         </div>
       )}
     </div>
