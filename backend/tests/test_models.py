@@ -1262,3 +1262,218 @@ class TestRandomForestModelInteractions:
         # Fallback should still work
         assert pred.home_win_prob > 0
         assert pred.home_win_prob + pred.draw_prob + pred.away_win_prob == pytest.approx(1.0)
+
+
+# =============================================================================
+# Optuna Hyperparameter Optimization Tests
+# =============================================================================
+
+
+class TestModelTrainerOptuna:
+    """Test cases for Optuna hyperparameter optimization in ModelTrainer."""
+
+    @pytest.fixture
+    def trainer(self):
+        """Create a ModelTrainer instance."""
+        from src.prediction_engine.model_trainer import ModelTrainer
+
+        return ModelTrainer()
+
+    @pytest.fixture
+    def sample_data(self):
+        """Create sample training data."""
+        np.random.seed(42)
+        n_samples = 200
+
+        # Generate random features (14 features)
+        X = np.random.rand(n_samples, 14)
+
+        # Generate random labels (3 classes: 0, 1, 2)
+        y = np.random.randint(0, 3, n_samples)
+
+        return X, y
+
+    def test_param_space_defined(self, trainer):
+        """Test that parameter search spaces are defined."""
+        from src.prediction_engine.model_trainer import ModelTrainer
+
+        assert hasattr(ModelTrainer, "XGBOOST_PARAM_SPACE")
+        assert hasattr(ModelTrainer, "RF_PARAM_SPACE")
+
+        # Check XGBoost param space
+        assert "max_depth" in ModelTrainer.XGBOOST_PARAM_SPACE
+        assert "learning_rate" in ModelTrainer.XGBOOST_PARAM_SPACE
+        assert "n_estimators" in ModelTrainer.XGBOOST_PARAM_SPACE
+
+        # Check RF param space
+        assert "n_estimators" in ModelTrainer.RF_PARAM_SPACE
+        assert "max_depth" in ModelTrainer.RF_PARAM_SPACE
+
+    def test_optimization_result_dataclass(self):
+        """Test OptimizationResult dataclass."""
+        from src.prediction_engine.model_trainer import OptimizationResult
+
+        result = OptimizationResult(
+            best_params={"max_depth": 6, "learning_rate": 0.1},
+            best_score=0.65,
+            n_trials=10,
+            optimization_history=[0.55, 0.58, 0.62, 0.65],
+            study_name="test_study",
+        )
+
+        assert result.best_params["max_depth"] == 6
+        assert result.best_score == 0.65
+        assert result.n_trials == 10
+        assert len(result.optimization_history) == 4
+        assert result.study_name == "test_study"
+
+    def test_optimize_xgboost_minimal_trials(self, trainer, sample_data):
+        """Test XGBoost optimization with minimal trials."""
+        X, y = sample_data
+
+        # Use only 3 trials for fast testing
+        result = trainer.optimize_xgboost(
+            X,
+            y,
+            n_trials=3,
+            cv_folds=2,
+            timeout=60,
+            study_name="test_xgboost",
+        )
+
+        # Check result structure
+        assert result.n_trials == 3
+        assert result.best_score > 0
+        assert "max_depth" in result.best_params or len(result.best_params) > 0
+        assert len(result.optimization_history) == 3
+
+    def test_optimize_random_forest_minimal_trials(self, trainer, sample_data):
+        """Test Random Forest optimization with minimal trials."""
+        X, y = sample_data
+
+        # Use only 3 trials for fast testing
+        result = trainer.optimize_random_forest(
+            X,
+            y,
+            n_trials=3,
+            cv_folds=2,
+            timeout=60,
+            study_name="test_rf",
+        )
+
+        # Check result structure
+        assert result.n_trials == 3
+        assert result.best_score > 0
+        assert "n_estimators" in result.best_params or len(result.best_params) > 0
+        assert len(result.optimization_history) == 3
+
+    def test_train_xgboost_optimized(self, trainer, sample_data):
+        """Test training XGBoost with optimized params."""
+        X, y = sample_data
+
+        # Split data
+        from sklearn.model_selection import train_test_split
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+
+        # First optimize (minimal trials)
+        opt_result = trainer.optimize_xgboost(X_train, y_train, n_trials=2, cv_folds=2)
+
+        # Then train with best params
+        metrics = trainer.train_xgboost_optimized(
+            X_train, y_train, X_val=X_test, y_val=y_test, params=opt_result.best_params
+        )
+
+        # Check training worked
+        assert metrics is not None
+        assert 0 <= metrics.accuracy <= 1
+        assert trainer.xgboost_model.is_trained
+
+    def test_train_random_forest_optimized(self, trainer, sample_data):
+        """Test training Random Forest with optimized params."""
+        X, y = sample_data
+
+        # Split data
+        from sklearn.model_selection import train_test_split
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+
+        # First optimize (minimal trials)
+        opt_result = trainer.optimize_random_forest(X_train, y_train, n_trials=2, cv_folds=2)
+
+        # Then train with best params
+        metrics = trainer.train_random_forest_optimized(
+            X_train, y_train, X_val=X_test, y_val=y_test, params=opt_result.best_params
+        )
+
+        # Check training worked
+        assert metrics is not None
+        assert 0 <= metrics.accuracy <= 1
+        assert trainer.random_forest_model.is_trained
+
+    def test_optimization_results_stored(self, trainer, sample_data):
+        """Test that optimization results are stored in trainer."""
+        X, y = sample_data
+
+        # Optimize both models
+        trainer.optimize_xgboost(X, y, n_trials=2, cv_folds=2)
+        trainer.optimize_random_forest(X, y, n_trials=2, cv_folds=2)
+
+        # Check results are stored
+        assert "xgboost" in trainer.optimization_results
+        assert "random_forest" in trainer.optimization_results
+
+    def test_train_without_explicit_params_uses_stored(self, trainer, sample_data):
+        """Test that training without params uses stored optimization results."""
+        X, y = sample_data
+
+        from sklearn.model_selection import train_test_split
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+
+        # Optimize first
+        trainer.optimize_xgboost(X_train, y_train, n_trials=2, cv_folds=2)
+
+        # Train without explicit params (should use stored results)
+        metrics = trainer.train_xgboost_optimized(
+            X_train, y_train, X_val=X_test, y_val=y_test
+        )
+
+        assert metrics is not None
+        assert trainer.xgboost_model.is_trained
+
+    def test_xgboost_param_ranges(self, trainer):
+        """Test XGBoost parameter ranges are valid."""
+        space = trainer.XGBOOST_PARAM_SPACE
+
+        # max_depth should be positive integers
+        assert space["max_depth"][0] >= 1
+        assert space["max_depth"][1] >= space["max_depth"][0]
+
+        # learning_rate should be small positive floats
+        assert 0 < space["learning_rate"][0] < 1
+        assert space["learning_rate"][1] <= 1
+
+        # n_estimators should be positive integers
+        assert space["n_estimators"][0] >= 10
+        assert space["n_estimators"][1] >= space["n_estimators"][0]
+
+    def test_rf_param_ranges(self, trainer):
+        """Test Random Forest parameter ranges are valid."""
+        space = trainer.RF_PARAM_SPACE
+
+        # n_estimators should be positive
+        assert space["n_estimators"][0] >= 10
+
+        # max_depth should be reasonable
+        assert space["max_depth"][0] >= 1
+        assert space["max_depth"][1] >= space["max_depth"][0]
+
+        # max_features should have valid options
+        assert "sqrt" in space["max_features"]
