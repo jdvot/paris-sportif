@@ -3,7 +3,7 @@
 This module fetches contextual information from various sources to improve
 prediction accuracy:
 - Recent news about teams
-- Injury/suspension information
+- Injury/suspension information (structured from football-data.org squad + news)
 - Form analysis from multiple sources
 - Head-to-head context
 """
@@ -15,10 +15,24 @@ from typing import Any
 
 import httpx
 from groq import Groq
+from pydantic import BaseModel, Field
 
 from src.core.config import settings
+from src.data.sources.football_data import SquadPlayer, get_football_data_client
 
 logger = logging.getLogger(__name__)
+
+
+class StructuredInjury(BaseModel):
+    """Structured injury data for a player."""
+
+    player_name: str = Field(description="Player full name")
+    position: str | None = Field(default=None, description="Player position")
+    injury_type: str = Field(default="unknown", description="Type of injury")
+    status: str = Field(default="doubtful", description="doubtful|out|suspended|uncertain")
+    expected_return: str | None = Field(default=None, description="Expected return date/timeframe")
+    source: str = Field(default="news", description="Data source (api|news)")
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0, description="Confidence in this info")
 
 
 class RAGEnrichment:
@@ -145,40 +159,87 @@ class RAGEnrichment:
         return news
 
     async def _fetch_team_injuries(self, team_name: str) -> list[dict[str, Any]]:
-        """Fetch injury/suspension information for a team from football-data.org."""
+        """
+        Fetch injury/suspension information using structured data from football-data.org.
+
+        Strategy:
+        1. Get squad from football-data.org API (structured player names)
+        2. Search news for injury mentions matching squad players
+        3. Return structured injury data with player names and positions
+        """
         injuries: list[dict[str, Any]] = []
 
         try:
-            # Use football-data.org API if available (includes squad info)
-            # Or fallback to searching Google News for injury news
-            search_term = f"{team_name.replace(' ', '+')}+blessure+injury"
+            # Step 1: Get squad from football-data.org
+            client = get_football_data_client()
+            squad = await client.get_squad_for_team_name(team_name)
+            player_names = {p.name.lower(): p for p in squad}
+
+            logger.debug(f"Got squad for {team_name}: {len(squad)} players")
+
+            # Step 2: Search news for injury mentions
+            search_term = f"{team_name.replace(' ', '+')}+blessure+injury+absent"
             rss_url = f"https://news.google.com/rss/search?q={search_term}&hl=fr&gl=FR&ceid=FR:fr"
 
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(rss_url)
+            async with httpx.AsyncClient(timeout=10.0) as http_client:
+                response = await http_client.get(rss_url)
 
                 if response.status_code == 200:
                     import xml.etree.ElementTree as ET
 
                     root = ET.fromstring(response.text)
+                    items = root.findall(".//item")[:5]
 
-                    items = root.findall(".//item")[:3]  # Limited to recent injury news
-                    injury_keywords = ["bless", "injur", "absent", "forfait", "out"]
+                    # Keywords to identify injury news (avoid false positives)
+                    injury_keywords = ["bless", "injur", "absent", "forfait", "suspen"]
+                    exclude_keywords = ["contract", "contrat", "transfer", "prolonge"]
+
                     for item in items:
                         title_elem = item.find("title")
-                        if title_elem is not None and title_elem.text:
-                            title_lower = title_elem.text.lower()
-                            if any(kw in title_lower for kw in injury_keywords):
-                                injuries.append(
-                                    {
-                                        "player": "Info from news",
-                                        "type": title_elem.text[:100],
-                                        "source": "Google News",
-                                        "status": "uncertain",
-                                    }
-                                )
+                        if title_elem is None or not title_elem.text:
+                            continue
 
-                    logger.info(f"Fetched {len(injuries)} injury items for {team_name}")
+                        title = title_elem.text
+                        title_lower = title.lower()
+
+                        # Skip if contains exclusion keywords (false positives)
+                        if any(kw in title_lower for kw in exclude_keywords):
+                            continue
+
+                        # Check for injury keywords
+                        if not any(kw in title_lower for kw in injury_keywords):
+                            continue
+
+                        # Try to match player name from squad
+                        matched_player: SquadPlayer | None = None
+                        for player_name_lower, player in player_names.items():
+                            # Check if player's last name is in title
+                            last_name = player_name_lower.split()[-1]
+                            if len(last_name) > 3 and last_name in title_lower:
+                                matched_player = player
+                                break
+
+                        # Determine injury status from keywords
+                        status = "uncertain"
+                        if "absent" in title_lower or "forfait" in title_lower:
+                            status = "out"
+                        elif "suspen" in title_lower:
+                            status = "suspended"
+                        elif "doubt" in title_lower or "incertain" in title_lower:
+                            status = "doubtful"
+
+                        injury_data = StructuredInjury(
+                            player_name=matched_player.name if matched_player else "Unknown",
+                            position=matched_player.position if matched_player else None,
+                            injury_type=title[:80],
+                            status=status,
+                            source="news" if not matched_player else "api+news",
+                            confidence=0.8 if matched_player else 0.4,
+                        )
+
+                        injuries.append(injury_data.model_dump())
+
+                    logger.info(f"Fetched {len(injuries)} structured injury items for {team_name}")
 
         except Exception as e:
             logger.error(f"Error fetching injuries for {team_name}: {e}")
@@ -458,12 +519,12 @@ Reply with exactly one word: positive, negative, or neutral"""
             prompt = f"""Analyse ce match de football et génère une prédiction enrichie.
 
 Match: {home_team} vs {away_team}
-Compétition: {match_ctx.get('competition', 'League')}
+Compétition: {match_ctx.get("competition", "League")}
 
 Prédiction de base:
-- Victoire {home_team}: {base_prediction.get('home_win', 0):.1%}
-- Match nul: {base_prediction.get('draw', 0):.1%}
-- Victoire {away_team}: {base_prediction.get('away_win', 0):.1%}
+- Victoire {home_team}: {base_prediction.get("home_win", 0):.1%}
+- Match nul: {base_prediction.get("draw", 0):.1%}
+- Victoire {away_team}: {base_prediction.get("away_win", 0):.1%}
 
 Contexte supplémentaire:
 {context_str}

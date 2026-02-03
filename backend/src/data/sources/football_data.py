@@ -208,6 +208,33 @@ class StandingTeam(BaseModel):
     goalDifference: int
 
 
+class SquadPlayer(BaseModel):
+    """Player in squad."""
+
+    id: int
+    name: str
+    position: str | None = None
+    dateOfBirth: str | None = None
+    nationality: str | None = None
+    shirtNumber: int | None = None
+
+
+class TeamSquad(BaseModel):
+    """Team with squad information."""
+
+    id: int
+    name: str
+    shortName: str | None = None
+    tla: str | None = None
+    crest: str | None = None
+    squad: list[SquadPlayer] = []
+    coach: dict[str, Any] | None = None
+
+
+# Cache TTL for squad data
+CACHE_TTL_SQUAD = 3600  # 1 hour - squad doesn't change often
+
+
 # Supported competitions
 COMPETITIONS = {
     "PL": "Premier League",
@@ -428,6 +455,100 @@ class FootballDataClient:
             date_to=date_to,
             status="SCHEDULED",
         )
+
+    async def get_team_squad(self, team_id: int) -> TeamSquad | None:
+        """
+        Get team with squad information. USES CACHE.
+
+        Args:
+            team_id: Football-data.org team ID
+
+        Returns:
+            TeamSquad with players list, or None if not found
+        """
+        endpoint = f"/teams/{team_id}"
+
+        # Check cache first
+        cached = await _cache.get(endpoint, None)
+        if cached is not None:
+            try:
+                return TeamSquad(**cached)
+            except Exception:
+                pass
+
+        try:
+            data = await self._request("GET", endpoint)
+            # Cache the raw data
+            await _cache.set(endpoint, None, data, CACHE_TTL_SQUAD)
+            return TeamSquad(**data)
+        except Exception as e:
+            logger.error(f"Error fetching team squad for ID {team_id}: {e}")
+            return None
+
+    async def find_team_id_by_name(
+        self,
+        team_name: str,
+        competition: str | None = None,
+    ) -> int | None:
+        """
+        Find team ID by searching competition standings.
+
+        Args:
+            team_name: Team name to search for
+            competition: Competition code to search in (defaults to all major)
+
+        Returns:
+            Team ID if found, None otherwise
+        """
+        # Normalize the search name
+        search_name = team_name.lower().strip()
+
+        # Search in specified competition or all major ones
+        competitions_to_search = [competition] if competition else list(COMPETITIONS.keys())
+
+        for comp in competitions_to_search:
+            try:
+                standings = await self.get_standings(comp)
+                for standing in standings:
+                    team = standing.team
+                    # Check various name formats
+                    names_to_check = [
+                        team.name.lower(),
+                        (team.shortName or "").lower(),
+                        (team.tla or "").lower(),
+                    ]
+                    for name in names_to_check:
+                        if name and (search_name in name or name in search_name):
+                            logger.debug(f"Found team '{team_name}' as ID {team.id} in {comp}")
+                            return team.id
+            except Exception as e:
+                logger.warning(f"Error searching {comp} for team {team_name}: {e}")
+                continue
+
+        logger.warning(f"Team '{team_name}' not found in any competition")
+        return None
+
+    async def get_squad_for_team_name(self, team_name: str) -> list[SquadPlayer]:
+        """
+        Get squad for a team by name.
+
+        Convenience method that looks up team ID and fetches squad.
+
+        Args:
+            team_name: Team name to search for
+
+        Returns:
+            List of squad players (empty if team not found)
+        """
+        team_id = await self.find_team_id_by_name(team_name)
+        if not team_id:
+            return []
+
+        team_squad = await self.get_team_squad(team_id)
+        if not team_squad:
+            return []
+
+        return team_squad.squad
 
 
 def get_football_data_client() -> FootballDataClient:
