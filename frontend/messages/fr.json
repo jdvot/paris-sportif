@@ -643,6 +643,158 @@
       "safetyNote3": "Ne jamais utiliser plus de Kelly a cause des erreurs de probabilite"
     }
   },
+  "bookmakerOdds": {
+    "title": "Comparaison des Cotes",
+    "description": "Comparez les cotes des differents bookmakers et trouvez la meilleure value",
+    "noOddsAvailable": "Aucune donnee de cotes disponible pour ce match",
+    "bookmakers": "bookmakers",
+    "bestOdds": "Meilleures Cotes",
+    "draw": "Match nul",
+    "bookmaker": "Bookmaker",
+    "updated": "Mise a jour",
+    "legend": {
+      "bestOdds": "Cotes les plus elevees",
+      "valueBet": "Value bet detecte"
+    }
+  },
+  "matchDetail": {
+    "errors": {
+      "loadingFailed": "Impossible de charger les details du match.",
+      "dataUnavailable": "Donnees temporairement indisponibles",
+      "predictionsCalculating": "Les predictions sont en cours de calcul ou le service est momentanement indisponible.",
+      "retry": "Reessayer",
+      "predictionsPreparation": "Predictions en preparation",
+      "predictionsComingSoon": "Les predictions pour ce match seront disponibles prochainement. Nos modeles analysent actuellement les donnees.",
+      "dataNotAvailable": "Donnees non disponibles",
+      "invalidDate": "Date invalide"
+    },
+    "status": {
+      "scheduled": "A venir",
+      "live": "EN DIRECT",
+      "finished": "Termine",
+      "postponed": "Reporte"
+    },
+    "countdown": {
+      "matchInProgress": "Match en cours ou termine",
+      "days": "j",
+      "hours": "h",
+      "minutes": "m",
+      "seconds": "s"
+    },
+    "header": {
+      "matchday": "Journee",
+      "at": "a"
+    },
+    "confidence": {
+      "veryHigh": "Tres elevee",
+      "high": "Elevee",
+      "medium": "Moyenne",
+      "low": "Moderee"
+    },
+    "prediction": {
+      "title": "Prediction",
+      "homeWin": "Victoire Domicile",
+      "draw": "Match Nul",
+      "awayWin": "Victoire Exterieur",
+      "value": "Value",
+      "valueBet": "Value Bet",
+      "unavailable": "Prediction indisponible",
+      "whatIsValueBet": "Qu'est-ce qu'une Value Bet ?",
+      "valueBetExplanation": "Les cotes proposees par les bookmakers sont superieures a la probabilite reelle calculee par nos modeles ML.",
+      "valueBetAdvantage": "Avec une value de +{value}%, ce pari offre un avantage statistique a long terme."
+    },
+    "keyFactors": {
+      "title": "Facteurs Cles",
+      "riskFactors": "Facteurs de Risque"
+    },
+    "teamForm": {
+      "title": "Forme Recente",
+      "pointsLast5": "Points (5 derniers)",
+      "goalsScoredPerMatch": "Buts marques/match",
+      "goalsConcededPerMatch": "Buts encaisses/match",
+      "cleanSheets": "Matchs sans encaisser",
+      "xgForPerMatch": "xG pour/match",
+      "xgAgainstPerMatch": "xG contre/match",
+      "win": "V",
+      "drawShort": "N",
+      "loss": "D"
+    },
+    "headToHead": {
+      "title": "Head-to-Head",
+      "matches": "matchs",
+      "winsFor": "Victoires {team}",
+      "draws": "Matchs nuls",
+      "avgGoalsPerMatch": "Moy. buts/match",
+      "totalGoals": "Buts totaux",
+      "consecutiveWins": "{count} victoires consecutives",
+      "lastConfrontation": "Derniere confrontation",
+      "history": "Historique ({count} matchs)"
+    },
+    "models": {
+      "title": "Modeles de Prediction",
+      "modelsCombined": "{count} modeles combines",
+      "poisson": {
+        "name": "Poisson",
+        "description": "Distribution statistique des buts"
+      },
+      "elo": {
+        "name": "ELO",
+        "description": "Classement dynamique des equipes"
+      },
+      "xgModel": {
+        "name": "Expected Goals",
+        "description": "Analyse des Expected Goals (xG)"
+      },
+      "xgboost": {
+        "name": "XGBoost ML",
+        "description": "Machine Learning gradient boosting"
+      },
+      "generic": "Modele statistique",
+      "weight": "Poids",
+      "home": "Domicile",
+      "draw": "Nul",
+      "away": "Exterieur"
+    },
+    "llmAnalysis": {
+      "title": "Analyse IA Avancee",
+      "totalAdjustment": "Ajustement Total",
+      "injuryImpact": "Impact Blessures",
+      "home": "Domicile",
+      "away": "Exterieur",
+      "sentimentMorale": "Sentiment & Moral",
+      "tacticalAdvantage": "Avantage Tactique",
+      "aiReasoning": "Raisonnement IA"
+    },
+    "odds": {
+      "title": "Cotes Bookmakers",
+      "home": "Domicile",
+      "draw": "Nul",
+      "away": "Exterieur",
+      "valueBetDetected": "Value Bet detecte",
+      "sources": "Sources"
+    },
+    "xgEstimates": {
+      "title": "Expected Goals (xG)",
+      "estimatedXg": "xG estime",
+      "estimatedXga": "xGA estime",
+      "offensiveRating": "Rating offensif",
+      "defensiveRating": "Rating defensif"
+    },
+    "standings": {
+      "title": "Classement",
+      "positionSuffix": "e",
+      "points": "pts",
+      "positionGap": "{count} place(s) d'ecart"
+    },
+    "probabilityTooltip": {
+      "probability": "Probabilite",
+      "impliedOdds": "Cote implicite",
+      "confidence": "Confiance",
+      "high": "Elevee",
+      "medium": "Moyenne",
+      "low": "Faible"
+    }
+  },
   "admin": {
     "title": "Administration",
     "accessDenied": "Acces refuse",

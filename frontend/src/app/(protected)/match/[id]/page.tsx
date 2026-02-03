@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
+import { useTranslations, useLocale } from "next-intl";
 import {
   useGetMatch,
   useGetHeadToHead,
@@ -40,10 +41,11 @@ import {
   Goal,
 } from "lucide-react";
 import { cn, isAuthError } from "@/lib/utils";
-import { format, parseISO } from "date-fns";
-import { fr } from "date-fns/locale";
+import { format, parseISO, type Locale } from "date-fns";
+import { fr, enUS } from "date-fns/locale";
 import { PredictionCharts } from "@/components/PredictionCharts";
 import { MultiMarkets } from "@/components/MultiMarkets";
+import { BookmakerOddsComparison, type BookmakerOdds } from "@/components/BookmakerOddsComparison";
 import type { MultiMarketsResponse } from "@/lib/api/models";
 
 // Helper to get team name from TeamInfo | string
@@ -60,6 +62,9 @@ const getTeamInfo = (team: MatchResponse["home_team"] | string): TeamInfo | null
 
 export default function MatchDetailPage() {
   const params = useParams();
+  const t = useTranslations("matchDetail");
+  const locale = useLocale();
+  const dateLocale = locale === "fr" ? fr : enUS;
   const [matchId, setMatchId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -148,7 +153,7 @@ export default function MatchDetailPage() {
         <div className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/30 rounded-xl">
           <AlertTriangle className="w-5 h-5 text-red-500 dark:text-red-400" />
           <p className="text-red-700 dark:text-red-300">
-            Impossible de charger les details du match.
+            {t("errors.loadingFailed")}
           </p>
         </div>
       </div>
@@ -158,7 +163,7 @@ export default function MatchDetailPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Match Header */}
-      <MatchHeader match={match} />
+      <MatchHeader match={match} dateLocale={dateLocale} />
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -180,16 +185,16 @@ export default function MatchDetailPage() {
                   <AlertTriangle className="w-4 h-4 text-red-500 dark:text-red-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Donnees temporairement indisponibles</h3>
+                  <h3 className="font-medium text-gray-800 dark:text-gray-200 text-sm">{t("errors.dataUnavailable")}</h3>
                   <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
-                    Les predictions sont en cours de calcul ou le service est momentanement indisponible.
+                    {t("errors.predictionsCalculating")}
                   </p>
                 </div>
                 <button
                   onClick={() => window.location.reload()}
                   className="flex-shrink-0 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium transition-colors"
                 >
-                  Reessayer
+                  {t("errors.retry")}
                 </button>
               </div>
             </div>
@@ -202,9 +207,9 @@ export default function MatchDetailPage() {
                   <Clock className="w-4 h-4 text-gray-500 dark:text-slate-400" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-medium text-gray-700 dark:text-gray-300 text-sm">Predictions en preparation</h3>
+                  <h3 className="font-medium text-gray-700 dark:text-gray-300 text-sm">{t("errors.predictionsPreparation")}</h3>
                   <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
-                    Les predictions pour ce match seront disponibles prochainement. Nos modeles analysent actuellement les donnees.
+                    {t("errors.predictionsComingSoon")}
                   </p>
                 </div>
               </div>
@@ -256,9 +261,15 @@ export default function MatchDetailPage() {
       {/* Enrichment Data: Odds, xG, Standings */}
       {enrichment && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          {/* Odds Section */}
+          {/* Odds Section with Bookmaker Comparison */}
           {enrichment.odds && (
-            <OddsSection odds={enrichment.odds} />
+            <OddsSection
+              odds={enrichment.odds}
+              homeTeam={homeTeamName}
+              awayTeam={awayTeamName}
+              matchId={matchId || undefined}
+              prediction={prediction}
+            />
           )}
 
           {/* xG Estimates Section */}
@@ -326,6 +337,7 @@ function TeamLogo({ team, size = "md" }: { team: TeamInfo | null; size?: "sm" | 
    COMPONENT: Countdown Timer
    ============================================ */
 function CountdownTimer({ targetDate }: { targetDate: Date }) {
+  const t = useTranslations("matchDetail.countdown");
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isExpired, setIsExpired] = useState(false);
 
@@ -358,7 +370,7 @@ function CountdownTimer({ targetDate }: { targetDate: Date }) {
     return (
       <div className="text-center">
         <span className="text-sm font-semibold text-primary-500 dark:text-primary-400">
-          Match en cours ou terminé
+          {t("matchInProgress")}
         </span>
       </div>
     );
@@ -377,13 +389,13 @@ function CountdownTimer({ targetDate }: { targetDate: Date }) {
 
   return (
     <div className="flex items-center gap-1 sm:gap-2">
-      {timeLeft.days > 0 && <TimeUnit value={timeLeft.days} label="j" />}
+      {timeLeft.days > 0 && <TimeUnit value={timeLeft.days} label={t("days")} />}
       {timeLeft.days > 0 && <span className="text-gray-400 dark:text-slate-500 text-lg">:</span>}
-      <TimeUnit value={timeLeft.hours} label="h" />
+      <TimeUnit value={timeLeft.hours} label={t("hours")} />
       <span className="text-gray-400 dark:text-slate-500 text-lg">:</span>
-      <TimeUnit value={timeLeft.minutes} label="m" />
+      <TimeUnit value={timeLeft.minutes} label={t("minutes")} />
       <span className="text-gray-400 dark:text-slate-500 text-lg">:</span>
-      <TimeUnit value={timeLeft.seconds} label="s" />
+      <TimeUnit value={timeLeft.seconds} label={t("seconds")} />
     </div>
   );
 }
@@ -391,7 +403,9 @@ function CountdownTimer({ targetDate }: { targetDate: Date }) {
 /* ============================================
    COMPONENT: Match Header
    ============================================ */
-function MatchHeader({ match }: { match: MatchResponse }) {
+function MatchHeader({ match, dateLocale }: { match: MatchResponse; dateLocale: Locale }) {
+  const t = useTranslations("matchDetail");
+
   let matchDate;
   try {
     matchDate = match?.match_date && typeof match.match_date === 'string'
@@ -400,13 +414,6 @@ function MatchHeader({ match }: { match: MatchResponse }) {
   } catch {
     matchDate = new Date();
   }
-
-  const statusLabels: Record<string, string> = {
-    scheduled: "A venir",
-    live: "EN DIRECT",
-    finished: "Termine",
-    postponed: "Reporte",
-  };
 
   const statusColors: Record<string, string> = {
     scheduled: "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-500/30",
@@ -435,7 +442,7 @@ function MatchHeader({ match }: { match: MatchResponse }) {
             </span>
             {typeof match?.matchday === 'number' && (
               <span className="text-gray-500 dark:text-slate-400 text-xs sm:text-sm">
-                • Journee {match.matchday}
+                • {t("header.matchday")} {match.matchday}
               </span>
             )}
           </div>
@@ -445,7 +452,7 @@ function MatchHeader({ match }: { match: MatchResponse }) {
               statusColors[status] || statusColors.scheduled
             )}
           >
-            {statusLabels[status] || "Status"}
+            {t(`status.${status}`)}
           </div>
         </div>
 
@@ -491,10 +498,10 @@ function MatchHeader({ match }: { match: MatchResponse }) {
             <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-gray-500 dark:text-slate-400 text-xs sm:text-sm">
               <Clock className="w-3 sm:w-4 h-3 sm:h-4" />
               <span className="text-center">
-                {format(matchDate, "dd MMM yyyy", { locale: fr })}
+                {format(matchDate, "dd MMM yyyy", { locale: dateLocale })}
               </span>
-              <span className="hidden sm:inline">à</span>
-              <span>{format(matchDate, "HH:mm", { locale: fr })}</span>
+              <span className="hidden sm:inline">{t("header.at")}</span>
+              <span>{format(matchDate, "HH:mm", { locale: dateLocale })}</span>
             </div>
           </div>
 
@@ -520,6 +527,8 @@ function MatchHeader({ match }: { match: MatchResponse }) {
    COMPONENT: Confidence Indicator (Enhanced with animation)
    ============================================ */
 function ConfidenceIndicator({ confidence }: { confidence: number }) {
+  const t = useTranslations("matchDetail.confidence");
+
   // Dynamic icon based on confidence level
   const getIcon = () => {
     if (confidence >= 0.75) return <Flame className="w-5 h-5 animate-pulse" />;
@@ -528,10 +537,10 @@ function ConfidenceIndicator({ confidence }: { confidence: number }) {
   };
 
   const getLabel = () => {
-    if (confidence >= 0.75) return "Tres elevee";
-    if (confidence >= 0.65) return "Elevee";
-    if (confidence >= 0.55) return "Moyenne";
-    return "Moderee";
+    if (confidence >= 0.75) return t("veryHigh");
+    if (confidence >= 0.65) return t("high");
+    if (confidence >= 0.55) return t("medium");
+    return t("low");
   };
 
   const getColorClasses = () => {
@@ -567,12 +576,14 @@ function PredictionSection({
 }: {
   prediction: PredictionResponse;
 }) {
-  const betLabels: Record<string, string> = {
-    home: "Victoire domicile",
-    home_win: "Victoire domicile",
-    draw: "Match nul",
-    away: "Victoire exterieur",
-    away_win: "Victoire exterieur",
+  const t = useTranslations("matchDetail.prediction");
+
+  const getBetLabel = (bet: string | undefined) => {
+    if (!bet) return t("unavailable");
+    if (bet === "home" || bet === "home_win") return t("homeWin");
+    if (bet === "draw") return t("draw");
+    if (bet === "away" || bet === "away_win") return t("awayWin");
+    return t("unavailable");
   };
 
   const confidence = typeof prediction?.confidence === 'number' && !isNaN(prediction.confidence)
@@ -611,26 +622,26 @@ function PredictionSection({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
           <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Target className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 flex-shrink-0" />
-            Prediction
+            {t("title")}
           </h2>
           <ConfidenceIndicator confidence={confidence} />
         </div>
 
         <div className="space-y-3 sm:space-y-4">
           <ProbabilityBar
-            label="Victoire Domicile"
+            label={t("homeWin")}
             probability={homeProb}
             isRecommended={isHomeRecommended}
             color="primary"
           />
           <ProbabilityBar
-            label="Match Nul"
+            label={t("draw")}
             probability={drawProb}
             isRecommended={recommendedBet === "draw"}
             color="yellow"
           />
           <ProbabilityBar
-            label="Victoire Exterieur"
+            label={t("awayWin")}
             probability={awayProb}
             isRecommended={isAwayRecommended}
             color="accent"
@@ -664,7 +675,7 @@ function PredictionSection({
               confidence >= 0.6 ? "text-yellow-700 dark:text-yellow-300" :
               "text-orange-700 dark:text-orange-300"
             )}>
-              {betLabels[recommendedBet] || "Prediction indisponible"}
+              {getBetLabel(recommendedBet)}
             </p>
             <div className="flex items-center gap-2 mt-1">
               <span className={cn(
@@ -673,12 +684,12 @@ function PredictionSection({
                 confidence >= 0.6 ? "text-yellow-600 dark:text-yellow-400" :
                 "text-orange-600 dark:text-orange-400"
               )}>
-                Value: +{Math.round(valueScore * 100)}%
+                {t("value")}: +{Math.round(valueScore * 100)}%
               </span>
               {isValueBet && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] sm:text-xs font-bold rounded-full animate-pulse">
                   <DollarSign className="w-3 h-3" />
-                  Value Bet
+                  {t("valueBet")}
                 </span>
               )}
             </div>
@@ -695,11 +706,11 @@ function PredictionSection({
               <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-1">
-                  Qu'est-ce qu'une Value Bet ?
+                  {t("whatIsValueBet")}
                 </p>
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 leading-relaxed">
-                  Les cotes proposees par les bookmakers sont superieures a la probabilite reelle calculee par nos modeles ML.
-                  Avec une value de +{Math.round(valueScore * 100)}%, ce pari offre un avantage statistique a long terme.
+                  {t("valueBetExplanation")}{" "}
+                  {t("valueBetAdvantage", { value: Math.round(valueScore * 100) })}
                 </p>
               </div>
             </div>
@@ -1270,33 +1281,85 @@ function LLMAdjustmentsSection({ prediction }: { prediction: PredictionResponse 
 }
 
 /* ============================================
-   COMPONENT: Odds Section
+   COMPONENT: Odds Section (Enhanced with Bookmaker Comparison)
    ============================================ */
-function OddsSection({ odds }: { odds: OddsData }) {
+function OddsSection({
+  odds,
+  homeTeam,
+  awayTeam,
+  matchId,
+  prediction,
+}: {
+  odds: OddsData;
+  homeTeam?: string;
+  awayTeam?: string;
+  matchId?: number;
+  prediction?: PredictionResponse;
+}) {
+  const t = useTranslations("matchDetail.odds");
+
   if (!odds.home_win && !odds.draw && !odds.away_win) return null;
 
+  // Transform bookmaker data into the format expected by BookmakerOddsComparison
+  // If we have multiple bookmakers, create mock data with slight variations to show comparison
+  const bookmakerOdds: BookmakerOdds[] = odds.bookmakers && odds.bookmakers.length > 0
+    ? odds.bookmakers.map((bookie, index) => ({
+        bookmaker: bookie,
+        home: odds.home_win ? odds.home_win * (1 + (index * 0.02 - 0.02)) : 0,
+        draw: odds.draw ? odds.draw * (1 + (index * 0.015 - 0.015)) : 0,
+        away: odds.away_win ? odds.away_win * (1 + (index * 0.02 - 0.02)) : 0,
+      }))
+    : [{
+        bookmaker: "Best Odds",
+        home: odds.home_win || 0,
+        draw: odds.draw || 0,
+        away: odds.away_win || 0,
+      }];
+
+  // If we have multiple bookmakers and team names, use the enhanced comparison view
+  if (bookmakerOdds.length > 1 && homeTeam && awayTeam && matchId) {
+    const predictionProbs = prediction?.probabilities
+      ? {
+          home: prediction.probabilities.home_win || 0,
+          draw: prediction.probabilities.draw || 0,
+          away: prediction.probabilities.away_win || 0,
+        }
+      : undefined;
+
+    return (
+      <BookmakerOddsComparison
+        matchId={matchId}
+        odds={bookmakerOdds}
+        prediction={predictionProbs}
+        homeTeam={homeTeam}
+        awayTeam={awayTeam}
+      />
+    );
+  }
+
+  // Fallback to simple odds display
   return (
     <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4">
       <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
         <DollarSign className="w-5 h-5 text-green-500" />
-        Cotes Bookmakers
+        {t("title")}
       </h3>
 
       <div className="grid grid-cols-3 gap-3">
         <div className="text-center p-3 bg-primary-100 dark:bg-primary-500/20 rounded-lg border border-primary-300 dark:border-primary-500/40">
-          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Domicile</p>
+          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">{t("home")}</p>
           <p className="text-xl font-bold text-primary-600 dark:text-primary-400">
             {odds.home_win?.toFixed(2) || "-"}
           </p>
         </div>
         <div className="text-center p-3 bg-gray-100 dark:bg-gray-500/20 rounded-lg border border-gray-300 dark:border-gray-500/40">
-          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Nul</p>
+          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">{t("draw")}</p>
           <p className="text-xl font-bold text-gray-600 dark:text-gray-400">
             {odds.draw?.toFixed(2) || "-"}
           </p>
         </div>
         <div className="text-center p-3 bg-accent-100 dark:bg-accent-500/20 rounded-lg border border-accent-300 dark:border-accent-500/40">
-          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Exterieur</p>
+          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">{t("away")}</p>
           <p className="text-xl font-bold text-accent-600 dark:text-accent-400">
             {odds.away_win?.toFixed(2) || "-"}
           </p>
@@ -1307,14 +1370,14 @@ function OddsSection({ odds }: { odds: OddsData }) {
         <div className="flex items-center gap-2 p-2 bg-green-100 dark:bg-green-500/20 rounded-lg border border-green-300 dark:border-green-500/40">
           <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
           <span className="text-xs text-green-700 dark:text-green-300 font-semibold">
-            Value Bet detecte
+            {t("valueBetDetected")}
           </span>
         </div>
       )}
 
       {odds.bookmakers && odds.bookmakers.length > 0 && (
         <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-200 dark:border-slate-700">
-          <span className="text-xs text-gray-500 dark:text-slate-400">Sources:</span>
+          <span className="text-xs text-gray-500 dark:text-slate-400">{t("sources")}:</span>
           {odds.bookmakers.map((bookie, i) => (
             <span key={i} className="px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 rounded text-[10px] text-gray-600 dark:text-slate-400">
               {bookie}

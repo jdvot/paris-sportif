@@ -643,6 +643,158 @@
       "safetyNote3": "Never use more than Kelly due to probability estimation errors"
     }
   },
+  "bookmakerOdds": {
+    "title": "Bookmaker Odds Comparison",
+    "description": "Compare odds from different bookmakers and find the best value",
+    "noOddsAvailable": "No odds data available for this match",
+    "bookmakers": "bookmakers",
+    "bestOdds": "Best Odds",
+    "draw": "Draw",
+    "bookmaker": "Bookmaker",
+    "updated": "Updated",
+    "legend": {
+      "bestOdds": "Highest odds",
+      "valueBet": "Value bet detected"
+    }
+  },
+  "matchDetail": {
+    "errors": {
+      "loadingFailed": "Unable to load match details.",
+      "dataUnavailable": "Data temporarily unavailable",
+      "predictionsCalculating": "Predictions are being calculated or the service is momentarily unavailable.",
+      "retry": "Retry",
+      "predictionsPreparation": "Predictions in preparation",
+      "predictionsComingSoon": "Predictions for this match will be available soon. Our models are currently analyzing the data.",
+      "dataNotAvailable": "Data not available",
+      "invalidDate": "Invalid date"
+    },
+    "status": {
+      "scheduled": "Upcoming",
+      "live": "LIVE",
+      "finished": "Finished",
+      "postponed": "Postponed"
+    },
+    "countdown": {
+      "matchInProgress": "Match in progress or finished",
+      "days": "d",
+      "hours": "h",
+      "minutes": "m",
+      "seconds": "s"
+    },
+    "header": {
+      "matchday": "Matchday",
+      "at": "at"
+    },
+    "confidence": {
+      "veryHigh": "Very high",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Moderate"
+    },
+    "prediction": {
+      "title": "Prediction",
+      "homeWin": "Home Win",
+      "draw": "Draw",
+      "awayWin": "Away Win",
+      "value": "Value",
+      "valueBet": "Value Bet",
+      "unavailable": "Prediction unavailable",
+      "whatIsValueBet": "What is a Value Bet?",
+      "valueBetExplanation": "The bookmakers' odds are higher than the actual probability calculated by our ML models.",
+      "valueBetAdvantage": "With a value of +{value}%, this bet offers a statistical advantage in the long run."
+    },
+    "keyFactors": {
+      "title": "Key Factors",
+      "riskFactors": "Risk Factors"
+    },
+    "teamForm": {
+      "title": "Recent Form",
+      "pointsLast5": "Points (last 5)",
+      "goalsScoredPerMatch": "Goals scored/match",
+      "goalsConcededPerMatch": "Goals conceded/match",
+      "cleanSheets": "Clean sheets",
+      "xgForPerMatch": "xG for/match",
+      "xgAgainstPerMatch": "xG against/match",
+      "win": "W",
+      "drawShort": "D",
+      "loss": "L"
+    },
+    "headToHead": {
+      "title": "Head-to-Head",
+      "matches": "matches",
+      "winsFor": "{team} wins",
+      "draws": "Draws",
+      "avgGoalsPerMatch": "Avg goals/match",
+      "totalGoals": "Total goals",
+      "consecutiveWins": "{count} consecutive wins",
+      "lastConfrontation": "Last confrontation",
+      "history": "History ({count} matches)"
+    },
+    "models": {
+      "title": "Prediction Models",
+      "modelsCombined": "{count} models combined",
+      "poisson": {
+        "name": "Poisson",
+        "description": "Statistical goal distribution"
+      },
+      "elo": {
+        "name": "ELO",
+        "description": "Dynamic team ranking"
+      },
+      "xgModel": {
+        "name": "Expected Goals",
+        "description": "Expected Goals (xG) analysis"
+      },
+      "xgboost": {
+        "name": "XGBoost ML",
+        "description": "Machine Learning gradient boosting"
+      },
+      "generic": "Statistical model",
+      "weight": "Weight",
+      "home": "Home",
+      "draw": "Draw",
+      "away": "Away"
+    },
+    "llmAnalysis": {
+      "title": "Advanced AI Analysis",
+      "totalAdjustment": "Total Adjustment",
+      "injuryImpact": "Injury Impact",
+      "home": "Home",
+      "away": "Away",
+      "sentimentMorale": "Sentiment & Morale",
+      "tacticalAdvantage": "Tactical Advantage",
+      "aiReasoning": "AI Reasoning"
+    },
+    "odds": {
+      "title": "Bookmaker Odds",
+      "home": "Home",
+      "draw": "Draw",
+      "away": "Away",
+      "valueBetDetected": "Value Bet detected",
+      "sources": "Sources"
+    },
+    "xgEstimates": {
+      "title": "Expected Goals (xG)",
+      "estimatedXg": "Estimated xG",
+      "estimatedXga": "Estimated xGA",
+      "offensiveRating": "Offensive rating",
+      "defensiveRating": "Defensive rating"
+    },
+    "standings": {
+      "title": "Standings",
+      "positionSuffix": "th",
+      "points": "pts",
+      "positionGap": "{count} position(s) gap"
+    },
+    "probabilityTooltip": {
+      "probability": "Probability",
+      "impliedOdds": "Implied odds",
+      "confidence": "Confidence",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    }
+  },
   "admin": {
     "title": "Administration",
     "accessDenied": "Access denied",
