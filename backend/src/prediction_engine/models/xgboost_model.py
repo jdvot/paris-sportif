@@ -49,6 +49,19 @@ class XGBoostPrediction:
     model_type: str = "xgboost"
 
 
+@dataclass
+class ExplainedPrediction:
+    """XGBoost prediction with feature explanations."""
+
+    home_win_prob: float
+    draw_prob: float
+    away_win_prob: float
+    prediction_confidence: float
+    predicted_outcome: str
+    explanations: list[dict]
+    model_type: str = "xgboost_explained"
+
+
 class XGBoostModel:
     """
     XGBoost gradient boosting model for football match predictions.
@@ -515,6 +528,90 @@ class XGBoostModel:
                 logger.warning(f"Batch calibration failed: {e}")
 
         return probs
+
+    def predict_explained(
+        self,
+        home_attack: float,
+        home_defense: float,
+        away_attack: float,
+        away_defense: float,
+        recent_form_home: float = 50.0,
+        recent_form_away: float = 50.0,
+        head_to_head_home: float = 0.0,
+        top_n: int = 5,
+    ) -> ExplainedPrediction:
+        """
+        Make a prediction with feature explanations.
+
+        Args:
+            home_attack: Home team attack strength
+            home_defense: Home team defense strength
+            away_attack: Away team attack strength
+            away_defense: Away team defense strength
+            recent_form_home: Home team recent form (0-100)
+            recent_form_away: Away team recent form (0-100)
+            head_to_head_home: Head-to-head advantage (-1 to 1)
+            top_n: Number of top contributing features to include
+
+        Returns:
+            ExplainedPrediction with probabilities and feature explanations
+        """
+        from src.prediction_engine.explainability import PredictionExplainer
+
+        # Get base prediction
+        pred = self.predict(
+            home_attack=home_attack,
+            home_defense=home_defense,
+            away_attack=away_attack,
+            away_defense=away_defense,
+            recent_form_home=recent_form_home,
+            recent_form_away=recent_form_away,
+            head_to_head_home=head_to_head_home,
+        )
+
+        # Get explanation
+        explainer = PredictionExplainer(self.model)
+        explanation = explainer.explain(
+            home_attack=home_attack,
+            home_defense=home_defense,
+            away_attack=away_attack,
+            away_defense=away_defense,
+            recent_form_home=recent_form_home,
+            recent_form_away=recent_form_away,
+            head_to_head_home=head_to_head_home,
+        )
+
+        # Get top contributing features
+        top_features = explanation.top_features(top_n)
+        explanations_list = [
+            {
+                "feature": f.feature,
+                "contribution": round(f.contribution, 4),
+                "value": round(f.value, 3),
+                "rank": f.importance_rank,
+            }
+            for f in top_features
+        ]
+
+        return ExplainedPrediction(
+            home_win_prob=pred.home_win_prob,
+            draw_prob=pred.draw_prob,
+            away_win_prob=pred.away_win_prob,
+            prediction_confidence=pred.prediction_confidence,
+            predicted_outcome=explanation.predicted_outcome,
+            explanations=explanations_list,
+        )
+
+    def get_explainer(self) -> "PredictionExplainer":  # type: ignore[name-defined]
+        """
+        Get a PredictionExplainer instance for this model.
+
+        Returns:
+            PredictionExplainer configured for this model
+        """
+        from src.prediction_engine.explainability import PredictionExplainer
+
+        return PredictionExplainer(self.model)
 
 
 # Default instance (untrained until models are available)
