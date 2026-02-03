@@ -12,6 +12,10 @@ Features used:
 The model trains on historical match data and outputs probabilities for
 home_win, draw, and away_win outcomes.
 
+Calibration:
+- Supports Platt scaling and isotonic regression for probability calibration
+- Improves reliability of predicted probabilities
+
 References:
 - XGBoost: https://xgboost.readthedocs.io/
 - Application to sports: https://www.sas.com/en_us/insights/analytics/xgboost.html
@@ -19,6 +23,7 @@ References:
 
 import logging
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 
@@ -89,17 +94,25 @@ class XGBoostModel:
         "gamma": 0,
     }
 
-    def __init__(self, pretrained_model: object | None = None):
+    def __init__(
+        self,
+        pretrained_model: object | None = None,
+        calibration_method: Literal["platt", "isotonic", "none"] = "none",
+    ):
         """
         Initialize XGBoost model.
 
         Args:
             pretrained_model: Optional pre-trained XGBoost model to use directly
+            calibration_method: Calibration method ('platt', 'isotonic', or 'none')
         """
         self.model = pretrained_model
         self.is_trained = pretrained_model is not None
         self.feature_importance: dict[str, float] = {}
         self.training_history: dict[str, list[float]] = {"loss": [], "validation": []}
+        self.calibration_method = calibration_method
+        self.calibrator: object | None = None
+        self.is_calibrated = False
 
     def train(
         self,
@@ -133,6 +146,7 @@ class XGBoostModel:
                 eval_set = [(X_val, y_val)]
 
             # Create and train XGBoost classifier
+            # Note: early_stopping_rounds moved to constructor in XGBoost 2.0+
             self.model = xgb.XGBClassifier(
                 max_depth=self.DEFAULT_PARAMS["max_depth"],
                 learning_rate=self.DEFAULT_PARAMS["learning_rate"],
@@ -143,15 +157,15 @@ class XGBoostModel:
                 min_child_weight=self.DEFAULT_PARAMS["min_child_weight"],
                 gamma=self.DEFAULT_PARAMS["gamma"],
                 eval_metric="mlogloss",
-                verbose=False,
+                early_stopping_rounds=early_stopping_rounds if eval_set else None,
             )
 
-            # Train with early stopping
+            # Train model
             self.model.fit(  # type: ignore[union-attr]
                 X_train,
                 y_train,
                 eval_set=eval_set,
-                early_stopping_rounds=early_stopping_rounds if eval_set else None,
+                verbose=False,
             )
 
             self.is_trained = True
@@ -360,6 +374,147 @@ class XGBoostModel:
         except Exception as e:
             logger.error(f"Error loading model: {e}")
             return False
+
+    def fit_calibration(
+        self,
+        X_val: np.ndarray,
+        y_val: np.ndarray,
+        method: Literal["platt", "isotonic"] | None = None,
+    ) -> dict[str, float]:
+        """
+        Fit calibration on validation data.
+
+        Args:
+            X_val: Validation features
+            y_val: Validation labels (0=home, 1=draw, 2=away)
+            method: Calibration method (uses instance default if not specified)
+
+        Returns:
+            Dict with calibration metrics (brier_before, brier_after, ece_before, ece_after)
+        """
+        if not self.is_trained:
+            logger.error("Model must be trained before calibration")
+            return {}
+
+        from src.prediction_engine.calibration import ProbabilityCalibrator
+
+        cal_method = method or self.calibration_method
+        if cal_method == "none":
+            cal_method = "isotonic"  # Default to isotonic
+
+        try:
+            # Get uncalibrated predictions
+            uncalibrated_probs = self.model.predict_proba(X_val)  # type: ignore[union-attr]
+
+            # Fit calibrator
+            self.calibrator = ProbabilityCalibrator(method=cal_method)  # type: ignore[arg-type]
+            pre_metrics = self.calibrator.fit(uncalibrated_probs, y_val)  # type: ignore[union-attr]
+
+            # Evaluate improvement
+            _, post_metrics = self.calibrator.evaluate(uncalibrated_probs, y_val)  # type: ignore[union-attr]
+
+            self.is_calibrated = True
+            self.calibration_method = cal_method  # type: ignore[assignment]
+
+            improvement = {
+                "brier_before": pre_metrics.brier_score,
+                "brier_after": post_metrics.brier_score,
+                "brier_improvement": pre_metrics.brier_score - post_metrics.brier_score,
+                "ece_before": pre_metrics.expected_calibration_error,
+                "ece_after": post_metrics.expected_calibration_error,
+                "ece_improvement": (
+                    pre_metrics.expected_calibration_error
+                    - post_metrics.expected_calibration_error
+                ),
+                "n_samples": pre_metrics.n_samples,
+            }
+
+            logger.info(
+                f"Calibration fitted: Brier {improvement['brier_before']:.4f} -> "
+                f"{improvement['brier_after']:.4f}, ECE {improvement['ece_before']:.4f} -> "
+                f"{improvement['ece_after']:.4f}"
+            )
+
+            return improvement
+
+        except Exception as e:
+            logger.error(f"Error fitting calibration: {e}")
+            return {}
+
+    def predict_calibrated(
+        self,
+        home_attack: float,
+        home_defense: float,
+        away_attack: float,
+        away_defense: float,
+        recent_form_home: float = 50.0,
+        recent_form_away: float = 50.0,
+        head_to_head_home: float = 0.0,
+    ) -> XGBoostPrediction:
+        """
+        Make a calibrated prediction for a single match.
+
+        Falls back to uncalibrated prediction if calibrator not fitted.
+        """
+        # Get base prediction
+        pred = self.predict(
+            home_attack=home_attack,
+            home_defense=home_defense,
+            away_attack=away_attack,
+            away_defense=away_defense,
+            recent_form_home=recent_form_home,
+            recent_form_away=recent_form_away,
+            head_to_head_home=head_to_head_home,
+        )
+
+        # Apply calibration if available
+        if self.is_calibrated and self.calibrator is not None:
+            try:
+                calibrated = self.calibrator.calibrate(  # type: ignore[union-attr]
+                    pred.home_win_prob,
+                    pred.draw_prob,
+                    pred.away_win_prob,
+                )
+                return XGBoostPrediction(
+                    home_win_prob=calibrated.home_win_prob,
+                    draw_prob=calibrated.draw_prob,
+                    away_win_prob=calibrated.away_win_prob,
+                    prediction_confidence=max(
+                        calibrated.home_win_prob,
+                        calibrated.draw_prob,
+                        calibrated.away_win_prob,
+                    ),
+                    model_type="xgboost_calibrated",
+                )
+            except Exception as e:
+                logger.warning(f"Calibration failed, using raw prediction: {e}")
+
+        return pred
+
+    def predict_batch_calibrated(
+        self,
+        features: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Make calibrated predictions for multiple matches.
+
+        Args:
+            features: Array of shape (N, 7) with feature vectors
+
+        Returns:
+            Array of shape (N, 3) with calibrated probabilities
+        """
+        # Get base predictions
+        probs = self.predict_batch(features)
+
+        # Apply calibration if available
+        if self.is_calibrated and self.calibrator is not None:
+            try:
+                probs = self.calibrator.calibrate_batch(probs)  # type: ignore[union-attr]
+            except Exception as e:
+                logger.warning(f"Batch calibration failed: {e}")
+
+        return probs
 
 
 # Default instance (untrained until models are available)
