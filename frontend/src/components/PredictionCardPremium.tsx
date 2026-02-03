@@ -209,10 +209,10 @@ export function PredictionCardPremium({
 
           {/* Value Score & Pick Score Indicators */}
           <div className="grid grid-cols-2 gap-2">
-            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-100 dark:bg-dark-700 border border-gray-200 dark:border-dark-600">
+            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-100 dark:bg-slate-700/80 border border-gray-200 dark:border-slate-600">
               <div className="flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4 text-cyan-700 dark:text-cyan-400 flex-shrink-0" />
-                <span className="text-xs sm:text-sm text-gray-700 dark:text-dark-300">Value</span>
+                <span className="text-xs sm:text-sm text-gray-700 dark:text-slate-300">Value</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-xs sm:text-sm font-bold text-cyan-700 dark:text-cyan-400">
@@ -233,10 +233,10 @@ export function PredictionCardPremium({
 
             {/* Pick Score */}
             {pick.pick_score !== undefined && (
-              <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-100 dark:bg-dark-700 border border-gray-200 dark:border-dark-600">
+              <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-100 dark:bg-slate-700/80 border border-gray-200 dark:border-slate-600">
                 <div className="flex items-center gap-1.5">
                   <Zap className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                  <span className="text-xs sm:text-sm text-gray-700 dark:text-dark-300">Score</span>
+                  <span className="text-xs sm:text-sm text-gray-700 dark:text-slate-300">Score</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-xs sm:text-sm font-bold text-amber-600 dark:text-amber-400">
@@ -246,7 +246,7 @@ export function PredictionCardPremium({
                     "text-xs font-medium px-1.5 py-0.5 rounded-full",
                     pick.pick_score >= 0.8 ? "bg-amber-200 dark:bg-amber-500/30 text-amber-700 dark:text-amber-300" :
                     pick.pick_score >= 0.6 ? "bg-yellow-200 dark:bg-yellow-500/30 text-yellow-700 dark:text-yellow-300" :
-                    "bg-gray-200 dark:bg-dark-600 text-gray-700 dark:text-dark-300"
+                    "bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-slate-300"
                   )}>
                     {pick.pick_score >= 0.8 ? "Top" : pick.pick_score >= 0.6 ? "Bon" : "Moyen"}
                   </span>
