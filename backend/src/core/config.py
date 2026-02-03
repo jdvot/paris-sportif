@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     groq_api_key: str = ""  # Free LLM - https://console.groq.com/
     anthropic_api_key: str = ""  # Optional paid alternative
 
+    # Stripe
+    stripe_api_key: str = ""  # sk_test_... or sk_live_...
+    stripe_webhook_secret: str = ""  # whsec_...
+    stripe_price_premium: str = "price_premium_monthly"  # Price ID for Premium plan
+    stripe_price_elite: str = "price_elite_monthly"  # Price ID for Elite plan
+
     # API Settings
     api_v1_prefix: str = "/api/v1"
 
