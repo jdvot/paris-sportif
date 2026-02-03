@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { AlertOctagon, RefreshCw, Home } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -12,6 +13,9 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations("errors.global");
+  const tCommon = useTranslations("common");
+
   useEffect(() => {
     // Log the error to an error reporting service
     console.error("Global error:", error);
@@ -30,10 +34,10 @@ export default function GlobalError({
         {/* Error Message */}
         <div className="space-y-3">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Oops! Quelque chose s'est mal passe
+            {t("title")}
           </h1>
           <p className="text-gray-600 dark:text-slate-400 text-lg">
-            Une erreur inattendue est survenue. Notre equipe a ete notifiee.
+            {t("description")}
           </p>
         </div>
 
@@ -41,7 +45,7 @@ export default function GlobalError({
         {process.env.NODE_ENV === "development" && (
           <div className="p-4 bg-gray-100 dark:bg-slate-800 rounded-lg text-left border border-gray-200 dark:border-slate-700">
             <p className="text-xs font-semibold text-gray-700 dark:text-slate-300 mb-2">
-              Details de l'erreur:
+              {t("errorDetails")}:
             </p>
             <p className="text-xs font-mono text-gray-600 dark:text-slate-400 break-all">
               {error.message}
@@ -58,19 +62,19 @@ export default function GlobalError({
         <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
           <Button onClick={reset} size="lg" className="gap-2">
             <RefreshCw className="w-5 h-5" />
-            Recharger la page
+            {t("reload")}
           </Button>
           <Button variant="outline" size="lg" asChild>
             <Link href="/" className="gap-2">
               <Home className="w-5 h-5" />
-              Retour a l'accueil
+              {tCommon("back")}
             </Link>
           </Button>
         </div>
 
         {/* Help Text */}
         <p className="text-sm text-gray-500 dark:text-slate-500">
-          Si le probleme persiste, contactez le support.
+          {t("helpText")}
         </p>
       </div>
     </div>

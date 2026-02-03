@@ -271,6 +271,8 @@
     }
   },
   "standings": {
+    "title": "Classements",
+    "subtitle": "Consultez les classements des principales ligues europeennes",
     "team": "Equipe",
     "played": "J",
     "won": "G",
@@ -279,9 +281,15 @@
     "goalDiff": "+/-",
     "points": "PTS",
     "noStandings": "Aucun classement disponible",
-    "championsLeague": "Ligue des Champions",
-    "europaLeague": "Ligue Europa",
-    "relegation": "Relegation",
+    "loadError": "Impossible de charger les classements",
+    "lastUpdated": "Mis a jour",
+    "aboutTitle": "A propos des classements",
+    "championsLeague": "Qualification automatique en Ligue des Champions",
+    "europaLeague": "Qualification en Ligue Europa",
+    "positions56": "Positions 5-6",
+    "lastPositions": "3 dernieres positions",
+    "relegation": "Relegation en division inferieure",
+    "dataSource": "Les donnees sont mises a jour en temps reel depuis football-data.org",
     "legend": "J=Joues, G=Victoires, N=Nuls, P=Defaites"
   },
   "footer": {
@@ -307,6 +315,13 @@
       "description": "Impossible de se connecter au serveur. Verifiez votre connexion internet et reessayez.",
       "cacheHint": "Les donnees precedemment consultees sont disponibles en cache. Naviguez vers les pages deja visitees pour y acceder.",
       "preparingPredictions": "Preparation de vos predictions"
+    },
+    "global": {
+      "title": "Oups ! Quelque chose s'est mal passe",
+      "description": "Une erreur inattendue est survenue. Notre equipe a ete notifiee.",
+      "errorDetails": "Details de l'erreur",
+      "reload": "Recharger la page",
+      "helpText": "Si le probleme persiste, contactez le support."
     }
   },
   "pwa": {

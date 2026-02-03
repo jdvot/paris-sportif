@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Trophy, AlertCircle } from "lucide-react";
+import { useTranslations, useLocale } from "next-intl";
 import { useGetStandings } from "@/lib/api/endpoints/matches/matches";
 import type { StandingsResponse } from "@/lib/api/models";
 import { LeagueStandings } from "@/components/LeagueStandings";
@@ -16,6 +17,9 @@ const COMPETITIONS = [
 ];
 
 export default function StandingsPage() {
+  const t = useTranslations("standings");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
   const [selectedCompetition, setSelectedCompetition] = useState("PL");
 
   const { data: response, isLoading, error } = useGetStandings(
@@ -33,11 +37,11 @@ export default function StandingsPage() {
         <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
           <Trophy className="w-8 sm:w-10 h-8 sm:h-10 text-primary-400" />
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white">
-            Classements
+            {t("title")}
           </h1>
         </div>
         <p className="text-gray-600 dark:text-slate-300 text-sm sm:text-base">
-          Consultez les classements des principales ligues européennes
+          {t("subtitle")}
         </p>
       </section>
 
@@ -66,9 +70,9 @@ export default function StandingsPage() {
         <section className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 sm:p-8 mx-4 sm:mx-0 flex items-start gap-3 sm:gap-4">
           <AlertCircle className="w-5 sm:w-6 h-5 sm:h-6 text-red-400 flex-shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Erreur de chargement</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{tCommon("errorLoading")}</h3>
             <p className="text-gray-500 dark:text-slate-400 text-sm">
-              {getErrorMessage(error, "Impossible de charger les classements")}
+              {getErrorMessage(error, t("loadError"))}
             </p>
           </div>
         </section>
@@ -83,7 +87,7 @@ export default function StandingsPage() {
             </h2>
             {standings.last_updated ? (
               <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">
-                Mis à jour: {new Date(standings.last_updated).toLocaleDateString("fr-FR")}
+                {t("lastUpdated")}: {new Date(standings.last_updated).toLocaleDateString(locale === "fr" ? "fr-FR" : "en-US")}
               </p>
             ) : null}
           </div>
@@ -100,19 +104,19 @@ export default function StandingsPage() {
 
       {/* Info Section */}
       <section className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-6 sm:p-8 mx-4 sm:mx-0 space-y-4">
-        <h3 className="font-semibold text-gray-900 dark:text-white text-base sm:text-lg">À propos des classements</h3>
+        <h3 className="font-semibold text-gray-900 dark:text-white text-base sm:text-lg">{t("aboutTitle")}</h3>
         <div className="space-y-3 text-sm text-gray-600 dark:text-slate-300">
           <p>
-            <span className="font-medium text-primary-400">Top 4:</span> Qualification automatique en Ligue des Champions
+            <span className="font-medium text-primary-400">Top 4:</span> {t("championsLeague")}
           </p>
           <p>
-            <span className="font-medium text-purple-400">Positions 5-6:</span> Qualification en Ligue Europa
+            <span className="font-medium text-purple-400">{t("positions56")}:</span> {t("europaLeague")}
           </p>
           <p>
-            <span className="font-medium text-red-400">3 dernières positions:</span> Relégation en division inférieure
+            <span className="font-medium text-red-400">{t("lastPositions")}:</span> {t("relegation")}
           </p>
           <p className="text-gray-500 dark:text-slate-400 text-xs">
-            Les données sont mises à jour en temps réel depuis football-data.org
+            {t("dataSource")}
           </p>
         </div>
       </section>

@@ -271,6 +271,8 @@
     }
   },
   "standings": {
+    "title": "Standings",
+    "subtitle": "View standings from the major European leagues",
     "team": "Team",
     "played": "P",
     "won": "W",
@@ -279,9 +281,15 @@
     "goalDiff": "+/-",
     "points": "PTS",
     "noStandings": "No standings available",
-    "championsLeague": "Champions League",
-    "europaLeague": "Europa League",
-    "relegation": "Relegation",
+    "loadError": "Unable to load standings",
+    "lastUpdated": "Updated",
+    "aboutTitle": "About standings",
+    "championsLeague": "Automatic Champions League qualification",
+    "europaLeague": "Europa League qualification",
+    "positions56": "Positions 5-6",
+    "lastPositions": "Last 3 positions",
+    "relegation": "Relegation to lower division",
+    "dataSource": "Data is updated in real-time from football-data.org",
     "legend": "P=Played, W=Won, D=Drawn, L=Lost"
   },
   "footer": {
@@ -307,6 +315,13 @@
       "description": "Unable to connect to the server. Check your internet connection and try again.",
       "cacheHint": "Previously viewed data is available in cache. Navigate to already visited pages to access it.",
       "preparingPredictions": "Preparing your predictions"
+    },
+    "global": {
+      "title": "Oops! Something went wrong",
+      "description": "An unexpected error occurred. Our team has been notified.",
+      "errorDetails": "Error details",
+      "reload": "Reload page",
+      "helpText": "If the problem persists, contact support."
     }
   },
   "pwa": {
