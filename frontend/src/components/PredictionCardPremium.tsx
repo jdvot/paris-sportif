@@ -70,10 +70,10 @@ export function PredictionCardPremium({
       <div
         className={cn(
           "group relative overflow-hidden rounded-xl border transition-smooth cursor-pointer",
-          "bg-white dark:bg-gradient-to-br dark:from-dark-800/80 dark:to-dark-900/60",
-          "border-gray-200 dark:border-dark-700 hover:border-primary-400 dark:hover:border-primary-500/50",
+          "bg-white dark:bg-gradient-to-br dark:from-slate-800/90 dark:to-slate-900/80",
+          "border-gray-200 dark:border-slate-700 hover:border-primary-400 dark:hover:border-primary-500/50",
           "animate-stagger-in",
-          isTopPick && "border-primary-400 dark:border-primary-500/50 bg-gradient-to-br from-primary-50 dark:from-primary-950/40 to-white dark:to-dark-900/60"
+          isTopPick && "border-primary-400 dark:border-primary-500/50 bg-gradient-to-br from-primary-50 dark:from-primary-950/40 to-white dark:to-slate-900/80"
         )}
         style={{ animationDelay: `${index * 50}ms` } as React.CSSProperties}
       >
@@ -83,7 +83,7 @@ export function PredictionCardPremium({
       {/* Main Content */}
       <div className="relative z-10">
         {/* Header with rank and match info */}
-        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-dark-700/50">
+        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-slate-700/50">
           <div className="flex items-start justify-between gap-3">
             {/* Left: Rank and Match Info */}
             <div className="flex items-start gap-2 sm:gap-4 flex-1 min-w-0">
@@ -108,7 +108,7 @@ export function PredictionCardPremium({
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 mt-1 text-[10px] sm:text-xs text-gray-500 dark:text-dark-400 flex-wrap">
+                <div className="flex items-center gap-1.5 mt-1 text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 flex-wrap">
                   <span>•</span>
                   <span>{format(matchDate, "d MMM, HH:mm", { locale: fr })}</span>
                 </div>
@@ -127,7 +127,7 @@ export function PredictionCardPremium({
                 <span className="text-xs sm:text-xs font-bold text-primary-700 dark:text-primary-300">
                   {Math.round(confidence * 100)}%
                 </span>
-                <span className="text-[10px] text-gray-500 dark:text-dark-400">confiance</span>
+                <span className="text-[10px] text-gray-500 dark:text-slate-400">confiance</span>
               </div>
               <FavoriteButton
                 match={{
@@ -202,20 +202,20 @@ export function PredictionCardPremium({
 
           {/* Explanation */}
           {prediction.explanation && (
-            <p className="text-gray-600 dark:text-dark-300 text-[11px] sm:text-sm leading-relaxed line-clamp-2 sm:line-clamp-none">
+            <p className="text-gray-700 dark:text-slate-300 text-[11px] sm:text-sm leading-relaxed line-clamp-2 sm:line-clamp-none">
               {prediction.explanation}
             </p>
           )}
 
           {/* Value Score & Pick Score Indicators */}
           <div className="grid grid-cols-2 gap-2">
-            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-dark-700/40 border border-gray-200 dark:border-dark-600/50">
+            <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-cyan-600 dark:text-accent-400 flex-shrink-0" />
-                <span className="text-xs sm:text-sm text-gray-600 dark:text-dark-300">Value</span>
+                <TrendingUp className="w-4 h-4 text-cyan-700 dark:text-cyan-400 flex-shrink-0" />
+                <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-300">Value</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-xs sm:text-sm font-bold text-cyan-600 dark:text-accent-400">
+                <span className="text-xs sm:text-sm font-bold text-cyan-700 dark:text-cyan-400">
                   {formatValue(valueScore)}
                 </span>
                 <span className={cn(
@@ -233,13 +233,13 @@ export function PredictionCardPremium({
 
             {/* Pick Score */}
             {pick.pick_score !== undefined && (
-              <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-dark-700/40 border border-gray-200 dark:border-dark-600/50">
+              <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-1.5">
-                  <Zap className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                  <span className="text-xs sm:text-sm text-gray-600 dark:text-dark-300">Score</span>
+                  <Zap className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                  <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-300">Score</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="text-xs sm:text-sm font-bold text-amber-500">
+                  <span className="text-xs sm:text-sm font-bold text-amber-600 dark:text-amber-400">
                     {pick.pick_score.toFixed(2)}
                   </span>
                   <span className={cn(
@@ -258,7 +258,7 @@ export function PredictionCardPremium({
           {/* Key Factors */}
           {prediction.key_factors && prediction.key_factors.length > 0 && (
             <div>
-              <p className="text-[10px] sm:text-xs font-semibold text-gray-600 dark:text-dark-300 mb-1.5 sm:mb-2 flex items-center gap-1">
+              <p className="text-[10px] sm:text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 sm:mb-2 flex items-center gap-1">
                 <span>✓ Points positifs</span>
               </p>
               <div className="flex flex-wrap gap-1 sm:gap-2">
@@ -277,7 +277,7 @@ export function PredictionCardPremium({
           {/* Risk Factors */}
           {prediction.risk_factors && prediction.risk_factors.length > 0 && (
             <div>
-              <p className="text-[10px] sm:text-xs font-semibold text-gray-600 dark:text-dark-300 mb-1.5 sm:mb-2 flex items-center gap-1">
+              <p className="text-[10px] sm:text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 sm:mb-2 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
                 <span>Risques à surveiller</span>
               </p>
@@ -295,7 +295,7 @@ export function PredictionCardPremium({
           )}
 
           {/* RAG Context - News, Injuries, Sentiment */}
-          <div className="border-t border-gray-200 dark:border-dark-700/50 pt-3">
+          <div className="border-t border-gray-200 dark:border-slate-700/50 pt-3">
             <RAGContext
               homeTeam={prediction.home_team}
               awayTeam={prediction.away_team}
@@ -307,11 +307,11 @@ export function PredictionCardPremium({
 
         {/* Footer with confidence tier info */}
         <div className={cn(
-          "px-3 sm:px-6 py-2 sm:py-3 border-t border-gray-200 dark:border-dark-700/50 bg-gray-50 dark:bg-dark-900/50 text-[10px] sm:text-xs",
+          "px-3 sm:px-6 py-2 sm:py-3 border-t border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/50 text-[10px] sm:text-xs",
           "flex items-center justify-between"
         )}>
           <div className="flex items-center gap-1.5">
-            <span className="text-gray-500 dark:text-dark-400">Confiance:</span>
+            <span className="text-slate-600 dark:text-slate-400">Confiance:</span>
             <span className={cn(
               "font-bold px-1.5 py-0.5 rounded-full",
               confidenceTier.bgClass,
@@ -320,7 +320,7 @@ export function PredictionCardPremium({
               {confidenceTier.label}
             </span>
           </div>
-          <div className="text-gray-500 dark:text-dark-500">
+          <div className="text-slate-600 dark:text-slate-500">
             Pick #{pick.rank}
           </div>
         </div>
@@ -352,23 +352,23 @@ function ProbBarEnhanced({
       <div className="flex justify-between text-[10px] sm:text-xs mb-1 gap-1">
         <span className={cn(
           "truncate font-medium",
-          isRecommended ? "text-primary-600 dark:text-primary-400" : "text-gray-500 dark:text-dark-400"
+          isRecommended ? "text-primary-700 dark:text-primary-400" : "text-slate-600 dark:text-slate-400"
         )}>
           <span className="hidden sm:inline">{label.length > 12 ? label.slice(0, 12) + "…" : label}</span>
           <span className="sm:hidden">{getShortLabel(label)}</span>
         </span>
         <span className={cn(
           "flex-shrink-0 font-bold",
-          isRecommended ? "text-primary-600 dark:text-primary-400" : "text-gray-500 dark:text-dark-400"
+          isRecommended ? "text-primary-700 dark:text-primary-400" : "text-slate-600 dark:text-slate-400"
         )}>
           {Math.round(prob * 100)}%
         </span>
       </div>
-      <div className="h-1.5 sm:h-2 bg-gray-200 dark:bg-dark-700 rounded-full overflow-hidden">
+      <div className="h-1.5 sm:h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
         <div
           className={cn(
             "h-full rounded-full transition-all duration-500",
-            isRecommended ? "bg-gradient-to-r from-primary-500 to-emerald-500" : "bg-gray-300 dark:bg-dark-600"
+            isRecommended ? "bg-gradient-to-r from-primary-500 to-emerald-500" : "bg-slate-300 dark:bg-slate-600"
           )}
           style={{ width: `${prob * 100}%` }}
         />

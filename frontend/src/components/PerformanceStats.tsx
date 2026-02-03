@@ -78,7 +78,7 @@ export function PerformanceStats() {
       name: BET_TYPE_NAMES[type] || type,
       correct: data.correct || 0,
       total: data.total || data.predictions || 0,
-      accuracy: (data.accuracy || 0) * 100,
+      accuracy: data.accuracy || 0,
       avgValue: data.avgValue,
     }))
     .filter((bt) => bt.total > 0);
@@ -88,7 +88,7 @@ export function PerformanceStats() {
     .map(([code, data]: [string, any]) => ({
       name: COMPETITION_NAMES[code] || code,
       value: data.total || data.predictions || 0,
-      accuracy: (data.accuracy || 0) * 100,
+      accuracy: data.accuracy || 0,
     }))
     .filter((comp) => comp.value > 0);
 
@@ -97,19 +97,19 @@ export function PerformanceStats() {
     {
       range: ">70%",
       count: Math.floor(stats.totalPredictions * 0.35),
-      accuracy: Math.min(100, ((stats.accuracy || 0) * 100) + 8),
+      accuracy: Math.min(100, (stats.accuracy || 0) + 8),
       color: "#4ade80",
     },
     {
       range: "60-70%",
       count: Math.floor(stats.totalPredictions * 0.45),
-      accuracy: Math.max(40, ((stats.accuracy || 0) * 100) - 2),
+      accuracy: Math.max(40, (stats.accuracy || 0) - 2),
       color: "#60a5fa",
     },
     {
       range: "<60%",
       count: Math.floor(stats.totalPredictions * 0.2),
-      accuracy: Math.max(35, ((stats.accuracy || 0) * 100) - 12),
+      accuracy: Math.max(35, (stats.accuracy || 0) - 12),
       color: "#fbbf24",
     },
   ];

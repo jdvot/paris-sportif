@@ -37,6 +37,8 @@ import { cn, isAuthError } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { PredictionCharts } from "@/components/PredictionCharts";
+import { MultiMarkets } from "@/components/MultiMarkets";
+import type { MultiMarketsResponse } from "@/lib/api/models";
 
 // Helper to get team name from Team | string
 const getTeamName = (team: Match["home_team"]): string => {
@@ -87,13 +89,13 @@ export default function MatchDetailPage() {
 
   const { data: homeFormResponse } = useGetTeamForm(
     homeTeamId!,
-    { matches_count: 5 },
+    { matches_count: 5, team_name: getTeamName(match?.home_team || "") || undefined },
     { query: { enabled: !!homeTeamId && homeTeamId > 0 } }
   );
 
   const { data: awayFormResponse } = useGetTeamForm(
     awayTeamId!,
-    { matches_count: 5 },
+    { matches_count: 5, team_name: getTeamName(match?.away_team || "") || undefined },
     { query: { enabled: !!awayTeamId && awayTeamId > 0 } }
   );
 
@@ -189,6 +191,15 @@ export default function MatchDetailPage() {
 
           {prediction && prediction.key_factors && prediction.key_factors.length > 0 && (
             <KeyFactorsSection prediction={prediction} />
+          )}
+
+          {/* Multi-Markets Section */}
+          {prediction && (
+            <MultiMarketsSection
+              prediction={prediction}
+              homeTeam={getTeamName(match.home_team)}
+              awayTeam={getTeamName(match.away_team)}
+            />
           )}
 
           {homeForm && awayForm && (
@@ -470,9 +481,9 @@ function KeyFactorsSection({
       {keyFactors.length > 0 && (
         <div className="space-y-2">
           {keyFactors.map((factor, index) => (
-            <div key={index} className="flex items-start gap-3 p-3 bg-gray-200 dark:bg-slate-700/50 rounded-lg">
+            <div key={index} className="flex items-start gap-3 p-3 bg-gray-100 dark:bg-slate-700/50 rounded-lg">
               <CheckCircle className="w-4 sm:w-5 h-4 sm:h-5 text-primary-400 flex-shrink-0 mt-0.5" />
-              <p className="text-gray-700 dark:text-slate-200 text-sm">{factor}</p>
+              <p className="text-gray-800 dark:text-slate-200 text-sm">{factor}</p>
             </div>
           ))}
         </div>
@@ -654,8 +665,8 @@ function HeadToHeadSection({
               return (
                 <div key={`h2h-${matchHomeTeam}-${matchAwayTeam}-${match.date}`} className="p-2 bg-gray-200 dark:bg-slate-700/50 rounded text-xs space-y-1">
                   <p className="font-semibold text-gray-800 dark:text-slate-100">{matchHomeTeam} vs {matchAwayTeam}</p>
-                  <p className="text-gray-500 dark:text-slate-400">{scoreDisplay}</p>
-                  <p className="text-gray-400 dark:text-slate-500 text-xs">{dateDisplay}</p>
+                  <p className="text-gray-700 dark:text-slate-400">{scoreDisplay}</p>
+                  <p className="text-gray-600 dark:text-slate-500 text-xs">{dateDisplay}</p>
                 </div>
               );
             })}
@@ -930,25 +941,25 @@ function XGEstimatesSection({
             <p className="text-xs font-semibold text-primary-700 dark:text-primary-300 mb-2">{homeTeam}</p>
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <p className="text-gray-500 dark:text-slate-400">xG estime</p>
+                <p className="text-gray-700 dark:text-slate-400">xG estime</p>
                 <p className="text-lg font-bold text-primary-600 dark:text-primary-400">
                   {homeXg.estimated_xg?.toFixed(2) || "-"}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 dark:text-slate-400">xGA estime</p>
+                <p className="text-gray-700 dark:text-slate-400">xGA estime</p>
                 <p className="text-lg font-bold text-orange-500">
                   {homeXg.estimated_xga?.toFixed(2) || "-"}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 dark:text-slate-400">Rating offensif</p>
+                <p className="text-gray-700 dark:text-slate-400">Rating offensif</p>
                 <p className="font-semibold text-green-600 dark:text-green-400">
                   {homeXg.offensive_rating?.toFixed(1) || "-"}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 dark:text-slate-400">Rating defensif</p>
+                <p className="text-gray-700 dark:text-slate-400">Rating defensif</p>
                 <p className="font-semibold text-red-500">
                   {homeXg.defensive_rating?.toFixed(1) || "-"}
                 </p>
@@ -963,25 +974,25 @@ function XGEstimatesSection({
             <p className="text-xs font-semibold text-accent-700 dark:text-accent-300 mb-2">{awayTeam}</p>
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <p className="text-gray-500 dark:text-slate-400">xG estime</p>
+                <p className="text-gray-700 dark:text-slate-400">xG estime</p>
                 <p className="text-lg font-bold text-accent-600 dark:text-accent-400">
                   {awayXg.estimated_xg?.toFixed(2) || "-"}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 dark:text-slate-400">xGA estime</p>
+                <p className="text-gray-700 dark:text-slate-400">xGA estime</p>
                 <p className="text-lg font-bold text-orange-500">
                   {awayXg.estimated_xga?.toFixed(2) || "-"}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 dark:text-slate-400">Rating offensif</p>
+                <p className="text-gray-700 dark:text-slate-400">Rating offensif</p>
                 <p className="font-semibold text-green-600 dark:text-green-400">
                   {awayXg.offensive_rating?.toFixed(1) || "-"}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 dark:text-slate-400">Rating defensif</p>
+                <p className="text-gray-700 dark:text-slate-400">Rating defensif</p>
                 <p className="font-semibold text-red-500">
                   {awayXg.defensive_rating?.toFixed(1) || "-"}
                 </p>
@@ -1022,23 +1033,23 @@ function StandingsSection({
       <div className="grid grid-cols-2 gap-4">
         {/* Home Team */}
         <div className="p-3 bg-primary-50 dark:bg-primary-500/10 rounded-lg border border-primary-200 dark:border-primary-500/30 text-center">
-          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1 truncate">{homeTeam}</p>
+          <p className="text-xs text-gray-700 dark:text-slate-400 mb-1 truncate">{homeTeam}</p>
           <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">
             {standings.home_position ? `${standings.home_position}e` : "-"}
           </p>
           {standings.home_points != null && (
-            <p className="text-xs text-gray-500 dark:text-slate-400">{standings.home_points} pts</p>
+            <p className="text-xs text-gray-700 dark:text-slate-400">{standings.home_points} pts</p>
           )}
         </div>
 
         {/* Away Team */}
         <div className="p-3 bg-accent-50 dark:bg-accent-500/10 rounded-lg border border-accent-200 dark:border-accent-500/30 text-center">
-          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1 truncate">{awayTeam}</p>
+          <p className="text-xs text-gray-700 dark:text-slate-400 mb-1 truncate">{awayTeam}</p>
           <p className="text-2xl font-bold text-accent-600 dark:text-accent-400">
             {standings.away_position ? `${standings.away_position}e` : "-"}
           </p>
           {standings.away_points != null && (
-            <p className="text-xs text-gray-500 dark:text-slate-400">{standings.away_points} pts</p>
+            <p className="text-xs text-gray-700 dark:text-slate-400">{standings.away_points} pts</p>
           )}
         </div>
       </div>
@@ -1094,10 +1105,10 @@ function ProbabilityBar({
   return (
     <div>
       <div className="flex justify-between items-center mb-2">
-        <span className={cn("text-sm font-semibold", isRecommended ? textColorClasses[color] : "text-gray-600 dark:text-slate-300")}>
+        <span className={cn("text-sm font-semibold", isRecommended ? textColorClasses[color] : "text-gray-800 dark:text-slate-300")}>
           {label}
         </span>
-        <span className={cn("text-sm font-bold", isRecommended ? textColorClasses[color] : "text-gray-500 dark:text-slate-400")}>
+        <span className={cn("text-sm font-bold", isRecommended ? textColorClasses[color] : "text-gray-700 dark:text-slate-400")}>
           {Math.round(prob * 100)}%
         </span>
       </div>
@@ -1149,6 +1160,79 @@ function LoadingState() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ============================================
+   COMPONENT: Multi-Markets Section
+   ============================================ */
+function MultiMarketsSection({
+  prediction,
+  homeTeam,
+  awayTeam,
+}: {
+  prediction: PredictionResponse;
+  homeTeam: string;
+  awayTeam: string;
+}) {
+  // Use real multi-markets data from API if available
+  const mm = prediction?.multi_markets;
+
+  if (!mm) {
+    return null; // No multi-markets data available
+  }
+
+  // Transform API data to component format
+  const overUnder25 = {
+    prob: mm.over_under_25.over_prob,
+    odds: {
+      over: mm.over_under_25.over_odds ?? undefined,
+      under: mm.over_under_25.under_odds ?? undefined,
+    },
+  };
+
+  const overUnder15 = {
+    prob: mm.over_under_15.over_prob,
+    odds: {
+      over: mm.over_under_15.over_odds ?? undefined,
+      under: mm.over_under_15.under_odds ?? undefined,
+    },
+  };
+
+  const btts = {
+    prob: mm.btts.yes_prob,
+    odds: {
+      yes: mm.btts.yes_odds ?? undefined,
+      no: mm.btts.no_odds ?? undefined,
+    },
+  };
+
+  const doubleChance = {
+    homeOrDraw: {
+      prob: mm.double_chance["1X"],
+      odds: mm.double_chance.home_or_draw_odds ?? undefined,
+    },
+    awayOrDraw: {
+      prob: mm.double_chance.X2,
+      odds: mm.double_chance.away_or_draw_odds ?? undefined,
+    },
+    homeOrAway: {
+      prob: mm.double_chance["12"],
+      odds: mm.double_chance.home_or_away_odds ?? undefined,
+    },
+  };
+
+  return (
+    <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6">
+      <MultiMarkets
+        homeTeam={homeTeam}
+        awayTeam={awayTeam}
+        overUnder25={overUnder25}
+        overUnder15={overUnder15}
+        btts={btts}
+        doubleChance={doubleChance}
+      />
     </div>
   );
 }

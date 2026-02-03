@@ -18,7 +18,7 @@ export default function Home() {
   // Check if stats have actual data (total_predictions > 0 indicates real data)
   const totalPreds = stats?.total_predictions ?? 0;
   const hasData = totalPreds > 0;
-  const successRate = hasData ? ((stats?.accuracy || 0) * 100).toFixed(1) : null;
+  const successRate = hasData ? (stats?.accuracy || 0).toFixed(1) : null;
   const totalPredictions = hasData ? totalPreds : null;
 
   // Count competitions with data

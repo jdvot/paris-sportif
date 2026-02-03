@@ -144,6 +144,7 @@ export function StatsOverview() {
   const hasRealData = Object.keys(stats.byCompetition || {}).length > 0;
 
   // Use real data if available, otherwise show placeholder for 5 competitions
+  // Note: Backend already returns accuracy as percentage (0-100), not ratio
   const competitionStats = hasRealData
     ? Object.entries(stats.byCompetition)
         .map(([code, data]: [string, any]) => ({
@@ -151,8 +152,8 @@ export function StatsOverview() {
           code,
           predictions: data.total || 0,
           correct: data.correct || 0,
-          accuracy: (data.accuracy || 0) * 100,
-          trend: data.accuracy >= 0.55 ? "up" : data.accuracy < 0.50 ? "down" : "neutral",
+          accuracy: data.accuracy || 0,  // Already a percentage from backend
+          trend: data.accuracy >= 55 ? "up" : data.accuracy < 50 ? "down" : "neutral",
         }))
         .sort((a, b) => b.predictions - a.predictions)
     : Object.entries(COMPETITION_NAMES).map(([code, name]) => ({
@@ -168,7 +169,7 @@ export function StatsOverview() {
   const generateTrendData = () => {
     const data = [];
     for (let i = 0; i < 7; i++) {
-      const baseAccuracy = (stats.accuracy || 0) * 100;
+      const baseAccuracy = stats.accuracy || 0;  // Already a percentage
       data.push({
         day: i,
         accuracy: baseAccuracy + (Math.random() - 0.5) * 8,
@@ -178,7 +179,8 @@ export function StatsOverview() {
   };
 
   const trendData = generateTrendData();
-  const roiAmount = stats.roiSimulated ? stats.roiSimulated * stats.totalPredictions * 10 : 0;
+  // roiSimulated is already a percentage, convert to ratio for calculation
+  const roiAmount = stats.roiSimulated ? (stats.roiSimulated / 100) * stats.totalPredictions * 10 : 0;
 
   const COLORS = ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"];
 
@@ -207,10 +209,10 @@ export function StatsOverview() {
             <Award className="w-4 sm:w-5 h-4 sm:h-5 text-cyan-600 dark:text-accent-400" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
-            {((stats.accuracy || 0) * 100).toFixed(1)}%
+            {(stats.accuracy || 0).toFixed(1)}%
           </p>
           <p className="text-xs sm:text-sm text-cyan-700 dark:text-accent-300">
-            +{(((stats.accuracy || 0) * 100) - 50).toFixed(1)}% vs baseline
+            +{((stats.accuracy || 0) - 50).toFixed(1)}% vs baseline
           </p>
         </div>
 
@@ -221,7 +223,7 @@ export function StatsOverview() {
             <Zap className="w-4 sm:w-5 h-4 sm:h-5 text-green-600 dark:text-green-400" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
-            +{((stats.roiSimulated || 0) * 100).toFixed(1)}%
+            {(stats.roiSimulated || 0) >= 0 ? "+" : ""}{(stats.roiSimulated || 0).toFixed(1)}%
           </p>
           <p className="text-xs sm:text-sm text-green-700 dark:text-green-300">
             {roiAmount > 0 ? "+" : ""}{Math.round(roiAmount)}€ profit
