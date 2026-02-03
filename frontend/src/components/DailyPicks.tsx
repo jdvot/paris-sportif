@@ -6,6 +6,8 @@ import { cn, isAuthError } from "@/lib/utils";
 import { LoadingState } from "@/components/LoadingState";
 import { useGetDailyPicks } from "@/lib/api/endpoints/predictions/predictions";
 import type { DailyPick, Prediction } from "@/lib/api/models";
+import { ValueBetIndicator } from "@/components/ValueBetBadge";
+import { getConfidenceTier, formatConfidence, isValueBet, formatValue } from "@/lib/constants";
 
 export function DailyPicks() {
   const { data: response, isLoading, error } = useGetDailyPicks(
@@ -83,14 +85,9 @@ function PickCard({ pick }: { pick: DailyPick }) {
   }[prediction.recommended_bet] || prediction.recommended_bet;
 
   const confidence = prediction.confidence || 0;
-  const confidenceColor =
-    confidence >= 0.75
-      ? "text-primary-600 dark:text-primary-400"
-      : confidence >= 0.65
-      ? "text-blue-600 dark:text-blue-400"
-      : confidence >= 0.55
-      ? "text-yellow-600 dark:text-yellow-400"
-      : "text-orange-600 dark:text-orange-400";
+  const valueScore = prediction.value_score || 0;
+  const confidenceTier = getConfidenceTier(confidence);
+  const confidenceColor = confidenceTier.textClass;
 
   // Use snake_case probabilities from Orval types
   const homeProb = prediction.probabilities?.home_win || 0;
@@ -118,13 +115,25 @@ function PickCard({ pick }: { pick: DailyPick }) {
             <p className="text-xs sm:text-sm text-gray-600 dark:text-dark-400">{competition}</p>
           </div>
         </div>
-        <div className="text-left sm:text-right flex sm:flex-col gap-3 sm:gap-0 shrink-0">
-          <p className={cn("font-semibold text-sm sm:text-base", confidenceColor)}>
-            {Math.round(confidence * 100)}% confiance
-          </p>
-          <p className="text-xs sm:text-sm text-gray-600 dark:text-dark-400">
-            Value: +{Math.round((prediction.value_score || 0) * 100)}%
-          </p>
+        <div className="text-left sm:text-right flex sm:flex-col gap-3 sm:gap-1 shrink-0">
+          <div className="flex items-center gap-2">
+            <p className={cn("font-semibold text-sm sm:text-base", confidenceColor)}>
+              {formatConfidence(confidence)} confiance
+            </p>
+            <span className={cn(
+              "hidden sm:inline-flex text-xs font-medium px-1.5 py-0.5 rounded-full",
+              confidenceTier.bgClass,
+              confidenceTier.textClass
+            )}>
+              {confidenceTier.label}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-dark-400">
+              Value: {formatValue(valueScore)}
+            </p>
+            {isValueBet(valueScore) && <ValueBetIndicator valueScore={valueScore} />}
+          </div>
         </div>
       </div>
 

@@ -33,7 +33,7 @@ export default function Home() {
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
           Predictions Football IA
         </h1>
-        <p className="text-gray-600 dark:text-slate-300 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto px-4">
+        <p className="text-gray-600 dark:text-dark-300 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto px-4">
           Analyse statistique avancee combinant modeles Poisson, ELO, xG et
           machine learning pour identifier les meilleures opportunites de paris
           sur le football europeen.
@@ -43,12 +43,12 @@ export default function Home() {
       {/* Quick Stats - Only show if data is available */}
       {hasData && (
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4">
+          <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4">
             <div className="p-2 sm:p-3 bg-primary-500/20 rounded-lg flex-shrink-0">
               <TrendingUp className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400" />
             </div>
             <div className="text-center sm:text-left">
-              <p className="text-gray-500 dark:text-slate-400 text-xs sm:text-sm">Taux de reussite</p>
+              <p className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">Taux de reussite</p>
               {statsLoading ? (
                 <Loader2 className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 animate-spin mt-1 mx-auto sm:mx-0" />
               ) : (
@@ -56,12 +56,12 @@ export default function Home() {
               )}
             </div>
           </div>
-          <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4">
+          <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4">
             <div className="p-2 sm:p-3 bg-accent-500/20 rounded-lg flex-shrink-0">
               <Calendar className="w-5 sm:w-6 h-5 sm:h-6 text-accent-400" />
             </div>
             <div className="text-center sm:text-left">
-              <p className="text-gray-500 dark:text-slate-400 text-xs sm:text-sm">Predictions analysees</p>
+              <p className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">Predictions analysees</p>
               {statsLoading ? (
                 <Loader2 className="w-5 sm:w-6 h-5 sm:h-6 text-accent-400 animate-spin mt-1 mx-auto sm:mx-0" />
               ) : (
@@ -69,12 +69,12 @@ export default function Home() {
               )}
             </div>
           </div>
-          <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4 sm:col-span-2 lg:col-span-1">
+          <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4 sm:col-span-2 lg:col-span-1">
             <div className="p-2 sm:p-3 bg-yellow-500/20 rounded-lg flex-shrink-0">
               <Trophy className="w-5 sm:w-6 h-5 sm:h-6 text-yellow-400" />
             </div>
             <div className="text-center sm:text-left">
-              <p className="text-gray-500 dark:text-slate-400 text-xs sm:text-sm">Championnats couverts</p>
+              <p className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">Championnats couverts</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{competitionsWithData}</p>
             </div>
           </div>
@@ -87,7 +87,7 @@ export default function Home() {
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
             5 Picks du Jour
           </h2>
-          <span className="text-gray-500 dark:text-slate-400 text-xs sm:text-sm">
+          <span className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">
             Mis a jour: {new Date().toLocaleDateString("fr-FR")}
           </span>
         </div>

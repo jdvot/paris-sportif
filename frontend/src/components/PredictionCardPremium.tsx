@@ -7,6 +7,16 @@ import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { DailyPick } from "@/lib/api/models";
 import { RAGContext } from "./RAGContext";
+import { ValueBetIndicator } from "./ValueBetBadge";
+import { FavoriteButton } from "./FavoriteButton";
+import {
+  getConfidenceTier as getConfidenceTierFromConstants,
+  getValueTier as getValueTierFromConstants,
+  isValueBet,
+  formatConfidence,
+  formatValue,
+  CONFIDENCE_TIERS,
+} from "@/lib/constants";
 
 interface PredictionCardPremiumProps {
   pick: DailyPick;
@@ -25,25 +35,9 @@ export function PredictionCardPremium({
 
   const matchDate = prediction.match_date ? new Date(prediction.match_date) : new Date();
 
-  // Determine confidence tier
-  const getConfidenceTier = (conf: number) => {
-    if (conf >= 0.75) return { level: "Très Haut", color: "from-primary-500 to-emerald-500", icon: "🔥" };
-    if (conf >= 0.65) return { level: "Haut", color: "from-primary-400 to-blue-400", icon: "⚡" };
-    if (conf >= 0.55) return { level: "Moyen", color: "from-yellow-400 to-orange-400", icon: "⚠️" };
-    return { level: "Bas", color: "from-orange-400 to-red-400", icon: "📊" };
-  };
-
-  const confidenceTier = getConfidenceTier(confidence);
-
-  // Determine value tier
-  const getValueTier = (value: number) => {
-    if (value >= 0.15) return "Excellent";
-    if (value >= 0.08) return "Bon";
-    if (value >= 0.05) return "Acceptable";
-    return "Faible";
-  };
-
-  const valueTier = getValueTier(valueScore);
+  // Use centralized constants for tiers
+  const confidenceTier = getConfidenceTierFromConstants(confidence);
+  const valueTier = getValueTierFromConstants(valueScore);
 
   // Bet label
   const betLabels: Record<string, string> = {
@@ -121,8 +115,8 @@ export function PredictionCardPremium({
               </div>
             </div>
 
-            {/* Right: Confidence Score */}
-            <div className="flex-shrink-0 text-right">
+            {/* Right: Confidence Score + Favorite */}
+            <div className="flex items-start gap-2">
               <div className={cn(
                 "inline-flex flex-col items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg",
                 "bg-gradient-to-br",
@@ -135,6 +129,16 @@ export function PredictionCardPremium({
                 </span>
                 <span className="text-[10px] text-gray-500 dark:text-dark-400">confiance</span>
               </div>
+              <FavoriteButton
+                match={{
+                  matchId: prediction.match_id,
+                  homeTeam: prediction.home_team,
+                  awayTeam: prediction.away_team,
+                  matchDate: prediction.match_date || new Date().toISOString(),
+                  competition: (prediction as { competition?: string }).competition,
+                }}
+                size="sm"
+              />
             </div>
           </div>
         </div>
@@ -212,16 +216,18 @@ export function PredictionCardPremium({
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-xs sm:text-sm font-bold text-cyan-600 dark:text-accent-400">
-                  +{Math.round(valueScore * 100)}%
+                  {formatValue(valueScore)}
                 </span>
                 <span className={cn(
                   "text-xs font-medium px-1.5 py-0.5 rounded-full",
-                  valueScore >= 0.15 ? "bg-primary-200 dark:bg-primary-500/30 text-primary-700 dark:text-primary-300" :
-                  valueScore >= 0.08 ? "bg-green-200 dark:bg-green-500/30 text-green-700 dark:text-green-300" :
-                  "bg-yellow-200 dark:bg-yellow-500/30 text-yellow-700 dark:text-yellow-300"
+                  valueTier.bgClass,
+                  valueTier.textClass
                 )}>
-                  {valueTier}
+                  {valueTier.label}
                 </span>
+                {isValueBet(valueScore) && (
+                  <ValueBetIndicator valueScore={valueScore} />
+                )}
               </div>
             </div>
 
@@ -308,12 +314,10 @@ export function PredictionCardPremium({
             <span className="text-gray-500 dark:text-dark-400">Confiance:</span>
             <span className={cn(
               "font-bold px-1.5 py-0.5 rounded-full",
-              confidence >= 0.75 ? "bg-primary-200 dark:bg-primary-500/30 text-primary-700 dark:text-primary-300" :
-              confidence >= 0.65 ? "bg-blue-200 dark:bg-blue-500/30 text-blue-700 dark:text-blue-300" :
-              confidence >= 0.55 ? "bg-yellow-200 dark:bg-yellow-500/30 text-yellow-700 dark:text-yellow-300" :
-              "bg-orange-200 dark:bg-orange-500/30 text-orange-700 dark:text-orange-300"
+              confidenceTier.bgClass,
+              confidenceTier.textClass
             )}>
-              {confidenceTier.level}
+              {confidenceTier.label}
             </span>
           </div>
           <div className="text-gray-500 dark:text-dark-500">

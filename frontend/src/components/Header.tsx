@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Goal, BarChart3, Calendar, Trophy } from "lucide-react";
+import { Goal, BarChart3, Calendar, Trophy, Heart, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 import { AuthButton } from "./AuthButton";
@@ -11,8 +11,10 @@ import { Logo } from "./Logo";
 const navItems = [
   { href: "/", label: "Accueil", icon: Goal },
   { href: "/picks", label: "Picks", icon: BarChart3 },
+  { href: "/history", label: "Historique", icon: History },
   { href: "/matches", label: "Matchs", icon: Calendar },
   { href: "/standings", label: "Classements", icon: Trophy },
+  { href: "/favorites", label: "Favoris", icon: Heart },
 ];
 
 export function Header() {

@@ -47,10 +47,10 @@ export function StatsOverview() {
         {/* Loading indicator */}
         <div className="flex items-center justify-center gap-3 py-4">
           <div className="relative">
-            <div className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-slate-600" />
+            <div className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-dark-600" />
             <div className="absolute top-0 left-0 w-6 h-6 rounded-full border-2 border-transparent border-t-primary-500 animate-spin" />
           </div>
-          <span className="text-gray-600 dark:text-slate-400 text-sm animate-pulse">Chargement des statistiques...</span>
+          <span className="text-gray-600 dark:text-dark-400 text-sm animate-pulse">Chargement des statistiques...</span>
         </div>
         {/* Key Metrics Cards Skeleton */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -62,36 +62,36 @@ export function StatsOverview() {
           ].map((style, idx) => (
             <div
               key={idx}
-              className={`bg-gradient-to-br ${style.from} to-gray-50 dark:to-slate-800/50 border ${style.border} rounded-xl p-4 sm:p-6`}
+              className={`bg-gradient-to-br ${style.from} to-gray-50 dark:to-dark-800/50 border ${style.border} rounded-xl p-4 sm:p-6`}
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="h-3 w-24 bg-gray-100 dark:bg-slate-700/50 rounded animate-pulse" />
-                <div className="w-5 h-5 bg-gray-200 dark:bg-slate-700/50 rounded animate-pulse" />
+                <div className="h-3 w-24 bg-gray-100 dark:bg-dark-700/50 rounded animate-pulse" />
+                <div className="w-5 h-5 bg-gray-200 dark:bg-dark-700/50 rounded animate-pulse" />
               </div>
-              <div className="h-8 w-20 bg-gray-200 dark:bg-slate-700 rounded animate-pulse mb-2" style={{ animationDelay: `${idx * 100}ms` }} />
-              <div className="h-3 w-28 bg-gray-100 dark:bg-slate-700/30 rounded animate-pulse" style={{ animationDelay: `${idx * 150}ms` }} />
+              <div className="h-8 w-20 bg-gray-200 dark:bg-dark-700 rounded animate-pulse mb-2" style={{ animationDelay: `${idx * 100}ms` }} />
+              <div className="h-3 w-28 bg-gray-100 dark:bg-dark-700/30 rounded animate-pulse" style={{ animationDelay: `${idx * 150}ms` }} />
             </div>
           ))}
         </div>
         {/* Chart Section Skeleton */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Main Chart Skeleton */}
-          <div className="lg:col-span-2 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6">
-            <div className="h-5 w-48 bg-gray-200 dark:bg-slate-700 rounded animate-pulse mb-4" />
-            <div className="h-72 sm:h-80 bg-gray-100 dark:bg-slate-700/30 rounded-lg animate-pulse flex items-end justify-around p-4">
+          <div className="lg:col-span-2 bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6">
+            <div className="h-5 w-48 bg-gray-200 dark:bg-dark-700 rounded animate-pulse mb-4" />
+            <div className="h-72 sm:h-80 bg-gray-100 dark:bg-dark-700/30 rounded-lg animate-pulse flex items-end justify-around p-4">
               {[60, 75, 50, 85, 70].map((h, i) => (
                 <div
                   key={i}
-                  className="w-12 bg-gradient-to-t from-gray-200 to-gray-300 dark:from-slate-600 dark:to-slate-500 rounded-t animate-pulse"
+                  className="w-12 bg-gradient-to-t from-gray-200 to-gray-300 dark:from-dark-600 dark:to-dark-500 rounded-t animate-pulse"
                   style={{ height: `${h}%`, animationDelay: `${i * 100}ms` }}
                 />
               ))}
             </div>
           </div>
           {/* Trend Chart Skeleton */}
-          <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6">
-            <div className="h-5 w-40 bg-gray-200 dark:bg-slate-700 rounded animate-pulse mb-4" />
-            <div className="h-72 sm:h-80 bg-gray-100 dark:bg-slate-700/30 rounded-lg animate-pulse relative overflow-hidden">
+          <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6">
+            <div className="h-5 w-40 bg-gray-200 dark:bg-dark-700 rounded animate-pulse mb-4" />
+            <div className="h-72 sm:h-80 bg-gray-100 dark:bg-dark-700/30 rounded-lg animate-pulse relative overflow-hidden">
               <svg className="w-full h-full" preserveAspectRatio="none">
                 <path
                   d="M0,150 Q50,100 100,120 T200,80 T300,110 T400,70"
@@ -105,22 +105,22 @@ export function StatsOverview() {
           </div>
         </div>
         {/* Competition Details Skeleton */}
-        <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6">
-          <div className="h-5 w-44 bg-gray-200 dark:bg-slate-700 rounded animate-pulse mb-4" />
+        <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6">
+          <div className="h-5 w-44 bg-gray-200 dark:bg-dark-700 rounded animate-pulse mb-4" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="p-3 sm:p-4 bg-gray-100 dark:bg-slate-700/30 rounded-lg border border-gray-300 dark:border-slate-600/30">
+              <div key={i} className="p-3 sm:p-4 bg-gray-100 dark:bg-dark-700/30 rounded-lg border border-gray-300 dark:border-dark-600/30">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="h-4 w-28 bg-gray-200 dark:bg-slate-700 rounded animate-pulse" />
-                  <div className="w-3 h-3 bg-gray-300 dark:bg-slate-600 rounded-full animate-pulse" />
+                  <div className="h-4 w-28 bg-gray-200 dark:bg-dark-700 rounded animate-pulse" />
+                  <div className="w-3 h-3 bg-gray-300 dark:bg-dark-600 rounded-full animate-pulse" />
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <div className="h-3 w-16 bg-gray-100 dark:bg-slate-700/50 rounded animate-pulse" />
-                    <div className="h-3 w-12 bg-gray-200 dark:bg-slate-700 rounded animate-pulse" />
+                    <div className="h-3 w-16 bg-gray-100 dark:bg-dark-700/50 rounded animate-pulse" />
+                    <div className="h-3 w-12 bg-gray-200 dark:bg-dark-700 rounded animate-pulse" />
                   </div>
                   <div className="flex justify-between">
-                    <div className="h-3 w-20 bg-gray-100 dark:bg-slate-700/50 rounded animate-pulse" />
+                    <div className="h-3 w-20 bg-gray-100 dark:bg-dark-700/50 rounded animate-pulse" />
                     <div className="h-3 w-10 bg-primary-500/20 rounded animate-pulse" />
                   </div>
                 </div>
@@ -134,8 +134,8 @@ export function StatsOverview() {
 
   if (error || !stats) {
     return (
-      <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-6 text-center">
-        <p className="text-gray-600 dark:text-slate-400">Impossible de charger les statistiques</p>
+      <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-6 text-center">
+        <p className="text-gray-600 dark:text-dark-400">Impossible de charger les statistiques</p>
       </div>
     );
   }
@@ -189,7 +189,7 @@ export function StatsOverview() {
         {/* Total Predictions */}
         <div className="bg-gradient-to-br from-primary-100 dark:from-primary-500/20 to-primary-200 dark:to-primary-600/20 border border-primary-300 dark:border-primary-500/30 rounded-xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-gray-600 dark:text-slate-400 text-xs sm:text-sm">Predictions totales</p>
+            <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">Predictions totales</p>
             <Target className="w-4 sm:w-5 h-4 sm:h-5 text-primary-600 dark:text-primary-400" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
@@ -203,7 +203,7 @@ export function StatsOverview() {
         {/* Accuracy */}
         <div className="bg-gradient-to-br from-cyan-100 dark:from-accent-500/20 to-cyan-200 dark:to-accent-600/20 border border-cyan-300 dark:border-accent-500/30 rounded-xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-gray-600 dark:text-slate-400 text-xs sm:text-sm">Taux de reussite</p>
+            <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">Taux de reussite</p>
             <Award className="w-4 sm:w-5 h-4 sm:h-5 text-cyan-600 dark:text-accent-400" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
@@ -217,7 +217,7 @@ export function StatsOverview() {
         {/* ROI Simulated */}
         <div className="bg-gradient-to-br from-green-100 dark:from-green-500/20 to-green-200 dark:to-green-600/20 border border-green-300 dark:border-green-500/30 rounded-xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-gray-600 dark:text-slate-400 text-xs sm:text-sm">ROI simule</p>
+            <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">ROI simule</p>
             <Zap className="w-4 sm:w-5 h-4 sm:h-5 text-green-600 dark:text-green-400" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
@@ -231,7 +231,7 @@ export function StatsOverview() {
         {/* Competitions Tracked */}
         <div className="bg-gradient-to-br from-yellow-100 dark:from-yellow-500/20 to-yellow-200 dark:to-yellow-600/20 border border-yellow-300 dark:border-yellow-500/30 rounded-xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-gray-600 dark:text-slate-400 text-xs sm:text-sm">Competitions</p>
+            <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">Competitions</p>
             <div className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-600 dark:text-yellow-400">🏆</div>
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
@@ -263,7 +263,7 @@ export function StatsOverview() {
       {/* Main Chart Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Competition Rankings Chart */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6">
+        <div className="lg:col-span-2 bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Classement par competition
           </h3>
@@ -307,7 +307,7 @@ export function StatsOverview() {
         </div>
 
         {/* Trend Indicator */}
-        <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6">
+        <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Tendance (7 derniers jours)
           </h3>
@@ -351,7 +351,7 @@ export function StatsOverview() {
       </div>
 
       {/* Competition Details */}
-      <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6">
+      <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">
           Details par competition
         </h3>
@@ -360,7 +360,7 @@ export function StatsOverview() {
             competitionStats.map((stat, idx) => (
               <div
                 key={stat.code}
-                className="p-3 sm:p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600/50 hover:border-primary-400 dark:hover:border-primary-500/30 transition-colors"
+                className="p-3 sm:p-4 bg-gray-50 dark:bg-dark-700/50 rounded-lg border border-gray-200 dark:border-dark-600/50 hover:border-primary-400 dark:hover:border-primary-500/30 transition-colors"
               >
                 <div className="flex items-center justify-between mb-3">
                   <p className="font-medium text-sm sm:text-base text-gray-900 dark:text-white truncate">
@@ -373,19 +373,19 @@ export function StatsOverview() {
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm text-gray-600 dark:text-slate-400">Precision</span>
+                    <span className="text-xs sm:text-sm text-gray-600 dark:text-dark-400">Precision</span>
                     <span className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
                       {stat.accuracy.toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm text-gray-600 dark:text-slate-400">Predictions</span>
+                    <span className="text-xs sm:text-sm text-gray-600 dark:text-dark-400">Predictions</span>
                     <span className="text-sm sm:text-base font-semibold text-primary-600 dark:text-primary-400">
                       {stat.correct}/{stat.predictions}
                     </span>
                   </div>
-                  <div className="pt-2 border-t border-gray-200 dark:border-slate-600/50 flex items-center justify-between">
-                    <span className="text-xs text-gray-600 dark:text-slate-400">Tendance</span>
+                  <div className="pt-2 border-t border-gray-200 dark:border-dark-600/50 flex items-center justify-between">
+                    <span className="text-xs text-gray-600 dark:text-dark-400">Tendance</span>
                     {stat.trend === "up" && (
                       <TrendingUp className="w-4 sm:w-5 h-4 sm:h-5 text-primary-600 dark:text-primary-400 flex-shrink-0" />
                     )}
@@ -393,7 +393,7 @@ export function StatsOverview() {
                       <TrendingDown className="w-4 sm:w-5 h-4 sm:h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
                     )}
                     {stat.trend === "neutral" && (
-                      <Minus className="w-4 sm:w-5 h-4 sm:h-5 text-gray-500 dark:text-slate-400 flex-shrink-0" />
+                      <Minus className="w-4 sm:w-5 h-4 sm:h-5 text-gray-500 dark:text-dark-400 flex-shrink-0" />
                     )}
                   </div>
                 </div>
@@ -401,7 +401,7 @@ export function StatsOverview() {
             ))
           ) : (
             <div className="col-span-full text-center py-6">
-              <p className="text-gray-600 dark:text-slate-400 text-sm">Aucune donnee disponible</p>
+              <p className="text-gray-600 dark:text-dark-400 text-sm">Aucune donnee disponible</p>
             </div>
           )}
         </div>
