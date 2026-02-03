@@ -73,6 +73,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Skip external API requests (let main thread handle auth)
+  // This includes the Render backend API
+  if (url.hostname !== self.location.hostname) {
+    return;
+  }
+
   // API requests - network first, cache fallback
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(networkFirst(request, API_CACHE));
