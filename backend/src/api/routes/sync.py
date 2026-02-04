@@ -27,6 +27,40 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+async def _sync_form_from_standings() -> int:
+    """
+    Copy form data from standings to teams table.
+
+    Updates teams.form and teams.form_score from standings.
+    form_score = points from form string / 15 (max points for 5 matches)
+    """
+    try:
+        with get_db_context() as db:
+            query = text("""
+                UPDATE teams t
+                SET
+                    form = s.form,
+                    form_score = (
+                        -- Calculate form score: W=3, D=1, L=0, max=15
+                        (LENGTH(s.form) - LENGTH(REPLACE(s.form, 'W', ''))) * 3 +
+                        (LENGTH(s.form) - LENGTH(REPLACE(s.form, 'D', ''))) * 1
+                    ) / 15.0,
+                    updated_at = NOW()
+                FROM standings s
+                WHERE t.id = s.team_id
+                    AND s.form IS NOT NULL
+                    AND s.form != ''
+            """)
+            result = db.execute(query)
+            db.commit()
+            updated = result.rowcount
+            logger.info(f"Synced form data for {updated} teams from standings")
+            return updated
+    except Exception as e:
+        logger.error(f"Failed to sync form from standings: {e}")
+        return 0
+
+
 async def _recalculate_all_team_stats() -> int:
     """
     Recalculate attack/defense stats for all teams from match history.
@@ -276,6 +310,14 @@ async def sync_weekly_data(
         except Exception as e:
             logger.warning(f"Failed to recalculate team stats: {e}")
 
+        # Sync form data from standings to teams
+        form_synced = 0
+        try:
+            form_synced = await _sync_form_from_standings()
+            logger.info(f"Synced form for {form_synced} teams")
+        except Exception as e:
+            logger.warning(f"Failed to sync form data: {e}")
+
         all_errors = match_errors + standings_errors
         status = "success" if not all_errors else "partial"
 
@@ -288,7 +330,7 @@ async def sync_weekly_data(
 
         return SyncResponse(
             status=status,
-            message=f"Synchronized {matches_synced} matches, {standings_synced} standings, updated {teams_updated} team stats",
+            message=f"Synchronized {matches_synced} matches, {standings_synced} standings, {teams_updated} team stats, {form_synced} form scores",
             matches_synced=matches_synced,
             standings_synced=standings_synced,
             errors=all_errors,
