@@ -116,9 +116,17 @@ async def auto_sync_and_verify():
         except Exception as e:
             logger.warning(f"[Scheduler] Error recalculating team stats: {e}")
 
+        # Sync form data from standings to teams
+        form_synced = 0
+        try:
+            from src.api.routes.sync import _sync_form_from_standings
+            form_synced = await _sync_form_from_standings()
+        except Exception as e:
+            logger.warning(f"[Scheduler] Error syncing form data: {e}")
+
         logger.info(
             f"[Scheduler] Auto sync complete: {total_synced} matches, {standings_synced} standings, "
-            f"{verified_count} predictions verified, {teams_updated} teams updated"
+            f"{verified_count} verified, {teams_updated} stats, {form_synced} forms"
         )
 
     except Exception as e:
