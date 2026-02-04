@@ -369,13 +369,11 @@ async def get_cache_status(user: AdminUser) -> dict[str, Any]:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        query = adapt_query(
-            """
+        query = adapt_query("""
             SELECT cache_key, cache_type, expires_at, created_at, updated_at
             FROM cached_data
             ORDER BY cache_type, cache_key
-        """
-        )
+        """)
         cursor.execute(query)
         cached_items = fetch_all_dict(cursor)
         conn.close()

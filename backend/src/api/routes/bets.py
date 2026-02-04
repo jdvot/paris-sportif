@@ -102,8 +102,7 @@ def _init_bets_tables():
         cursor = conn.cursor()
 
         # User bankroll settings
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS user_bankroll (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT UNIQUE NOT NULL,
@@ -113,12 +112,10 @@ def _init_bets_tables():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """
-        )
+        """)
 
         # User bets
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS user_bets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
@@ -133,15 +130,12 @@ def _init_bets_tables():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """
-        )
+        """)
 
         # Create index for user_id
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_user_bets_user_id ON user_bets(user_id)
-        """
-        )
+        """)
 
 
 try:

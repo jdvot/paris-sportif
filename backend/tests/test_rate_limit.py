@@ -1,7 +1,5 @@
 """Tests for rate limiting configuration."""
 
-import pytest
-
 from src.core.rate_limit import parse_redis_url
 
 

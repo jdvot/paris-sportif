@@ -3,7 +3,6 @@
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from src.data.sources.football_data import MatchData
@@ -214,9 +213,7 @@ class TestGetPrediction:
         from src.core.exceptions import FootballDataAPIError
 
         mock_client = AsyncMock()
-        mock_client.get_match = AsyncMock(
-            side_effect=FootballDataAPIError("Match not found")
-        )
+        mock_client.get_match = AsyncMock(side_effect=FootballDataAPIError("Match not found"))
         mock_api_client.return_value = mock_client
 
         response = client.get("/api/v1/predictions/00000")
@@ -384,9 +381,7 @@ class TestRefreshPrediction:
         from src.core.exceptions import FootballDataAPIError
 
         mock_client = AsyncMock()
-        mock_client.get_match = AsyncMock(
-            side_effect=FootballDataAPIError("Match not found")
-        )
+        mock_client.get_match = AsyncMock(side_effect=FootballDataAPIError("Match not found"))
         mock_api_client.return_value = mock_client
 
         response = client.post("/api/v1/predictions/00000/refresh")

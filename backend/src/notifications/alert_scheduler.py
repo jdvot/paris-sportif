@@ -168,8 +168,7 @@ class AlertScheduler:
             cursor = conn.cursor()
 
             # Ensure table exists
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS notification_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     match_id INTEGER,
@@ -177,8 +176,7 @@ class AlertScheduler:
                     sent_count INTEGER DEFAULT 0,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
             cursor.execute(
                 f"""

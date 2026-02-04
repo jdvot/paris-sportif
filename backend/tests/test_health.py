@@ -2,7 +2,6 @@
 
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -28,9 +27,7 @@ class TestHealthEndpoints:
         assert isinstance(data["version"], str)
 
     @patch("src.api.routes.health.redis_health_check")
-    def test_readiness_check_all_healthy(
-        self, mock_redis_health: AsyncMock, client: TestClient
-    ):
+    def test_readiness_check_all_healthy(self, mock_redis_health: AsyncMock, client: TestClient):
         """Test readiness check when all dependencies are healthy."""
         mock_redis_health.return_value = True
 
@@ -45,9 +42,7 @@ class TestHealthEndpoints:
         assert "llm_api" in data
 
     @patch("src.api.routes.health.redis_health_check")
-    def test_readiness_check_redis_down(
-        self, mock_redis_health: AsyncMock, client: TestClient
-    ):
+    def test_readiness_check_redis_down(self, mock_redis_health: AsyncMock, client: TestClient):
         """Test readiness check when Redis is unavailable."""
         mock_redis_health.return_value = False
 
@@ -84,10 +79,7 @@ class TestSecurityHeaders:
 
     def test_cors_headers_for_allowed_origin(self, client: TestClient):
         """Test CORS headers for allowed origins."""
-        response = client.get(
-            "/health",
-            headers={"Origin": "http://localhost:3000"}
-        )
+        response = client.get("/health", headers={"Origin": "http://localhost:3000"})
 
         # CORS headers should be present for allowed origin
         assert response.status_code == 200

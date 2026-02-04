@@ -5,8 +5,8 @@ import pytest
 
 from src.prediction_engine.explainability import (
     FeatureContribution,
-    PredictionExplanation,
     PredictionExplainer,
+    PredictionExplanation,
     explain_prediction,
 )
 
@@ -164,11 +164,13 @@ class TestPredictionExplainer:
         """Test explaining batch predictions."""
         explainer = PredictionExplainer(trained_model.model)
 
-        features = np.array([
-            [1.5, 1.2, 1.3, 1.1, 65.0, 55.0, 0.2],
-            [1.2, 1.4, 1.6, 1.0, 45.0, 70.0, -0.1],
-            [1.8, 1.1, 1.1, 1.3, 80.0, 40.0, 0.5],
-        ])
+        features = np.array(
+            [
+                [1.5, 1.2, 1.3, 1.1, 65.0, 55.0, 0.2],
+                [1.2, 1.4, 1.6, 1.0, 45.0, 70.0, -0.1],
+                [1.8, 1.1, 1.1, 1.3, 80.0, 40.0, 0.5],
+            ]
+        )
 
         explanations = explainer.explain_batch(features)
 

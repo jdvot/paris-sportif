@@ -272,7 +272,7 @@ async def handle_checkout_completed(data: dict):
 async def handle_subscription_created(data: dict):
     """Handle customer.subscription.created event."""
     subscription_id = data.get("id")
-    customer_id = data.get("customer")
+    data.get("customer")
     status = data.get("status")
     plan = data.get("metadata", {}).get("plan", "premium")
 

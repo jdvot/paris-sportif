@@ -1,8 +1,8 @@
 """Tests for prompt versioning and A/B testing system."""
 
+from datetime import datetime
+
 import pytest
-from datetime import datetime, timedelta
-from unittest.mock import patch
 
 from src.llm.prompt_versioning import (
     ABTestConfig,

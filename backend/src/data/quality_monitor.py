@@ -116,32 +116,26 @@ def check_freshness() -> DataQualityCheck:
         cursor = conn.cursor()
 
         # Check last match update
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT MAX(updated_at) as last_update
             FROM matches
-        """
-        )
+        """)
         result = cursor.fetchone()
         last_match_update = result[0] if result and result[0] else None
 
         # Check last team update
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT MAX(updated_at) as last_update
             FROM teams
-        """
-        )
+        """)
         result = cursor.fetchone()
         last_team_update = result[0] if result and result[0] else None
 
         # Check last prediction update
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT MAX(updated_at) as last_update
             FROM predictions
-        """
-        )
+        """)
         result = cursor.fetchone()
         last_prediction_update = result[0] if result and result[0] else None
 
@@ -207,8 +201,7 @@ def check_completeness() -> DataQualityCheck:
         cursor = conn.cursor()
 
         # Check teams completeness
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT
                 COUNT(*) as total,
                 SUM(CASE WHEN elo_rating IS NOT NULL THEN 1 ELSE 0 END) as has_elo,
@@ -216,13 +209,11 @@ def check_completeness() -> DataQualityCheck:
                 SUM(CASE WHEN avg_goals_scored_away IS NOT NULL THEN 1 ELSE 0 END) as has_away_goals,
                 SUM(CASE WHEN avg_xg_for IS NOT NULL THEN 1 ELSE 0 END) as has_xg
             FROM teams
-        """
-        )
+        """)
         team_stats = cursor.fetchone()
 
         # Check matches completeness
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT
                 COUNT(*) as total,
                 SUM(CASE WHEN status = 'finished' THEN 1 ELSE 0 END) as finished,
@@ -230,21 +221,18 @@ def check_completeness() -> DataQualityCheck:
                 SUM(CASE WHEN home_xg IS NOT NULL THEN 1 ELSE 0 END) as has_xg,
                 SUM(CASE WHEN odds_home IS NOT NULL THEN 1 ELSE 0 END) as has_odds
             FROM matches
-        """
-        )
+        """)
         match_stats = cursor.fetchone()
 
         # Check predictions completeness
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT
                 COUNT(*) as total,
                 SUM(CASE WHEN explanation IS NOT NULL AND explanation != '' THEN 1 ELSE 0 END) as has_explanation,
                 SUM(CASE WHEN key_factors IS NOT NULL THEN 1 ELSE 0 END) as has_factors,
                 SUM(CASE WHEN model_details IS NOT NULL THEN 1 ELSE 0 END) as has_model_details
             FROM predictions
-        """
-        )
+        """)
         pred_stats = cursor.fetchone()
 
     # Calculate completeness scores
@@ -412,8 +400,7 @@ def check_range_validation() -> DataQualityCheck:
                 )
 
         # Check prediction probabilities sum to 1 (with tolerance)
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT p.id, p.home_prob, p.draw_prob, p.away_prob,
                    t1.name, t2.name
             FROM predictions p
@@ -421,8 +408,7 @@ def check_range_validation() -> DataQualityCheck:
             JOIN teams t1 ON m.home_team_id = t1.id
             JOIN teams t2 ON m.away_team_id = t2.id
             WHERE ABS((p.home_prob + p.draw_prob + p.away_prob) - 1.0) > 0.01
-        """
-        )
+        """)
         invalid_probs = cursor.fetchall()
         for row in invalid_probs:
             prob_sum = float(row[1]) + float(row[2]) + float(row[3])
@@ -521,14 +507,12 @@ def check_consistency() -> DataQualityCheck:
         cursor = conn.cursor()
 
         # Check for duplicate matches (same teams, same date)
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT home_team_id, away_team_id, DATE(match_date), COUNT(*) as cnt
             FROM matches
             GROUP BY home_team_id, away_team_id, DATE(match_date)
             HAVING COUNT(*) > 1
-        """
-        )
+        """)
         duplicate_matches = cursor.fetchall()
         for row in duplicate_matches:
             issues.append(
@@ -541,14 +525,12 @@ def check_consistency() -> DataQualityCheck:
             )
 
         # Check for duplicate teams (same external_id)
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT external_id, COUNT(*) as cnt
             FROM teams
             GROUP BY external_id
             HAVING COUNT(*) > 1
-        """
-        )
+        """)
         duplicate_teams = cursor.fetchall()
         for row in duplicate_teams:
             issues.append(
@@ -561,14 +543,12 @@ def check_consistency() -> DataQualityCheck:
             )
 
         # Check for matches with same team as home and away
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT m.id, t.name
             FROM matches m
             JOIN teams t ON m.home_team_id = t.id
             WHERE m.home_team_id = m.away_team_id
-        """
-        )
+        """)
         self_matches = cursor.fetchall()
         for row in self_matches:
             issues.append(
@@ -580,14 +560,12 @@ def check_consistency() -> DataQualityCheck:
             )
 
         # Check for predictions without matching match
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT p.id
             FROM predictions p
             LEFT JOIN matches m ON p.match_id = m.id
             WHERE m.id IS NULL
-        """
-        )
+        """)
         orphan_predictions = cursor.fetchall()
         if orphan_predictions:
             issues.append(
@@ -600,14 +578,12 @@ def check_consistency() -> DataQualityCheck:
             )
 
         # Check for finished matches without scores
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT COUNT(*)
             FROM matches
             WHERE status = 'finished'
               AND (home_score IS NULL OR away_score IS NULL)
-        """
-        )
+        """)
         result = cursor.fetchone()
         missing_scores = result[0] if result else 0
         if missing_scores > 0:

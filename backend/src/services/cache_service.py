@@ -30,8 +30,7 @@ def init_cache_table() -> None:
     cursor = conn.cursor()
 
     # Create table (PostgreSQL syntax, but works with SQLite too)
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS cached_data (
             id SERIAL PRIMARY KEY,
             cache_key VARCHAR(100) UNIQUE NOT NULL,
@@ -41,8 +40,7 @@ def init_cache_table() -> None:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """
-    )
+    """)
 
     # Create index on cache_key if not exists
     try:
@@ -63,12 +61,10 @@ def get_cached_data(cache_key: str) -> dict[str, Any] | None:
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    query = adapt_query(
-        """
+    query = adapt_query("""
         SELECT data FROM cached_data
         WHERE cache_key = ? AND expires_at > ?
-    """
-    )
+    """)
     cursor.execute(query, (cache_key, datetime.utcnow()))
     result = fetch_one_dict(cursor)
     conn.close()
@@ -97,12 +93,10 @@ def set_cached_data(
     cursor.execute(delete_query, (cache_key,))
 
     # Insert new entry
-    insert_query = adapt_query(
-        """
+    insert_query = adapt_query("""
         INSERT INTO cached_data (cache_key, cache_type, data, expires_at, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?)
-    """
-    )
+    """)
     cursor.execute(insert_query, (cache_key, cache_type, json_data, expires_at, now, now))
 
     conn.commit()
@@ -183,8 +177,7 @@ async def calculate_upcoming_matches() -> dict[str, Any]:
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    query = adapt_query(
-        """
+    query = adapt_query("""
         SELECT
             m.id, m.external_id, m.match_date, m.status,
             ht.name as home_team, ht.logo_url as home_logo,
@@ -197,8 +190,7 @@ async def calculate_upcoming_matches() -> dict[str, Any]:
         WHERE m.match_date >= ? AND m.match_date <= ?
         AND m.status IN ('scheduled', 'SCHEDULED', 'TIMED')
         ORDER BY m.match_date ASC
-    """
-    )
+    """)
 
     now = datetime.utcnow()
     end_date = now + timedelta(days=7)
@@ -236,16 +228,14 @@ async def calculate_teams() -> dict[str, Any]:
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    query = adapt_query(
-        """
+    query = adapt_query("""
         SELECT
             id, external_id, name, short_name, tla, country, logo_url,
             elo_rating, avg_goals_scored_home, avg_goals_scored_away,
             avg_goals_conceded_home, avg_goals_conceded_away
         FROM teams
         ORDER BY name ASC
-    """
-    )
+    """)
     cursor.execute(query)
     teams = fetch_all_dict(cursor)
     conn.close()
@@ -306,8 +296,7 @@ async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    query = adapt_query(
-        """
+    query = adapt_query("""
         SELECT m.id, m.external_id
         FROM matches m
         LEFT JOIN predictions p ON m.id = p.match_id
@@ -317,8 +306,7 @@ async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
         AND p.id IS NULL
         ORDER BY m.match_date ASC
         LIMIT 50
-    """
-    )
+    """)
 
     now = datetime.utcnow()
     end_date = now + timedelta(days=7)

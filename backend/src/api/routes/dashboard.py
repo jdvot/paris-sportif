@@ -30,7 +30,7 @@ async def get_user_stats(
         # Get user predictions with results
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 p.id,
                 p.match_id,
                 p.prediction_type,
@@ -153,8 +153,8 @@ def _calculate_roi_history(predictions: list, days: int) -> list[dict[str, Any]]
 
     # Convert to list with cumulative ROI
     result = []
-    cumulative_stake = 0
-    cumulative_return = 0
+    cumulative_stake: float = 0.0
+    cumulative_return: float = 0.0
 
     for week in sorted(weeks.keys()):
         cumulative_stake += weeks[week]["stake"]

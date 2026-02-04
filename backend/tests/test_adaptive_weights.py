@@ -8,7 +8,6 @@ import pytest
 from src.prediction_engine.adaptive_weights import (
     AdaptiveWeightCalculator,
     AdaptiveWeights,
-    ModelPerformanceMetrics,
     ModelPredictionRecord,
 )
 

@@ -11,7 +11,6 @@ import pytest
 
 from src.prediction_engine.rag_enrichment import InjuryInfo, InjuryParser
 
-
 # =============================================================================
 # InjuryParser - False Positive Detection
 # =============================================================================
