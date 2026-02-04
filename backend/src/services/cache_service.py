@@ -263,6 +263,115 @@ async def calculate_teams() -> dict[str, Any]:
     }
 
 
+async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
+    """Pre-calculate predictions for all upcoming matches using ML + LLM.
+
+    This runs the full prediction pipeline:
+    1. Fetch upcoming matches (next 7 days)
+    2. Run ML ensemble models (Poisson, ELO, XGBoost, etc.)
+    3. Run LLM analysis for context adjustments (Groq)
+    4. Store complete predictions in database
+    """
+    import asyncio
+    from src.data.database import adapt_query, fetch_all_dict, get_db_connection
+
+    logger.info("Pre-calculating predictions for upcoming matches...")
+
+    # Get upcoming matches that don't have predictions yet
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    query = adapt_query("""
+        SELECT m.id, m.external_id
+        FROM matches m
+        LEFT JOIN predictions p ON m.id = p.match_id
+        WHERE m.match_date >= ?
+        AND m.match_date <= ?
+        AND m.status IN ('scheduled', 'SCHEDULED', 'TIMED')
+        AND p.id IS NULL
+        ORDER BY m.match_date ASC
+        LIMIT 50
+    """)
+
+    now = datetime.utcnow()
+    end_date = now + timedelta(days=7)
+    cursor.execute(query, (now, end_date))
+    matches = fetch_all_dict(cursor)
+    conn.close()
+
+    if not matches:
+        logger.info("No new matches to predict")
+        return {"predicted": 0, "failed": 0, "matches": []}
+
+    logger.info(f"Found {len(matches)} matches to predict")
+
+    predicted = 0
+    failed = 0
+    predicted_matches = []
+
+    # Import prediction function
+    try:
+        from src.api.routes.predictions import _generate_prediction_from_api_match
+        from src.data.sources.football_data import get_football_data_client
+    except ImportError as e:
+        logger.error(f"Failed to import prediction modules: {e}")
+        return {"predicted": 0, "failed": len(matches), "error": str(e)}
+
+    client = get_football_data_client()
+
+    for match in matches:
+        match_id = match.get("id")
+        external_id = match.get("external_id")
+
+        try:
+            logger.info(f"Calculating prediction for match {match_id} (external: {external_id})")
+
+            # Fetch match details from API
+            api_match = await client.get_match(int(external_id))
+
+            if api_match:
+                # Generate full prediction with ML + LLM
+                prediction = await _generate_prediction_from_api_match(
+                    api_match=api_match,
+                    include_model_details=True,
+                    use_rag=True,  # Enable LLM analysis
+                )
+
+                if prediction:
+                    predicted += 1
+                    predicted_matches.append({
+                        "match_id": match_id,
+                        "external_id": external_id,
+                        "home_prob": prediction.probabilities.home_win,
+                        "away_prob": prediction.probabilities.away_win,
+                        "recommended": prediction.recommended_bet,
+                    })
+                    logger.info(f"Prediction saved for match {match_id}")
+                else:
+                    failed += 1
+                    logger.warning(f"No prediction generated for match {match_id}")
+            else:
+                failed += 1
+                logger.warning(f"Could not fetch match {external_id} from API")
+
+            # Rate limit protection (Groq: 30 req/min, football-data: 10 req/min)
+            await asyncio.sleep(6)
+
+        except Exception as e:
+            failed += 1
+            logger.error(f"Failed to predict match {match_id}: {e}")
+            await asyncio.sleep(2)
+
+    logger.info(f"Prediction calculation complete: {predicted} success, {failed} failed")
+
+    return {
+        "predicted": predicted,
+        "failed": failed,
+        "matches": predicted_matches,
+        "calculated_at": datetime.utcnow().isoformat(),
+    }
+
+
 async def run_daily_cache_calculation() -> dict[str, Any]:
     """Run all cache calculations. Called daily at 6am."""
     import asyncio
@@ -308,6 +417,20 @@ async def run_daily_cache_calculation() -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Failed to calculate upcoming matches: {e}")
         results["failed"].append(f"upcoming_matches: {e}")
+
+    # 5. Pre-calculate predictions with ML + LLM for upcoming matches
+    try:
+        predictions_result = await calculate_predictions_for_upcoming_matches()
+        predicted = predictions_result.get("predicted", 0)
+        failed = predictions_result.get("failed", 0)
+        if predicted > 0:
+            results["success"].append(f"predictions ({predicted} matches)")
+        if failed > 0:
+            results["failed"].append(f"predictions ({failed} failed)")
+        logger.info(f"Predictions: {predicted} calculated, {failed} failed")
+    except Exception as e:
+        logger.error(f"Failed to calculate predictions: {e}")
+        results["failed"].append(f"predictions: {e}")
 
     logger.info(
         f"Daily cache calculation complete. Success: {len(results['success'])}, Failed: {len(results['failed'])}"
