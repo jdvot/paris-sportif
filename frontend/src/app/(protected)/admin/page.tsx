@@ -239,6 +239,7 @@ export default function AdminPage() {
       const token = getAuthToken();
       if (!token) {
         console.warn("[Admin] No auth token available for data quality fetch");
+        setDataQualityLoading(false);
         return;
       }
       const response = await fetch(`${apiUrl}/api/v1/admin/data-quality`, {
