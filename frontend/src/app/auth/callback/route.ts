@@ -73,16 +73,19 @@ export async function GET(request: Request) {
       // Set ALL collected cookies on the redirect response
       // CRITICAL: httpOnly must be false for browser client to read them
       collectedCookies.forEach(({ name, value, options }) => {
-        console.log("[Callback] Setting cookie:", name);
-        response.cookies.set(name, value, {
+        const cookieOptions = {
           ...options,
           // Ensure browser JavaScript can read the cookies
           httpOnly: false,
           // Ensure cookies work in production with HTTPS
           secure: process.env.NODE_ENV === "production",
           // Allow cookies to be sent with the redirect
-          sameSite: "lax",
-        });
+          sameSite: "lax" as const,
+          // Ensure path is set correctly
+          path: "/",
+        };
+        console.log("[Callback] Setting cookie:", name, "options:", JSON.stringify(cookieOptions));
+        response.cookies.set(name, value, cookieOptions);
       });
 
       console.log("[Callback] Cookies set on response:", collectedCookies.length);

@@ -36,6 +36,18 @@ export function createClient() {
 
   const { url, anonKey } = validateEnvVars();
 
+  // Debug: Log cookie state when creating client
+  if (typeof window !== "undefined") {
+    const allCookies = document.cookie;
+    const supabaseCookies = allCookies
+      .split(";")
+      .filter((c) => c.trim().startsWith("sb-"))
+      .map((c) => c.trim().split("=")[0]);
+    console.log("[SupabaseClient] Creating browser client");
+    console.log("[SupabaseClient] document.cookie length:", allCookies.length);
+    console.log("[SupabaseClient] Supabase cookies found:", supabaseCookies);
+  }
+
   supabaseClient = createBrowserClient(url, anonKey);
 
   return supabaseClient;
