@@ -8,9 +8,9 @@
  * which can cause AbortError issues with React Query.
  *
  * Features:
- * - Token expiration tracking (returns null 60s before expiry)
- * - Debug logging for troubleshooting auth issues
+ * - Token expiration tracking (returns null 5s before expiry)
  * - Cross-tab refresh coordination via BroadcastChannel
+ * - Debug logging for troubleshooting auth issues
  */
 
 let cachedToken: string | null = null;
@@ -51,35 +51,6 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
 }
 
 /**
- * Store token in IndexedDB for Service Worker access
- */
-async function storeTokenForSW(token: string | null, expiresAt: number | null): Promise<void> {
-  if (typeof indexedDB === 'undefined') return;
-
-  try {
-    const dbRequest = indexedDB.open('auth-store', 1);
-    dbRequest.onupgradeneeded = () => {
-      const db = dbRequest.result;
-      if (!db.objectStoreNames.contains('tokens')) {
-        db.createObjectStore('tokens');
-      }
-    };
-    dbRequest.onsuccess = () => {
-      const db = dbRequest.result;
-      const tx = db.transaction('tokens', 'readwrite');
-      const store = tx.objectStore('tokens');
-      if (token) {
-        store.put({ token, expiresAt }, 'current');
-      } else {
-        store.delete('current');
-      }
-    };
-  } catch (e) {
-    console.warn('[TokenStore] IndexedDB storage failed:', e);
-  }
-}
-
-/**
  * Set the cached token (called by onAuthStateChange)
  * Broadcasts to other tabs for synchronization
  * @param token The access token or null
@@ -99,9 +70,6 @@ export function setAuthToken(token: string | null, expiresIn?: number): void {
       expiresAt: tokenExpiresAt,
     });
   }
-
-  // Store in IndexedDB for Service Worker access
-  storeTokenForSW(token, tokenExpiresAt);
 }
 
 /**
