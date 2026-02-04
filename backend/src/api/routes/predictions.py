@@ -17,7 +17,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from groq import Groq
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.config import settings
@@ -146,8 +146,7 @@ class DoubleChanceResponse(BaseModel):
     home_or_away_odds: float | None = Field(None, description="Fair odds for 12")
     recommended: str = Field("1X", description="Recommended bet: 1X, X2, or 12")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CorrectScoreResponse(BaseModel):

@@ -160,8 +160,8 @@ class UserPreferencesRepository(BaseRepository[UserPreferences]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def upsert(self, user_id: str, **kwargs: Any) -> UserPreferences:
-        """Create or update user preferences."""
+    async def upsert_by_user(self, user_id: str, **kwargs: Any) -> UserPreferences:
+        """Create or update user preferences by user_id."""
         existing = await self.get_by_user(user_id)
 
         if existing:
@@ -189,8 +189,8 @@ class UserStatsRepository(BaseRepository[UserStats]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def upsert(self, user_id: str, **kwargs: Any) -> UserStats:
-        """Create or update user stats."""
+    async def upsert_by_user(self, user_id: str, **kwargs: Any) -> UserStats:
+        """Create or update user stats by user_id."""
         existing = await self.get_by_user(user_id)
 
         if existing:

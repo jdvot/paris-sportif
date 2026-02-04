@@ -11,7 +11,7 @@ Migrated to async repository pattern (PAR-142).
 
 import logging
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -399,7 +399,6 @@ async def check_consistency() -> DataQualityCheck:
 
     async with get_uow() as uow:
         # Check for duplicate matches (same teams, same date)
-        from sqlalchemy import and_
 
         stmt = (
             select(
@@ -455,11 +454,11 @@ async def check_consistency() -> DataQualityCheck:
         # Check for predictions without matching match
         from sqlalchemy.orm import aliased
 
-        MatchAlias = aliased(Match)
+        match_alias = aliased(Match)
         stmt = (
             select(func.count(Prediction.id))
-            .outerjoin(MatchAlias, Prediction.match_id == MatchAlias.id)
-            .where(MatchAlias.id.is_(None))
+            .outerjoin(match_alias, Prediction.match_id == match_alias.id)
+            .where(match_alias.id.is_(None))
         )
         result = await uow.session.execute(stmt)
         orphan_count = result.scalar_one() or 0

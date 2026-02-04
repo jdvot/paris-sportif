@@ -8,7 +8,7 @@ import hashlib
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from src.vector.embeddings import embed_text, embed_texts
@@ -289,7 +289,7 @@ class NewsIndexer:
 
         # Post-filter by date if needed
         if max_age_days:
-            cutoff = datetime.utcnow() - timedelta(days=max_age_days)
+            cutoff = datetime.now(UTC) - timedelta(days=max_age_days)
             filtered_results = []
             for r in results:
                 pub_date = r.payload.get("published_at")

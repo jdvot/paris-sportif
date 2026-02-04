@@ -190,7 +190,7 @@ class BetService:
     ) -> dict[str, Any]:
         """Update bankroll settings."""
         async with get_uow() as uow:
-            await uow.user_preferences.upsert(
+            await uow.user_preferences.upsert_by_user(
                 user_id=user_id,
                 bankroll=Decimal(str(initial_bankroll)),
                 default_stake=Decimal(str(initial_bankroll * default_stake_pct / 100)),
@@ -409,7 +409,7 @@ class PreferencesService:
             kwargs["favorite_competitions"] = json.dumps(kwargs["favorite_competitions"])
 
         async with get_uow() as uow:
-            await uow.user_preferences.upsert(user_id, **kwargs)
+            await uow.user_preferences.upsert_by_user(user_id, **kwargs)
             await uow.commit()
 
         return await PreferencesService.get_preferences(user_id)

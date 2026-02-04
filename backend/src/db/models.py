@@ -298,7 +298,9 @@ class CachedData(Base):
         String(50), nullable=False, index=True
     )  # prediction_stats, standings, teams, upcoming_matches
     data: Mapped[str] = mapped_column(Text, nullable=False)  # JSON data
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=func.now(), onupdate=func.now()
