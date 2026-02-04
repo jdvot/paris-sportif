@@ -113,7 +113,7 @@ export function LeagueStandings({ standings, isLoading = false }: LeagueStanding
 
       {/* Table Body */}
       <div className="divide-y divide-gray-200 dark:divide-slate-700">
-        {standings.standings.map((team, idx) => {
+        {standings.standings.map((team) => {
           // Determine row background color based on position
           const getRowClass = () => {
             if (team.position <= 4) {

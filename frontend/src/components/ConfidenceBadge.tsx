@@ -52,7 +52,7 @@ export function ConfidenceBadge({
   confidence,
   valueScore = 0,
   size = "md",
-  showLabel = true,
+  showLabel: _showLabel = true,
   animated = true,
 }: ConfidenceBadgeProps) {
   const t = useTranslations("components.confidence");

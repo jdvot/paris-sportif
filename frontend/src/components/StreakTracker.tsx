@@ -162,7 +162,7 @@ export function StreakTracker({ variant = "compact", className }: StreakTrackerP
             {t("recentResults")}
           </p>
           <div className="flex gap-1 flex-wrap">
-            {history.slice(0, 10).map((result, i) => (
+            {history.slice(0, 10).map((result) => (
               <div
                 key={result.matchId}
                 title={`${result.homeTeam} vs ${result.awayTeam} - ${result.bet}`}

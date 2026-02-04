@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   User,
@@ -86,9 +87,11 @@ export function AuthButton() {
         {/* Avatar */}
         <div className="relative">
           {avatarUrl ? (
-            <img
+            <Image
               src={avatarUrl}
               alt={displayName}
+              width={28}
+              height={28}
               className="w-7 h-7 rounded-full object-cover"
             />
           ) : (

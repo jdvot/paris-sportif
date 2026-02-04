@@ -15,7 +15,6 @@ import { fr, enUS, type Locale } from "date-fns/locale";
 import { useTranslations, useLocale } from "next-intl";
 import { useGetMatches } from "@/lib/api/endpoints/matches/matches";
 import type { MatchResponse, MatchListResponse } from "@/lib/api/models";
-import { LoadingState } from "@/components/LoadingState";
 import { isAuthError } from "@/lib/utils";
 
 const competitionColors: Record<string, string> = {
@@ -97,7 +96,9 @@ export default function MatchesPage() {
   );
 
   // Extract matches from response - API returns { data: { matches: [...] }, status: number }
-  const matches = (response?.data as MatchListResponse | undefined)?.matches || [];
+  const matches = useMemo(() => {
+    return (response?.data as MatchListResponse | undefined)?.matches || [];
+  }, [response?.data]);
 
   // Filter matches by selected competitions and status
   const filteredMatches = useMemo(() => {

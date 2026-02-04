@@ -335,7 +335,7 @@ export function useAchievements() {
       totalLosses: number;
       history: Array<{ won: boolean; date: string }>;
     }) => {
-      const { currentStreak, bestStreak, totalWins, totalLosses, history } = streakData;
+      const { bestStreak, totalWins, totalLosses, history } = streakData;
       const totalBets = totalWins + totalLosses;
       const winRate = totalBets > 0 ? (totalWins / totalBets) * 100 : 0;
 
@@ -388,8 +388,6 @@ export function useAchievements() {
       }
 
       // Time-based achievements
-      const now = new Date();
-      const hour = now.getHours();
       if (history.length > 0) {
         const lastBetHour = new Date(history[0].date).getHours();
         if (lastBetHour < 8) unlock("early_bird");

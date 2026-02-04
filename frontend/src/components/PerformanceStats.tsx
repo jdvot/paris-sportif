@@ -18,7 +18,6 @@ import {
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { fetchPredictionStats } from "@/lib/api";
-import { cn } from "@/lib/utils";
 import { ROUNDED_TOP } from "@/lib/recharts-types";
 
 const COMPETITION_NAMES: Record<string, string> = {
@@ -28,8 +27,6 @@ const COMPETITION_NAMES: Record<string, string> = {
   SA: "Serie A",
   FL1: "Ligue 1",
 };
-
-type BetTypeKey = "home_win" | "draw" | "away_win" | "home" | "away";
 
 const BET_TYPE_KEYS: Record<string, string> = {
   home_win: "homeWin",
@@ -62,6 +59,61 @@ export function PerformanceStats() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
+  // All useMemo hooks must be called before any conditional returns
+  // Memoize bet type data to prevent recalculation on every render
+  const betTypeData = useMemo<BetTypeData[]>(() => {
+    if (!stats) return [];
+    return Object.entries(stats.byBetType || {})
+      .map(([type, data]: [string, Record<string, number>]) => ({
+        name: BET_TYPE_KEYS[type] ? t(BET_TYPE_KEYS[type]) : type,
+        correct: data.correct || 0,
+        total: data.total || data.predictions || 0,
+        accuracy: data.accuracy || 0,
+        avgValue: data.avgValue,
+      }))
+      .filter((bt) => bt.total > 0);
+  }, [stats, t]);
+
+  // Memoize competition data for pie chart
+  const competitionPieData = useMemo(() => {
+    if (!stats) return [];
+    return Object.entries(stats.byCompetition || {})
+      .map(([code, data]: [string, Record<string, number>]) => ({
+        name: COMPETITION_NAMES[code] || code,
+        value: data.total || data.predictions || 0,
+        accuracy: data.accuracy || 0,
+      }))
+      .filter((comp) => comp.value > 0);
+  }, [stats]);
+
+  // Memoize confidence level data
+  const confidenceData = useMemo<ConfidenceData[]>(() => {
+    if (!stats) return [];
+    return [
+      {
+        range: ">70%",
+        count: Math.floor(stats.totalPredictions * 0.35),
+        accuracy: Math.min(100, (stats.accuracy || 0) + 8),
+        color: "#4ade80",
+      },
+      {
+        range: "60-70%",
+        count: Math.floor(stats.totalPredictions * 0.45),
+        accuracy: Math.max(40, (stats.accuracy || 0) - 2),
+        color: "#60a5fa",
+      },
+      {
+        range: "<60%",
+        count: Math.floor(stats.totalPredictions * 0.2),
+        accuracy: Math.max(35, (stats.accuracy || 0) - 12),
+        color: "#fbbf24",
+      },
+    ];
+  }, [stats]);
+
+  const COLORS = useMemo(() => ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"], []);
+
+  // Conditional returns AFTER all hooks are called
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -77,56 +129,6 @@ export function PerformanceStats() {
       </div>
     );
   }
-
-  // Memoize bet type data to prevent recalculation on every render
-  const betTypeData = useMemo<BetTypeData[]>(() =>
-    Object.entries(stats.byBetType || {})
-      .map(([type, data]: [string, any]) => ({
-        name: BET_TYPE_KEYS[type] ? t(BET_TYPE_KEYS[type]) : type,
-        correct: data.correct || 0,
-        total: data.total || data.predictions || 0,
-        accuracy: data.accuracy || 0,
-        avgValue: data.avgValue,
-      }))
-      .filter((bt) => bt.total > 0),
-    [stats.byBetType, t]
-  );
-
-  // Memoize competition data for pie chart
-  const competitionPieData = useMemo(() =>
-    Object.entries(stats.byCompetition || {})
-      .map(([code, data]: [string, any]) => ({
-        name: COMPETITION_NAMES[code] || code,
-        value: data.total || data.predictions || 0,
-        accuracy: data.accuracy || 0,
-      }))
-      .filter((comp) => comp.value > 0),
-    [stats.byCompetition]
-  );
-
-  // Memoize confidence level data
-  const confidenceData = useMemo<ConfidenceData[]>(() => [
-    {
-      range: ">70%",
-      count: Math.floor(stats.totalPredictions * 0.35),
-      accuracy: Math.min(100, (stats.accuracy || 0) + 8),
-      color: "#4ade80",
-    },
-    {
-      range: "60-70%",
-      count: Math.floor(stats.totalPredictions * 0.45),
-      accuracy: Math.max(40, (stats.accuracy || 0) - 2),
-      color: "#60a5fa",
-    },
-    {
-      range: "<60%",
-      count: Math.floor(stats.totalPredictions * 0.2),
-      accuracy: Math.max(35, (stats.accuracy || 0) - 12),
-      color: "#fbbf24",
-    },
-  ], [stats.totalPredictions, stats.accuracy]);
-
-  const COLORS = useMemo(() => ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"], []);
 
   return (
     <div className="space-y-6 px-4 sm:px-0">
@@ -312,7 +314,7 @@ export function PerformanceStats() {
           </ResponsiveContainer>
         </div>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {confidenceData.map((conf, idx) => (
+          {confidenceData.map((conf) => (
             <div
               key={conf.range}
               className="bg-dark-700/50 p-3 sm:p-4 rounded-lg border-l-4"

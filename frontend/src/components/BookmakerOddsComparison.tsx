@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { TrendingUp, Trophy, Clock, ExternalLink } from "lucide-react";
+import { TrendingUp, Trophy, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import { ValueBetIndicator } from "./ValueBetBadge";
 
 // Bookmaker configuration with display names and colors
 const BOOKMAKERS: Record<string, { name: string; color: string; logo?: string }> = {
@@ -31,7 +30,7 @@ export interface BookmakerOdds {
 }
 
 export interface OddsComparisonProps {
-  matchId: number;
+  matchId?: number;
   odds: BookmakerOdds[];
   prediction?: {
     home: number;
@@ -71,7 +70,6 @@ function isValueBet(odds: number, probability: number, threshold: number = 5): b
  * Displays odds from multiple bookmakers in a responsive table with best odds highlighting
  */
 export function BookmakerOddsComparison({
-  matchId,
   odds,
   prediction,
   homeTeam,
@@ -440,8 +438,8 @@ function OddsCell({
  */
 export function BookmakerOddsCompact({
   odds,
-  homeTeam,
-  awayTeam,
+  homeTeam: _homeTeam,
+  awayTeam: _awayTeam,
 }: {
   odds: BookmakerOdds[];
   homeTeam: string;

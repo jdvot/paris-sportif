@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp, TrendingDown, Target, Users, Percent } from "lucide-react";
+import { TrendingUp, Target, Users, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MarketOdds {
@@ -32,8 +32,8 @@ interface MultiMarketsProps {
 }
 
 export function MultiMarkets({
-  homeTeam,
-  awayTeam,
+  homeTeam: _homeTeam,
+  awayTeam: _awayTeam,
   overUnder25,
   btts,
   doubleChance,

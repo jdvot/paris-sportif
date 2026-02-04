@@ -6,7 +6,6 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  Loader2,
   Award,
   Target,
   Zap,
@@ -20,13 +19,11 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   Cell,
 } from "recharts";
 import { useTranslations } from "next-intl";
 import { fetchPredictionStats } from "@/lib/api";
-import { cn } from "@/lib/utils";
 import { ROUNDED_TOP } from "@/lib/recharts-types";
 
 const COMPETITION_NAMES: Record<string, string> = {

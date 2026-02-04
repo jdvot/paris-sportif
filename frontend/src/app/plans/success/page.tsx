@@ -77,7 +77,7 @@ export default function PaymentSuccessPage() {
             href="/"
             className="text-gray-600 dark:text-dark-400 hover:text-gray-900 dark:hover:text-white transition-colors text-sm"
           >
-            Retour a l'accueil
+            Retour a l&apos;accueil
           </Link>
         </div>
       </div>

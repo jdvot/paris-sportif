@@ -71,7 +71,7 @@ export function useAuth() {
             error: null,
           });
         }
-      } catch (err) {
+      } catch {
         if (!isMounted) return;
         setState((prev) => ({
           ...prev,

@@ -33,7 +33,7 @@ export default function ProtectedError({
             Une erreur est survenue
           </h1>
           <p className="text-gray-600 dark:text-slate-400">
-            Nous n'avons pas pu charger cette page. Veuillez reessayer ou retourner a l'accueil.
+            Nous n&apos;avons pas pu charger cette page. Veuillez reessayer ou retourner a l&apos;accueil.
           </p>
         </div>
 

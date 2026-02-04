@@ -2,7 +2,7 @@
 
 import { TrendingUp, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { isValueBet, getValueTier, formatValue, VALUE_BET_THRESHOLD } from "@/lib/constants";
+import { isValueBet, getValueTier, formatValue } from "@/lib/constants";
 
 interface ValueBetBadgeProps {
   valueScore: number;

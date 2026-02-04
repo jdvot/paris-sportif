@@ -84,7 +84,7 @@ export function ShareButton({
       setCopied(true);
       trackShare("copy");
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+    } catch {
       // Fallback for older browsers
       try {
         const textArea = document.createElement("textarea");

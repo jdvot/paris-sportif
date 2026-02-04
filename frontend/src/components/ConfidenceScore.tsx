@@ -2,7 +2,7 @@
 
 import { Flame, Zap, AlertTriangle, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getConfidenceTier, formatConfidence, CONFIDENCE_TIERS } from "@/lib/constants";
+import { getConfidenceTier, formatConfidence } from "@/lib/constants";
 
 interface ConfidenceScoreProps {
   confidence: number;

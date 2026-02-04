@@ -14,9 +14,7 @@ import {
   getConfidenceTier as getConfidenceTierFromConstants,
   getValueTier as getValueTierFromConstants,
   isValueBet,
-  formatConfidence,
   formatValue,
-  CONFIDENCE_TIERS,
 } from "@/lib/constants";
 
 interface PredictionCardPremiumProps {

@@ -16,7 +16,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   let homeProb = 50;
   let drawProb = 25;
   let awayProb = 25;
-  let competition = "Football";
+  const competition = "Football";
 
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";

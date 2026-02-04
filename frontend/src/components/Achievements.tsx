@@ -207,7 +207,7 @@ export function Achievements({
     levelProgress,
     xpToNextLevel,
     unlockedAchievements,
-    lockedAchievements,
+    // lockedAchievements - reserved for future use
     allAchievements,
     unlockedCount,
     totalCount,

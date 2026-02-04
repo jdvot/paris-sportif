@@ -6,8 +6,6 @@
 const isDev = process.env.NODE_ENV === "development";
 const isDebug = process.env.NEXT_PUBLIC_DEBUG === "true";
 
-type LogLevel = "log" | "warn" | "error" | "info";
-
 interface DebugOptions {
   prefix?: string;
   enabled?: boolean;

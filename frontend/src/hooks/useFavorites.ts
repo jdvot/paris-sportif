@@ -57,7 +57,7 @@ export function useFavorites() {
       awayTeam: f.away_team || "",
       matchDate: f.match_date || "",
       competition: f.competition || undefined,
-      addedAt: f.added_at || new Date().toISOString(),
+      addedAt: f.created_at || new Date().toISOString(),
     }));
   }, [response]);
 
@@ -66,10 +66,6 @@ export function useFavorites() {
       addMutation.mutate({
         data: {
           match_id: match.matchId,
-          home_team: match.homeTeam,
-          away_team: match.awayTeam,
-          match_date: match.matchDate,
-          competition: match.competition,
         },
       });
     },

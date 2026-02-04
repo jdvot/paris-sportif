@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { format, subDays, parseISO } from "date-fns";
+import { format, subDays } from "date-fns";
 import { fr, enUS } from "date-fns/locale";
-import { History, CheckCircle, XCircle, Clock, TrendingUp, Calendar, Filter } from "lucide-react";
+import { History, CheckCircle, XCircle, Clock, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";

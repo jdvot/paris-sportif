@@ -81,57 +81,37 @@ export default function PreferencesPage() {
     useGetPreferencesApiV1UserPreferencesGet();
   const updateMutation = useUpdatePreferencesApiV1UserPreferencesPut();
 
-  // Local state for form
-  const [notifications, setNotifications] = useState({
-    dailyPicks: true,
-    matchAlerts: true,
-    resultUpdates: true,
-    promotions: false,
-  });
-  const [display, setDisplay] = useState({
-    showOdds: true,
-    compactMode: false,
-    showStats: true,
-  });
+  // Local state for form - matching API model
+  const [emailDailyPicks, setEmailDailyPicks] = useState(true);
+  const [emailMatchResults, setEmailMatchResults] = useState(true);
+  const [pushDailyPicks, setPushDailyPicks] = useState(true);
+  const [pushMatchStart, setPushMatchStart] = useState(true);
+  const [pushBetResults, setPushBetResults] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [competitions, setCompetitions] = useState<string[]>([
-    "PL",
-    "PD",
-    "BL1",
-    "SA",
-    "FL1",
-    "CL",
+    "PL", "PD", "BL1", "SA", "FL1", "CL",
   ]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
 
   // Load preferences from API
   useEffect(() => {
     if (prefsResponse?.status === 200 && prefsResponse.data) {
       const prefs = prefsResponse.data;
-      if (prefs.notifications) {
-        setNotifications({
-          dailyPicks: prefs.notifications.daily_picks ?? true,
-          matchAlerts: prefs.notifications.match_alerts ?? true,
-          resultUpdates: prefs.notifications.result_updates ?? true,
-          promotions: prefs.notifications.promotions ?? false,
-        });
-      }
-      if (prefs.display) {
-        setDisplay({
-          showOdds: prefs.display.show_odds ?? true,
-          compactMode: prefs.display.compact_mode ?? false,
-          showStats: prefs.display.show_stats ?? true,
-        });
-      }
-      if (prefs.competitions) {
-        setCompetitions(prefs.competitions);
-      }
+      setEmailDailyPicks(prefs.email_daily_picks);
+      setEmailMatchResults(prefs.email_match_results);
+      setPushDailyPicks(prefs.push_daily_picks);
+      setPushMatchStart(prefs.push_match_start);
+      setPushBetResults(prefs.push_bet_results);
+      setDarkMode(prefs.dark_mode);
+      setCompetitions(prefs.favorite_competitions);
     }
   }, [prefsResponse]);
 
   const toggleCompetition = (code: string) => {
     setCompetitions((prev) => {
       if (prev.includes(code)) {
-        if (prev.length === 1) return prev; // Keep at least one
+        if (prev.length === 1) return prev;
         return prev.filter((c) => c !== code);
       }
       return [...prev, code];
@@ -139,24 +119,17 @@ export default function PreferencesPage() {
     setHasChanges(true);
   };
 
-  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
-
   const handleSave = async () => {
     try {
       await updateMutation.mutateAsync({
         data: {
-          notifications: {
-            daily_picks: notifications.dailyPicks,
-            match_alerts: notifications.matchAlerts,
-            result_updates: notifications.resultUpdates,
-            promotions: notifications.promotions,
-          },
-          display: {
-            show_odds: display.showOdds,
-            compact_mode: display.compactMode,
-            show_stats: display.showStats,
-          },
-          competitions,
+          email_daily_picks: emailDailyPicks,
+          email_match_results: emailMatchResults,
+          push_daily_picks: pushDailyPicks,
+          push_match_start: pushMatchStart,
+          push_bet_results: pushBetResults,
+          dark_mode: darkMode,
+          favorite_competitions: competitions,
         },
       });
       setSaveStatus("success");
@@ -191,7 +164,7 @@ export default function PreferencesPage() {
           {saveStatus === "success" && (
             <span className="inline-flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400">
               <CheckCircle className="w-4 h-4" />
-              {locale === "fr" ? "Enregistré" : "Saved"}
+              {locale === "fr" ? "Enregistre" : "Saved"}
             </span>
           )}
           {saveStatus === "error" && (
@@ -227,36 +200,36 @@ export default function PreferencesPage() {
           <PreferenceToggle
             label={t("notifications.dailyPicks")}
             description={t("notifications.dailyPicksDesc")}
-            checked={notifications.dailyPicks}
+            checked={emailDailyPicks}
             onChange={(v) => {
-              setNotifications((p) => ({ ...p, dailyPicks: v }));
+              setEmailDailyPicks(v);
               setHasChanges(true);
             }}
           />
           <PreferenceToggle
             label={t("notifications.matchAlerts")}
             description={t("notifications.matchAlertsDesc")}
-            checked={notifications.matchAlerts}
+            checked={pushMatchStart}
             onChange={(v) => {
-              setNotifications((p) => ({ ...p, matchAlerts: v }));
+              setPushMatchStart(v);
               setHasChanges(true);
             }}
           />
           <PreferenceToggle
             label={t("notifications.resultUpdates")}
             description={t("notifications.resultUpdatesDesc")}
-            checked={notifications.resultUpdates}
+            checked={emailMatchResults}
             onChange={(v) => {
-              setNotifications((p) => ({ ...p, resultUpdates: v }));
+              setEmailMatchResults(v);
               setHasChanges(true);
             }}
           />
           <PreferenceToggle
             label={t("notifications.promotions")}
             description={t("notifications.promotionsDesc")}
-            checked={notifications.promotions}
+            checked={pushBetResults}
             onChange={(v) => {
-              setNotifications((p) => ({ ...p, promotions: v }));
+              setPushBetResults(v);
               setHasChanges(true);
             }}
           />
@@ -271,29 +244,11 @@ export default function PreferencesPage() {
         </h2>
         <div className="divide-y divide-gray-100 dark:divide-dark-700">
           <PreferenceToggle
-            label={t("display.showOdds")}
-            description={t("display.showOddsDesc")}
-            checked={display.showOdds}
+            label={locale === "fr" ? "Mode sombre" : "Dark mode"}
+            description={locale === "fr" ? "Activer le theme sombre" : "Enable dark theme"}
+            checked={darkMode}
             onChange={(v) => {
-              setDisplay((p) => ({ ...p, showOdds: v }));
-              setHasChanges(true);
-            }}
-          />
-          <PreferenceToggle
-            label={t("display.compactMode")}
-            description={t("display.compactModeDesc")}
-            checked={display.compactMode}
-            onChange={(v) => {
-              setDisplay((p) => ({ ...p, compactMode: v }));
-              setHasChanges(true);
-            }}
-          />
-          <PreferenceToggle
-            label={t("display.showStats")}
-            description={t("display.showStatsDesc")}
-            checked={display.showStats}
-            onChange={(v) => {
-              setDisplay((p) => ({ ...p, showStats: v }));
+              setDarkMode(v);
               setHasChanges(true);
             }}
           />
@@ -352,7 +307,7 @@ export default function PreferencesPage() {
         </p>
         <div className="flex gap-3">
           {[
-            { code: "fr", name: "Français", flag: "🇫🇷" },
+            { code: "fr", name: "Francais", flag: "🇫🇷" },
             { code: "en", name: "English", flag: "🇬🇧" },
             { code: "nl", name: "Nederlands", flag: "🇳🇱" },
           ].map((lang) => (

@@ -46,7 +46,6 @@ import { fr, enUS } from "date-fns/locale";
 import { PredictionCharts } from "@/components/PredictionCharts";
 import { MultiMarkets } from "@/components/MultiMarkets";
 import { BookmakerOddsComparison, type BookmakerOdds } from "@/components/BookmakerOddsComparison";
-import type { MultiMarketsResponse } from "@/lib/api/models";
 
 // Helper to get team name from TeamInfo | string
 const getTeamName = (team: MatchResponse["home_team"] | string): string => {

@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { cn, isAuthError } from "@/lib/utils";
 import { LoadingState } from "@/components/LoadingState";
 import { useGetDailyPicks } from "@/lib/api/endpoints/predictions/predictions";
-import type { DailyPick, Prediction } from "@/lib/api/models";
+import type { DailyPick } from "@/lib/api/models";
 import { ValueBetIndicator } from "@/components/ValueBetBadge";
 import { getConfidenceTier, formatConfidence, isValueBet, formatValue } from "@/lib/constants";
 

@@ -30,10 +30,10 @@ export default function AuthError({
         {/* Error Message */}
         <div className="space-y-2">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Erreur d'authentification
+            Erreur d&apos;authentification
           </h1>
           <p className="text-gray-600 dark:text-slate-400">
-            Un probleme est survenu lors de l'authentification. Veuillez reessayer.
+            Un probleme est survenu lors de l&apos;authentification. Veuillez reessayer.
           </p>
         </div>
 

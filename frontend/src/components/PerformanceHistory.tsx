@@ -53,24 +53,10 @@ export function PerformanceHistory() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-primary-400 animate-spin" />
-      </div>
-    );
-  }
-
-  if (error || !stats) {
-    return (
-      <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 text-center">
-        <p className="text-dark-400">{t("loadErrorHistory")}</p>
-      </div>
-    );
-  }
-
   // Memoize historical data to prevent re-generation on each render
+  // All useMemo hooks must be called before any conditional returns
   const historyData = useMemo((): HistoryDataPoint[] => {
+    if (!stats) return [];
     const data: HistoryDataPoint[] = [];
     const today = new Date();
     const totalPredictions = stats.totalPredictions || 1;
@@ -99,11 +85,12 @@ export function PerformanceHistory() {
       });
     }
     return data;
-  }, [stats.totalPredictions, stats.correctPredictions, stats.accuracy, locale]);
+  }, [stats, locale]);
 
   // Memoize competition chart data with proper types
-  const competitionData = useMemo((): CompetitionChartData[] =>
-    Object.entries(stats.byCompetition || {})
+  const competitionData = useMemo((): CompetitionChartData[] => {
+    if (!stats) return [];
+    return Object.entries(stats.byCompetition || {})
       .map(([code, data]: [string, CompetitionStats]) => ({
         name: COMPETITION_NAMES[code] || code,
         predictions: data.total || data.predictions || 0,
@@ -111,42 +98,61 @@ export function PerformanceHistory() {
         accuracy: data.accuracy || 0,
       }))
       .filter((comp) => comp.predictions > 0)
-      .sort((a, b) => b.predictions - a.predictions),
-    [stats.byCompetition]
-  );
+      .sort((a, b) => b.predictions - a.predictions);
+  }, [stats]);
 
   // Memoize ROI calculation
-  const roiAmount = useMemo(() =>
-    stats.roiSimulated ? stats.roiSimulated * stats.totalPredictions * 10 : 0,
-    [stats.roiSimulated, stats.totalPredictions]
-  );
+  const roiAmount = useMemo(() => {
+    if (!stats) return 0;
+    return stats.roiSimulated ? stats.roiSimulated * stats.totalPredictions * 10 : 0;
+  }, [stats]);
 
   // Memoize stat cards data
-  const statCards = useMemo(() => [
-    {
-      label: t("totalPredictions"),
-      value: stats.totalPredictions.toString(),
-      subtext: `${stats.correctPredictions} ${t("correct")}`,
-      color: "from-primary-500/20 to-primary-600/20",
-      borderColor: "border-primary-500/30",
-    },
-    {
-      label: t("successRate"),
-      value: `${(stats.accuracy || 0).toFixed(1)}%`,
-      subtext: `+${((stats.accuracy || 0) - 50).toFixed(1)}% ${t("vsBaseline")}`,
-      color: "from-accent-500/20 to-accent-600/20",
-      borderColor: "border-accent-500/30",
-    },
-    {
-      label: t("roiSimulated"),
-      value: `${((stats.roiSimulated || 0) * 100).toFixed(1)}%`,
-      subtext: `+${Math.round(roiAmount)}€ ${t("profit")}`,
-      color: "from-green-500/20 to-green-600/20",
-      borderColor: "border-green-500/30",
-    },
-  ], [t, stats.totalPredictions, stats.correctPredictions, stats.accuracy, stats.roiSimulated, roiAmount]);
+  const statCards = useMemo(() => {
+    if (!stats) return [];
+    return [
+      {
+        label: t("totalPredictions"),
+        value: stats.totalPredictions.toString(),
+        subtext: `${stats.correctPredictions} ${t("correct")}`,
+        color: "from-primary-500/20 to-primary-600/20",
+        borderColor: "border-primary-500/30",
+      },
+      {
+        label: t("successRate"),
+        value: `${(stats.accuracy || 0).toFixed(1)}%`,
+        subtext: `+${((stats.accuracy || 0) - 50).toFixed(1)}% ${t("vsBaseline")}`,
+        color: "from-accent-500/20 to-accent-600/20",
+        borderColor: "border-accent-500/30",
+      },
+      {
+        label: t("roiSimulated"),
+        value: `${((stats.roiSimulated || 0) * 100).toFixed(1)}%`,
+        subtext: `+${Math.round(roiAmount)}€ ${t("profit")}`,
+        color: "from-green-500/20 to-green-600/20",
+        borderColor: "border-green-500/30",
+      },
+    ];
+  }, [t, stats, roiAmount]);
 
   const COLORS = useMemo(() => ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"], []);
+
+  // Conditional returns AFTER all hooks are called
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 text-primary-400 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !stats) {
+    return (
+      <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-6 text-center">
+        <p className="text-dark-400">{t("loadErrorHistory")}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 px-4 sm:px-0">
@@ -260,7 +266,7 @@ export function PerformanceHistory() {
           </ResponsiveContainer>
         </div>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-          {competitionData.slice(0, 3).map((comp, idx) => (
+          {competitionData.slice(0, 3).map((comp) => (
             <div key={comp.name} className="bg-dark-700/50 p-3 rounded-lg">
               <p className="text-dark-400 text-xs mb-1">{comp.name}</p>
               <p className="text-white font-semibold">{comp.accuracy.toFixed(1)}%</p>

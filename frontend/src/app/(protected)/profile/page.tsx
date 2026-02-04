@@ -40,7 +40,7 @@ import {
 } from "@/lib/api/endpoints/users/users";
 import { useListBets } from "@/lib/api/endpoints/bets/bets";
 import { cn } from "@/lib/utils";
-import { ROLE_PERMISSIONS, type UserRole } from "@/lib/supabase/types";
+import { type UserRole } from "@/lib/supabase/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { Achievements } from "@/components/Achievements";
 import { StreakTracker } from "@/components/StreakTracker";
@@ -188,7 +188,7 @@ export default function ProfilePage() {
 
   // Get plan info
   const currentRole: UserRole = isAdmin ? "admin" : isPremium ? "premium" : "free";
-  const permissions = ROLE_PERMISSIONS[currentRole];
+  // const _permissions = ROLE_PERMISSIONS[currentRole]; // Reserved for future use
 
   const planDetails = {
     free: {

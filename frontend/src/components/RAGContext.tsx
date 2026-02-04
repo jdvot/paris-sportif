@@ -16,7 +16,7 @@ interface RAGContextProps {
   className?: string;
 }
 
-function SentimentBadge({ label, score, neutralLabel }: { label?: string; score?: number; neutralLabel: string }) {
+function SentimentBadge({ label, score: _score, neutralLabel }: { label?: string; score?: number; neutralLabel: string }) {
   const normalizedLabel = label?.toLowerCase() || "neutral";
 
   const config = {

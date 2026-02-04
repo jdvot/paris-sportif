@@ -130,7 +130,7 @@ export function Testimonials({
               <Quote className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <p className="text-sm text-gray-700 dark:text-dark-300 line-clamp-2">
-                  "{testimonial.text}"
+                  &ldquo;{testimonial.text}&rdquo;
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs font-medium text-gray-900 dark:text-white">
@@ -194,7 +194,7 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
         </div>
       </div>
       <p className="text-sm text-gray-700 dark:text-dark-300 leading-relaxed">
-        "{testimonial.text}"
+        &ldquo;{testimonial.text}&rdquo;
       </p>
     </div>
   );

@@ -2,8 +2,8 @@
 
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { DailyPick, Prediction } from "@/lib/api/models";
-import { formatConfidence, formatValue, getConfidenceTier, getValueTier } from "@/lib/constants";
+import type { DailyPick } from "@/lib/api/models";
+import { getConfidenceTier, getValueTier } from "@/lib/constants";
 
 interface ExportCSVProps {
   picks: DailyPick[];

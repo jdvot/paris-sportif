@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, AlertTriangle, CheckCircle, BarChart3, DollarSign, Zap } from "lucide-react";
+import { TrendingUp, AlertTriangle, CheckCircle, DollarSign, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
