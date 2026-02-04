@@ -137,6 +137,22 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
 4. **Daily Picks** → Top 5 matches by `value_score × confidence`
 5. **Frontend** → React Query hooks fetch and cache data
 
+## MCP & Agents
+
+Le projet utilise MCP (Model Context Protocol) pour l'intégration avec des outils externes:
+
+| Server | Usage |
+|--------|-------|
+| **Linear** | Gestion des tickets (create, update, list) |
+| **Notion** | Documentation et specs |
+
+### Workflows Multi-Agents
+
+1. **Feature Development**: Plan → Ticket Linear → Dev → PR → Doc Notion
+2. **Bug Triage**: Explore → Ticket Linear → Fix → PR + Tests
+
+Voir [docs/MCP_AGENTS.md](docs/MCP_AGENTS.md) pour la documentation complète.
+
 ## Documentation
 
 | Doc | Description |
@@ -144,3 +160,4 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
 | [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md) | Git flow, branches, worktrees multi-agents |
 | [docs/ORVAL_API.md](docs/ORVAL_API.md) | Génération API client React Query |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Déploiement Vercel + Render |
+| [docs/MCP_AGENTS.md](docs/MCP_AGENTS.md) | Configuration MCP et agents spécialisés |
