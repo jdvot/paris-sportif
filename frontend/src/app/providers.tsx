@@ -203,48 +203,64 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   /**
-   * Initialize auth using onAuthStateChange ONLY (official Supabase pattern)
+   * Initialize auth with a robust pattern:
+   * 1. Call getSession() once to bootstrap auth state (with timeout)
+   * 2. Set up onAuthStateChange for subsequent events
+   * 3. Use finally block to GUARANTEE isReady is always set
    *
-   * Per Supabase docs: https://supabase.com/docs/reference/javascript/auth-onauthstatechange
-   * - INITIAL_SESSION fires after client initializes and loads stored session
-   * - Don't use getSession() as it can hang indefinitely (bug #35754)
-   * - Mark isReady=true as soon as INITIAL_SESSION fires
+   * This approach handles all edge cases:
+   * - INITIAL_SESSION never fires (Next.js 15 bug)
+   * - getSession() hangs (Supabase bug #35754)
+   * - AbortError from React StrictMode
+   * - No cookies/session available
    */
   useEffect(() => {
     let isActive = true;
-    let didSetReady = false;
 
-    console.log('[Providers] Setting up auth with onAuthStateChange...');
+    console.log('[Providers] Starting auth initialization...');
 
     // Clear OAuth pending flag if present
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('oauth_pending');
     }
 
-    // SAFETY TIMEOUT: Force isReady after 5 seconds if INITIAL_SESSION never fires
-    const safetyTimeout = setTimeout(() => {
-      if (!didSetReady && isActive) {
-        console.warn('[Providers] Safety timeout - INITIAL_SESSION never fired');
-        markAuthInitialized();
-        setIsReady(true);
-        didSetReady = true;
-      }
-    }, 5000);
-
     const supabase = createClient();
 
-    // Use onAuthStateChange as the ONLY source of truth (official pattern)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-      console.log('[Providers] onAuthStateChange:', event, 'session:', !!session);
+    // Helper to mark ready (idempotent)
+    const markReady = () => {
+      if (isActive) {
+        console.log('[Providers] Setting isReady = true');
+        setIsReady(true);
+      }
+    };
 
-      // INITIAL_SESSION: First event after client initialization
-      // This is our signal that auth is ready (with or without session)
-      if (event === 'INITIAL_SESSION') {
-        console.log('[Providers] INITIAL_SESSION received');
+    // Step 1: Bootstrap auth with getSession() + timeout
+    const initAuth = async () => {
+      try {
+        console.log('[Providers] Calling getSession()...');
 
-        if (session?.access_token) {
-          console.log('[Providers] Session found:', session.user?.email);
-          setAuthToken(session.access_token, session.expires_in);
+        // Create a promise that resolves with null session after 3 seconds
+        const timeoutPromise = new Promise<{ data: { session: null }; error: null }>((resolve) => {
+          setTimeout(() => {
+            console.warn('[Providers] getSession() timeout after 3s');
+            resolve({ data: { session: null }, error: null });
+          }, 3000);
+        });
+
+        // Race between getSession and timeout
+        const { data, error } = await Promise.race([
+          supabase.auth.getSession(),
+          timeoutPromise,
+        ]);
+
+        if (!isActive) return;
+
+        if (error) {
+          console.error('[Providers] getSession error:', error.message);
+          markAuthInitialized();
+        } else if (data.session?.access_token) {
+          console.log('[Providers] Session found:', data.session.user?.email);
+          setAuthToken(data.session.access_token, data.session.expires_in);
 
           // Clear redirect marker
           if (typeof window !== 'undefined') {
@@ -259,16 +275,31 @@ export function Providers({ children }: { children: React.ReactNode }) {
             }, USER_VALIDATION_INTERVAL_MS);
           }
         } else {
-          console.log('[Providers] No session');
+          console.log('[Providers] No session from getSession');
           markAuthInitialized();
         }
-
-        // Mark ready after INITIAL_SESSION (with or without session)
-        if (isActive && !didSetReady) {
-          setIsReady(true);
-          didSetReady = true;
-          console.log('[Providers] isReady = true (from INITIAL_SESSION)');
+      } catch (err) {
+        const error = err as { name?: string; message?: string };
+        // Don't treat AbortError as failure (StrictMode double-mount)
+        if (error?.name === 'AbortError') {
+          console.log('[Providers] getSession aborted (StrictMode)');
+        } else {
+          console.error('[Providers] getSession failed:', error?.message);
         }
+        markAuthInitialized();
+      } finally {
+        // CRITICAL: Always mark ready, even on error/timeout
+        markReady();
+      }
+    };
+
+    // Step 2: Set up onAuthStateChange for future events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+      console.log('[Providers] onAuthStateChange:', event, 'session:', !!session);
+
+      // Skip INITIAL_SESSION - we handle this via getSession() above
+      if (event === 'INITIAL_SESSION') {
+        console.log('[Providers] INITIAL_SESSION (skipped, using getSession)');
         return;
       }
 
@@ -310,10 +341,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }
     });
 
+    // Start auth initialization
+    initAuth();
+
     return () => {
       console.log('[Providers] Cleanup');
       isActive = false;
-      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
       if (validationIntervalRef.current) {
         clearInterval(validationIntervalRef.current);
