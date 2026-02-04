@@ -25,14 +25,14 @@ from src.prediction_engine.models.poisson import PoissonModel
 
 logger = logging.getLogger(__name__)
 
-# Try to import ML models
+# Try to import HuggingFace ML client (remote inference)
 try:
-    from src.ml.model_loader import get_ml_prediction, model_loader
+    from src.ml.huggingface_client import get_hf_ml_client
 
-    ML_AVAILABLE = True
+    HF_ML_AVAILABLE = True
 except ImportError:
-    ML_AVAILABLE = False
-    logger.warning("ML models not available")
+    HF_ML_AVAILABLE = False
+    logger.warning("HuggingFace ML client not available")
 
 
 @dataclass
@@ -440,8 +440,9 @@ class AdvancedEnsemblePredictor:
         predictions: list[tuple[float, float, float]] = []
         weights_list: list[float] = []
 
-        # Check if ML models are available and trained
-        ml_available = ML_AVAILABLE and model_loader.is_trained()
+        # Check if HuggingFace ML service is available
+        hf_client = get_hf_ml_client() if HF_ML_AVAILABLE else None
+        ml_available = hf_client is not None and hf_client.is_available()
 
         # Determine weights based on ML availability
         if ml_available:
@@ -579,49 +580,50 @@ class AdvancedEnsemblePredictor:
             )
         )
 
-        # 5. ML Models (XGBoost & Random Forest) - if trained
-        if ml_available and home_team_id is not None and away_team_id is not None:
+        # 5. ML Models (XGBoost & Random Forest) - via HuggingFace service
+        if ml_available and hf_client is not None:
             try:
-                ml_result = get_ml_prediction(
-                    home_team_id=home_team_id,
-                    away_team_id=away_team_id,
+                # Call HuggingFace ML service
+                ml_result = hf_client.predict_sync(
                     home_attack=home_attack,
                     home_defense=home_defense,
                     away_attack=away_attack,
                     away_defense=away_defense,
-                    home_form=home_form_score,
-                    away_form=away_form_score,
-                    # Pass fatigue data for extended feature models
-                    home_rest_days=home_rest_days,
-                    home_congestion=home_congestion,
-                    away_rest_days=away_rest_days,
-                    away_congestion=away_congestion,
+                    home_elo=home_elo,
+                    away_elo=away_elo,
+                    home_form=home_form_score / 100.0,  # Convert 0-100 to 0-1
+                    away_form=away_form_score / 100.0,
+                    home_rest_days=home_rest_days * 7.0,  # Convert to days
+                    away_rest_days=away_rest_days * 7.0,
+                    home_fixture_congestion=home_congestion,
+                    away_fixture_congestion=away_congestion,
                 )
 
-                if ml_result:
+                if ml_result and "ensemble" in ml_result:
+                    ensemble = ml_result["ensemble"]
                     # ML ensemble prediction
                     predictions.append(
                         (
-                            ml_result["home_win"],
-                            ml_result["draw"],
-                            ml_result["away_win"],
+                            ensemble["home_win"],
+                            ensemble["draw"],
+                            ensemble["away_win"],
                         )
                     )
                     ml_weight = self.WEIGHT_XGBOOST + self.WEIGHT_RANDOM_FOREST
                     weights_list.append(ml_weight)
                     contributions.append(
                         ModelContribution(
-                            name=f"ML ({ml_result['model_used']})",
-                            home_prob=ml_result["home_win"],
-                            draw_prob=ml_result["draw"],
-                            away_prob=ml_result["away_win"],
+                            name="ML (HuggingFace)",
+                            home_prob=ensemble["home_win"],
+                            draw_prob=ensemble["draw"],
+                            away_prob=ensemble["away_win"],
                             weight=ml_weight,
-                            confidence=ml_result["confidence"],
+                            confidence=ml_result.get("confidence", 0.7),
                         )
                     )
-                    logger.info(f"ML prediction added: {ml_result['model_used']}")
+                    logger.info("ML prediction added from HuggingFace service")
             except Exception as e:
-                logger.warning(f"ML prediction failed: {e}")
+                logger.warning(f"HuggingFace ML prediction failed: {e}")
 
         # Calculate model agreement
         model_agreement = self._calculate_model_agreement(predictions, weights_list)

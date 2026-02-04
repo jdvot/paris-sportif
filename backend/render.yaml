@@ -1,18 +1,24 @@
-# Render Blueprint for WinRate AI Backend
+# Render Blueprint for Paris Sportif Backend
 # Deploy with: render.com/deploy
+#
+# Architecture:
+#   Render (512MB) - API, Auth, DB
+#   HuggingFace Spaces (16GB) - ML Training & Inference
+#
+# ML models run on HuggingFace to avoid memory issues on Render starter plan.
 
 services:
   # FastAPI Backend
   - type: web
-    name: winrate-ai-api
+    name: paris-sportif-api
     runtime: python
-    plan: starter  # Upgraded from free - 512MB not enough for ML models
+    plan: starter  # 512MB RAM - ML offloaded to HuggingFace
     buildCommand: pip install -e .
     startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --limit-max-requests 100 --timeout-keep-alive 5
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: winrate-ai-db
+          name: paris-sportif-db
           property: connectionString
       - key: FOOTBALL_DATA_API_KEY
         sync: false
@@ -22,6 +28,11 @@ services:
         sync: false
       - key: SUPABASE_URL
         sync: false
+      # HuggingFace ML Service Integration
+      - key: HF_ML_SERVICE_URL
+        value: https://jdevot244-paris-sportif.hf.space
+      - key: HF_TRAINING_API_KEY
+        sync: false  # Shared secret with HuggingFace for training data access
       - key: APP_ENV
         value: production
       - key: DEBUG
@@ -30,7 +41,24 @@ services:
 
 databases:
   # PostgreSQL Database (Free tier: 256MB, 90 days)
-  - name: winrate-ai-db
+  - name: paris-sportif-db
     plan: free
-    databaseName: winrate_ai
-    user: winrate_ai
+    databaseName: paris_sportif
+    user: paris_sportif
+
+# =============================================================================
+# HuggingFace Space Configuration (external)
+# =============================================================================
+# URL: https://huggingface.co/spaces/jdevot244/paris-sportif
+# API: https://jdevot244-paris-sportif.hf.space
+#
+# Required env vars on HuggingFace:
+#   BACKEND_API_URL=https://paris-sportif-api.onrender.com
+#   HF_TRAINING_API_KEY=<same as Render>
+#
+# Features:
+#   - XGBoost & Random Forest training/inference
+#   - Auto-training on startup if no models
+#   - Weekly retraining (Sundays 3 AM)
+#   - 16GB RAM (free tier)
+# =============================================================================
