@@ -24,6 +24,7 @@ from src.api.routes import (
     dashboard,
     debug,
     enrichment,
+    favorites,
     health,
     matches,
     ml,
@@ -317,6 +318,11 @@ app.include_router(
     stripe.router,
     prefix=f"{settings.api_v1_prefix}/stripe",
     tags=["Payments"],
+)
+app.include_router(
+    favorites.router,
+    prefix=f"{settings.api_v1_prefix}/user",
+    tags=["User Data"],
 )
 
 
