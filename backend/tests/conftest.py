@@ -1,7 +1,7 @@
 """Pytest configuration and fixtures for API integration tests."""
 
 from collections.abc import AsyncGenerator
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -11,7 +11,6 @@ from httpx import ASGITransport, AsyncClient
 
 from src.api.main import app
 from src.auth.supabase_auth import get_current_user, get_optional_user
-
 
 # Mock user data for testing (matches JWT payload structure)
 MOCK_USER: dict[str, Any] = {

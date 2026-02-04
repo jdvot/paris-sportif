@@ -17,11 +17,13 @@ class TestBrierScore:
     def test_perfect_predictions(self):
         """Perfect predictions should have Brier score of 0."""
         # Predict exactly what happened
-        predicted = np.array([
-            [1.0, 0.0, 0.0],  # Predict home win
-            [0.0, 1.0, 0.0],  # Predict draw
-            [0.0, 0.0, 1.0],  # Predict away win
-        ])
+        predicted = np.array(
+            [
+                [1.0, 0.0, 0.0],  # Predict home win
+                [0.0, 1.0, 0.0],  # Predict draw
+                [0.0, 0.0, 1.0],  # Predict away win
+            ]
+        )
         actual = np.array([0, 1, 2])  # Home, draw, away
 
         brier = calculate_brier_score(predicted, actual)
@@ -29,24 +31,28 @@ class TestBrierScore:
 
     def test_uniform_predictions(self):
         """Uniform predictions should have Brier score of ~0.222."""
-        predicted = np.array([
-            [1/3, 1/3, 1/3],
-            [1/3, 1/3, 1/3],
-            [1/3, 1/3, 1/3],
-        ])
+        predicted = np.array(
+            [
+                [1 / 3, 1 / 3, 1 / 3],
+                [1 / 3, 1 / 3, 1 / 3],
+                [1 / 3, 1 / 3, 1 / 3],
+            ]
+        )
         actual = np.array([0, 1, 2])
 
         brier = calculate_brier_score(predicted, actual)
         # Expected: (2/9 + 2/9 + 2/9) / 3 = 2/9 ≈ 0.222
-        assert brier == pytest.approx(2/9, abs=0.01)
+        assert brier == pytest.approx(2 / 9, abs=0.01)
 
     def test_wrong_predictions(self):
         """Completely wrong predictions should have high Brier score."""
-        predicted = np.array([
-            [0.0, 0.0, 1.0],  # Predict away, actual home
-            [1.0, 0.0, 0.0],  # Predict home, actual draw
-            [0.0, 1.0, 0.0],  # Predict draw, actual away
-        ])
+        predicted = np.array(
+            [
+                [0.0, 0.0, 1.0],  # Predict away, actual home
+                [1.0, 0.0, 0.0],  # Predict home, actual draw
+                [0.0, 1.0, 0.0],  # Predict draw, actual away
+            ]
+        )
         actual = np.array([0, 1, 2])
 
         brier = calculate_brier_score(predicted, actual)

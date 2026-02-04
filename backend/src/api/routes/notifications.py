@@ -48,8 +48,7 @@ def _init_push_table():
     with db_session() as conn:
         cursor = conn.cursor()
         # Use TEXT for endpoint to handle long URLs
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS push_subscriptions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 endpoint TEXT UNIQUE NOT NULL,
@@ -64,8 +63,7 @@ def _init_push_table():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """
-        )
+        """)
 
 
 # Initialize table on module load

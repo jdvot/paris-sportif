@@ -663,7 +663,7 @@ class XGBoostModel:
             explanations=explanations_list,
         )
 
-    def get_explainer(self) -> "PredictionExplainer":  # type: ignore[name-defined]
+    def get_explainer(self) -> "PredictionExplainer":  # type: ignore[name-defined]  # noqa: F821
         """
         Get a PredictionExplainer instance for this model.
 

@@ -3,7 +3,6 @@
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from src.data.sources.football_data import MatchData
@@ -169,9 +168,7 @@ class TestGetUpcomingMatches:
     ):
         """Test successful upcoming matches retrieval."""
         mock_client = AsyncMock()
-        mock_client.get_upcoming_matches = AsyncMock(
-            return_value=[MatchData(**sample_match_data)]
-        )
+        mock_client.get_upcoming_matches = AsyncMock(return_value=[MatchData(**sample_match_data)])
         mock_api_client.return_value = mock_client
 
         response = client.get("/api/v1/matches/upcoming")
@@ -189,9 +186,7 @@ class TestGetUpcomingMatches:
     ):
         """Test upcoming matches with days parameter."""
         mock_client = AsyncMock()
-        mock_client.get_upcoming_matches = AsyncMock(
-            return_value=[MatchData(**sample_match_data)]
-        )
+        mock_client.get_upcoming_matches = AsyncMock(return_value=[MatchData(**sample_match_data)])
         mock_api_client.return_value = mock_client
 
         response = client.get("/api/v1/matches/upcoming", params={"days": 5})

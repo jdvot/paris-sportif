@@ -110,8 +110,7 @@ def init_database() -> None:
 
         if USE_POSTGRES:
             # PostgreSQL schema
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS matches (
                     id INTEGER PRIMARY KEY,
                     external_id TEXT UNIQUE,
@@ -134,11 +133,9 @@ def init_database() -> None:
                     synced_at TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS standings (
                     id SERIAL PRIMARY KEY,
                     competition_code TEXT,
@@ -157,11 +154,9 @@ def init_database() -> None:
                     synced_at TEXT,
                     UNIQUE(competition_code, team_id)
                 )
-            """
-            )
+            """)
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS sync_log (
                     id SERIAL PRIMARY KEY,
                     sync_type TEXT,
@@ -171,11 +166,9 @@ def init_database() -> None:
                     completed_at TEXT,
                     error_message TEXT
                 )
-            """
-            )
+            """)
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS predictions (
                     id SERIAL PRIMARY KEY,
                     match_id INTEGER UNIQUE,
@@ -200,11 +193,9 @@ def init_database() -> None:
                     verified_at TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS ml_models (
                     id SERIAL PRIMARY KEY,
                     model_name TEXT UNIQUE,
@@ -218,15 +209,13 @@ def init_database() -> None:
                     trained_at TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
             logger.info("PostgreSQL database initialized")
 
         else:
             # SQLite schema
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS matches (
                     id INTEGER PRIMARY KEY,
                     external_id TEXT UNIQUE,
@@ -249,11 +238,9 @@ def init_database() -> None:
                     synced_at TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS standings (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     competition_code TEXT,
@@ -272,11 +259,9 @@ def init_database() -> None:
                     synced_at TEXT,
                     UNIQUE(competition_code, team_id)
                 )
-            """
-            )
+            """)
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS sync_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     sync_type TEXT,
@@ -286,11 +271,9 @@ def init_database() -> None:
                     completed_at TEXT,
                     error_message TEXT
                 )
-            """
-            )
+            """)
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS predictions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     match_id INTEGER,
@@ -316,11 +299,9 @@ def init_database() -> None:
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(match_id)
                 )
-            """
-            )
+            """)
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS ml_models (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     model_name TEXT UNIQUE,
@@ -334,8 +315,7 @@ def init_database() -> None:
                     trained_at TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
         # Create indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(match_date)")
@@ -481,15 +461,13 @@ def save_standings(competition_code: str, standings: list[dict[str, Any]]) -> in
             synced_at = datetime.now().isoformat()
             saved = 0
 
-            insert_query = adapt_query(
-                """
+            insert_query = adapt_query("""
                 INSERT INTO standings (
                     competition_code, position, team_id, team_name, team_logo,
                     played, won, drawn, lost, goals_for, goals_against,
                     goal_difference, points, synced_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """
-            )
+            """)
 
             for standing in standings:
                 team = standing.get("team", {})
@@ -525,13 +503,11 @@ def get_standings_from_db(competition_code: str) -> list[dict[str, Any]]:
     """Get standings from database."""
     with db_session() as conn:
         cursor = conn.cursor()
-        query = adapt_query(
-            """
+        query = adapt_query("""
             SELECT * FROM standings
             WHERE competition_code = ?
             ORDER BY position ASC
-        """
-        )
+        """)
         cursor.execute(query, (competition_code,))
 
         rows = fetch_all_dict(cursor)
@@ -561,12 +537,10 @@ def log_sync(sync_type: str, status: str, records: int, error: str | None = None
     """Log a sync operation."""
     with db_session() as conn:
         cursor = conn.cursor()
-        query = adapt_query(
-            """
+        query = adapt_query("""
             INSERT INTO sync_log (sync_type, status, records_synced, started_at, completed_at, error_message)
             VALUES (?, ?, ?, ?, ?, ?)
-        """
-        )
+        """)
         cursor.execute(
             query,
             (
@@ -584,13 +558,11 @@ def get_last_sync(sync_type: str) -> dict[str, Any] | None:
     """Get last sync info for a sync type."""
     with db_session() as conn:
         cursor = conn.cursor()
-        query = adapt_query(
-            """
+        query = adapt_query("""
             SELECT * FROM sync_log
             WHERE sync_type = ? AND status = 'success'
             ORDER BY completed_at DESC LIMIT 1
-        """
-        )
+        """)
         cursor.execute(query, (sync_type,))
 
         return fetch_one_dict(cursor)
@@ -704,13 +676,11 @@ def get_predictions_by_date(target_date: date) -> list[dict[str, Any]]:
     """Get all predictions for a specific date."""
     with db_session() as conn:
         cursor = conn.cursor()
-        query = adapt_query(
-            """
+        query = adapt_query("""
             SELECT * FROM predictions
             WHERE DATE(match_date) = ?
             ORDER BY confidence DESC
-        """
-        )
+        """)
         cursor.execute(query, (target_date.isoformat(),))
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
@@ -783,8 +753,7 @@ def verify_prediction(match_id: int, home_score: int, away_score: int) -> dict[s
             was_correct = recommendation == actual_result
 
             # Update the prediction
-            update_query = adapt_query(
-                """
+            update_query = adapt_query("""
                 UPDATE predictions SET
                     actual_home_score = ?,
                     actual_away_score = ?,
@@ -792,8 +761,7 @@ def verify_prediction(match_id: int, home_score: int, away_score: int) -> dict[s
                     was_correct = ?,
                     verified_at = ?
                 WHERE match_id = ?
-            """
-            )
+            """)
             cursor.execute(
                 update_query,
                 (
@@ -833,8 +801,7 @@ def get_prediction_statistics(days: int = 30) -> dict[str, Any]:
             # Get verified predictions from the last N days
             cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
 
-            query = adapt_query(
-                """
+            query = adapt_query("""
                 SELECT
                     competition_code,
                     recommendation,
@@ -846,8 +813,7 @@ def get_prediction_statistics(days: int = 30) -> dict[str, Any]:
                 FROM predictions
                 WHERE verified_at IS NOT NULL
                 AND verified_at >= ?
-            """
-            )
+            """)
             cursor.execute(query, (cutoff_date,))
 
             rows = fetch_all_dict(cursor)
@@ -938,16 +904,14 @@ def get_all_predictions_stats(days: int = 30) -> dict[str, Any]:
 
             cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
 
-            query = adapt_query(
-                """
+            query = adapt_query("""
                 SELECT
                     competition_code,
                     recommendation,
                     confidence
                 FROM predictions
                 WHERE created_at >= ?
-            """
-            )
+            """)
             cursor.execute(query, (cutoff_date,))
 
             rows = fetch_all_dict(cursor)
@@ -1002,8 +966,7 @@ def verify_finished_matches() -> int:
             cursor = conn.cursor()
 
             # Get predictions without verification that have finished matches
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT p.match_id, m.home_score, m.away_score
                 FROM predictions p
                 JOIN matches m ON p.match_id = m.id
@@ -1011,8 +974,7 @@ def verify_finished_matches() -> int:
                 AND m.status = 'FINISHED'
                 AND m.home_score IS NOT NULL
                 AND m.away_score IS NOT NULL
-            """
-            )
+            """)
 
             rows = fetch_all_dict(cursor)
             verified_count = 0
@@ -1094,14 +1056,12 @@ def get_all_ml_models() -> list[dict[str, Any]]:
     """Get all ML models metadata (without binary)."""
     with db_session() as conn:
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT model_name, model_type, version, accuracy,
                    training_samples, trained_at
             FROM ml_models
             ORDER BY trained_at DESC
-        """
-        )
+        """)
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
 

@@ -1,23 +1,22 @@
 """Tests for data quality monitoring system."""
 
-import pytest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from src.data.quality_monitor import (
+    COMPLETENESS_CRITICAL_THRESHOLD,
+    COMPLETENESS_WARNING_THRESHOLD,
+    FRESHNESS_CRITICAL_HOURS,
+    FRESHNESS_WARNING_HOURS,
     AlertLevel,
     DataQualityCheck,
     DataQualityReport,
-    check_freshness,
     check_completeness,
-    check_range_validation,
     check_consistency,
-    run_quality_check,
+    check_freshness,
+    check_range_validation,
     get_data_quality_metrics,
-    FRESHNESS_CRITICAL_HOURS,
-    FRESHNESS_WARNING_HOURS,
-    COMPLETENESS_WARNING_THRESHOLD,
-    COMPLETENESS_CRITICAL_THRESHOLD,
+    run_quality_check,
 )
 
 
@@ -63,9 +62,7 @@ class TestDataQualityReport:
 
     def test_report_to_dict(self):
         """Test report serialization."""
-        check = DataQualityCheck(
-            name="Test", status=AlertLevel.OK, message="OK"
-        )
+        check = DataQualityCheck(name="Test", status=AlertLevel.OK, message="OK")
         report = DataQualityReport(
             timestamp=datetime(2026, 1, 1, 12, 0, 0),
             overall_status=AlertLevel.OK,
@@ -91,7 +88,7 @@ class TestCheckFreshness:
     @patch("src.data.quality_monitor.db_session")
     def test_fresh_data(self, mock_db):
         """Test when data is fresh."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(UTC).replace(tzinfo=None)
         recent = now - timedelta(hours=1)
 
         mock_cursor = MagicMock()
@@ -112,7 +109,7 @@ class TestCheckFreshness:
     @patch("src.data.quality_monitor.db_session")
     def test_stale_data_warning(self, mock_db):
         """Test warning when data is getting stale."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(UTC).replace(tzinfo=None)
         old = now - timedelta(hours=FRESHNESS_WARNING_HOURS + 1)
 
         mock_cursor = MagicMock()
@@ -132,7 +129,7 @@ class TestCheckFreshness:
     @patch("src.data.quality_monitor.db_session")
     def test_stale_data_critical(self, mock_db):
         """Test critical when data is very stale."""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(UTC).replace(tzinfo=None)
         very_old = now - timedelta(hours=FRESHNESS_CRITICAL_HOURS + 1)
 
         mock_cursor = MagicMock()
@@ -372,9 +369,7 @@ class TestRunQualityCheck:
         mock_freshness,
     ):
         """Test when all checks pass."""
-        ok_check = DataQualityCheck(
-            name="Test", status=AlertLevel.OK, message="OK"
-        )
+        ok_check = DataQualityCheck(name="Test", status=AlertLevel.OK, message="OK")
         mock_freshness.return_value = ok_check
         mock_completeness.return_value = ok_check
         mock_range.return_value = DataQualityCheck(
@@ -403,9 +398,7 @@ class TestRunQualityCheck:
         mock_freshness,
     ):
         """Test that any critical check makes overall status critical."""
-        ok_check = DataQualityCheck(
-            name="Test", status=AlertLevel.OK, message="OK"
-        )
+        ok_check = DataQualityCheck(name="Test", status=AlertLevel.OK, message="OK")
         critical_check = DataQualityCheck(
             name="Critical", status=AlertLevel.CRITICAL, message="Critical!"
         )
@@ -437,9 +430,7 @@ class TestRunQualityCheck:
         mock_freshness,
     ):
         """Test that any warning check makes overall status warning."""
-        ok_check = DataQualityCheck(
-            name="Test", status=AlertLevel.OK, message="OK"
-        )
+        ok_check = DataQualityCheck(name="Test", status=AlertLevel.OK, message="OK")
         warning_check = DataQualityCheck(
             name="Warning", status=AlertLevel.WARNING, message="Warning"
         )

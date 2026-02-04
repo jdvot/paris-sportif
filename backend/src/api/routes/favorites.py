@@ -98,8 +98,7 @@ def _init_tables():
         cursor = conn.cursor()
 
         # User favorites table
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS user_favorites (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
@@ -110,12 +109,10 @@ def _init_tables():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(user_id, match_id)
             )
-        """
-        )
+        """)
 
         # User preferences table
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS user_preferences (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT UNIQUE NOT NULL,
@@ -134,15 +131,12 @@ def _init_tables():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """
-        )
+        """)
 
         # Create index
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_user_favorites_user ON user_favorites(user_id)
-        """
-        )
+        """)
 
 
 try:
@@ -343,8 +337,8 @@ async def update_preferences(
 
         if existing:
             # Build dynamic update
-            updates = []
-            params = []
+            updates: list[str] = []
+            params: list[Any] = []
 
             if prefs.language is not None:
                 updates.append(f"language = {ph}")

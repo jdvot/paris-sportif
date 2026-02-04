@@ -13,29 +13,26 @@ Run with: cd backend && uv run pytest tests/test_models.py -v
 import numpy as np
 import pytest
 
-from src.prediction_engine.models.poisson import PoissonModel, PoissonPrediction
-from src.prediction_engine.models.elo import ELOSystem, ELOPrediction
-from src.prediction_engine.models.xgboost_model import XGBoostModel, XGBoostPrediction
-from src.prediction_engine.ensemble import (
-    EnsemblePredictor,
-    EnsemblePrediction,
-    LLMAdjustments,
-)
 from src.llm.adjustments import (
-    InjuryAnalysis,
-    SentimentAnalysis,
     FormAnalysis,
     FormAssessment,
     H2HAnalysis,
     H2HDominance,
     H2HPatternAnalysis,
-    validate_injury_analysis,
-    validate_sentiment_analysis,
-    validate_form_analysis,
-    validate_h2h_analysis,
+    InjuryAnalysis,
+    SentimentAnalysis,
     _calculate_h2h_adjustment,
+    validate_h2h_analysis,
+    validate_injury_analysis,
 )
-
+from src.prediction_engine.ensemble import (
+    EnsemblePrediction,
+    EnsemblePredictor,
+    LLMAdjustments,
+)
+from src.prediction_engine.models.elo import ELOPrediction, ELOSystem
+from src.prediction_engine.models.poisson import PoissonModel, PoissonPrediction
+from src.prediction_engine.models.xgboost_model import XGBoostModel, XGBoostPrediction
 
 # =============================================================================
 # Poisson Model Tests
@@ -383,10 +380,12 @@ class TestXGBoostModel:
 
     def test_predict_batch_untrained(self, model: XGBoostModel):
         """Test batch prediction when model is untrained."""
-        features = np.array([
-            [1.5, 1.2, 1.3, 1.4, 50.0, 50.0, 0.0],
-            [2.0, 1.0, 1.0, 2.0, 60.0, 40.0, 0.1],
-        ])
+        features = np.array(
+            [
+                [1.5, 1.2, 1.3, 1.4, 50.0, 50.0, 0.0],
+                [2.0, 1.0, 1.0, 2.0, 60.0, 40.0, 0.1],
+            ]
+        )
 
         predictions = model.predict_batch(features)
 
@@ -692,8 +691,12 @@ class TestSentimentAnalysisValidation:
 
     def test_morale_normalization(self):
         """Test morale indicator normalization."""
-        assert SentimentAnalysis(morale_indicator="very_positive").morale_indicator == "very_positive"
-        assert SentimentAnalysis(morale_indicator="Very Negative").morale_indicator == "very_negative"
+        assert (
+            SentimentAnalysis(morale_indicator="very_positive").morale_indicator == "very_positive"
+        )
+        assert (
+            SentimentAnalysis(morale_indicator="Very Negative").morale_indicator == "very_negative"
+        )
         assert SentimentAnalysis(morale_indicator="bad").morale_indicator == "negative"
         assert SentimentAnalysis(morale_indicator="good").morale_indicator == "positive"
         assert SentimentAnalysis(morale_indicator="unknown").morale_indicator == "neutral"
@@ -1340,7 +1343,9 @@ class TestFeatureVector:
         assert fv_with_interactions.home_attack_vs_away_defense == pytest.approx(0.8 * 0.5)
         assert fv_with_interactions.away_attack_vs_home_defense == pytest.approx(0.6 * 0.4)
         assert fv_with_interactions.form_advantage == pytest.approx(0.7 - 0.5)
-        assert fv_with_interactions.home_strength_ratio == pytest.approx(0.8 / (0.4 + 0.01), rel=0.01)
+        assert fv_with_interactions.home_strength_ratio == pytest.approx(
+            0.8 / (0.4 + 0.01), rel=0.01
+        )
 
     def test_to_array_with_interactions(self):
         """Test FeatureVector to_array with interactions."""
@@ -1375,12 +1380,16 @@ class TestFeatureVector:
         from src.prediction_engine.feature_engineering import FeatureVector
 
         # Base only (no fatigue, no interactions): 7
-        base_names = FeatureVector.get_feature_names(include_interactions=False, include_fatigue=False)
+        base_names = FeatureVector.get_feature_names(
+            include_interactions=False, include_fatigue=False
+        )
         assert len(base_names) == 7
         assert "home_attack" in base_names
 
         # Base + fatigue (default, no interactions): 7 + 4 = 11
-        base_with_fatigue = FeatureVector.get_feature_names(include_interactions=False, include_fatigue=True)
+        base_with_fatigue = FeatureVector.get_feature_names(
+            include_interactions=False, include_fatigue=True
+        )
         assert len(base_with_fatigue) == 11
         assert "home_rest_days" in base_with_fatigue
 
@@ -1413,6 +1422,7 @@ class TestFatigueFeatures:
     def test_calculate_rest_days_basic(self):
         """Test rest days calculation with normal values."""
         from datetime import datetime, timedelta
+
         from src.prediction_engine.feature_engineering import FeatureEngineer
 
         current = datetime(2024, 3, 10, 15, 0, 0)
@@ -1449,6 +1459,7 @@ class TestFatigueFeatures:
     def test_calculate_fixture_congestion_basic(self):
         """Test fixture congestion with normal values."""
         from datetime import datetime, timedelta
+
         from src.prediction_engine.feature_engineering import FeatureEngineer
 
         current = datetime(2024, 3, 15, 15, 0, 0)
@@ -1463,13 +1474,16 @@ class TestFatigueFeatures:
         assert score == pytest.approx(0.8, abs=0.01)
 
         # 5 matches in 14 days -> congested (0.0)
-        dates_5matches = [current - timedelta(days=i * 2 + 1) for i in range(5)]  # 1,3,5,7,9 days ago
+        dates_5matches = [
+            current - timedelta(days=i * 2 + 1) for i in range(5)
+        ]  # 1,3,5,7,9 days ago
         score = FeatureEngineer.calculate_fixture_congestion(dates_5matches, current)
         assert score == pytest.approx(0.0, abs=0.01)
 
     def test_calculate_fixture_congestion_edge_cases(self):
         """Test fixture congestion with edge cases."""
         from datetime import datetime, timedelta
+
         from src.prediction_engine.feature_engineering import FeatureEngineer
 
         current = datetime(2024, 3, 15, 15, 0, 0)
@@ -1485,6 +1499,7 @@ class TestFatigueFeatures:
     def test_engineer_features_with_fatigue(self):
         """Test engineer_features accepts fatigue parameters."""
         from datetime import datetime, timedelta
+
         from src.prediction_engine.feature_engineering import FeatureEngineer
 
         current = datetime(2024, 3, 15, 15, 0, 0)
@@ -1667,9 +1682,7 @@ class TestModelTrainerOptuna:
         # Split data
         from sklearn.model_selection import train_test_split
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
         # First optimize (minimal trials)
         opt_result = trainer.optimize_xgboost(X_train, y_train, n_trials=2, cv_folds=2)
@@ -1691,9 +1704,7 @@ class TestModelTrainerOptuna:
         # Split data
         from sklearn.model_selection import train_test_split
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
         # First optimize (minimal trials)
         opt_result = trainer.optimize_random_forest(X_train, y_train, n_trials=2, cv_folds=2)
@@ -1726,17 +1737,13 @@ class TestModelTrainerOptuna:
 
         from sklearn.model_selection import train_test_split
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
         # Optimize first
         trainer.optimize_xgboost(X_train, y_train, n_trials=2, cv_folds=2)
 
         # Train without explicit params (should use stored results)
-        metrics = trainer.train_xgboost_optimized(
-            X_train, y_train, X_val=X_test, y_val=y_test
-        )
+        metrics = trainer.train_xgboost_optimized(X_train, y_train, X_val=X_test, y_val=y_test)
 
         assert metrics is not None
         assert trainer.xgboost_model.is_trained
@@ -1841,9 +1848,7 @@ class TestMatchFatigueData:
             team_id=2, team_name="Away", rest_days_score=0.3, fixture_congestion_score=0.4
         )
 
-        match_data = MatchFatigueData(
-            home_team=home, away_team=away, match_date=datetime.now()
-        )
+        match_data = MatchFatigueData(home_team=home, away_team=away, match_date=datetime.now())
 
         # Home is more rested, so advantage should be positive
         assert match_data.fatigue_advantage > 0
@@ -1863,9 +1868,7 @@ class TestMatchFatigueData:
             team_id=2, team_name="Away", rest_days_score=0.9, fixture_congestion_score=0.9
         )
 
-        match_data = MatchFatigueData(
-            home_team=home, away_team=away, match_date=datetime.now()
-        )
+        match_data = MatchFatigueData(home_team=home, away_team=away, match_date=datetime.now())
 
         # Away is more rested, so advantage should be negative
         assert match_data.fatigue_advantage < 0
@@ -1883,9 +1886,7 @@ class TestMatchFatigueData:
             team_id=2, team_name="Away", rest_days_score=0.6, fixture_congestion_score=0.6
         )
 
-        match_data = MatchFatigueData(
-            home_team=home, away_team=away, match_date=datetime.now()
-        )
+        match_data = MatchFatigueData(home_team=home, away_team=away, match_date=datetime.now())
 
         assert match_data.fatigue_advantage == 0.0
 
@@ -1896,7 +1897,7 @@ class TestFatigueServiceHelpers:
     def test_extract_match_dates_valid(self):
         """Test extracting dates from valid match data."""
         from src.data.fatigue_service import FatigueService
-        from src.data.sources.football_data import MatchData, TeamData, CompetitionData
+        from src.data.sources.football_data import CompetitionData, MatchData, TeamData
 
         service = FatigueService()
 
@@ -1928,7 +1929,7 @@ class TestFatigueServiceHelpers:
     def test_extract_match_dates_invalid(self):
         """Test extracting dates handles invalid dates gracefully."""
         from src.data.fatigue_service import FatigueService
-        from src.data.sources.football_data import MatchData, TeamData, CompetitionData
+        from src.data.sources.football_data import CompetitionData, MatchData, TeamData
 
         service = FatigueService()
 
@@ -1960,7 +1961,7 @@ class TestFatigueServiceSingleton:
 
     def test_get_fatigue_service_returns_instance(self):
         """Test that get_fatigue_service returns a valid instance."""
-        from src.data.fatigue_service import get_fatigue_service, FatigueService
+        from src.data.fatigue_service import FatigueService, get_fatigue_service
 
         service = get_fatigue_service()
         assert service is not None
@@ -1985,7 +1986,7 @@ class TestModelLoaderFeatureConstants:
 
     def test_feature_set_constants_defined(self):
         """Test that feature set constants are defined."""
-        from src.ml.model_loader import FEATURE_SET_LEGACY, FEATURE_SET_EXTENDED
+        from src.ml.model_loader import FEATURE_SET_EXTENDED, FEATURE_SET_LEGACY
 
         assert FEATURE_SET_LEGACY == 7
         assert FEATURE_SET_EXTENDED == 19
@@ -2041,8 +2042,9 @@ class TestModelLoaderCreateFeatures:
 
     def test_create_features_extended_values(self):
         """Test that extended feature set contains correct values."""
-        from src.ml.model_loader import TrainedModelLoader, FEATURE_SET_EXTENDED
         from unittest.mock import MagicMock
+
+        from src.ml.model_loader import FEATURE_SET_EXTENDED, TrainedModelLoader
 
         loader = object.__new__(TrainedModelLoader)
         loader.feature_state = {"feature_count": FEATURE_SET_EXTENDED}
@@ -2091,7 +2093,7 @@ class TestModelLoaderGetExpectedFeatureCount:
 
     def test_returns_legacy_when_no_models(self):
         """Test returns legacy count when no models loaded."""
-        from src.ml.model_loader import TrainedModelLoader, FEATURE_SET_LEGACY
+        from src.ml.model_loader import FEATURE_SET_LEGACY, TrainedModelLoader
 
         loader = object.__new__(TrainedModelLoader)
         loader.xgb_model = None
@@ -2102,7 +2104,7 @@ class TestModelLoaderGetExpectedFeatureCount:
 
     def test_reads_from_feature_state(self):
         """Test reads feature count from feature_state."""
-        from src.ml.model_loader import TrainedModelLoader, FEATURE_SET_EXTENDED
+        from src.ml.model_loader import FEATURE_SET_EXTENDED, TrainedModelLoader
 
         loader = object.__new__(TrainedModelLoader)
         loader.xgb_model = None
@@ -2113,8 +2115,9 @@ class TestModelLoaderGetExpectedFeatureCount:
 
     def test_reads_from_model_n_features_in(self):
         """Test reads feature count from model's n_features_in_."""
-        from src.ml.model_loader import TrainedModelLoader
         from unittest.mock import MagicMock
+
+        from src.ml.model_loader import TrainedModelLoader
 
         loader = object.__new__(TrainedModelLoader)
         mock_model = MagicMock()
@@ -2131,8 +2134,9 @@ class TestModelLoaderPredictEnsembleMetadata:
 
     def test_returns_feature_count_in_result(self):
         """Test that result includes feature_count."""
-        from src.ml.model_loader import TrainedModelLoader, FEATURE_SET_LEGACY
         from unittest.mock import MagicMock
+
+        from src.ml.model_loader import FEATURE_SET_LEGACY, TrainedModelLoader
 
         loader = object.__new__(TrainedModelLoader)
         loader.feature_state = None
@@ -2152,8 +2156,9 @@ class TestModelLoaderPredictEnsembleMetadata:
 
     def test_returns_uses_fatigue_features_flag(self):
         """Test that result includes uses_fatigue_features flag."""
-        from src.ml.model_loader import TrainedModelLoader, FEATURE_SET_EXTENDED
         from unittest.mock import MagicMock
+
+        from src.ml.model_loader import FEATURE_SET_EXTENDED, TrainedModelLoader
 
         loader = object.__new__(TrainedModelLoader)
         loader.feature_state = {"feature_count": FEATURE_SET_EXTENDED}

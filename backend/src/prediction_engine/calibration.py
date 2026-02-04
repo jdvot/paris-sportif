@@ -20,7 +20,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 try:
-    from sklearn.calibration import CalibratedClassifierCV, calibration_curve
+    from sklearn.calibration import calibration_curve
     from sklearn.isotonic import IsotonicRegression
     from sklearn.linear_model import LogisticRegression
 
