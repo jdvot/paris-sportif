@@ -11,6 +11,8 @@ const PUBLIC_ROUTES = [
   "/auth/error",
   "/auth/reset-password",
   "/plans",      // Page des abonnements - public (pour upgrade)
+  "/privacy",    // Privacy policy - public
+  "/terms",      // Terms of service - public
 ];
 
 // Routes that require premium role
@@ -92,9 +94,10 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - icons (PWA icons folder)
      * - public folder files
      * - manifest.webmanifest, sw.js (PWA files)
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|manifest\\.webmanifest|sw\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|json)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|icons|manifest\\.webmanifest|sw\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|json)$).*)",
   ],
 };
