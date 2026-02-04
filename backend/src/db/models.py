@@ -92,7 +92,7 @@ class Match(Base):
     # Using competition_code (string) to match existing DB schema
     competition_code: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
 
-    match_date: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    match_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     matchday: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     status: Mapped[str] = mapped_column(
