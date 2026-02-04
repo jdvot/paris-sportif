@@ -35,7 +35,7 @@ export async function getSupabaseToken(): Promise<string | null> {
         ),
       ]);
       console.log("[AuthHelper] Auth ready, proceeding");
-    } catch (err) {
+    } catch {
       console.warn("[AuthHelper] Auth wait timed out, proceeding without token");
     }
   }
