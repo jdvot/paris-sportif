@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import Integer, and_, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -104,9 +104,7 @@ class PredictionRepository(BaseRepository[Prediction]):
         stmt = (
             select(
                 func.count(PredictionResult.id).label("total"),
-                func.sum(func.cast(PredictionResult.was_correct, type_=func.Integer())).label(
-                    "correct"
-                ),
+                func.sum(cast(PredictionResult.was_correct, Integer)).label("correct"),
             )
             .join(Prediction)
             .where(PredictionResult.created_at >= cutoff)
