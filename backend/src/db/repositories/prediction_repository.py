@@ -143,7 +143,7 @@ class PredictionRepository(BaseRepository[Prediction]):
             .join(Match)
             .where(
                 and_(
-                    Match.competition_id.isnot(None),  # Has competition
+                    Match.competition_code.isnot(None),  # Has competition
                     Prediction.created_at >= cutoff,
                 )
             )

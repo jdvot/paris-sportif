@@ -50,7 +50,7 @@ class MatchRepository(BaseRepository[Match]):
         date_from: date,
         date_to: date,
         *,
-        competition_id: int | None = None,
+        competition_code: str | None = None,
         status: str | None = None,
     ) -> Sequence[Match]:
         """Get matches within a date range with optional filters."""
@@ -60,8 +60,8 @@ class MatchRepository(BaseRepository[Match]):
                 Match.match_date <= datetime.combine(date_to, datetime.max.time()),
             )
         )
-        if competition_id:
-            stmt = stmt.where(Match.competition_id == competition_id)
+        if competition_code:
+            stmt = stmt.where(Match.competition_code == competition_code)
         if status:
             stmt = stmt.where(Match.status == status)
         stmt = stmt.order_by(Match.match_date.asc())
@@ -72,7 +72,7 @@ class MatchRepository(BaseRepository[Match]):
         self,
         date_from: date | None = None,
         date_to: date | None = None,
-        competition_id: int | None = None,
+        competition_code: str | None = None,
     ) -> Sequence[Match]:
         """Get scheduled (upcoming) matches."""
         statuses = ["scheduled", "timed", "SCHEDULED", "TIMED"]
@@ -81,8 +81,8 @@ class MatchRepository(BaseRepository[Match]):
             stmt = stmt.where(Match.match_date >= datetime.combine(date_from, datetime.min.time()))
         if date_to:
             stmt = stmt.where(Match.match_date <= datetime.combine(date_to, datetime.max.time()))
-        if competition_id:
-            stmt = stmt.where(Match.competition_id == competition_id)
+        if competition_code:
+            stmt = stmt.where(Match.competition_code == competition_code)
         stmt = stmt.order_by(Match.match_date.asc())
         result = await self.session.execute(stmt)
         return result.scalars().all()
@@ -106,13 +106,13 @@ class MatchRepository(BaseRepository[Match]):
 
     async def get_by_competition(
         self,
-        competition_id: int,
+        competition_code: str,
         *,
         limit: int = 50,
         status: str | None = None,
     ) -> Sequence[Match]:
         """Get matches for a competition."""
-        stmt = select(Match).where(Match.competition_id == competition_id)
+        stmt = select(Match).where(Match.competition_code == competition_code)
         if status:
             stmt = stmt.where(Match.status == status)
         stmt = stmt.order_by(Match.match_date.desc()).limit(limit)

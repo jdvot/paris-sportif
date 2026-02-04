@@ -75,8 +75,8 @@ class Competition(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
 
-    # Relationships
-    matches: Mapped[list["Match"]] = relationship("Match", back_populates="competition")
+    # Note: Matches are linked via competition_code, not a foreign key
+    # Use Match.query.filter_by(competition_code=self.code) to get related matches
 
 
 class Match(Base):
@@ -89,9 +89,8 @@ class Match(Base):
 
     home_team_id: Mapped[int] = mapped_column(Integer, ForeignKey("teams.id"), nullable=False)
     away_team_id: Mapped[int] = mapped_column(Integer, ForeignKey("teams.id"), nullable=False)
-    competition_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("competitions.id"), nullable=False
-    )
+    # Using competition_code (string) to match existing DB schema
+    competition_code: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
 
     match_date: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     matchday: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -125,7 +124,6 @@ class Match(Base):
     away_team: Mapped["Team"] = relationship(
         "Team", foreign_keys=[away_team_id], back_populates="away_matches"
     )
-    competition: Mapped["Competition"] = relationship("Competition", back_populates="matches")
     prediction: Mapped[Optional["Prediction"]] = relationship(
         "Prediction", back_populates="match", uselist=False
     )
@@ -133,7 +131,7 @@ class Match(Base):
     # Indexes
     __table_args__ = (
         Index("ix_matches_date_status", "match_date", "status"),
-        Index("ix_matches_competition_date", "competition_id", "match_date"),
+        Index("ix_matches_competition_date", "competition_code", "match_date"),
     )
 
     @property
@@ -300,9 +298,11 @@ class CachedData(Base):
         String(50), nullable=False, index=True
     )  # prediction_stats, standings, teams, upcoming_matches
     data: Mapped[str] = mapped_column(Text, nullable=False)  # JSON data
-    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=func.now(), onupdate=func.now()
+    )
 
 
 # ============================================================================
