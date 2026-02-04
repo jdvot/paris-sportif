@@ -1,12 +1,12 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 /**
  * OAuth callback route handler
  *
  * This route exchanges the OAuth code for a session and redirects the user.
- * Important: We validate the session with getUser() before redirecting to ensure
- * cookies are properly set and the user is authenticated.
+ * Important: Cookies must be properly set on the redirect response.
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -16,12 +16,30 @@ export async function GET(request: Request) {
   console.log("[Callback] Processing OAuth callback, next:", next);
 
   if (code) {
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+
+    // Create supabase client that can set cookies on the response
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          },
+        },
+      }
+    );
+
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // Validate that the session was actually created by checking the user
-      // This ensures cookies are properly set before redirecting
+      // Validate that the session was actually created
       const {
         data: { user },
         error: userError,
@@ -30,23 +48,22 @@ export async function GET(request: Request) {
       if (user && !userError) {
         console.log("[Callback] OAuth success, user:", user.email);
 
-        // Handle different environments (Vercel preview, production, local)
+        // Handle different environments
         const forwardedHost = request.headers.get("x-forwarded-host");
         const isLocalEnv = process.env.NODE_ENV === "development";
 
         let redirectUrl: string;
         if (isLocalEnv) {
-          // Local development
           redirectUrl = `${origin}${next}`;
         } else if (forwardedHost) {
-          // Vercel deployment - use forwarded host
           redirectUrl = `https://${forwardedHost}${next}`;
         } else {
-          // Fallback to origin
           redirectUrl = `${origin}${next}`;
         }
 
         console.log("[Callback] Redirecting to:", redirectUrl);
+
+        // Use NextResponse.redirect - cookies are already set via cookieStore
         return NextResponse.redirect(redirectUrl);
       }
 
@@ -58,6 +75,5 @@ export async function GET(request: Request) {
     console.error("[Callback] No code provided");
   }
 
-  // Return the user to an error page with instructions
   return NextResponse.redirect(`${origin}/auth/error`);
 }
