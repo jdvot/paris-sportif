@@ -292,30 +292,26 @@ async def get_training_data(
 
     try:
         with get_db_context() as db:
-            # Fetch finished matches with their stats
+            # Fetch finished matches with team stats from teams table
+            # Attack = avg_goals_scored, Defense = avg_goals_conceded
+            # If no stats, use defaults (1.0 for attack/defense, 1500 for ELO)
             query = text("""
                 SELECT
                     m.id,
                     m.home_score,
                     m.away_score,
                     m.status,
-                    -- Home team stats
-                    COALESCE(hs.attack_strength, 1.0) as home_attack,
-                    COALESCE(hs.defense_strength, 1.0) as home_defense,
-                    COALESCE(hs.elo_rating, 1500) as home_elo,
-                    COALESCE(hs.form_score, 50) / 100.0 as home_form,
-                    COALESCE(hs.rest_days, 7) as home_rest_days,
-                    COALESCE(hs.fixture_congestion, 0) as home_fixture_congestion,
-                    -- Away team stats
-                    COALESCE(aws.attack_strength, 1.0) as away_attack,
-                    COALESCE(aws.defense_strength, 1.0) as away_defense,
-                    COALESCE(aws.elo_rating, 1500) as away_elo,
-                    COALESCE(aws.form_score, 50) / 100.0 as away_form,
-                    COALESCE(aws.rest_days, 7) as away_rest_days,
-                    COALESCE(aws.fixture_congestion, 0) as away_fixture_congestion
+                    -- Home team stats from teams table
+                    COALESCE(ht.avg_goals_scored_home, 1.0) as home_attack,
+                    COALESCE(ht.avg_goals_conceded_home, 1.0) as home_defense,
+                    COALESCE(ht.elo_rating, 1500) as home_elo,
+                    -- Away team stats from teams table
+                    COALESCE(at.avg_goals_scored_away, 1.0) as away_attack,
+                    COALESCE(at.avg_goals_conceded_away, 1.0) as away_defense,
+                    COALESCE(at.elo_rating, 1500) as away_elo
                 FROM matches m
-                LEFT JOIN team_stats hs ON m.home_team_id = hs.team_id
-                LEFT JOIN team_stats aws ON m.away_team_id = aws.team_id
+                LEFT JOIN teams ht ON m.home_team_id = ht.id
+                LEFT JOIN teams at ON m.away_team_id = at.id
                 WHERE m.status = 'FINISHED'
                     AND m.home_score IS NOT NULL
                     AND m.away_score IS NOT NULL
@@ -335,19 +331,20 @@ async def get_training_data(
                 else:
                     match_result = 1  # Draw
 
+                # Use team stats, with defaults for form/fatigue (not tracked yet)
                 matches.append(TrainingMatch(
-                    home_attack=float(row.home_attack),
-                    home_defense=float(row.home_defense),
-                    away_attack=float(row.away_attack),
-                    away_defense=float(row.away_defense),
-                    home_elo=float(row.home_elo),
-                    away_elo=float(row.away_elo),
-                    home_form=float(row.home_form),
-                    away_form=float(row.away_form),
-                    home_rest_days=float(row.home_rest_days),
-                    away_rest_days=float(row.away_rest_days),
-                    home_fixture_congestion=float(row.home_fixture_congestion),
-                    away_fixture_congestion=float(row.away_fixture_congestion),
+                    home_attack=float(row.home_attack) if row.home_attack else 1.0,
+                    home_defense=float(row.home_defense) if row.home_defense else 1.0,
+                    away_attack=float(row.away_attack) if row.away_attack else 1.0,
+                    away_defense=float(row.away_defense) if row.away_defense else 1.0,
+                    home_elo=float(row.home_elo) if row.home_elo else 1500.0,
+                    away_elo=float(row.away_elo) if row.away_elo else 1500.0,
+                    home_form=0.5,  # Default - not tracked in teams table
+                    away_form=0.5,
+                    home_rest_days=7.0,  # Default - not tracked
+                    away_rest_days=7.0,
+                    home_fixture_congestion=0.0,  # Default - not tracked
+                    away_fixture_congestion=0.0,
                     result=match_result,
                 ))
 
