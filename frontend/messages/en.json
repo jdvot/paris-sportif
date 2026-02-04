@@ -1018,5 +1018,44 @@
     "expectedGoalsTitle": "Expected Goals (xG)",
     "xgHome": "xG Home",
     "xgAway": "xG Away"
+  },
+  "search": {
+    "title": "Semantic Search",
+    "subtitle": "Search our football news database with AI",
+    "placeholder": "Search news, injuries, transfers...",
+    "minChars": "Enter at least 3 characters to search",
+    "resultsCount": "{count} results found",
+    "searchTime": "in {time}ms",
+    "noResults": "No results found for this search",
+    "error": "Error during search. Please try again.",
+    "premiumRequired": "Premium Feature",
+    "premiumDescription": "Semantic search uses AI to find the most relevant news. Upgrade to Premium to access it.",
+    "upgradeToPremium": "Upgrade to Premium",
+    "filters": {
+      "allTypes": "All types",
+      "injury": "Injuries",
+      "transfer": "Transfers",
+      "form": "Form",
+      "preview": "Preview"
+    },
+    "tips": {
+      "title": "Search tips",
+      "tip1": "Search by team name: 'Manchester United injuries'",
+      "tip2": "Filter by news type for accurate results",
+      "tip3": "Use specific terms: 'Haaland transfer'"
+    }
+  },
+  "matchNews": {
+    "title": "Match News",
+    "premiumOnly": "Contextual news access reserved for Premium members",
+    "upgrade": "Upgrade to Premium",
+    "noNews": "No recent news",
+    "searchMore": "Search for more news",
+    "categories": {
+      "injuries": "Injuries",
+      "transfers": "Transfers",
+      "form": "Form",
+      "previews": "Preview"
+    }
   }
 }
