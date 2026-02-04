@@ -12,12 +12,13 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   let homeTeam = "Equipe Domicile";
   let awayTeam = "Equipe Extérieure";
   // Default values for OG image (prediction data requires auth, not available here)
-  const prediction = "home_win";
-  const confidence = 70;
-  const homeProb = 50;
-  const drawProb = 25;
-  const awayProb = 25;
-  const competition = "Football";
+  // Type annotation needed to allow comparison with other prediction values
+  const prediction: string = "home_win";
+  const confidence: number = 70;
+  const homeProb: number = 50;
+  const drawProb: number = 25;
+  const awayProb: number = 25;
+  const competition: string = "Football";
 
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";

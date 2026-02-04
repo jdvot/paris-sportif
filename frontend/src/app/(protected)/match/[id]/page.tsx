@@ -46,6 +46,7 @@ import { fr, enUS } from "date-fns/locale";
 import { PredictionCharts } from "@/components/PredictionCharts";
 import { MultiMarkets } from "@/components/MultiMarkets";
 import { BookmakerOddsComparison, type BookmakerOdds } from "@/components/BookmakerOddsComparison";
+import { NewsFeed } from "@/components/NewsFeed";
 
 // Helper to get team name from TeamInfo | string
 const getTeamName = (team: MatchResponse["home_team"] | string): string => {
@@ -289,6 +290,22 @@ export default function MatchDetailPage() {
               awayTeam={awayTeamName}
             />
           )}
+        </div>
+      )}
+
+      {/* Team News Feed */}
+      {match && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          <NewsFeed
+            team={homeTeamName}
+            limit={5}
+            showTitle={true}
+          />
+          <NewsFeed
+            team={awayTeamName}
+            limit={5}
+            showTitle={true}
+          />
         </div>
       )}
     </div>

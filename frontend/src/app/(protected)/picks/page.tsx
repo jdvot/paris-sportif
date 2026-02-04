@@ -11,6 +11,7 @@ import { PredictionCardPremium } from "@/components/PredictionCardPremium";
 import { LoadingState } from "@/components/LoadingState";
 import { CompetitionFilter } from "@/components/CompetitionFilter";
 import { ExportCSV } from "@/components/ExportCSV";
+import { NewsFeed } from "@/components/NewsFeed";
 import { getErrorMessage } from "@/lib/errors";
 import type { DailyPick } from "@/lib/api/models";
 
@@ -213,17 +214,34 @@ export default function PicksPage() {
         </div>
       ) : null}
 
-      {/* Picks Grid */}
+      {/* Picks Grid + News Feed */}
       {!isLoading && filteredPicks.length > 0 ? (
-        <div className="grid gap-3 sm:gap-4 px-4 sm:px-0">
-          {filteredPicks.map((pick, index) => (
-            <PredictionCardPremium
-              key={pick.rank}
-              pick={pick}
-              index={index}
-              isTopPick={index === 0}
-            />
-          ))}
+        <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 px-4 sm:px-0">
+          {/* Main Picks Column */}
+          <div className="lg:col-span-2 grid gap-3 sm:gap-4">
+            {filteredPicks.map((pick, index) => (
+              <PredictionCardPremium
+                key={pick.rank}
+                pick={pick}
+                index={index}
+                isTopPick={index === 0}
+              />
+            ))}
+          </div>
+
+          {/* News Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-4">
+              <NewsFeed limit={8} />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* News Feed when no picks */}
+      {!isLoading && filteredPicks.length === 0 && !error ? (
+        <div className="px-4 sm:px-0">
+          <NewsFeed limit={10} />
         </div>
       ) : null}
     </div>

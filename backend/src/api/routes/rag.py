@@ -1,6 +1,7 @@
 """RAG (Retrieval Augmented Generation) endpoints for match context enrichment.
 
 Premium endpoints - require premium or admin role.
+News endpoint is public for frontend display.
 """
 
 import logging
@@ -17,6 +18,157 @@ from src.prediction_engine.rag_enrichment import get_rag_enrichment
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# =============================================================================
+# News Models (Public)
+# =============================================================================
+
+
+class NewsArticle(BaseModel):
+    """News article for frontend display."""
+
+    title: str
+    source: str
+    published_at: datetime | None = None
+    url: str | None = None
+    article_type: str = "general"  # general, injury, transfer, form, preview
+    team_name: str | None = None
+
+
+class NewsResponse(BaseModel):
+    """Response for news endpoint."""
+
+    articles: list[NewsArticle]
+    total: int
+    fetched_at: datetime
+
+
+# =============================================================================
+# Public News Endpoints
+# =============================================================================
+
+
+@router.get("/news", response_model=NewsResponse)
+async def get_football_news(
+    team: str | None = Query(None, description="Team name to filter news"),
+    competition: str | None = Query(None, description="Competition code (PL, SA, etc.)"),
+    limit: int = Query(10, ge=1, le=50, description="Max articles to return"),
+) -> NewsResponse:
+    """
+    Get latest football news from real RSS feeds.
+
+    This endpoint is PUBLIC - no authentication required.
+    Used by frontend to display news feed.
+    """
+    try:
+        from src.vector.news_ingestion import get_ingestion_service
+
+        service = get_ingestion_service()
+        articles: list[NewsArticle] = []
+
+        if team:
+            # Fetch team-specific news
+            team_articles = await service.fetch_team_news_from_api(team, max_articles=limit)
+            articles = [
+                NewsArticle(
+                    title=a.title,
+                    source=a.source,
+                    published_at=a.published_at,
+                    url=a.url,
+                    article_type=a.article_type,
+                    team_name=a.team_name,
+                )
+                for a in team_articles
+            ]
+        elif competition:
+            # Fetch news for teams in competition
+            teams = service._get_competition_teams(competition)[:5]  # Top 5 teams
+            for t in teams:
+                team_articles = await service.fetch_team_news_from_api(t, max_articles=3)
+                articles.extend([
+                    NewsArticle(
+                        title=a.title,
+                        source=a.source,
+                        published_at=a.published_at,
+                        url=a.url,
+                        article_type=a.article_type,
+                        team_name=a.team_name,
+                    )
+                    for a in team_articles
+                ])
+        else:
+            # Fetch general football news
+            general_articles = await service.fetch_general_football_news(max_per_source=limit // 3)
+            articles = [
+                NewsArticle(
+                    title=a.title,
+                    source=a.source,
+                    published_at=a.published_at,
+                    url=a.url,
+                    article_type=a.article_type,
+                    team_name=a.team_name,
+                )
+                for a in general_articles
+            ]
+
+        # Sort by date (newest first)
+        articles.sort(key=lambda x: x.published_at or datetime.min, reverse=True)
+
+        return NewsResponse(
+            articles=articles[:limit],
+            total=len(articles),
+            fetched_at=datetime.utcnow(),
+        )
+
+    except Exception as e:
+        logger.error(f"News fetch error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch news: {str(e)}",
+        )
+
+
+@router.get("/news/injuries", response_model=NewsResponse)
+async def get_injury_news(
+    team: str = Query(..., description="Team name"),
+    limit: int = Query(5, ge=1, le=20, description="Max articles"),
+) -> NewsResponse:
+    """
+    Get injury-specific news for a team.
+
+    PUBLIC endpoint for frontend injury alerts.
+    """
+    try:
+        from src.vector.news_ingestion import get_ingestion_service
+
+        service = get_ingestion_service()
+        injury_articles = await service.fetch_injury_news(team, max_articles=limit)
+
+        articles = [
+            NewsArticle(
+                title=a.title,
+                source=a.source,
+                published_at=a.published_at,
+                url=a.url,
+                article_type="injury",
+                team_name=a.team_name,
+            )
+            for a in injury_articles
+        ]
+
+        return NewsResponse(
+            articles=articles,
+            total=len(articles),
+            fetched_at=datetime.utcnow(),
+        )
+
+    except Exception as e:
+        logger.error(f"Injury news fetch error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch injury news: {str(e)}",
+        )
 
 
 class WeatherInfo(BaseModel):

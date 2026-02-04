@@ -1,12 +1,17 @@
 """News ingestion service for semantic search.
 
-Fetches news from various sources and indexes them in Qdrant
+Fetches news from REAL RSS sources and indexes them in Qdrant
 for the RAG pipeline.
 """
 
+import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
+from urllib.parse import quote
+
+import defusedxml.ElementTree as ET
+import httpx
 
 from src.vector.news_indexer import NewsArticle, NewsIndexer
 
@@ -14,7 +19,28 @@ logger = logging.getLogger(__name__)
 
 
 class NewsIngestionService:
-    """Fetch and index news from various sources."""
+    """Fetch and index news from real RSS sources."""
+
+    # RSS Feed sources by language/region
+    RSS_SOURCES = {
+        # French sources
+        "lequipe": "https://www.lequipe.fr/rss/actu_rss_Football.xml",
+        "footmercato": "https://www.footmercato.net/flux-rss",
+        "maxifoot": "https://www.maxifoot.fr/rss/football.xml",
+        # English sources
+        "skysports": "https://www.skysports.com/rss/12040",  # Football
+        "bbc_football": "https://feeds.bbci.co.uk/sport/football/rss.xml",
+        "guardian_football": "https://www.theguardian.com/football/rss",
+        # Italian
+        "gazzetta": "https://www.gazzetta.it/rss/calcio.xml",
+        # Spanish
+        "marca": "https://e00-marca.uecdn.es/rss/futbol/futbol.xml",
+        # German
+        "kicker": "https://rss.kicker.de/news/aktuell",
+    }
+
+    # Google News RSS template for team-specific searches
+    GOOGLE_NEWS_RSS = "https://news.google.com/rss/search?q={query}&hl={lang}&gl={country}&ceid={country}:{lang}"
 
     # Team name mappings for football-data.org API
     TEAM_IDS = {
@@ -95,71 +121,200 @@ class NewsIngestionService:
         team_name: str,
         max_articles: int = 10,
     ) -> list[NewsArticle]:
-        """Fetch news for a team from public APIs.
+        """Fetch real news for a team from Google News RSS.
 
-        Uses NewsAPI (if configured) or simulated news for development.
+        Uses Google News RSS which is free and requires no API key.
         """
-        articles = []
+        articles: list[NewsArticle] = []
 
-        # Try to fetch from NewsAPI (if API key is available)
-        # For now, we'll generate simulated news for development
-        articles.extend(self._generate_simulated_news(team_name, max_articles))
+        try:
+            # Fetch from Google News RSS in multiple languages
+            search_configs = [
+                {"query": f"{team_name} football", "lang": "fr", "country": "FR"},
+                {"query": f"{team_name} football", "lang": "en", "country": "GB"},
+            ]
 
-        return articles
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                for config in search_configs:
+                    if len(articles) >= max_articles:
+                        break
 
-    def _generate_simulated_news(
+                    try:
+                        encoded_query = quote(config["query"])
+                        rss_url = self.GOOGLE_NEWS_RSS.format(
+                            query=encoded_query,
+                            lang=config["lang"],
+                            country=config["country"],
+                        )
+
+                        response = await client.get(rss_url)
+                        if response.status_code == 200:
+                            parsed = self._parse_rss_feed(
+                                response.text,
+                                source=f"Google News ({config['lang'].upper()})",
+                                team_name=team_name,
+                            )
+                            articles.extend(parsed)
+
+                        # Rate limit
+                        await asyncio.sleep(0.5)
+
+                    except Exception as e:
+                        logger.warning(f"Error fetching Google News for {team_name} ({config['lang']}): {e}")
+
+            # Deduplicate by title
+            seen_titles: set[str] = set()
+            unique_articles: list[NewsArticle] = []
+            for article in articles:
+                title_lower = article.title.lower()[:50]
+                if title_lower not in seen_titles:
+                    seen_titles.add(title_lower)
+                    unique_articles.append(article)
+
+            logger.info(f"Fetched {len(unique_articles)} real news articles for {team_name}")
+            return unique_articles[:max_articles]
+
+        except Exception as e:
+            logger.error(f"Error in fetch_team_news_from_api for {team_name}: {e}")
+            return []
+
+    async def fetch_general_football_news(self, max_per_source: int = 5) -> list[NewsArticle]:
+        """Fetch general football news from major RSS sources."""
+        all_articles: list[NewsArticle] = []
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            for source_name, rss_url in self.RSS_SOURCES.items():
+                try:
+                    response = await client.get(rss_url)
+                    if response.status_code == 200:
+                        articles = self._parse_rss_feed(
+                            response.text,
+                            source=source_name,
+                            team_name=None,
+                        )
+                        all_articles.extend(articles[:max_per_source])
+                        logger.info(f"Fetched {len(articles[:max_per_source])} articles from {source_name}")
+
+                    # Rate limit
+                    await asyncio.sleep(0.3)
+
+                except Exception as e:
+                    logger.warning(f"Error fetching RSS from {source_name}: {e}")
+
+        logger.info(f"Total general news fetched: {len(all_articles)}")
+        return all_articles
+
+    def _parse_rss_feed(
         self,
-        team_name: str,
-        count: int = 5,
+        xml_content: str,
+        source: str,
+        team_name: str | None = None,
     ) -> list[NewsArticle]:
-        """Generate simulated news articles for development.
+        """Parse RSS XML feed and return NewsArticle objects."""
+        articles: list[NewsArticle] = []
 
-        In production, this would be replaced with real API calls.
-        """
-        now = datetime.utcnow()
-        templates = [
-            {
-                "title": f"{team_name} prepare for crucial upcoming fixture",
-                "content": f"The {team_name} squad has been training hard this week in preparation for their upcoming fixture. Manager expressed confidence in the team's form.",
-                "type": "general",
-            },
-            {
-                "title": f"Key player ruled out for {team_name}",
-                "content": f"{team_name} will be without their key midfielder for the upcoming match due to a muscle injury sustained in training. Recovery expected in 2-3 weeks.",
-                "type": "injury",
-            },
-            {
-                "title": f"{team_name} on impressive winning streak",
-                "content": f"{team_name} have extended their unbeaten run to 5 matches, showcasing excellent form in recent weeks. The team's defensive record has been particularly impressive.",
-                "type": "form",
-            },
-            {
-                "title": f"{team_name} linked with January transfer move",
-                "content": f"Transfer rumors suggest {team_name} are monitoring several targets ahead of the January window. Sources indicate a bid may be made for a young striker.",
-                "type": "transfer",
-            },
-            {
-                "title": f"Match preview: What to expect from {team_name}",
-                "content": f"Analysts preview the upcoming clash featuring {team_name}. Key battles in midfield expected to determine the outcome.",
-                "type": "preview",
-            },
-        ]
+        try:
+            root = ET.fromstring(xml_content)
 
-        articles = []
-        for i, template in enumerate(templates[:count]):
-            articles.append(
-                NewsArticle(
-                    title=template["title"],
-                    content=template["content"],
-                    source="simulated",
-                    published_at=now - timedelta(days=i),
-                    team_name=team_name,
-                    team_id=self.TEAM_IDS.get(team_name),
-                    article_type=template["type"],
-                )
-            )
+            # Handle both RSS 2.0 and Atom feeds
+            items = root.findall(".//item") or root.findall(".//{http://www.w3.org/2005/Atom}entry")
+
+            for item in items:
+                try:
+                    # RSS 2.0 format
+                    title_elem = item.find("title")
+                    desc_elem = item.find("description")
+                    pub_date_elem = item.find("pubDate")
+                    link_elem = item.find("link")
+
+                    # Atom format fallback
+                    if title_elem is None:
+                        title_elem = item.find("{http://www.w3.org/2005/Atom}title")
+                    if desc_elem is None:
+                        desc_elem = item.find("{http://www.w3.org/2005/Atom}summary")
+                    if pub_date_elem is None:
+                        pub_date_elem = item.find("{http://www.w3.org/2005/Atom}published")
+                    if link_elem is None:
+                        link_elem = item.find("{http://www.w3.org/2005/Atom}link")
+
+                    if title_elem is not None and title_elem.text:
+                        title = title_elem.text.strip()
+                        content = desc_elem.text.strip() if desc_elem is not None and desc_elem.text else None
+                        url = None
+
+                        # Get URL (handle Atom link with href attribute)
+                        if link_elem is not None:
+                            url = link_elem.get("href") or link_elem.text
+
+                        # Parse publication date
+                        published_at = datetime.utcnow()
+                        if pub_date_elem is not None and pub_date_elem.text:
+                            try:
+                                # Try multiple date formats
+                                for fmt in [
+                                    "%a, %d %b %Y %H:%M:%S %z",
+                                    "%a, %d %b %Y %H:%M:%S GMT",
+                                    "%Y-%m-%dT%H:%M:%S%z",
+                                    "%Y-%m-%dT%H:%M:%SZ",
+                                ]:
+                                    try:
+                                        published_at = datetime.strptime(pub_date_elem.text.strip(), fmt)
+                                        break
+                                    except ValueError:
+                                        continue
+                            except Exception:
+                                pass
+
+                        # Detect article type from content
+                        article_type = self._detect_article_type(title, content or "")
+
+                        articles.append(
+                            NewsArticle(
+                                title=title,
+                                content=content[:500] if content else None,
+                                source=source,
+                                url=url,
+                                published_at=published_at,
+                                team_name=team_name,
+                                team_id=self.TEAM_IDS.get(team_name) if team_name else None,
+                                article_type=article_type,
+                            )
+                        )
+
+                except Exception as e:
+                    logger.debug(f"Error parsing RSS item: {e}")
+                    continue
+
+        except ET.ParseError as e:
+            logger.warning(f"Error parsing RSS XML from {source}: {e}")
 
         return articles
+
+    def _detect_article_type(self, title: str, content: str) -> str:
+        """Detect the type of article based on keywords."""
+        text = f"{title} {content}".lower()
+
+        # Injury keywords
+        injury_keywords = ["injury", "injured", "blessure", "blessé", "ruled out", "sidelined", "miss", "doubt"]
+        if any(kw in text for kw in injury_keywords):
+            return "injury"
+
+        # Transfer keywords
+        transfer_keywords = ["transfer", "signing", "sign", "deal", "bid", "target", "linked", "mercato", "transfert"]
+        if any(kw in text for kw in transfer_keywords):
+            return "transfer"
+
+        # Form/result keywords
+        form_keywords = ["win", "victory", "defeat", "loss", "draw", "result", "score", "victoire", "défaite"]
+        if any(kw in text for kw in form_keywords):
+            return "form"
+
+        # Preview keywords
+        preview_keywords = ["preview", "preview", "avant-match", "pronostic", "prediction"]
+        if any(kw in text for kw in preview_keywords):
+            return "preview"
+
+        return "general"
 
     async def ingest_team_news(
         self,
@@ -334,7 +489,55 @@ class NewsIngestionService:
             "indexer_stats": self.indexer.get_stats(),
             "supported_competitions": list(self.COMPETITIONS.keys()),
             "known_teams": len(self.TEAM_IDS),
+            "rss_sources": list(self.RSS_SOURCES.keys()),
         }
+
+    async def fetch_injury_news(self, team_name: str, max_articles: int = 5) -> list[NewsArticle]:
+        """Fetch injury-specific news for a team."""
+        articles: list[NewsArticle] = []
+
+        try:
+            search_queries = [
+                f"{team_name} injury injured",
+                f"{team_name} blessure blessé",
+                f"{team_name} ruled out doubtful",
+            ]
+
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                for query in search_queries:
+                    if len(articles) >= max_articles:
+                        break
+
+                    try:
+                        encoded_query = quote(query)
+                        rss_url = self.GOOGLE_NEWS_RSS.format(
+                            query=encoded_query,
+                            lang="fr",
+                            country="FR",
+                        )
+
+                        response = await client.get(rss_url)
+                        if response.status_code == 200:
+                            parsed = self._parse_rss_feed(
+                                response.text,
+                                source="Google News (Injury)",
+                                team_name=team_name,
+                            )
+                            # Only keep injury-related articles
+                            injury_articles = [a for a in parsed if a.article_type == "injury"]
+                            articles.extend(injury_articles)
+
+                        await asyncio.sleep(0.3)
+
+                    except Exception as e:
+                        logger.warning(f"Error fetching injury news for {team_name}: {e}")
+
+            logger.info(f"Fetched {len(articles)} injury news for {team_name}")
+            return articles[:max_articles]
+
+        except Exception as e:
+            logger.error(f"Error in fetch_injury_news for {team_name}: {e}")
+            return []
 
 
 # Singleton instance
