@@ -168,11 +168,26 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     const supabase = createClient();
 
-    // Initialize auth: validate user with server, then get token
+    // Initialize auth: get session first (fast), then validate with server
     const initializeAuth = async () => {
       try {
-        // Use getUser() first to validate with server (not just local storage)
-        // Wrap with timeout to prevent hanging (known Supabase issue)
+        // STEP 1: Get session from local storage/cookies FIRST (synchronous, no network)
+        // This lets us set the token immediately so API calls don't fail
+        const { data: { session: localSession } } = await supabase.auth.getSession();
+
+        if (localSession?.access_token) {
+          // Set token immediately from local session
+          setAuthToken(localSession.access_token, localSession.expires_in);
+          console.log('[Providers] Token set from local session');
+
+          // Clear redirect marker - we have a session
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('auth_redirect_time');
+          }
+        }
+
+        // STEP 2: Validate with server in background (can be aborted without issues)
+        // This ensures the session is still valid server-side
         const getUserWithTimeout = async () => {
           const timeoutPromise = new Promise<{ data: { user: null }; error: Error }>((resolve) =>
             setTimeout(() => resolve({ data: { user: null }, error: new Error('Auth timeout') }), 10000)
@@ -181,25 +196,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
         };
 
         const { data: { user }, error: userError } = await getUserWithTimeout();
-        console.log('[Providers] Initial user check:', !!user, userError?.message || '');
+        console.log('[Providers] Server validation:', !!user, userError?.message || '');
 
-        if (user && !userError) {
-          // User is valid, get the session for the token
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.access_token) {
-            // Pass expiration info to token store
-            const expiresIn = session.expires_in;
-            setAuthToken(session.access_token, expiresIn);
-            console.log('[Providers] Token set, expires in:', expiresIn, 'seconds');
-
-            // Clear redirect marker - we're authenticated now
-            if (typeof window !== 'undefined') {
-              sessionStorage.removeItem('auth_redirect_time');
-            }
+        if (!user || userError) {
+          // Server says user is invalid - clear auth
+          // But only if we had a local session (prevents clearing on fresh load)
+          if (localSession?.access_token) {
+            console.log('[Providers] Server invalidated session, clearing auth');
+            clearAuthToken();
           }
-        } else {
-          // No valid user - clear any stale token
-          clearAuthToken();
         }
       } catch (err) {
         // Handle different error types
@@ -208,12 +213,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
         if (error?.name === 'AbortError') {
           console.log('[Providers] Auth init aborted by navigation');
           // Auth check was cancelled - this is normal during navigation
-          // DON'T clear cookies here - they might be valid
-          // Just clear the token store since we don't have a confirmed session
-          clearAuthToken();
-          console.log('[Providers] Token cleared, cookies kept for potential re-auth');
+          // DON'T clear token or cookies here - they might be valid
+          // The next page will re-initialize auth and get the token
+          // Clearing here causes race conditions where API calls fire with no token
+          console.log('[Providers] Keeping existing auth state for re-init');
+        } else if (error?.message === 'Auth timeout') {
+          // Timeout - the auth server didn't respond in time
+          // Keep existing state, user might still be logged in
+          console.warn('[Providers] Auth init timeout, keeping existing state');
         } else {
-          // Timeout or other error - log and continue without auth
+          // Other error - log and continue without auth
           console.error('[Providers] Auth init error:', err);
           clearAuthToken();
         }
