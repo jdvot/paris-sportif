@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { createClient } from "@/lib/supabase/client";
 import { setAuthToken, clearAuthToken, markAuthInitialized } from "@/lib/auth/token-store";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 // Flag to prevent multiple redirects
 let isRedirecting = false;
@@ -204,14 +205,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
   /**
    * Initialize auth using getSession() + onAuthStateChange
    *
-   * WORKAROUND for Next.js 15 + @supabase/ssr bug:
-   * The INITIAL_SESSION event from onAuthStateChange doesn't fire correctly.
-   * Instead, we explicitly call getSession() to read the session from cookies,
-   * then use onAuthStateChange only for subsequent updates.
+   * Uses async/await with finally block to GUARANTEE isReady is set,
+   * preventing blank page issues from AbortError or other errors.
    */
   useEffect(() => {
-    // Track if this effect instance is still active (not cleaned up)
     let isActive = true;
+    let didSetReady = false;
 
     console.log('[Providers] Setting up auth...');
 
@@ -220,68 +219,87 @@ export function Providers({ children }: { children: React.ReactNode }) {
       sessionStorage.removeItem('oauth_pending');
     }
 
+    // SAFETY TIMEOUT: Force isReady after 3 seconds if not already set
+    // This prevents permanent blank page in edge cases
+    const safetyTimeout = setTimeout(() => {
+      if (!didSetReady && isActive) {
+        console.warn('[Providers] Safety timeout triggered - forcing isReady');
+        markAuthInitialized();
+        setIsReady(true);
+        didSetReady = true;
+      }
+    }, 3000);
+
     const supabase = createClient();
 
-    // STEP 1: Use getSession() to read session from cookies
-    // This is the workaround for INITIAL_SESSION not firing in Next.js 15
-    console.log('[Providers] Calling getSession() to read cookies...');
-    supabase.auth.getSession().then(({ data, error }: { data: { session: { access_token?: string; expires_in?: number; user?: { email?: string } } | null }; error: { message?: string } | null }) => {
-      // Ignore if component was unmounted (StrictMode cleanup)
-      if (!isActive) {
-        console.log('[Providers] getSession() completed but component unmounted, ignoring');
-        return;
-      }
+    // Initialize auth with async/await pattern for cleaner error handling
+    const initAuth = async () => {
+      console.log('[Providers] Calling getSession() to read cookies...');
 
-      console.log('[Providers] getSession() result:', {
-        hasSession: !!data?.session,
-        hasUser: !!data?.session?.user,
-        userEmail: data?.session?.user?.email,
-        error: error?.message,
-      });
+      try {
+        const { data, error } = await supabase.auth.getSession();
 
-      if (data?.session?.access_token) {
-        console.log('[Providers] Session found! Setting token...');
-        setAuthToken(data.session.access_token, data.session.expires_in);
-
-        // Clear redirect marker
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('auth_redirect_time');
+        // Ignore if component was unmounted (StrictMode cleanup)
+        if (!isActive) {
+          console.log('[Providers] getSession() completed but component unmounted, ignoring');
+          return;
         }
 
-        // Set up periodic validation
-        if (!validationIntervalRef.current) {
-          validationIntervalRef.current = setInterval(() => {
-            console.log('[Providers] Periodic validation');
-            validateUserWithServer();
-          }, USER_VALIDATION_INTERVAL_MS);
+        console.log('[Providers] getSession() result:', {
+          hasSession: !!data?.session,
+          hasUser: !!data?.session?.user,
+          userEmail: data?.session?.user?.email,
+          error: error?.message,
+        });
+
+        if (data?.session?.access_token) {
+          console.log('[Providers] Session found! Setting token...');
+          setAuthToken(data.session.access_token, data.session.expires_in);
+
+          // Clear redirect marker
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('auth_redirect_time');
+          }
+
+          // Set up periodic validation
+          if (!validationIntervalRef.current) {
+            validationIntervalRef.current = setInterval(() => {
+              console.log('[Providers] Periodic validation');
+              validateUserWithServer();
+            }, USER_VALIDATION_INTERVAL_MS);
+          }
+        } else {
+          console.log('[Providers] No session found');
+          markAuthInitialized();
         }
-      } else {
-        console.log('[Providers] No session found');
+      } catch (err) {
+        const error = err as { name?: string };
+        // Log AbortError but don't treat it differently - we still need to mark ready
+        if (error?.name === 'AbortError') {
+          console.log('[Providers] getSession() aborted (StrictMode), marking ready anyway');
+        } else {
+          console.error('[Providers] getSession() error:', err);
+        }
+
+        if (!isActive) return;
         markAuthInitialized();
+      } finally {
+        // CRITICAL: Always mark as ready, even on error
+        // This prevents blank page issues
+        if (isActive && !didSetReady) {
+          setIsReady(true);
+          didSetReady = true;
+          console.log('[Providers] isReady = true');
+        }
       }
+    };
 
-      // Mark as ready after getSession completes
-      setIsReady(true);
-      console.log('[Providers] isReady = true');
-    }).catch((err: unknown) => {
-      // Ignore AbortError from StrictMode unmount
-      const error = err as { name?: string };
-      if (error?.name === 'AbortError') {
-        console.log('[Providers] getSession() aborted (StrictMode unmount), will retry on remount');
-        return;
-      }
+    initAuth();
 
-      if (!isActive) return;
-
-      console.error('[Providers] getSession() error:', err);
-      markAuthInitialized();
-      setIsReady(true);
-    });
-
-    // STEP 2: Set up onAuthStateChange for future events (SIGNED_IN, SIGNED_OUT, etc.)
+    // Set up onAuthStateChange for future events (SIGNED_IN, SIGNED_OUT, etc.)
     // We skip INITIAL_SESSION because we handled it above with getSession()
     console.log('[Providers] Setting up onAuthStateChange listener');
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: { access_token?: string; expires_in?: number; user?: { email?: string } } | null) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       console.log('[Providers] onAuthStateChange:', event, 'session:', !!session);
 
       // Skip INITIAL_SESSION - we already handled it with getSession()
@@ -331,6 +349,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return () => {
       console.log('[Providers] Cleanup');
       isActive = false;
+      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
       if (validationIntervalRef.current) {
         clearInterval(validationIntervalRef.current);

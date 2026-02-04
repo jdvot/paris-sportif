@@ -31,13 +31,10 @@ export async function updateSession(request: NextRequest) {
           supabaseResponse = NextResponse.next({
             request,
           });
+          // Let Supabase manage cookie options - don't override httpOnly
+          // Supabase SSR handles this correctly for browser client access
           cookiesToSet.forEach(({ name, value, options }) => {
-            // CRITICAL: Override httpOnly to false so browser client can read cookies
-            supabaseResponse.cookies.set(name, value, {
-              ...options,
-              httpOnly: false,
-              path: "/",
-            });
+            supabaseResponse.cookies.set(name, value, options);
           });
         },
       },
