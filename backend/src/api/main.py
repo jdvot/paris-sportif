@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from datetime import date, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,6 +24,7 @@ from src.api.routes import (
     dashboard,
     debug,
     enrichment,
+    favorites,
     health,
     matches,
     ml,
@@ -146,11 +148,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         name="Auto sync matches and verify predictions",
         replace_existing=True,
     )
+
+    # Add daily cache calculation job at 6am UTC
+    scheduler.add_job(
+        _run_daily_cache,
+        trigger=CronTrigger(hour=6, minute=0),  # 6:00 AM UTC daily
+        id="daily_cache_calculation",
+        name="Calculate and cache stats at 6am daily",
+        replace_existing=True,
+    )
+
     scheduler.start()
-    print("[Scheduler] Started - auto sync every 6 hours")
+    print("[Scheduler] Started - auto sync every 6 hours, cache refresh at 6am UTC")
 
     # Run initial sync after 30 seconds (let app fully start first)
     asyncio.create_task(_delayed_initial_sync())
+
+    # Run initial cache calculation after 60 seconds
+    asyncio.create_task(_delayed_initial_cache())
 
     yield
 
@@ -166,6 +181,26 @@ async def _delayed_initial_sync():
     await asyncio.sleep(30)  # Wait 30 seconds for app to fully start
     logger.info("[Scheduler] Running initial sync...")
     await auto_sync_and_verify()
+
+
+async def _run_daily_cache():
+    """Run daily cache calculation."""
+    logger.info("[Scheduler] Running daily cache calculation...")
+    try:
+        from src.services.cache_service import init_cache_table, run_daily_cache_calculation
+
+        init_cache_table()
+        result = await run_daily_cache_calculation()
+        logger.info(f"[Scheduler] Cache calculation complete: {len(result['success'])} success, {len(result['failed'])} failed")
+    except Exception as e:
+        logger.error(f"[Scheduler] Cache calculation failed: {e}")
+
+
+async def _delayed_initial_cache():
+    """Run initial cache calculation after app startup."""
+    await asyncio.sleep(60)  # Wait 60 seconds for app and sync to complete
+    logger.info("[Scheduler] Running initial cache calculation...")
+    await _run_daily_cache()
 
 
 app = FastAPI(
@@ -283,6 +318,11 @@ app.include_router(
     stripe.router,
     prefix=f"{settings.api_v1_prefix}/stripe",
     tags=["Payments"],
+)
+app.include_router(
+    favorites.router,
+    prefix=f"{settings.api_v1_prefix}/user",
+    tags=["User Data"],
 )
 
 

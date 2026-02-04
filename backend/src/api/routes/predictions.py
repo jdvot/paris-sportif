@@ -1103,13 +1103,39 @@ async def get_prediction_stats(
     request: Request,
     user: AuthenticatedUser,
     days: int = Query(30, ge=7, le=365, description="Number of days to analyze"),
+    force_refresh: bool = Query(False, description="Force recalculation, bypass cache"),
 ) -> PredictionStatsResponse:
-    """Get historical prediction performance statistics."""
+    """Get historical prediction performance statistics.
+
+    Stats are pre-calculated daily at 6am and cached.
+    Use force_refresh=true to bypass cache.
+    """
     from src.data.database import (
         get_all_predictions_stats,
         get_prediction_statistics,
         verify_finished_matches,
     )
+
+    # Try to get cached data first (only for default 30 days)
+    if days == 30 and not force_refresh:
+        try:
+            from src.services.cache_service import get_cached_data
+
+            cached = get_cached_data("prediction_stats_30d")
+            if cached:
+                logger.debug("Returning cached prediction stats")
+                return PredictionStatsResponse(
+                    total_predictions=cached.get("total_predictions", 0),
+                    verified_predictions=cached.get("verified_predictions", 0),
+                    correct_predictions=cached.get("correct_predictions", 0),
+                    accuracy=cached.get("accuracy", 0.0),
+                    roi_simulated=cached.get("roi_simulated", 0.0),
+                    by_competition=cached.get("by_competition", {}),
+                    by_bet_type=cached.get("by_bet_type", {}),
+                    last_updated=datetime.fromisoformat(cached.get("calculated_at", datetime.now().isoformat())),
+                )
+        except Exception as e:
+            logger.warning(f"Cache lookup failed, falling back to live calculation: {e}")
 
     # First, verify any finished matches that haven't been verified
     verify_finished_matches()

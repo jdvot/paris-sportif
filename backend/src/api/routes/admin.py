@@ -4,6 +4,7 @@ Provides endpoints for admin-only operations and statistics.
 """
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -304,3 +305,92 @@ async def send_daily_picks_notification(user: AdminUser) -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Error sending daily picks notification: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to send notification: {str(e)}")
+
+
+# ============================================================================
+# Cache management endpoints
+# ============================================================================
+
+
+class CacheRefreshResponse(BaseModel):
+    """Cache refresh response."""
+
+    status: str
+    success: list[str]
+    failed: list[str]
+    timestamp: str
+
+
+@router.post("/cache/refresh", response_model=CacheRefreshResponse, responses=ADMIN_RESPONSES)
+async def refresh_cache(user: AdminUser) -> CacheRefreshResponse:
+    """
+    Refresh all cached data.
+
+    Manually triggers the daily cache calculation:
+    - Prediction statistics
+    - League standings for all competitions
+    - Teams data
+    - Upcoming matches
+
+    Admin role required.
+    """
+    from src.services.cache_service import init_cache_table, run_daily_cache_calculation
+
+    try:
+        # Ensure cache table exists
+        init_cache_table()
+
+        # Run cache calculation
+        result = await run_daily_cache_calculation()
+
+        return CacheRefreshResponse(
+            status="success",
+            success=result["success"],
+            failed=result["failed"],
+            timestamp=datetime.now().isoformat(),
+        )
+    except Exception as e:
+        logger.error(f"Error refreshing cache: {e}")
+        raise HTTPException(status_code=500, detail=f"Cache refresh failed: {str(e)}")
+
+
+@router.get("/cache/status", responses=ADMIN_RESPONSES)
+async def get_cache_status(user: AdminUser) -> dict[str, Any]:
+    """
+    Get cache status and expiration times.
+
+    Admin role required.
+    """
+    from src.data.database import adapt_query, fetch_all_dict, get_db_connection
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        query = adapt_query("""
+            SELECT cache_key, cache_type, expires_at, created_at, updated_at
+            FROM cached_data
+            ORDER BY cache_type, cache_key
+        """)
+        cursor.execute(query)
+        cached_items = fetch_all_dict(cursor)
+        conn.close()
+
+        return {
+            "status": "success",
+            "cached_items": [
+                {
+                    "key": item.get("cache_key"),
+                    "type": item.get("cache_type"),
+                    "expires_at": str(item.get("expires_at")),
+                    "created_at": str(item.get("created_at")),
+                    "is_expired": datetime.now() > item.get("expires_at") if item.get("expires_at") else True,
+                }
+                for item in cached_items
+            ],
+            "total_cached": len(cached_items),
+            "timestamp": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Error getting cache status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get cache status: {str(e)}")
