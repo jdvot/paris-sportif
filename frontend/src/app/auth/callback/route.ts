@@ -1,12 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import type { CookieOptions } from "@supabase/ssr";
 
 /**
  * OAuth callback route handler
  *
  * This route exchanges the OAuth code for a session and redirects the user.
- * Important: Cookies must be properly set on the redirect response.
+ * CRITICAL: Cookies must be set on the redirect response itself, not via cookieStore.
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -29,7 +30,11 @@ export async function GET(request: Request) {
     const supabaseCookies = existingCookies.filter((c) => c.name.startsWith("sb-"));
     console.log("[Callback] Existing Supabase cookies:", supabaseCookies.map((c) => c.name));
 
-    // Create supabase client that can set cookies on the response
+    // Collect cookies to set on the redirect response
+    // IMPORTANT: We can't use cookieStore.set() because it doesn't work with NextResponse.redirect()
+    const cookiesToSet: { name: string; value: string; options: CookieOptions }[] = [];
+
+    // Create supabase client that collects cookies instead of setting them immediately
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -40,12 +45,10 @@ export async function GET(request: Request) {
             console.log("[Callback] getAll() called, returning", cookies.length, "cookies");
             return cookies;
           },
-          setAll(cookiesToSet) {
-            console.log("[Callback] setAll() called with", cookiesToSet.length, "cookies:", cookiesToSet.map((c) => c.name));
-            cookiesToSet.forEach(({ name, value, options }) => {
-              console.log("[Callback] Setting cookie:", name, "options:", JSON.stringify(options));
-              cookieStore.set(name, value, options);
-            });
+          setAll(cookies) {
+            console.log("[Callback] setAll() called with", cookies.length, "cookies:", cookies.map((c) => c.name));
+            // Collect cookies instead of setting them - we'll set them on the redirect response
+            cookiesToSet.push(...cookies);
           },
         },
       }
@@ -54,46 +57,47 @@ export async function GET(request: Request) {
     console.log("[Callback] Exchanging code for session...");
     const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code);
     console.log("[Callback] exchangeCodeForSession result - session:", !!sessionData?.session, "error:", error?.message || "none");
+    console.log("[Callback] Cookies collected:", cookiesToSet.length);
 
-    if (!error) {
-      // Validate that the session was actually created
-      console.log("[Callback] Validating user with getUser()...");
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+    if (!error && sessionData?.session) {
+      console.log("[Callback] OAuth SUCCESS - user:", sessionData.session.user.email, "id:", sessionData.session.user.id);
 
-      console.log("[Callback] getUser() result - user:", user?.email || "none", "error:", userError?.message || "none");
+      // Handle different environments
+      const forwardedHost = request.headers.get("x-forwarded-host");
+      const isLocalEnv = process.env.NODE_ENV === "development";
 
-      if (user && !userError) {
-        console.log("[Callback] OAuth SUCCESS - user:", user.email, "id:", user.id);
+      console.log("[Callback] Environment:", isLocalEnv ? "development" : "production");
+      console.log("[Callback] x-forwarded-host:", forwardedHost || "none");
 
-        // Handle different environments
-        const forwardedHost = request.headers.get("x-forwarded-host");
-        const isLocalEnv = process.env.NODE_ENV === "development";
-
-        console.log("[Callback] Environment:", isLocalEnv ? "development" : "production");
-        console.log("[Callback] x-forwarded-host:", forwardedHost || "none");
-
-        let redirectUrl: string;
-        if (isLocalEnv) {
-          redirectUrl = `${origin}${next}`;
-        } else if (forwardedHost) {
-          redirectUrl = `https://${forwardedHost}${next}`;
-        } else {
-          redirectUrl = `${origin}${next}`;
-        }
-
-        console.log("[Callback] Redirecting to:", redirectUrl);
-        console.log("[Callback] ===== OAUTH CALLBACK END (success) =====");
-
-        // Use NextResponse.redirect - cookies are already set via cookieStore
-        return NextResponse.redirect(redirectUrl);
+      let redirectUrl: string;
+      if (isLocalEnv) {
+        redirectUrl = `${origin}${next}`;
+      } else if (forwardedHost) {
+        redirectUrl = `https://${forwardedHost}${next}`;
+      } else {
+        redirectUrl = `${origin}${next}`;
       }
 
-      console.error("[Callback] User validation failed:", userError?.message);
-    } else {
+      console.log("[Callback] Redirecting to:", redirectUrl);
+
+      // Create redirect response and set ALL cookies on it
+      const response = NextResponse.redirect(redirectUrl);
+
+      cookiesToSet.forEach(({ name, value, options }) => {
+        console.log("[Callback] Setting cookie on response:", name);
+        response.cookies.set(name, value, options);
+      });
+
+      console.log("[Callback] Response cookies set:", response.cookies.getAll().map(c => c.name));
+      console.log("[Callback] ===== OAUTH CALLBACK END (success) =====");
+
+      return response;
+    }
+
+    if (error) {
       console.error("[Callback] Code exchange failed:", error.message, error.status);
+    } else {
+      console.error("[Callback] No session returned from exchange");
     }
   } else {
     console.error("[Callback] No code provided in callback URL");
