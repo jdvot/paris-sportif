@@ -56,7 +56,7 @@ scheduler: AsyncIOScheduler | None = None
 
 async def auto_sync_and_verify():
     """
-    Automatic job to sync finished matches and verify predictions.
+    Automatic job to sync matches, standings, and verify predictions.
     Runs every 6 hours to keep stats up to date.
     """
     logger.info("[Scheduler] Starting auto sync and verify job...")
@@ -88,11 +88,37 @@ async def auto_sync_and_verify():
                 logger.warning(f"[Scheduler] Error syncing {comp_code}: {e}")
                 await asyncio.sleep(10)  # Wait longer on error
 
+        # Sync standings for league competitions (includes form data)
+        standings_synced = 0
+        league_competitions = ["PL", "PD", "BL1", "SA", "FL1"]
+        for comp_code in league_competitions:
+            try:
+                data = await client._request("GET", f"/competitions/{comp_code}/standings")
+                for standing_group in data.get("standings", []):
+                    if standing_group.get("type") == "TOTAL":
+                        from src.db.services.match_service import StandingService
+                        standings_list = standing_group.get("table", [])
+                        synced = await StandingService.save_standings(comp_code, standings_list)
+                        standings_synced += synced
+                        break
+                await asyncio.sleep(2)
+            except Exception as e:
+                logger.warning(f"[Scheduler] Error syncing standings for {comp_code}: {e}")
+
         # Verify predictions against actual results
         verified_count = await PredictionService.verify_all_finished()
 
+        # Recalculate team stats from match history
+        teams_updated = 0
+        try:
+            from src.api.routes.sync import _recalculate_all_team_stats
+            teams_updated = await _recalculate_all_team_stats()
+        except Exception as e:
+            logger.warning(f"[Scheduler] Error recalculating team stats: {e}")
+
         logger.info(
-            f"[Scheduler] Auto sync complete: {total_synced} matches synced, {verified_count} predictions verified"
+            f"[Scheduler] Auto sync complete: {total_synced} matches, {standings_synced} standings, "
+            f"{verified_count} predictions verified, {teams_updated} teams updated"
         )
 
     except Exception as e:

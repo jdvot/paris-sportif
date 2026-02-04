@@ -11,11 +11,12 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   // Fetch match data from API
   let homeTeam = "Equipe Domicile";
   let awayTeam = "Equipe Extérieure";
-  let prediction = "home_win";
-  let confidence = 70;
-  let homeProb = 50;
-  let drawProb = 25;
-  let awayProb = 25;
+  // Default values for OG image (prediction data requires auth, not available here)
+  const prediction = "home_win";
+  const confidence = 70;
+  const homeProb = 50;
+  const drawProb = 25;
+  const awayProb = 25;
   const competition = "Football";
 
   try {
