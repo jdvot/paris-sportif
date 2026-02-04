@@ -282,3 +282,23 @@ class PushSubscription(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class CachedData(Base):
+    """Pre-calculated data cache for fast API responses.
+
+    Stores JSON data calculated daily at 6am to avoid real-time computation.
+    Cache types: prediction_stats, standings, teams, upcoming_matches
+    """
+
+    __tablename__ = "cached_data"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    cache_key: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    cache_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # prediction_stats, standings, teams, upcoming_matches
+    data: Mapped[str] = mapped_column(Text, nullable=False)  # JSON data
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())

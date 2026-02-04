@@ -794,6 +794,8 @@ async def get_standings(
     """
     Get current league standings for a competition.
 
+    Standings are pre-calculated daily at 6am and cached.
+
     Competition codes:
     - PL: Premier League
     - PD: La Liga
@@ -809,6 +811,40 @@ async def get_standings(
                 status_code=400,
                 detail=f"Invalid competition: {competition_code}. Use: {valid_codes}",
             )
+
+        # Try to get cached data first
+        try:
+            from src.services.cache_service import get_cached_data
+
+            cached = get_cached_data(f"standings_{competition_code}")
+            if cached:
+                logger.debug(f"Returning cached standings for {competition_code}")
+                standings = [
+                    StandingTeamResponse(
+                        position=team.get("position", 0),
+                        team_id=team.get("team_id", 0),
+                        team_name=team.get("team_name", "Unknown"),
+                        team_logo_url=team.get("team_logo_url"),
+                        played=team.get("played", 0),
+                        won=team.get("won", 0),
+                        drawn=team.get("drawn", 0),
+                        lost=team.get("lost", 0),
+                        goals_for=team.get("goals_for", 0),
+                        goals_against=team.get("goals_against", 0),
+                        goal_difference=team.get("goal_difference", 0),
+                        points=team.get("points", 0),
+                    )
+                    for team in cached.get("standings", [])
+                ]
+                return StandingsResponse(
+                    competition_code=competition_code,
+                    competition_name=cached.get("competition_name", COMPETITIONS.get(competition_code, competition_code)),
+                    standings=standings,
+                    last_updated=datetime.fromisoformat(cached.get("calculated_at", datetime.now().isoformat())),
+                    data_source=DataSourceInfo(source="cache"),
+                )
+        except Exception as e:
+            logger.warning(f"Cache lookup failed for standings {competition_code}: {e}")
 
         # Fetch standings from API
         client = get_football_data_client()
