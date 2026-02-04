@@ -202,149 +202,114 @@ export function Providers({ children }: { children: React.ReactNode }) {
       })
   );
 
-  // Initialize auth and listen for state changes
-  // CRITICAL: Block rendering until auth is hydrated to prevent race conditions
+  // Initialize auth using onAuthStateChange ONLY
+  // This is more reliable than getSession() which can abort
   useEffect(() => {
     // Prevent double initialization in StrictMode
     if (initStarted.current) return;
     initStarted.current = true;
 
+    console.log('[Providers] Setting up auth...');
+
+    // Clear OAuth pending flag if present
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('oauth_pending');
+    }
+
     const supabase = createClient();
 
-    // Initialize auth: simply read session from cookies (set by middleware/callback)
-    // No network calls needed - middleware handles token refresh
-    const initializeAuth = async () => {
-      console.log('[Providers] initializeAuth starting...');
-      try {
-        // Clear OAuth pending flag if present
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('oauth_pending');
-          console.log('[Providers] Cleared oauth_pending flag');
-        }
-
-        // Read session from cookies - this is synchronous, no network call
-        // The middleware has already refreshed the token if needed
-        console.log('[Providers] Calling getSession()...');
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error('[Providers] getSession() error:', sessionError.message);
-        }
-
-        console.log('[Providers] getSession() result - session:', !!session, 'token:', !!session?.access_token);
-
-        if (session?.access_token) {
-          setAuthToken(session.access_token, session.expires_in);
-          console.log('[Providers] Token set from session, expires_in:', session.expires_in);
-
-          // Clear redirect marker - we have a session
-          if (typeof window !== 'undefined') {
-            sessionStorage.removeItem('auth_redirect_time');
-            console.log('[Providers] Cleared auth_redirect_time');
-          }
-
-          // Validate user with server on init (best practice per Supabase docs)
-          // "The only way to ensure a user has logged out is getUser()"
-          console.log('[Providers] Initial server validation with getUser()...');
-          const isValid = await validateUserWithServer();
-          console.log('[Providers] Initial validation result:', isValid);
-
-          // Set up periodic validation (every 5 minutes)
-          if (validationIntervalRef.current) {
-            clearInterval(validationIntervalRef.current);
-          }
-          validationIntervalRef.current = setInterval(() => {
-            console.log('[Providers] Periodic validation triggered');
-            validateUserWithServer();
-          }, USER_VALIDATION_INTERVAL_MS);
-          console.log('[Providers] Set up periodic validation every', USER_VALIDATION_INTERVAL_MS / 1000, 'seconds');
-        } else {
-          console.log('[Providers] No session found');
-          // Mark auth as initialized even without a session
-          // This allows API calls to proceed (and get 401 if needed)
-          markAuthInitialized();
-        }
-      } catch (err) {
-        const error = err as { name?: string; message?: string };
-
-        if (error?.name === 'AbortError') {
-          // Navigation cancelled the request - this is fine
-          // Keep existing auth state, the next render will re-init
-          console.log('[Providers] Auth init aborted, keeping existing state');
-          markAuthInitialized(); // Still mark as initialized to unblock API calls
-        } else {
-          console.error('[Providers] Auth init error:', err);
-          clearAuthToken();
-          markAuthInitialized(); // Mark initialized even on error
-        }
-      } finally {
-        console.log('[Providers] initializeAuth complete, setting isReady=true');
-        setIsReady(true);
-      }
-    };
-
-    initializeAuth();
-
-    // Listen for auth state changes AFTER initial hydration
+    // Use onAuthStateChange as the ONLY source of truth
+    // The INITIAL_SESSION event fires immediately with the current session
     console.log('[Providers] Setting up onAuthStateChange listener');
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: { access_token?: string; expires_in?: number } | null) => {
-      console.log('[Providers] onAuthStateChange fired:', {
-        event,
-        hasSession: !!session,
-        hasToken: !!session?.access_token,
-        expiresIn: session?.expires_in,
-      });
+      console.log('[Providers] onAuthStateChange:', event, 'session:', !!session, 'token:', !!session?.access_token);
 
-      // Update token store with new token
-      if (session?.access_token) {
-        setAuthToken(session.access_token, session.expires_in);
-        console.log('[Providers] Token updated in store');
-      } else {
-        clearAuthToken();
-        console.log('[Providers] Token cleared from store');
-      }
+      // Handle initial session - this fires immediately when listener is set up
+      if (event === 'INITIAL_SESSION') {
+        console.log('[Providers] INITIAL_SESSION received');
+        if (session?.access_token) {
+          setAuthToken(session.access_token, session.expires_in);
+          console.log('[Providers] Token set from INITIAL_SESSION');
 
-      // When user signs in (including OAuth callback), invalidate all queries
-      // so they refetch with the new auth token
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        console.log('[Providers] Invalidating queries after auth change');
-        queryClient.invalidateQueries();
+          // Clear redirect marker
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('auth_redirect_time');
+          }
 
-        // Start periodic validation if not already running
-        if (!validationIntervalRef.current && session?.access_token) {
-          validationIntervalRef.current = setInterval(() => {
-            console.log('[Providers] Periodic validation triggered');
-            validateUserWithServer();
-          }, USER_VALIDATION_INTERVAL_MS);
-          console.log('[Providers] Started periodic validation');
+          // Set up periodic validation
+          if (!validationIntervalRef.current) {
+            validationIntervalRef.current = setInterval(() => {
+              console.log('[Providers] Periodic validation');
+              validateUserWithServer();
+            }, USER_VALIDATION_INTERVAL_MS);
+          }
+        } else {
+          console.log('[Providers] No session in INITIAL_SESSION');
+          markAuthInitialized();
         }
+        // Mark as ready after processing initial session
+        setIsReady(true);
+        console.log('[Providers] isReady = true');
+        return;
       }
 
-      // When user signs out, clear the cache and token
+      // Handle sign in
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session?.access_token) {
+          setAuthToken(session.access_token, session.expires_in);
+          console.log('[Providers] Token updated after', event);
+          queryClient.invalidateQueries();
+
+          // Start periodic validation if not already running
+          if (!validationIntervalRef.current) {
+            validationIntervalRef.current = setInterval(() => {
+              validateUserWithServer();
+            }, USER_VALIDATION_INTERVAL_MS);
+          }
+        }
+        return;
+      }
+
+      // Handle sign out
       if (event === 'SIGNED_OUT') {
-        console.log('[Providers] Clearing cache after sign out');
+        console.log('[Providers] SIGNED_OUT - clearing auth');
         clearAuthToken();
         queryClient.clear();
 
-        // Stop periodic validation
         if (validationIntervalRef.current) {
           clearInterval(validationIntervalRef.current);
           validationIntervalRef.current = null;
-          console.log('[Providers] Stopped periodic validation');
         }
+        return;
+      }
+
+      // Handle other events (USER_UPDATED, PASSWORD_RECOVERY, etc.)
+      if (session?.access_token) {
+        setAuthToken(session.access_token, session.expires_in);
+      } else {
+        clearAuthToken();
       }
     });
 
+    // Fallback: if INITIAL_SESSION doesn't fire within 2 seconds, mark as ready anyway
+    const fallbackTimeout = setTimeout(() => {
+      if (!isReady) {
+        console.log('[Providers] Fallback: marking ready after timeout');
+        markAuthInitialized();
+        setIsReady(true);
+      }
+    }, 2000);
+
     return () => {
-      console.log('[Providers] Cleaning up auth subscription');
+      console.log('[Providers] Cleanup');
+      clearTimeout(fallbackTimeout);
       subscription.unsubscribe();
       if (validationIntervalRef.current) {
         clearInterval(validationIntervalRef.current);
         validationIntervalRef.current = null;
-        console.log('[Providers] Cleared validation interval');
       }
     };
-  }, [queryClient, validateUserWithServer]);
+  }, [queryClient, validateUserWithServer, isReady]);
 
   // Block rendering until auth is initialized to prevent race conditions
   // where API requests fire before the token is in the store
