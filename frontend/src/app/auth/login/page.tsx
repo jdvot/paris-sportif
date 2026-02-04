@@ -44,6 +44,9 @@ function LoginForm() {
     setIsGoogleLoading(true);
     setError(null);
 
+    // Mark that we're starting OAuth - helps Providers detect the return
+    sessionStorage.setItem('oauth_pending', 'true');
+
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -55,6 +58,7 @@ function LoginForm() {
     if (error) {
       setError(error.message);
       setIsGoogleLoading(false);
+      sessionStorage.removeItem('oauth_pending');
     }
     // If success, user will be redirected - no need to reset loading
   };

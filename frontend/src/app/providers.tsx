@@ -171,6 +171,26 @@ export function Providers({ children }: { children: React.ReactNode }) {
     // Initialize auth: get session first (fast), then validate with server
     const initializeAuth = async () => {
       try {
+        // Check if we're returning from OAuth callback (URL contains code or session in hash)
+        const isOAuthReturn = typeof window !== 'undefined' && (
+          window.location.search.includes('code=') ||
+          window.location.hash.includes('access_token=') ||
+          sessionStorage.getItem('oauth_pending') === 'true'
+        );
+
+        if (isOAuthReturn) {
+          console.log('[Providers] Detected OAuth return, forcing session refresh');
+          sessionStorage.removeItem('oauth_pending');
+          // Force refresh from server to get the session from httpOnly cookies
+          const { data: { session }, error } = await supabase.auth.refreshSession();
+          if (session?.access_token && !error) {
+            setAuthToken(session.access_token, session.expires_in);
+            console.log('[Providers] Token set after OAuth refresh');
+            setIsReady(true);
+            return;
+          }
+        }
+
         // STEP 1: Get session from local storage/cookies FIRST (synchronous, no network)
         // This lets us set the token immediately so API calls don't fail
         const { data: { session: localSession } } = await supabase.auth.getSession();
