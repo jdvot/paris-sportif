@@ -186,8 +186,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // STEP 2: Validate with server in background (can be aborted without issues)
-        // This ensures the session is still valid server-side
+        // STEP 2: Validate with server (syncs httpOnly cookies to client session)
+        // This is REQUIRED after OAuth callback because the session is in httpOnly cookies
         const getUserWithTimeout = async () => {
           const timeoutPromise = new Promise<{ data: { user: null }; error: Error }>((resolve) =>
             setTimeout(() => resolve({ data: { user: null }, error: new Error('Auth timeout') }), 10000)
@@ -198,13 +198,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
         const { data: { user }, error: userError } = await getUserWithTimeout();
         console.log('[Providers] Server validation:', !!user, userError?.message || '');
 
-        if (!user || userError) {
-          // Server says user is invalid - clear auth
-          // But only if we had a local session (prevents clearing on fresh load)
-          if (localSession?.access_token) {
-            console.log('[Providers] Server invalidated session, clearing auth');
-            clearAuthToken();
+        if (user && !userError) {
+          // User is valid - get the synced session to set the token
+          // This is needed because getUser() syncs the httpOnly cookies to the client
+          const { data: { session: syncedSession } } = await supabase.auth.getSession();
+          if (syncedSession?.access_token) {
+            setAuthToken(syncedSession.access_token, syncedSession.expires_in);
+            console.log('[Providers] Token set after server sync');
+
+            // Clear redirect marker - we have a valid session
+            if (typeof window !== 'undefined') {
+              sessionStorage.removeItem('auth_redirect_time');
+            }
           }
+        } else if (localSession?.access_token) {
+          // Server says user is invalid but we had a local session
+          console.log('[Providers] Server invalidated session, clearing auth');
+          clearAuthToken();
         }
       } catch (err) {
         // Handle different error types
