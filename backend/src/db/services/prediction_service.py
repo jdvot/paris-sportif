@@ -339,7 +339,7 @@ class PredictionService:
                         p.match.away_team.name if p.match and p.match.away_team else None
                     ),
                     "competition_code": (
-                        p.match.competition.code if p.match and p.match.competition else None
+                        p.match.competition_code if p.match else None
                     ),
                     "match_date": (
                         p.match.match_date.isoformat()
@@ -481,8 +481,8 @@ class PredictionService:
                 by_competition: dict[str, dict[str, Any]] = {}
                 for p in predictions:
                     comp_code = (
-                        p.match.competition.code
-                        if p.match and p.match.competition
+                        p.match.competition_code
+                        if p.match and p.match.competition_code
                         else "Unknown"
                     )
                     if comp_code not in by_competition:
