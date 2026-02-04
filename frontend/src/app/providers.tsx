@@ -168,97 +168,42 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     const supabase = createClient();
 
-    // Initialize auth: get session first (fast), then validate with server
+    // Initialize auth: simply read session from cookies (set by middleware/callback)
+    // No network calls needed - middleware handles token refresh
     const initializeAuth = async () => {
       try {
-        // Check if we're returning from OAuth callback (URL contains code or session in hash)
-        const isOAuthReturn = typeof window !== 'undefined' && (
-          window.location.search.includes('code=') ||
-          window.location.hash.includes('access_token=') ||
-          sessionStorage.getItem('oauth_pending') === 'true'
-        );
-
-        if (isOAuthReturn) {
-          console.log('[Providers] Detected OAuth return, forcing session refresh');
+        // Clear OAuth pending flag if present
+        if (typeof window !== 'undefined') {
           sessionStorage.removeItem('oauth_pending');
-          // Force refresh from server to get the session from httpOnly cookies
-          const { data: { session }, error } = await supabase.auth.refreshSession();
-          if (session?.access_token && !error) {
-            setAuthToken(session.access_token, session.expires_in);
-            console.log('[Providers] Token set after OAuth refresh');
-            setIsReady(true);
-            return;
-          }
         }
 
-        // STEP 1: Get session from local storage/cookies FIRST (synchronous, no network)
-        // This lets us set the token immediately so API calls don't fail
-        const { data: { session: localSession } } = await supabase.auth.getSession();
+        // Read session from cookies - this is synchronous, no network call
+        // The middleware has already refreshed the token if needed
+        const { data: { session } } = await supabase.auth.getSession();
 
-        if (localSession?.access_token) {
-          // Set token immediately from local session
-          setAuthToken(localSession.access_token, localSession.expires_in);
-          console.log('[Providers] Token set from local session');
+        if (session?.access_token) {
+          setAuthToken(session.access_token, session.expires_in);
+          console.log('[Providers] Token set from session');
 
           // Clear redirect marker - we have a session
           if (typeof window !== 'undefined') {
             sessionStorage.removeItem('auth_redirect_time');
           }
-        }
-
-        // STEP 2: Validate with server (syncs httpOnly cookies to client session)
-        // This is REQUIRED after OAuth callback because the session is in httpOnly cookies
-        const getUserWithTimeout = async () => {
-          const timeoutPromise = new Promise<{ data: { user: null }; error: Error }>((resolve) =>
-            setTimeout(() => resolve({ data: { user: null }, error: new Error('Auth timeout') }), 10000)
-          );
-          return Promise.race([supabase.auth.getUser(), timeoutPromise]);
-        };
-
-        const { data: { user }, error: userError } = await getUserWithTimeout();
-        console.log('[Providers] Server validation:', !!user, userError?.message || '');
-
-        if (user && !userError) {
-          // User is valid - get the synced session to set the token
-          // This is needed because getUser() syncs the httpOnly cookies to the client
-          const { data: { session: syncedSession } } = await supabase.auth.getSession();
-          if (syncedSession?.access_token) {
-            setAuthToken(syncedSession.access_token, syncedSession.expires_in);
-            console.log('[Providers] Token set after server sync');
-
-            // Clear redirect marker - we have a valid session
-            if (typeof window !== 'undefined') {
-              sessionStorage.removeItem('auth_redirect_time');
-            }
-          }
-        } else if (localSession?.access_token) {
-          // Server says user is invalid but we had a local session
-          console.log('[Providers] Server invalidated session, clearing auth');
-          clearAuthToken();
+        } else {
+          console.log('[Providers] No session found');
         }
       } catch (err) {
-        // Handle different error types
         const error = err as { name?: string; message?: string };
 
         if (error?.name === 'AbortError') {
-          console.log('[Providers] Auth init aborted by navigation');
-          // Auth check was cancelled - this is normal during navigation
-          // DON'T clear token or cookies here - they might be valid
-          // The next page will re-initialize auth and get the token
-          // Clearing here causes race conditions where API calls fire with no token
-          console.log('[Providers] Keeping existing auth state for re-init');
-        } else if (error?.message === 'Auth timeout') {
-          // Timeout - the auth server didn't respond in time
-          // Keep existing state, user might still be logged in
-          console.warn('[Providers] Auth init timeout, keeping existing state');
+          // Navigation cancelled the request - this is fine
+          // Keep existing auth state, the next render will re-init
+          console.log('[Providers] Auth init aborted, keeping existing state');
         } else {
-          // Other error - log and continue without auth
           console.error('[Providers] Auth init error:', err);
           clearAuthToken();
         }
       } finally {
-        // Always mark as ready, even on error
-        // The 401 handler will take care of redirecting if needed
         setIsReady(true);
       }
     };

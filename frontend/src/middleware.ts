@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Routes that DON'T require authentication (public pages)
 const PUBLIC_ROUTES = [
+  "/",           // Homepage - public (shows different content based on auth)
   "/auth/login",
   "/auth/signup",
   "/auth/forgot-password",
@@ -35,7 +36,7 @@ export async function middleware(request: NextRequest) {
     // Redirect authenticated users away from auth pages to their intended destination
     if (user && isAuthRoute && !pathname.includes("/callback") && !pathname.includes("/confirm") && !pathname.includes("/error") && !pathname.includes("/reset-password")) {
       // Check if there's a 'next' parameter to redirect to
-      const nextUrl = request.nextUrl.searchParams.get("next") || "/picks";
+      const nextUrl = request.nextUrl.searchParams.get("next") || "/";
 
       console.log("[Middleware] User authenticated on auth page, redirecting to:", nextUrl);
       return NextResponse.redirect(new URL(nextUrl, request.url));
