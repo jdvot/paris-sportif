@@ -441,6 +441,102 @@ async def get_last_sync_info(
     return {"message": f"No successful {sync_type} sync found"}
 
 
+@router.post("/historical", response_model=SyncResponse, responses=ADMIN_RESPONSES)
+async def sync_historical_season(
+    user: AdminUser,
+    season_start: date = Query(
+        default=date(2025, 8, 1),
+        description="Season start date (default: Aug 1, 2025)"
+    ),
+) -> SyncResponse:
+    """
+    Sync all matches from the start of the season.
+
+    Fetches FINISHED matches from season_start to today.
+    Use this to populate historical data for ML training.
+
+    WARNING: This may take several minutes due to API rate limits.
+    """
+    import asyncio
+
+    client = get_football_data_client()
+    today = date.today()
+
+    total_synced = 0
+    errors = []
+
+    logger.info(f"Starting historical sync from {season_start} to {today}")
+
+    # Sync each competition
+    for comp_code in COMPETITIONS.keys():
+        try:
+            logger.info(f"Fetching historical matches for {comp_code}...")
+
+            matches = await client.get_matches(
+                competition=comp_code,
+                date_from=season_start,
+                date_to=today,
+                status="FINISHED",
+            )
+
+            matches_dict = [m.model_dump() for m in matches]
+            synced = await MatchService.save_matches(matches_dict)
+            total_synced += synced
+            logger.info(f"Synced {synced} historical matches for {comp_code}")
+
+            # Wait between requests to respect rate limits
+            await asyncio.sleep(8)
+
+        except RateLimitError as e:
+            error_msg = f"Rate limit for {comp_code}: {e}"
+            logger.warning(error_msg)
+            errors.append(error_msg)
+            await asyncio.sleep(60)  # Wait 1 minute on rate limit
+
+        except FootballDataAPIError as e:
+            error_msg = f"API error for {comp_code}: {e}"
+            logger.error(error_msg)
+            errors.append(error_msg)
+
+        except Exception as e:
+            error_msg = f"Error for {comp_code}: {e}"
+            logger.error(error_msg)
+            errors.append(error_msg)
+
+    # After fetching all matches, sync standings and recalculate stats
+    standings_synced = 0
+    try:
+        standings_synced, standings_errors = await _sync_all_standings()
+        errors.extend(standings_errors)
+    except Exception as e:
+        errors.append(f"Standings sync failed: {e}")
+
+    # Recalculate all team stats
+    teams_updated = 0
+    try:
+        teams_updated = await _recalculate_all_team_stats()
+    except Exception as e:
+        errors.append(f"Stats calculation failed: {e}")
+
+    # Sync form data
+    form_synced = 0
+    try:
+        form_synced = await _sync_form_from_standings()
+    except Exception as e:
+        errors.append(f"Form sync failed: {e}")
+
+    status = "success" if not errors else "partial"
+    await SyncServiceAsync.log_sync("historical", status, total_synced)
+
+    return SyncResponse(
+        status=status,
+        message=f"Historical sync: {total_synced} matches, {standings_synced} standings, {teams_updated} teams, {form_synced} forms",
+        matches_synced=total_synced,
+        standings_synced=standings_synced,
+        errors=errors,
+    )
+
+
 @router.post("/verify-predictions", response_model=SyncResponse, responses=ADMIN_RESPONSES)
 async def sync_and_verify_predictions(
     user: AdminUser,
