@@ -10,6 +10,7 @@
  * Features:
  * - Token expiration tracking (returns null 60s before expiry)
  * - Debug logging for troubleshooting auth issues
+ * - Cross-tab refresh coordination via BroadcastChannel
  */
 
 let cachedToken: string | null = null;
@@ -21,8 +22,66 @@ const EXPIRY_BUFFER_MS = 5 * 1000;
 // Threshold to trigger proactive refresh (2 minutes before expiry)
 const REFRESH_THRESHOLD_MS = 2 * 60 * 1000;
 
+// Cross-tab coordination via BroadcastChannel
+const CHANNEL_NAME = 'auth-token-refresh';
+let broadcastChannel: BroadcastChannel | null = null;
+
+// Initialize BroadcastChannel for cross-tab coordination
+if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+  try {
+    broadcastChannel = new BroadcastChannel(CHANNEL_NAME);
+    broadcastChannel.onmessage = (event) => {
+      if (event.data.type === 'REFRESH_STARTED') {
+        // Another tab started refresh, mark as in progress
+        refreshInProgress = true;
+        console.log('[TokenStore] Another tab started refresh');
+      } else if (event.data.type === 'TOKEN_UPDATED' && event.data.token) {
+        // Another tab completed refresh, update our cache
+        cachedToken = event.data.token;
+        tokenExpiresAt = event.data.expiresAt;
+        refreshInProgress = false;
+        console.log('[TokenStore] Token updated from another tab');
+      } else if (event.data.type === 'REFRESH_COMPLETED') {
+        refreshInProgress = false;
+      }
+    };
+  } catch (e) {
+    console.warn('[TokenStore] BroadcastChannel not available:', e);
+  }
+}
+
+/**
+ * Store token in IndexedDB for Service Worker access
+ */
+async function storeTokenForSW(token: string | null, expiresAt: number | null): Promise<void> {
+  if (typeof indexedDB === 'undefined') return;
+
+  try {
+    const dbRequest = indexedDB.open('auth-store', 1);
+    dbRequest.onupgradeneeded = () => {
+      const db = dbRequest.result;
+      if (!db.objectStoreNames.contains('tokens')) {
+        db.createObjectStore('tokens');
+      }
+    };
+    dbRequest.onsuccess = () => {
+      const db = dbRequest.result;
+      const tx = db.transaction('tokens', 'readwrite');
+      const store = tx.objectStore('tokens');
+      if (token) {
+        store.put({ token, expiresAt }, 'current');
+      } else {
+        store.delete('current');
+      }
+    };
+  } catch (e) {
+    console.warn('[TokenStore] IndexedDB storage failed:', e);
+  }
+}
+
 /**
  * Set the cached token (called by onAuthStateChange)
+ * Broadcasts to other tabs for synchronization
  * @param token The access token or null
  * @param expiresIn Optional expiration time in seconds
  */
@@ -31,14 +90,30 @@ export function setAuthToken(token: string | null, expiresIn?: number): void {
   cachedToken = token;
   tokenExpiresAt = token && expiresIn ? Date.now() + expiresIn * 1000 : null;
   refreshInProgress = false;
+
+  // Broadcast token update to other tabs
+  if (token && broadcastChannel) {
+    broadcastChannel.postMessage({
+      type: 'TOKEN_UPDATED',
+      token,
+      expiresAt: tokenExpiresAt,
+    });
+  }
+
+  // Store in IndexedDB for Service Worker access
+  storeTokenForSW(token, tokenExpiresAt);
 }
 
 /**
  * Trigger a proactive token refresh via Supabase
+ * Broadcasts to other tabs to prevent duplicate refreshes
  */
 async function triggerRefresh(): Promise<void> {
   if (refreshInProgress || typeof window === 'undefined') return;
   refreshInProgress = true;
+
+  // Notify other tabs that refresh is starting
+  broadcastChannel?.postMessage({ type: 'REFRESH_STARTED' });
 
   try {
     console.log('[TokenStore] Triggering proactive refresh...');
@@ -48,12 +123,14 @@ async function triggerRefresh(): Promise<void> {
     const { data, error } = await supabase.auth.refreshSession();
     if (error) {
       console.error('[TokenStore] Refresh failed:', error.message);
+      broadcastChannel?.postMessage({ type: 'REFRESH_COMPLETED' });
     } else if (data.session) {
       console.log('[TokenStore] Refresh successful');
-      // Token will be updated via onAuthStateChange
+      // Token will be updated via onAuthStateChange, which calls setAuthToken
     }
   } catch (e) {
     console.error('[TokenStore] Refresh error:', e);
+    broadcastChannel?.postMessage({ type: 'REFRESH_COMPLETED' });
   } finally {
     refreshInProgress = false;
   }

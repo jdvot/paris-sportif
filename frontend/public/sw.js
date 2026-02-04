@@ -223,12 +223,54 @@ self.addEventListener("sync", (event) => {
   }
 });
 
+/**
+ * Get auth token from IndexedDB (stored by token-store.ts)
+ */
+async function getTokenFromIndexedDB() {
+  return new Promise((resolve) => {
+    try {
+      const dbRequest = indexedDB.open("auth-store", 1);
+      dbRequest.onerror = () => resolve(null);
+      dbRequest.onsuccess = () => {
+        const db = dbRequest.result;
+        if (!db.objectStoreNames.contains("tokens")) {
+          resolve(null);
+          return;
+        }
+        const tx = db.transaction("tokens", "readonly");
+        const store = tx.objectStore("tokens");
+        const getRequest = store.get("current");
+        getRequest.onsuccess = () => {
+          const data = getRequest.result;
+          if (data && data.token && data.expiresAt > Date.now()) {
+            resolve(data.token);
+          } else {
+            resolve(null);
+          }
+        };
+        getRequest.onerror = () => resolve(null);
+      };
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
 async function syncPicks() {
   try {
-    const response = await fetch("/api/v1/predictions/daily-picks");
+    const token = await getTokenFromIndexedDB();
+    const headers = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const response = await fetch("/api/v1/predictions/daily-picks", { headers });
     if (response.ok) {
       const cache = await caches.open(API_CACHE);
       await cache.put("/api/v1/predictions/daily-picks", response);
+      console.log("[SW] Sync picks successful");
+    } else {
+      console.warn("[SW] Sync picks failed:", response.status);
     }
   } catch (error) {
     console.error("[SW] Sync failed:", error);

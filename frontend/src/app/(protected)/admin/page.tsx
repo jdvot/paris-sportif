@@ -34,6 +34,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { getAuthToken } from "@/lib/auth/token-store";
 import { useGetAdminStatsApiV1AdminStatsGet, useListUsersApiV1AdminUsersGet, useUpdateUserRoleApiV1AdminUsersUserIdRolePost } from "@/lib/api/endpoints/admin/admin";
 import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
 import {
@@ -235,9 +236,14 @@ export default function AdminPage() {
     setDataQualityLoading(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const token = getAuthToken();
+      if (!token) {
+        console.warn("[Admin] No auth token available for data quality fetch");
+        return;
+      }
       const response = await fetch(`${apiUrl}/api/v1/admin/data-quality`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("supabase.auth.token")}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       if (response.ok) {

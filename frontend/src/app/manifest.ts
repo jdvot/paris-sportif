@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "WinRate AI",
     description:
       "Predictions de paris sportifs football analysees par IA. 5 picks premium par jour.",
-    start_url: "/",
+    start_url: "/picks",
     display: "standalone",
     background_color: "#0f172a",
     theme_color: "#3b82f6",
