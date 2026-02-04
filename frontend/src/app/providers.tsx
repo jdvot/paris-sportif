@@ -101,6 +101,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   // Hydration gate: block rendering until auth is initialized
   const [isReady, setIsReady] = useState(false);
   const validationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const initRef = useRef(false);
 
   // Reset redirect flag on mount (new page load)
   useEffect(() => {
@@ -201,9 +202,22 @@ export function Providers({ children }: { children: React.ReactNode }) {
       })
   );
 
-  // Initialize auth using onAuthStateChange ONLY
-  // This is more reliable than getSession() which can abort
+  /**
+   * Initialize auth using getSession() + onAuthStateChange
+   *
+   * WORKAROUND for Next.js 15 + @supabase/ssr bug:
+   * The INITIAL_SESSION event from onAuthStateChange doesn't fire correctly.
+   * Instead, we explicitly call getSession() to read the session from cookies,
+   * then use onAuthStateChange only for subsequent updates.
+   */
   useEffect(() => {
+    // Prevent double initialization in StrictMode
+    if (initRef.current) {
+      console.log('[Providers] Already initialized, skipping');
+      return;
+    }
+    initRef.current = true;
+
     console.log('[Providers] Setting up auth...');
 
     // Clear OAuth pending flag if present
@@ -213,8 +227,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     const supabase = createClient();
 
-    // Debug: Try getSession() to see if we can read the session
-    console.log('[Providers] Attempting getSession() for debug...');
+    // STEP 1: Use getSession() to read session from cookies
+    // This is the workaround for INITIAL_SESSION not firing in Next.js 15
+    console.log('[Providers] Calling getSession() to read cookies...');
     supabase.auth.getSession().then(({ data, error }) => {
       console.log('[Providers] getSession() result:', {
         hasSession: !!data?.session,
@@ -222,42 +237,46 @@ export function Providers({ children }: { children: React.ReactNode }) {
         userEmail: data?.session?.user?.email,
         error: error?.message,
       });
-    }).catch((e) => {
-      console.error('[Providers] getSession() error:', e);
+
+      if (data?.session?.access_token) {
+        console.log('[Providers] Session found! Setting token...');
+        setAuthToken(data.session.access_token, data.session.expires_in);
+
+        // Clear redirect marker
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('auth_redirect_time');
+        }
+
+        // Set up periodic validation
+        if (!validationIntervalRef.current) {
+          validationIntervalRef.current = setInterval(() => {
+            console.log('[Providers] Periodic validation');
+            validateUserWithServer();
+          }, USER_VALIDATION_INTERVAL_MS);
+        }
+      } else {
+        console.log('[Providers] No session found');
+        markAuthInitialized();
+      }
+
+      // Mark as ready after getSession completes
+      setIsReady(true);
+      console.log('[Providers] isReady = true');
+    }).catch((err) => {
+      console.error('[Providers] getSession() error:', err);
+      markAuthInitialized();
+      setIsReady(true);
     });
 
-    // Use onAuthStateChange as the ONLY source of truth
-    // The INITIAL_SESSION event fires immediately with the current session
+    // STEP 2: Set up onAuthStateChange for future events (SIGNED_IN, SIGNED_OUT, etc.)
+    // We skip INITIAL_SESSION because we handled it above with getSession()
     console.log('[Providers] Setting up onAuthStateChange listener');
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: { access_token?: string; expires_in?: number } | null) => {
-      console.log('[Providers] onAuthStateChange:', event, 'session:', !!session, 'token:', !!session?.access_token);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: { access_token?: string; expires_in?: number; user?: { email?: string } } | null) => {
+      console.log('[Providers] onAuthStateChange:', event, 'session:', !!session);
 
-      // Handle initial session - this fires immediately when listener is set up
+      // Skip INITIAL_SESSION - we already handled it with getSession()
       if (event === 'INITIAL_SESSION') {
-        console.log('[Providers] INITIAL_SESSION received');
-        if (session?.access_token) {
-          setAuthToken(session.access_token, session.expires_in);
-          console.log('[Providers] Token set from INITIAL_SESSION');
-
-          // Clear redirect marker
-          if (typeof window !== 'undefined') {
-            sessionStorage.removeItem('auth_redirect_time');
-          }
-
-          // Set up periodic validation
-          if (!validationIntervalRef.current) {
-            validationIntervalRef.current = setInterval(() => {
-              console.log('[Providers] Periodic validation');
-              validateUserWithServer();
-            }, USER_VALIDATION_INTERVAL_MS);
-          }
-        } else {
-          console.log('[Providers] No session in INITIAL_SESSION');
-          markAuthInitialized();
-        }
-        // Mark as ready after processing initial session
-        setIsReady(true);
-        console.log('[Providers] isReady = true');
+        console.log('[Providers] Skipping INITIAL_SESSION (handled by getSession)');
         return;
       }
 
@@ -265,7 +284,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         if (session?.access_token) {
           setAuthToken(session.access_token, session.expires_in);
-          console.log('[Providers] Token updated after', event);
+          console.log('[Providers] Token updated after', event, 'user:', session.user?.email);
           queryClient.invalidateQueries();
 
           // Start periodic validation if not already running
@@ -299,25 +318,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // Fallback: if INITIAL_SESSION doesn't fire within 2 seconds, mark as ready anyway
-    const fallbackTimeout = setTimeout(() => {
-      if (!isReady) {
-        console.log('[Providers] Fallback: marking ready after timeout');
-        markAuthInitialized();
-        setIsReady(true);
-      }
-    }, 2000);
-
     return () => {
       console.log('[Providers] Cleanup');
-      clearTimeout(fallbackTimeout);
       subscription.unsubscribe();
       if (validationIntervalRef.current) {
         clearInterval(validationIntervalRef.current);
         validationIntervalRef.current = null;
       }
     };
-  }, [queryClient, validateUserWithServer, isReady]);
+  }, [queryClient, validateUserWithServer]);
 
   // Block rendering until auth is initialized to prevent race conditions
   // where API requests fire before the token is in the store
