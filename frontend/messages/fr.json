@@ -1051,5 +1051,44 @@
     "expectedGoalsTitle": "Buts attendus (xG)",
     "xgHome": "xG Domicile",
     "xgAway": "xG Exterieur"
+  },
+  "search": {
+    "title": "Recherche Semantique",
+    "subtitle": "Recherchez dans notre base d'actualites football avec l'IA",
+    "placeholder": "Rechercher des actualites, blessures, transferts...",
+    "minChars": "Entrez au moins 3 caracteres pour lancer la recherche",
+    "resultsCount": "{count} resultats trouves",
+    "searchTime": "en {time}ms",
+    "noResults": "Aucun resultat trouve pour cette recherche",
+    "error": "Erreur lors de la recherche. Veuillez reessayer.",
+    "premiumRequired": "Fonctionnalite Premium",
+    "premiumDescription": "La recherche semantique utilise l'IA pour trouver les actualites les plus pertinentes. Passez a Premium pour y acceder.",
+    "upgradeToPremium": "Passer a Premium",
+    "filters": {
+      "allTypes": "Tous les types",
+      "injury": "Blessures",
+      "transfer": "Transferts",
+      "form": "Forme",
+      "preview": "Avant-match"
+    },
+    "tips": {
+      "title": "Conseils de recherche",
+      "tip1": "Recherchez par nom d'equipe: 'PSG blessures'",
+      "tip2": "Filtrez par type d'actualite pour des resultats precis",
+      "tip3": "Utilisez des termes specifiques: 'Mbappe transfert'"
+    }
+  },
+  "matchNews": {
+    "title": "Actualites du Match",
+    "premiumOnly": "Acces aux actualites contextuelles reserve aux membres Premium",
+    "upgrade": "Passer a Premium",
+    "noNews": "Aucune actualite recente",
+    "searchMore": "Rechercher plus d'actualites",
+    "categories": {
+      "injuries": "Blessures",
+      "transfers": "Transferts",
+      "form": "Forme",
+      "previews": "Avant-match"
+    }
   }
 }
