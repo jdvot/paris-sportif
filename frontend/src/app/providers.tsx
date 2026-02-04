@@ -1,13 +1,16 @@
 "use client";
 
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { createClient } from "@/lib/supabase/client";
 import { setAuthToken, clearAuthToken } from "@/lib/auth/token-store";
 
 // Flag to prevent multiple redirects
 let isRedirecting = false;
+
+// Interval for server-side user validation (5 minutes)
+const USER_VALIDATION_INTERVAL_MS = 5 * 60 * 1000;
 
 // Check if we recently redirected (persists across page loads)
 function wasRecentlyRedirected(): boolean {
@@ -98,10 +101,50 @@ export function Providers({ children }: { children: React.ReactNode }) {
   // Hydration gate: block rendering until auth is initialized
   const [isReady, setIsReady] = useState(false);
   const initStarted = useRef(false);
+  const validationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reset redirect flag on mount (new page load)
   useEffect(() => {
     isRedirecting = false;
+    console.log('[Providers] Component mounted, reset redirect flag');
+  }, []);
+
+  /**
+   * Validate user with server using getUser()
+   * Best practice: getSession() reads from cache, getUser() validates with server
+   * This ensures we detect if user has logged out from another device/browser
+   */
+  const validateUserWithServer = useCallback(async () => {
+    console.log('[Providers] Starting server-side user validation...');
+    try {
+      const supabase = createClient();
+      const { data: { user }, error } = await supabase.auth.getUser();
+
+      if (error) {
+        console.error('[Providers] User validation failed:', error.message);
+        // User is no longer valid - clear auth and let next API call trigger redirect
+        clearAuthToken();
+        return false;
+      }
+
+      if (!user) {
+        console.log('[Providers] User validation: no user returned');
+        clearAuthToken();
+        return false;
+      }
+
+      console.log('[Providers] User validation successful:', user.email);
+      return true;
+    } catch (err) {
+      const error = err as { name?: string; message?: string };
+      // Don't treat AbortError as validation failure
+      if (error?.name === 'AbortError') {
+        console.log('[Providers] User validation aborted (navigation)');
+        return true; // Assume valid, will re-validate on next interval
+      }
+      console.error('[Providers] User validation error:', error?.message);
+      return false;
+    }
   }, []);
 
   const [queryClient] = useState(
@@ -171,24 +214,50 @@ export function Providers({ children }: { children: React.ReactNode }) {
     // Initialize auth: simply read session from cookies (set by middleware/callback)
     // No network calls needed - middleware handles token refresh
     const initializeAuth = async () => {
+      console.log('[Providers] initializeAuth starting...');
       try {
         // Clear OAuth pending flag if present
         if (typeof window !== 'undefined') {
           sessionStorage.removeItem('oauth_pending');
+          console.log('[Providers] Cleared oauth_pending flag');
         }
 
         // Read session from cookies - this is synchronous, no network call
         // The middleware has already refreshed the token if needed
-        const { data: { session } } = await supabase.auth.getSession();
+        console.log('[Providers] Calling getSession()...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error('[Providers] getSession() error:', sessionError.message);
+        }
+
+        console.log('[Providers] getSession() result - session:', !!session, 'token:', !!session?.access_token);
 
         if (session?.access_token) {
           setAuthToken(session.access_token, session.expires_in);
-          console.log('[Providers] Token set from session');
+          console.log('[Providers] Token set from session, expires_in:', session.expires_in);
 
           // Clear redirect marker - we have a session
           if (typeof window !== 'undefined') {
             sessionStorage.removeItem('auth_redirect_time');
+            console.log('[Providers] Cleared auth_redirect_time');
           }
+
+          // Validate user with server on init (best practice per Supabase docs)
+          // "The only way to ensure a user has logged out is getUser()"
+          console.log('[Providers] Initial server validation with getUser()...');
+          const isValid = await validateUserWithServer();
+          console.log('[Providers] Initial validation result:', isValid);
+
+          // Set up periodic validation (every 5 minutes)
+          if (validationIntervalRef.current) {
+            clearInterval(validationIntervalRef.current);
+          }
+          validationIntervalRef.current = setInterval(() => {
+            console.log('[Providers] Periodic validation triggered');
+            validateUserWithServer();
+          }, USER_VALIDATION_INTERVAL_MS);
+          console.log('[Providers] Set up periodic validation every', USER_VALIDATION_INTERVAL_MS / 1000, 'seconds');
         } else {
           console.log('[Providers] No session found');
         }
@@ -204,6 +273,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           clearAuthToken();
         }
       } finally {
+        console.log('[Providers] initializeAuth complete, setting isReady=true');
         setIsReady(true);
       }
     };
@@ -211,14 +281,22 @@ export function Providers({ children }: { children: React.ReactNode }) {
     initializeAuth();
 
     // Listen for auth state changes AFTER initial hydration
+    console.log('[Providers] Setting up onAuthStateChange listener');
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: { access_token?: string; expires_in?: number } | null) => {
-      console.log('[Providers] Auth state changed:', event, !!session);
+      console.log('[Providers] onAuthStateChange fired:', {
+        event,
+        hasSession: !!session,
+        hasToken: !!session?.access_token,
+        expiresIn: session?.expires_in,
+      });
 
       // Update token store with new token
       if (session?.access_token) {
         setAuthToken(session.access_token, session.expires_in);
+        console.log('[Providers] Token updated in store');
       } else {
         clearAuthToken();
+        console.log('[Providers] Token cleared from store');
       }
 
       // When user signs in (including OAuth callback), invalidate all queries
@@ -226,6 +304,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         console.log('[Providers] Invalidating queries after auth change');
         queryClient.invalidateQueries();
+
+        // Start periodic validation if not already running
+        if (!validationIntervalRef.current && session?.access_token) {
+          validationIntervalRef.current = setInterval(() => {
+            console.log('[Providers] Periodic validation triggered');
+            validateUserWithServer();
+          }, USER_VALIDATION_INTERVAL_MS);
+          console.log('[Providers] Started periodic validation');
+        }
       }
 
       // When user signs out, clear the cache and token
@@ -233,13 +320,26 @@ export function Providers({ children }: { children: React.ReactNode }) {
         console.log('[Providers] Clearing cache after sign out');
         clearAuthToken();
         queryClient.clear();
+
+        // Stop periodic validation
+        if (validationIntervalRef.current) {
+          clearInterval(validationIntervalRef.current);
+          validationIntervalRef.current = null;
+          console.log('[Providers] Stopped periodic validation');
+        }
       }
     });
 
     return () => {
+      console.log('[Providers] Cleaning up auth subscription');
       subscription.unsubscribe();
+      if (validationIntervalRef.current) {
+        clearInterval(validationIntervalRef.current);
+        validationIntervalRef.current = null;
+        console.log('[Providers] Cleared validation interval');
+      }
     };
-  }, [queryClient]);
+  }, [queryClient, validateUserWithServer]);
 
   // Block rendering until auth is initialized to prevent race conditions
   // where API requests fire before the token is in the store

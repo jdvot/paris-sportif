@@ -52,8 +52,9 @@ export const customInstance = async <T>(
   const token = await getSupabaseToken();
 
   // Debug: log auth status for API requests
+  // NOTE: Keep enabled during debugging, disable in production later
   if (typeof window !== 'undefined') {
-    console.log('[API]', url, 'token:', token ? 'present' : 'MISSING');
+    console.log('[API] Request:', url, 'token:', token ? 'present' : 'MISSING', 'timestamp:', new Date().toISOString());
   }
 
   let response: Response;

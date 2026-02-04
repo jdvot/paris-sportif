@@ -17,8 +17,11 @@ import { getAuthToken } from "../auth/token-store";
  */
 export async function getSupabaseToken(): Promise<string | null> {
   if (typeof window === "undefined") {
+    console.log("[AuthHelper] Server-side, no token available");
     return null; // Server-side, no token
   }
 
-  return getAuthToken();
+  const token = getAuthToken();
+  console.log("[AuthHelper] getSupabaseToken() called, token:", token ? "present" : "MISSING");
+  return token;
 }
