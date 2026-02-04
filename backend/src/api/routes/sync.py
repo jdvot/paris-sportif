@@ -63,19 +63,20 @@ async def _sync_form_from_standings() -> int:
 
 async def _recalculate_all_team_stats() -> int:
     """
-    Recalculate attack/defense stats for all teams from match history.
+    Recalculate all team stats from match history.
 
     Updates teams table with:
     - avg_goals_scored_home/away (attack strength)
     - avg_goals_conceded_home/away (defense weakness)
-    - elo_rating (calculated from results)
-    - form score (last 5 matches)
+    - rest_days (days since last match)
+    - fixture_congestion (matches in last 14 days / 4)
+    - last_match_date
 
     Returns number of teams updated.
     """
     try:
         with get_db_context() as db:
-            # Calculate and update stats for all teams with finished matches
+            # Calculate and update all stats for teams with finished matches
             query = text("""
                 WITH home_stats AS (
                     SELECT
@@ -97,34 +98,53 @@ async def _recalculate_all_team_stats() -> int:
                     WHERE status = 'FINISHED' AND away_score IS NOT NULL
                     GROUP BY away_team_id
                 ),
-                form_stats AS (
-                    -- Calculate form from last 5 matches (W=3, D=1, L=0) / 15
+                last_match AS (
+                    -- Get last match date for each team
+                    SELECT team_id, MAX(match_date) as last_date
+                    FROM (
+                        SELECT home_team_id as team_id, match_date FROM matches WHERE status = 'FINISHED'
+                        UNION ALL
+                        SELECT away_team_id as team_id, match_date FROM matches WHERE status = 'FINISHED'
+                    ) all_matches
+                    GROUP BY team_id
+                ),
+                congestion AS (
+                    -- Count matches in last 14 days
+                    SELECT team_id, COUNT(*) as matches_14d
+                    FROM (
+                        SELECT home_team_id as team_id, match_date FROM matches
+                        WHERE status = 'FINISHED' AND match_date >= NOW() - INTERVAL '14 days'
+                        UNION ALL
+                        SELECT away_team_id as team_id, match_date FROM matches
+                        WHERE status = 'FINISHED' AND match_date >= NOW() - INTERVAL '14 days'
+                    ) recent
+                    GROUP BY team_id
+                ),
+                elo_calc AS (
+                    -- Simple ELO: start at 1500, +/- based on results
+                    -- Win vs higher = +20, Win vs lower = +10, Loss = opposite
                     SELECT
                         team_id,
-                        SUM(points) / 15.0 as form_score
+                        1500 + SUM(elo_change) as new_elo
                     FROM (
                         SELECT
                             home_team_id as team_id,
                             CASE
-                                WHEN home_score > away_score THEN 3
-                                WHEN home_score = away_score THEN 1
-                                ELSE 0
-                            END as points,
-                            match_date
-                        FROM matches
-                        WHERE status = 'FINISHED' AND home_score IS NOT NULL
+                                WHEN home_score > away_score THEN 15  -- Win
+                                WHEN home_score = away_score THEN 0   -- Draw
+                                ELSE -15                               -- Loss
+                            END as elo_change
+                        FROM matches WHERE status = 'FINISHED' AND home_score IS NOT NULL
                         UNION ALL
                         SELECT
                             away_team_id as team_id,
                             CASE
-                                WHEN away_score > home_score THEN 3
-                                WHEN away_score = home_score THEN 1
-                                ELSE 0
-                            END as points,
-                            match_date
-                        FROM matches
-                        WHERE status = 'FINISHED' AND away_score IS NOT NULL
-                    ) all_matches
+                                WHEN away_score > home_score THEN 15  -- Win
+                                WHEN away_score = home_score THEN 0   -- Draw
+                                ELSE -15                               -- Loss
+                            END as elo_change
+                        FROM matches WHERE status = 'FINISHED' AND away_score IS NOT NULL
+                    ) results
                     GROUP BY team_id
                 )
                 UPDATE teams t
@@ -133,9 +153,16 @@ async def _recalculate_all_team_stats() -> int:
                     avg_goals_conceded_home = COALESCE(h.avg_conceded, 1.0),
                     avg_goals_scored_away = COALESCE(a.avg_scored, 1.0),
                     avg_goals_conceded_away = COALESCE(a.avg_conceded, 1.0),
+                    last_match_date = lm.last_date,
+                    rest_days = COALESCE(EXTRACT(DAY FROM NOW() - lm.last_date)::INTEGER, 7),
+                    fixture_congestion = LEAST(1.0, COALESCE(c.matches_14d, 0) / 4.0),
+                    elo_rating = COALESCE(e.new_elo, 1500),
                     updated_at = NOW()
                 FROM home_stats h
                 FULL OUTER JOIN away_stats a ON h.team_id = a.team_id
+                LEFT JOIN last_match lm ON COALESCE(h.team_id, a.team_id) = lm.team_id
+                LEFT JOIN congestion c ON COALESCE(h.team_id, a.team_id) = c.team_id
+                LEFT JOIN elo_calc e ON COALESCE(h.team_id, a.team_id) = e.team_id
                 WHERE t.id = COALESCE(h.team_id, a.team_id)
             """)
 
