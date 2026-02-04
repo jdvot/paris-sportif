@@ -128,6 +128,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     print(f"Starting {settings.app_name} v{settings.app_version}")
     print(f"Environment: {settings.app_env}")
 
+    # Initialize database tables
+    try:
+        from src.db.database import init_db
+        await init_db()
+        print("[Database] Tables initialized")
+    except Exception as e:
+        print(f"[Database] Warning: Could not initialize tables: {e}")
+
     # Debug: Show which API key is loaded (masked for security)
     groq_key = settings.groq_api_key
     env_groq_key = os.environ.get("GROQ_API_KEY", "")
