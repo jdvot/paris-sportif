@@ -985,5 +985,38 @@
       "retry": "Reessayer",
       "reportGenerated": "Rapport genere le"
     }
+  },
+  "charts": {
+    "modelComparison": "Comparaison des modeles",
+    "confidenceLevel": "Niveau de confiance",
+    "valueIndex": "Indice de valeur",
+    "resultProbabilities": "Probabilites du resultat",
+    "home": "Domicile",
+    "draw": "Nul",
+    "away": "Exterieur",
+    "confidence": "Confiance",
+    "veryHigh": "Tres elevee",
+    "high": "Elevee",
+    "moderate": "Moderee",
+    "low": "Faible",
+    "progressBar": "Barre de progression",
+    "estimatedValue": "Valeur estimee",
+    "risk": "Risque",
+    "favorable": "Favorable",
+    "unfavorable": "Defavorable",
+    "veryBad": "Tres mauvais",
+    "neutral": "Neutre",
+    "excellent": "Excellent",
+    "excellentROI": "Excellente opportunite ! Valeur attendue tres positive, paris recommande.",
+    "interestingValue": "Valeur interessante detectee. Potentiel de gain superieur a la moyenne.",
+    "slightAdvantage": "Leger avantage statistique. Valeur acceptable pour un pari.",
+    "correctNoValue": "Cote correcte mais sans valeur ajoutee significative.",
+    "negativeValue": "Valeur negative. La cote ne justifie pas le risque.",
+    "strongDevaluation": "Forte devaluation. Paris fortement deconseille.",
+    "advancedElo": "ELO Avance",
+    "expectedGoals": "Buts attendus",
+    "expectedGoalsTitle": "Buts attendus (xG)",
+    "xgHome": "xG Domicile",
+    "xgAway": "xG Exterieur"
   }
 }

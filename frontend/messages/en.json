@@ -985,5 +985,38 @@
       "retry": "Retry",
       "reportGenerated": "Report generated on"
     }
+  },
+  "charts": {
+    "modelComparison": "Model comparison",
+    "confidenceLevel": "Confidence level",
+    "valueIndex": "Value index",
+    "resultProbabilities": "Result probabilities",
+    "home": "Home",
+    "draw": "Draw",
+    "away": "Away",
+    "confidence": "Confidence",
+    "veryHigh": "Very high",
+    "high": "High",
+    "moderate": "Moderate",
+    "low": "Low",
+    "progressBar": "Progress bar",
+    "estimatedValue": "Estimated value",
+    "risk": "Risk",
+    "favorable": "Favorable",
+    "unfavorable": "Unfavorable",
+    "veryBad": "Very bad",
+    "neutral": "Neutral",
+    "excellent": "Excellent",
+    "excellentROI": "Excellent opportunity! Very positive expected value, bet recommended.",
+    "interestingValue": "Interesting value detected. Above average potential gain.",
+    "slightAdvantage": "Slight statistical advantage. Acceptable value for a bet.",
+    "correctNoValue": "Correct odds but no significant added value.",
+    "negativeValue": "Negative value. Odds don't justify the risk.",
+    "strongDevaluation": "Strong devaluation. Bet strongly discouraged.",
+    "advancedElo": "Advanced ELO",
+    "expectedGoals": "Expected goals",
+    "expectedGoalsTitle": "Expected Goals (xG)",
+    "xgHome": "xG Home",
+    "xgAway": "xG Away"
   }
 }
