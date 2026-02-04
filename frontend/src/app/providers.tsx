@@ -237,7 +237,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
       console.log('[Providers] Calling getSession() to read cookies...');
 
       try {
-        const { data, error } = await supabase.auth.getSession();
+        // Workaround for Supabase bug where getSession() can hang indefinitely
+        // See: https://github.com/supabase/supabase/issues/35754
+        const getSessionWithTimeout = Promise.race([
+          supabase.auth.getSession(),
+          new Promise<{ data: { session: null }; error: null }>((resolve) =>
+            setTimeout(() => {
+              console.warn('[Providers] getSession() timeout after 2s');
+              resolve({ data: { session: null }, error: null });
+            }, 2000)
+          ),
+        ]);
+
+        const { data, error } = await getSessionWithTimeout;
 
         // Ignore if component was unmounted (StrictMode cleanup)
         if (!isActive) {
