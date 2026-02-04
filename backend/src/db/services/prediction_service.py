@@ -307,14 +307,14 @@ class PredictionService:
             start_dt = datetime.combine(target_date, datetime.min.time())
             end_dt = datetime.combine(target_date, datetime.max.time())
 
-            # Query predictions with match, team, and competition data
+            # Query predictions with match and team data
+            # Note: competition_code is a string field, not a relationship
             stmt = (
                 select(Prediction)
                 .join(Match)
                 .options(
                     joinedload(Prediction.match).joinedload(Match.home_team),
                     joinedload(Prediction.match).joinedload(Match.away_team),
-                    joinedload(Prediction.match).joinedload(Match.competition),
                 )
                 .where(
                     and_(
@@ -459,10 +459,11 @@ class PredictionService:
                 cutoff = datetime.now() - timedelta(days=days)
 
                 # Query all predictions from the period
+                # Note: we access competition_code directly (string field, not relationship)
                 stmt = (
                     select(Prediction)
                     .join(Match)
-                    .options(joinedload(Prediction.match).joinedload(Match.competition))
+                    .options(joinedload(Prediction.match))
                     .where(Prediction.created_at >= cutoff)
                 )
                 result = await uow.session.execute(stmt)
