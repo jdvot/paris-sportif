@@ -112,8 +112,17 @@ async def get_football_news(
                 for a in general_articles
             ]
 
-        # Sort by date (newest first)
-        articles.sort(key=lambda x: x.published_at or datetime.min, reverse=True)
+        # Sort by date (newest first) - normalize to naive datetime for comparison
+        def get_sort_key(article: NewsArticle) -> datetime:
+            if article.published_at is None:
+                return datetime.min
+            # Remove timezone info if present for consistent comparison
+            dt = article.published_at
+            if hasattr(dt, 'tzinfo') and dt.tzinfo is not None:
+                return dt.replace(tzinfo=None)
+            return dt
+
+        articles.sort(key=get_sort_key, reverse=True)
 
         return NewsResponse(
             articles=articles[:limit],
