@@ -238,27 +238,41 @@ class RandomForestModel:
                         recent_form_away,
                         head_to_head_home,
                         # Interaction features
-                        home_attack_vs_away_defense
-                        if home_attack_vs_away_defense is not None
-                        else home_attack * away_defense,
-                        away_attack_vs_home_defense
-                        if away_attack_vs_home_defense is not None
-                        else away_attack * home_defense,
-                        home_strength_ratio
-                        if home_strength_ratio is not None
-                        else home_attack / (home_defense + eps),
-                        away_strength_ratio
-                        if away_strength_ratio is not None
-                        else away_attack / (away_defense + eps),
-                        form_advantage
-                        if form_advantage is not None
-                        else recent_form_home - recent_form_away,
-                        home_total_strength
-                        if home_total_strength is not None
-                        else home_attack + (1 - home_defense),
-                        away_total_strength
-                        if away_total_strength is not None
-                        else away_attack + (1 - away_defense),
+                        (
+                            home_attack_vs_away_defense
+                            if home_attack_vs_away_defense is not None
+                            else home_attack * away_defense
+                        ),
+                        (
+                            away_attack_vs_home_defense
+                            if away_attack_vs_home_defense is not None
+                            else away_attack * home_defense
+                        ),
+                        (
+                            home_strength_ratio
+                            if home_strength_ratio is not None
+                            else home_attack / (home_defense + eps)
+                        ),
+                        (
+                            away_strength_ratio
+                            if away_strength_ratio is not None
+                            else away_attack / (away_defense + eps)
+                        ),
+                        (
+                            form_advantage
+                            if form_advantage is not None
+                            else recent_form_home - recent_form_away
+                        ),
+                        (
+                            home_total_strength
+                            if home_total_strength is not None
+                            else home_attack + (1 - home_defense)
+                        ),
+                        (
+                            away_total_strength
+                            if away_total_strength is not None
+                            else away_attack + (1 - away_defense)
+                        ),
                     ]
                 ]
             )

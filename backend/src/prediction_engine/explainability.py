@@ -77,9 +77,7 @@ class PredictionExplanation:
 
     def top_features(self, n: int = 3) -> list[FeatureContribution]:
         """Get top N contributing features by absolute contribution."""
-        sorted_exp = sorted(
-            self.explanations, key=lambda x: abs(x.contribution), reverse=True
-        )
+        sorted_exp = sorted(self.explanations, key=lambda x: abs(x.contribution), reverse=True)
         return sorted_exp[:n]
 
 
@@ -251,9 +249,7 @@ class PredictionExplainer:
                     sample_shap = shap_values[i]
 
                 # Build feature contributions
-                contributions = self._build_contributions(
-                    features[i], sample_shap, "shap"
-                )
+                contributions = self._build_contributions(features[i], sample_shap, "shap")
 
                 explanations.append(
                     PredictionExplanation(
@@ -299,9 +295,7 @@ class PredictionExplainer:
             )
 
             # Build feature contributions
-            contributions = self._build_contributions(
-                features[i], contributions_values, "marginal"
-            )
+            contributions = self._build_contributions(features[i], contributions_values, "marginal")
 
             explanations.append(
                 PredictionExplanation(
@@ -338,9 +332,7 @@ class PredictionExplainer:
             modified[j] = baseline[j]
 
             # Get prediction with modified feature
-            modified_prob = self.model.predict_proba(modified.reshape(1, -1))[
-                0, outcome_idx
-            ]
+            modified_prob = self.model.predict_proba(modified.reshape(1, -1))[0, outcome_idx]
 
             # Contribution is how much probability drops when feature is removed
             contributions[j] = original_prob - modified_prob

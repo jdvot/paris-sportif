@@ -264,7 +264,9 @@ async def broadcast_notification(
     }
 
 
-@router.post("/notifications/check-alerts", response_model=AlertCheckResponse, responses=ADMIN_RESPONSES)
+@router.post(
+    "/notifications/check-alerts", response_model=AlertCheckResponse, responses=ADMIN_RESPONSES
+)
 async def run_alert_check(user: AdminUser) -> AlertCheckResponse:
     """
     Manually trigger alert check for upcoming matches.
@@ -367,11 +369,13 @@ async def get_cache_status(user: AdminUser) -> dict[str, Any]:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        query = adapt_query("""
+        query = adapt_query(
+            """
             SELECT cache_key, cache_type, expires_at, created_at, updated_at
             FROM cached_data
             ORDER BY cache_type, cache_key
-        """)
+        """
+        )
         cursor.execute(query)
         cached_items = fetch_all_dict(cursor)
         conn.close()
@@ -384,7 +388,9 @@ async def get_cache_status(user: AdminUser) -> dict[str, Any]:
                     "type": item.get("cache_type"),
                     "expires_at": str(item.get("expires_at")),
                     "created_at": str(item.get("created_at")),
-                    "is_expired": datetime.now() > item.get("expires_at") if item.get("expires_at") else True,
+                    "is_expired": (
+                        datetime.now() > item.get("expires_at") if item.get("expires_at") else True
+                    ),
                 }
                 for item in cached_items
             ],

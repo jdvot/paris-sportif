@@ -3,7 +3,7 @@
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from src.core.config import settings
 from src.data.database import db_session, get_placeholder
@@ -101,7 +101,7 @@ class PushNotificationService:
                         updated_at = {ph}
                     WHERE id = {ph}
                     """,
-                    (datetime.now(timezone.utc).isoformat(), subscription_id),
+                    (datetime.now(UTC).isoformat(), subscription_id),
                 )
             else:
                 cursor.execute(
@@ -110,7 +110,7 @@ class PushNotificationService:
                     SET is_active = 0, updated_at = {ph}
                     WHERE id = {ph}
                     """,
-                    (datetime.now(timezone.utc).isoformat(), subscription_id),
+                    (datetime.now(UTC).isoformat(), subscription_id),
                 )
 
     async def send_notification(

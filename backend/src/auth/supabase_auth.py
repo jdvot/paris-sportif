@@ -263,7 +263,9 @@ def require_admin(user: dict[str, Any] = Depends(get_current_user)) -> dict[str,
     return user
 
 
-async def update_user_metadata(user_id: str, user_metadata: dict[str, Any]) -> dict[str, Any] | None:
+async def update_user_metadata(
+    user_id: str, user_metadata: dict[str, Any]
+) -> dict[str, Any] | None:
     """
     Update user metadata in Supabase using the Admin API.
 
@@ -297,7 +299,9 @@ async def update_user_metadata(user_id: str, user_metadata: dict[str, Any]) -> d
             logger.info(f"Updated user metadata for {user_id}")
             return result
     except httpx.HTTPStatusError as e:
-        logger.error(f"Failed to update user metadata: {e.response.status_code} - {e.response.text}")
+        logger.error(
+            f"Failed to update user metadata: {e.response.status_code} - {e.response.text}"
+        )
         return None
     except Exception as e:
         logger.error(f"Error updating user metadata: {e}")

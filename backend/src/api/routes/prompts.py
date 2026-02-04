@@ -41,7 +41,9 @@ class ABTestStart(BaseModel):
     version_weights: dict[str, float] = Field(
         ..., description="Version IDs and their traffic weights (e.g., {'v1': 0.5, 'v2': 0.5})"
     )
-    duration_days: int | None = Field(None, description="Test duration in days (None for indefinite)")
+    duration_days: int | None = Field(
+        None, description="Test duration in days (None for indefinite)"
+    )
 
 
 class VersionMetrics(BaseModel):
@@ -205,13 +207,15 @@ async def list_ab_tests() -> list[dict[str, Any]]:
     for pt in PromptType:
         ab_test = prompt_version_manager.get_ab_test(pt)
         if ab_test:
-            tests.append({
-                "prompt_type": ab_test.prompt_type.value,
-                "version_weights": ab_test.version_weights,
-                "start_time": ab_test.start_time.isoformat(),
-                "end_time": ab_test.end_time.isoformat() if ab_test.end_time else None,
-                "min_samples_per_version": ab_test.min_samples_per_version,
-            })
+            tests.append(
+                {
+                    "prompt_type": ab_test.prompt_type.value,
+                    "version_weights": ab_test.version_weights,
+                    "start_time": ab_test.start_time.isoformat(),
+                    "end_time": ab_test.end_time.isoformat() if ab_test.end_time else None,
+                    "min_samples_per_version": ab_test.min_samples_per_version,
+                }
+            )
     return tests
 
 

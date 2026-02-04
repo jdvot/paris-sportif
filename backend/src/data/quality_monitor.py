@@ -9,7 +9,7 @@ Provides comprehensive data quality checks including:
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -116,26 +116,32 @@ def check_freshness() -> DataQualityCheck:
         cursor = conn.cursor()
 
         # Check last match update
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT MAX(updated_at) as last_update
             FROM matches
-        """)
+        """
+        )
         result = cursor.fetchone()
         last_match_update = result[0] if result and result[0] else None
 
         # Check last team update
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT MAX(updated_at) as last_update
             FROM teams
-        """)
+        """
+        )
         result = cursor.fetchone()
         last_team_update = result[0] if result and result[0] else None
 
         # Check last prediction update
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT MAX(updated_at) as last_update
             FROM predictions
-        """)
+        """
+        )
         result = cursor.fetchone()
         last_prediction_update = result[0] if result and result[0] else None
 
@@ -157,7 +163,7 @@ def check_freshness() -> DataQualityCheck:
         )
 
     # Calculate hours since last update
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     oldest_entity = min(valid_updates, key=lambda x: x[1])
     oldest_name, oldest_dt = oldest_entity
 
@@ -201,7 +207,8 @@ def check_completeness() -> DataQualityCheck:
         cursor = conn.cursor()
 
         # Check teams completeness
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT
                 COUNT(*) as total,
                 SUM(CASE WHEN elo_rating IS NOT NULL THEN 1 ELSE 0 END) as has_elo,
@@ -209,11 +216,13 @@ def check_completeness() -> DataQualityCheck:
                 SUM(CASE WHEN avg_goals_scored_away IS NOT NULL THEN 1 ELSE 0 END) as has_away_goals,
                 SUM(CASE WHEN avg_xg_for IS NOT NULL THEN 1 ELSE 0 END) as has_xg
             FROM teams
-        """)
+        """
+        )
         team_stats = cursor.fetchone()
 
         # Check matches completeness
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT
                 COUNT(*) as total,
                 SUM(CASE WHEN status = 'finished' THEN 1 ELSE 0 END) as finished,
@@ -221,18 +230,21 @@ def check_completeness() -> DataQualityCheck:
                 SUM(CASE WHEN home_xg IS NOT NULL THEN 1 ELSE 0 END) as has_xg,
                 SUM(CASE WHEN odds_home IS NOT NULL THEN 1 ELSE 0 END) as has_odds
             FROM matches
-        """)
+        """
+        )
         match_stats = cursor.fetchone()
 
         # Check predictions completeness
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT
                 COUNT(*) as total,
                 SUM(CASE WHEN explanation IS NOT NULL AND explanation != '' THEN 1 ELSE 0 END) as has_explanation,
                 SUM(CASE WHEN key_factors IS NOT NULL THEN 1 ELSE 0 END) as has_factors,
                 SUM(CASE WHEN model_details IS NOT NULL THEN 1 ELSE 0 END) as has_model_details
             FROM predictions
-        """)
+        """
+        )
         pred_stats = cursor.fetchone()
 
     # Calculate completeness scores
@@ -260,9 +272,7 @@ def check_completeness() -> DataQualityCheck:
         total_matches = match_stats[0]
         finished_matches = match_stats[1]
         match_completeness = {
-            "finished_with_score": (
-                match_stats[2] / finished_matches if finished_matches else 1.0
-            ),
+            "finished_with_score": (match_stats[2] / finished_matches if finished_matches else 1.0),
             "xg_data": match_stats[3] / total_matches if total_matches else 0,
             "odds_data": match_stats[4] / total_matches if total_matches else 0,
         }
@@ -328,36 +338,46 @@ def check_range_validation() -> DataQualityCheck:
         cursor = conn.cursor()
 
         # Check ELO ratings
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, name, elo_rating
             FROM teams
             WHERE elo_rating < %s
                OR elo_rating > %s
-        """, (VALID_RANGES['elo_rating']['min'], VALID_RANGES['elo_rating']['max']))
+        """,
+            (VALID_RANGES["elo_rating"]["min"], VALID_RANGES["elo_rating"]["max"]),
+        )
         invalid_elo = cursor.fetchall()
         for row in invalid_elo:
-            anomalies.append({
-                "type": "range_violation",
-                "entity": "team",
-                "id": row[0],
-                "name": row[1],
-                "field": "elo_rating",
-                "value": float(row[2]) if row[2] else None,
-                "valid_range": VALID_RANGES["elo_rating"],
-            })
+            anomalies.append(
+                {
+                    "type": "range_violation",
+                    "entity": "team",
+                    "id": row[0],
+                    "name": row[1],
+                    "field": "elo_rating",
+                    "value": float(row[2]) if row[2] else None,
+                    "valid_range": VALID_RANGES["elo_rating"],
+                }
+            )
 
         # Check xG values
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT m.id, t1.name, t2.name, m.home_xg, m.away_xg
             FROM matches m
             JOIN teams t1 ON m.home_team_id = t1.id
             JOIN teams t2 ON m.away_team_id = t2.id
             WHERE (m.home_xg IS NOT NULL AND (m.home_xg < %s OR m.home_xg > %s))
                OR (m.away_xg IS NOT NULL AND (m.away_xg < %s OR m.away_xg > %s))
-        """, (
-            VALID_RANGES['xg']['min'], VALID_RANGES['xg']['max'],
-            VALID_RANGES['xg']['min'], VALID_RANGES['xg']['max']
-        ))
+        """,
+            (
+                VALID_RANGES["xg"]["min"],
+                VALID_RANGES["xg"]["max"],
+                VALID_RANGES["xg"]["min"],
+                VALID_RANGES["xg"]["max"],
+            ),
+        )
         invalid_xg = cursor.fetchall()
         for row in invalid_xg:
             home_xg = float(row[3]) if row[3] else None
@@ -365,30 +385,35 @@ def check_range_validation() -> DataQualityCheck:
             if home_xg and (
                 home_xg < VALID_RANGES["xg"]["min"] or home_xg > VALID_RANGES["xg"]["max"]
             ):
-                anomalies.append({
-                    "type": "range_violation",
-                    "entity": "match",
-                    "id": row[0],
-                    "name": f"{row[1]} vs {row[2]}",
-                    "field": "home_xg",
-                    "value": home_xg,
-                    "valid_range": VALID_RANGES["xg"],
-                })
+                anomalies.append(
+                    {
+                        "type": "range_violation",
+                        "entity": "match",
+                        "id": row[0],
+                        "name": f"{row[1]} vs {row[2]}",
+                        "field": "home_xg",
+                        "value": home_xg,
+                        "valid_range": VALID_RANGES["xg"],
+                    }
+                )
             if away_xg and (
                 away_xg < VALID_RANGES["xg"]["min"] or away_xg > VALID_RANGES["xg"]["max"]
             ):
-                anomalies.append({
-                    "type": "range_violation",
-                    "entity": "match",
-                    "id": row[0],
-                    "name": f"{row[1]} vs {row[2]}",
-                    "field": "away_xg",
-                    "value": away_xg,
-                    "valid_range": VALID_RANGES["xg"],
-                })
+                anomalies.append(
+                    {
+                        "type": "range_violation",
+                        "entity": "match",
+                        "id": row[0],
+                        "name": f"{row[1]} vs {row[2]}",
+                        "field": "away_xg",
+                        "value": away_xg,
+                        "valid_range": VALID_RANGES["xg"],
+                    }
+                )
 
         # Check prediction probabilities sum to 1 (with tolerance)
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT p.id, p.home_prob, p.draw_prob, p.away_prob,
                    t1.name, t2.name
             FROM predictions p
@@ -396,22 +421,26 @@ def check_range_validation() -> DataQualityCheck:
             JOIN teams t1 ON m.home_team_id = t1.id
             JOIN teams t2 ON m.away_team_id = t2.id
             WHERE ABS((p.home_prob + p.draw_prob + p.away_prob) - 1.0) > 0.01
-        """)
+        """
+        )
         invalid_probs = cursor.fetchall()
         for row in invalid_probs:
             prob_sum = float(row[1]) + float(row[2]) + float(row[3])
-            anomalies.append({
-                "type": "probability_sum_invalid",
-                "entity": "prediction",
-                "id": row[0],
-                "name": f"{row[4]} vs {row[5]}",
-                "field": "probabilities",
-                "value": round(prob_sum, 4),
-                "expected": 1.0,
-            })
+            anomalies.append(
+                {
+                    "type": "probability_sum_invalid",
+                    "entity": "prediction",
+                    "id": row[0],
+                    "name": f"{row[4]} vs {row[5]}",
+                    "field": "probabilities",
+                    "value": round(prob_sum, 4),
+                    "expected": 1.0,
+                }
+            )
 
         # Check confidence in valid range
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT p.id, p.confidence, t1.name, t2.name
             FROM predictions p
             JOIN matches m ON p.match_id = m.id
@@ -419,39 +448,48 @@ def check_range_validation() -> DataQualityCheck:
             JOIN teams t2 ON m.away_team_id = t2.id
             WHERE p.confidence < %s
                OR p.confidence > %s
-        """, (VALID_RANGES['confidence']['min'], VALID_RANGES['confidence']['max']))
+        """,
+            (VALID_RANGES["confidence"]["min"], VALID_RANGES["confidence"]["max"]),
+        )
         invalid_conf = cursor.fetchall()
         for row in invalid_conf:
-            anomalies.append({
-                "type": "range_violation",
-                "entity": "prediction",
-                "id": row[0],
-                "name": f"{row[2]} vs {row[3]}",
-                "field": "confidence",
-                "value": float(row[1]) if row[1] else None,
-                "valid_range": VALID_RANGES["confidence"],
-            })
+            anomalies.append(
+                {
+                    "type": "range_violation",
+                    "entity": "prediction",
+                    "id": row[0],
+                    "name": f"{row[2]} vs {row[3]}",
+                    "field": "confidence",
+                    "value": float(row[1]) if row[1] else None,
+                    "valid_range": VALID_RANGES["confidence"],
+                }
+            )
 
         # Check goal scores are reasonable
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT m.id, t1.name, t2.name, m.home_score, m.away_score
             FROM matches m
             JOIN teams t1 ON m.home_team_id = t1.id
             JOIN teams t2 ON m.away_team_id = t2.id
             WHERE (m.home_score IS NOT NULL AND m.home_score > %s)
                OR (m.away_score IS NOT NULL AND m.away_score > %s)
-        """, (VALID_RANGES['goals']['max'], VALID_RANGES['goals']['max']))
+        """,
+            (VALID_RANGES["goals"]["max"], VALID_RANGES["goals"]["max"]),
+        )
         invalid_goals = cursor.fetchall()
         for row in invalid_goals:
-            anomalies.append({
-                "type": "range_violation",
-                "entity": "match",
-                "id": row[0],
-                "name": f"{row[1]} vs {row[2]}",
-                "field": "score",
-                "value": f"{row[3]}-{row[4]}",
-                "valid_range": VALID_RANGES["goals"],
-            })
+            anomalies.append(
+                {
+                    "type": "range_violation",
+                    "entity": "match",
+                    "id": row[0],
+                    "name": f"{row[1]} vs {row[2]}",
+                    "field": "score",
+                    "value": f"{row[3]}-{row[4]}",
+                    "valid_range": VALID_RANGES["goals"],
+                }
+            )
 
     # Determine status
     anomaly_count = len(anomalies)
@@ -483,84 +521,104 @@ def check_consistency() -> DataQualityCheck:
         cursor = conn.cursor()
 
         # Check for duplicate matches (same teams, same date)
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT home_team_id, away_team_id, DATE(match_date), COUNT(*) as cnt
             FROM matches
             GROUP BY home_team_id, away_team_id, DATE(match_date)
             HAVING COUNT(*) > 1
-        """)
+        """
+        )
         duplicate_matches = cursor.fetchall()
         for row in duplicate_matches:
-            issues.append({
-                "type": "duplicate",
-                "entity": "match",
-                "description": f"Duplicate match: teams {row[0]} vs {row[1]} on {row[2]}",
-                "count": row[3],
-            })
+            issues.append(
+                {
+                    "type": "duplicate",
+                    "entity": "match",
+                    "description": f"Duplicate match: teams {row[0]} vs {row[1]} on {row[2]}",
+                    "count": row[3],
+                }
+            )
 
         # Check for duplicate teams (same external_id)
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT external_id, COUNT(*) as cnt
             FROM teams
             GROUP BY external_id
             HAVING COUNT(*) > 1
-        """)
+        """
+        )
         duplicate_teams = cursor.fetchall()
         for row in duplicate_teams:
-            issues.append({
-                "type": "duplicate",
-                "entity": "team",
-                "description": f"Duplicate team external_id: {row[0]}",
-                "count": row[1],
-            })
+            issues.append(
+                {
+                    "type": "duplicate",
+                    "entity": "team",
+                    "description": f"Duplicate team external_id: {row[0]}",
+                    "count": row[1],
+                }
+            )
 
         # Check for matches with same team as home and away
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT m.id, t.name
             FROM matches m
             JOIN teams t ON m.home_team_id = t.id
             WHERE m.home_team_id = m.away_team_id
-        """)
+        """
+        )
         self_matches = cursor.fetchall()
         for row in self_matches:
-            issues.append({
-                "type": "conflict",
-                "entity": "match",
-                "description": f"Match {row[0]} has same team as home and away: {row[1]}",
-            })
+            issues.append(
+                {
+                    "type": "conflict",
+                    "entity": "match",
+                    "description": f"Match {row[0]} has same team as home and away: {row[1]}",
+                }
+            )
 
         # Check for predictions without matching match
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT p.id
             FROM predictions p
             LEFT JOIN matches m ON p.match_id = m.id
             WHERE m.id IS NULL
-        """)
+        """
+        )
         orphan_predictions = cursor.fetchall()
         if orphan_predictions:
-            issues.append({
-                "type": "orphan",
-                "entity": "prediction",
-                "description": f"Found {len(orphan_predictions)} predictions without matching match",
-                "count": len(orphan_predictions),
-            })
+            issues.append(
+                {
+                    "type": "orphan",
+                    "entity": "prediction",
+                    "description": f"Found {len(orphan_predictions)} predictions without matching match",
+                    "count": len(orphan_predictions),
+                }
+            )
 
         # Check for finished matches without scores
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*)
             FROM matches
             WHERE status = 'finished'
               AND (home_score IS NULL OR away_score IS NULL)
-        """)
+        """
+        )
         result = cursor.fetchone()
         missing_scores = result[0] if result else 0
         if missing_scores > 0:
-            issues.append({
-                "type": "missing_data",
-                "entity": "match",
-                "description": f"{missing_scores} finished matches missing scores",
-                "count": missing_scores,
-            })
+            issues.append(
+                {
+                    "type": "missing_data",
+                    "entity": "match",
+                    "description": f"{missing_scores} finished matches missing scores",
+                    "count": missing_scores,
+                }
+            )
 
     # Determine status
     issue_count = len(issues)
@@ -674,7 +732,7 @@ def run_quality_check() -> DataQualityReport:
         overall_status = AlertLevel.OK
 
     report = DataQualityReport(
-        timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
+        timestamp=datetime.now(UTC).replace(tzinfo=None),
         overall_status=overall_status,
         freshness=freshness,
         completeness=completeness,

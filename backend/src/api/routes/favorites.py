@@ -3,10 +3,9 @@
 import json
 import logging
 from datetime import datetime
-from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
@@ -24,6 +23,7 @@ router = APIRouter()
 
 class FavoriteCreate(BaseModel):
     """Add a favorite pick."""
+
     match_id: int
     prediction_id: int | None = None
     note: str | None = Field(None, max_length=500)
@@ -32,6 +32,7 @@ class FavoriteCreate(BaseModel):
 
 class FavoriteResponse(BaseModel):
     """Favorite response."""
+
     id: int
     match_id: int
     prediction_id: int | None
@@ -47,12 +48,14 @@ class FavoriteResponse(BaseModel):
 
 class FavoriteListResponse(BaseModel):
     """List of favorites."""
+
     favorites: list[FavoriteResponse]
     total: int
 
 
 class PreferencesUpdate(BaseModel):
     """Update user preferences."""
+
     language: str | None = Field(None, pattern="^(fr|en|nl)$")
     timezone: str | None = None
     odds_format: str | None = Field(None, pattern="^(decimal|fractional|american)$")
@@ -69,6 +72,7 @@ class PreferencesUpdate(BaseModel):
 
 class PreferencesResponse(BaseModel):
     """User preferences."""
+
     language: str
     timezone: str
     odds_format: str
@@ -94,7 +98,8 @@ def _init_tables():
         cursor = conn.cursor()
 
         # User favorites table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS user_favorites (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
@@ -105,10 +110,12 @@ def _init_tables():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(user_id, match_id)
             )
-        """)
+        """
+        )
 
         # User preferences table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS user_preferences (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT UNIQUE NOT NULL,
@@ -127,12 +134,15 @@ def _init_tables():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         # Create index
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_user_favorites_user ON user_favorites(user_id)
-        """)
+        """
+        )
 
 
 try:
@@ -159,7 +169,7 @@ async def add_favorite(user: AuthenticatedUser, favorite: FavoriteCreate) -> Fav
         # Check if already exists
         cursor.execute(
             f"SELECT id FROM user_favorites WHERE user_id = {ph} AND match_id = {ph}",
-            (user_id, favorite.match_id)
+            (user_id, favorite.match_id),
         )
         if cursor.fetchone():
             raise HTTPException(status_code=400, detail="Already in favorites")
@@ -170,8 +180,14 @@ async def add_favorite(user: AuthenticatedUser, favorite: FavoriteCreate) -> Fav
             INSERT INTO user_favorites (user_id, match_id, prediction_id, note, notify_before_match, created_at)
             VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})
             """,
-            (user_id, favorite.match_id, favorite.prediction_id, favorite.note,
-             1 if favorite.notify_before_match else 0, now)
+            (
+                user_id,
+                favorite.match_id,
+                favorite.prediction_id,
+                favorite.note,
+                1 if favorite.notify_before_match else 0,
+                now,
+            ),
         )
         fav_id = cursor.lastrowid
 
@@ -207,24 +223,26 @@ async def list_favorites(user: AuthenticatedUser) -> FavoriteListResponse:
             WHERE f.user_id = {ph}
             ORDER BY f.created_at DESC
             """,
-            (user_id,)
+            (user_id,),
         )
         rows = cursor.fetchall()
 
     favorites = []
     for row in rows:
-        favorites.append(FavoriteResponse(
-            id=row[0],
-            match_id=row[1],
-            prediction_id=row[2],
-            note=row[3],
-            notify_before_match=bool(row[4]),
-            created_at=row[5] or "",
-            home_team=row[6],
-            away_team=row[7],
-            match_date=row[8],
-            competition=row[9],
-        ))
+        favorites.append(
+            FavoriteResponse(
+                id=row[0],
+                match_id=row[1],
+                prediction_id=row[2],
+                note=row[3],
+                notify_before_match=bool(row[4]),
+                created_at=row[5] or "",
+                home_team=row[6],
+                away_team=row[7],
+                match_date=row[8],
+                competition=row[9],
+            )
+        )
 
     return FavoriteListResponse(favorites=favorites, total=len(favorites))
 
@@ -239,7 +257,7 @@ async def remove_favorite(user: AuthenticatedUser, match_id: int) -> dict[str, A
         cursor = conn.cursor()
         cursor.execute(
             f"DELETE FROM user_favorites WHERE user_id = {ph} AND match_id = {ph}",
-            (user_id, match_id)
+            (user_id, match_id),
         )
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Favorite not found")
@@ -260,10 +278,7 @@ async def get_preferences(user: AuthenticatedUser) -> PreferencesResponse:
 
     with db_session() as conn:
         cursor = conn.cursor()
-        cursor.execute(
-            f"SELECT * FROM user_preferences WHERE user_id = {ph}",
-            (user_id,)
-        )
+        cursor.execute(f"SELECT * FROM user_preferences WHERE user_id = {ph}", (user_id,))
         row = cursor.fetchone()
 
     # Return defaults if no preferences saved
@@ -311,7 +326,9 @@ async def get_preferences(user: AuthenticatedUser) -> PreferencesResponse:
 
 
 @router.put("/preferences", response_model=PreferencesResponse, responses=AUTH_RESPONSES)
-async def update_preferences(user: AuthenticatedUser, prefs: PreferencesUpdate) -> PreferencesResponse:
+async def update_preferences(
+    user: AuthenticatedUser, prefs: PreferencesUpdate
+) -> PreferencesResponse:
     """Update user preferences."""
     user_id = user.get("sub", "")
     ph = get_placeholder()
@@ -395,10 +412,14 @@ async def update_preferences(user: AuthenticatedUser, prefs: PreferencesUpdate) 
                     1 if prefs.push_bet_results in (None, True) else 0,
                     prefs.default_stake or 10.0,
                     prefs.risk_level or "medium",
-                    json.dumps(prefs.favorite_competitions) if prefs.favorite_competitions else None,
+                    (
+                        json.dumps(prefs.favorite_competitions)
+                        if prefs.favorite_competitions
+                        else None
+                    ),
                     now,
                     now,
-                )
+                ),
             )
 
     return await get_preferences(user)

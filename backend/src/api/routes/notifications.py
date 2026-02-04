@@ -1,7 +1,7 @@
 """Push notification routes."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -48,7 +48,8 @@ def _init_push_table():
     with db_session() as conn:
         cursor = conn.cursor()
         # Use TEXT for endpoint to handle long URLs
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS push_subscriptions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 endpoint TEXT UNIQUE NOT NULL,
@@ -63,7 +64,8 @@ def _init_push_table():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
 
 # Initialize table on module load
@@ -114,7 +116,7 @@ async def subscribe_push(
                         subscription.keys.p256dh,
                         subscription.keys.auth,
                         user_id,
-                        datetime.now(timezone.utc).isoformat(),
+                        datetime.now(UTC).isoformat(),
                         subscription.endpoint,
                     ),
                 )
@@ -133,8 +135,8 @@ async def subscribe_push(
                     subscription.keys.p256dh,
                     subscription.keys.auth,
                     user_id,
-                    datetime.now(timezone.utc).isoformat(),
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
+                    datetime.now(UTC).isoformat(),
                 ),
             )
             new_id = cursor.lastrowid
@@ -168,7 +170,7 @@ async def unsubscribe_push(request: UnsubscribeRequest):
                 SET is_active = 0, updated_at = {ph}
                 WHERE endpoint = {ph}
                 """,
-                (datetime.now(timezone.utc).isoformat(), request.endpoint),
+                (datetime.now(UTC).isoformat(), request.endpoint),
             )
 
             if cursor.rowcount == 0:
@@ -211,7 +213,7 @@ async def update_preferences(
                 1 if preferences.daily_picks else 0,
                 1 if preferences.match_start else 0,
                 1 if preferences.result_updates else 0,
-                datetime.now(timezone.utc).isoformat(),
+                datetime.now(UTC).isoformat(),
                 endpoint,
             ),
         )

@@ -217,30 +217,32 @@ class ExtendedFeatureEngineer:
         home_attack_fatigue = home_attack * home_fatigue
         away_attack_fatigue = away_attack * away_fatigue
 
-        return np.array([
-            # Base (7)
-            home_attack,
-            home_defense,
-            away_attack,
-            away_defense,
-            home_form,
-            away_form,
-            h2h,
-            # Fatigue (4)
-            home_rest,
-            home_cong,
-            away_rest,
-            away_cong,
-            # Interactions (8)
-            attack_vs_defense_home,
-            attack_vs_defense_away,
-            form_differential,
-            home_attack_form,
-            away_attack_form,
-            fatigue_advantage,
-            home_attack_fatigue,
-            away_attack_fatigue,
-        ])
+        return np.array(
+            [
+                # Base (7)
+                home_attack,
+                home_defense,
+                away_attack,
+                away_defense,
+                home_form,
+                away_form,
+                h2h,
+                # Fatigue (4)
+                home_rest,
+                home_cong,
+                away_rest,
+                away_cong,
+                # Interactions (8)
+                attack_vs_defense_home,
+                attack_vs_defense_away,
+                form_differential,
+                home_attack_form,
+                away_attack_form,
+                fatigue_advantage,
+                home_attack_fatigue,
+                away_attack_fatigue,
+            ]
+        )
 
     def update_after_match(
         self,
@@ -276,14 +278,27 @@ class ExtendedFeatureEngineer:
         """Get feature names for interpretability."""
         return [
             # Base
-            "home_attack", "home_defense", "away_attack", "away_defense",
-            "home_form", "away_form", "h2h",
+            "home_attack",
+            "home_defense",
+            "away_attack",
+            "away_defense",
+            "home_form",
+            "away_form",
+            "h2h",
             # Fatigue
-            "home_rest_days", "home_congestion", "away_rest_days", "away_congestion",
+            "home_rest_days",
+            "home_congestion",
+            "away_rest_days",
+            "away_congestion",
             # Interactions
-            "attack_vs_defense_home", "attack_vs_defense_away", "form_differential",
-            "home_attack_form", "away_attack_form", "fatigue_advantage",
-            "home_attack_fatigue", "away_attack_fatigue",
+            "attack_vs_defense_home",
+            "attack_vs_defense_away",
+            "form_differential",
+            "home_attack_form",
+            "away_attack_form",
+            "fatigue_advantage",
+            "home_attack_fatigue",
+            "away_attack_fatigue",
         ]
 
 
@@ -343,9 +358,7 @@ class ExtendedMLTrainer:
                 and team_match_count[away_id] >= min_history
             ):
                 # Create features BEFORE updating stats
-                feature_vec = self.feature_engineer.create_features(
-                    home_id, away_id, match_date
-                )
+                feature_vec = self.feature_engineer.create_features(home_id, away_id, match_date)
                 features.append(feature_vec)
                 labels.append(result)
 
@@ -356,7 +369,9 @@ class ExtendedMLTrainer:
             team_match_count[home_id] += 1
             team_match_count[away_id] += 1
 
-        logger.info(f"Prepared {len(features)} training samples with {FEATURE_SET_EXTENDED} features")
+        logger.info(
+            f"Prepared {len(features)} training samples with {FEATURE_SET_EXTENDED} features"
+        )
         return np.array(features), np.array(labels)
 
     def train_xgboost(self, X: np.ndarray, y: np.ndarray) -> bool:
@@ -564,10 +579,7 @@ def main() -> None:
     args = parser.parse_args()
 
     log_level = logging.DEBUG if args.verbose else logging.INFO
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s - %(levelname)s - %(message)s"
-    )
+    logging.basicConfig(level=log_level, format="%(asctime)s - %(levelname)s - %(message)s")
 
     trainer = ExtendedMLTrainer()
 

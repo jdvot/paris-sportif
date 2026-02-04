@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel
 
-from src.auth.dependencies import AuthenticatedUser, get_user_id, get_user_email
+from src.auth.dependencies import AuthenticatedUser
 from src.services.stripe_service import stripe_service
 
 logger = logging.getLogger(__name__)

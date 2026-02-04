@@ -315,23 +315,35 @@ class UserBet(Base):
     __tablename__ = "user_bets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)  # Supabase user ID
+    user_id: Mapped[str] = mapped_column(
+        String(100), nullable=False, index=True
+    )  # Supabase user ID
     match_id: Mapped[int] = mapped_column(Integer, ForeignKey("matches.id"), nullable=False)
-    prediction_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("predictions.id"), nullable=True)
+    prediction_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("predictions.id"), nullable=True
+    )
 
     # Bet details
-    bet_type: Mapped[str] = mapped_column(String(20), nullable=False)  # home_win, draw, away_win, over_25, under_25
+    bet_type: Mapped[str] = mapped_column(
+        String(20), nullable=False
+    )  # home_win, draw, away_win, over_25, under_25
     stake: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)  # Amount bet
     odds: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)  # Odds at time of bet
-    potential_return: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)  # stake * odds
+    potential_return: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2), nullable=False
+    )  # stake * odds
 
     # Result (filled after match)
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, won, lost, void
-    actual_return: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)  # 0 if lost, potential_return if won
+    actual_return: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2), nullable=True
+    )  # 0 if lost, potential_return if won
     settled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Metadata
-    followed_prediction: Mapped[bool] = mapped_column(Boolean, default=False)  # Did user follow our prediction?
+    followed_prediction: Mapped[bool] = mapped_column(
+        Boolean, default=False
+    )  # Did user follow our prediction?
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)  # User notes
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
@@ -363,13 +375,17 @@ class UserStats(Base):
     total_staked: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     total_returns: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     profit_loss: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
-    roi_percentage: Mapped[Decimal] = mapped_column(Numeric(6, 2), default=0)  # (profit/staked) * 100
+    roi_percentage: Mapped[Decimal] = mapped_column(
+        Numeric(6, 2), default=0
+    )  # (profit/staked) * 100
 
     # Performance stats
     win_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0)  # Percentage
     avg_odds: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0)
     best_streak: Mapped[int] = mapped_column(Integer, default=0)
-    current_streak: Mapped[int] = mapped_column(Integer, default=0)  # Positive = wins, negative = losses
+    current_streak: Mapped[int] = mapped_column(
+        Integer, default=0
+    )  # Positive = wins, negative = losses
 
     # Prediction following stats
     followed_predictions: Mapped[int] = mapped_column(Integer, default=0)
@@ -392,7 +408,9 @@ class UserFavorite(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     match_id: Mapped[int] = mapped_column(Integer, ForeignKey("matches.id"), nullable=False)
-    prediction_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("predictions.id"), nullable=True)
+    prediction_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("predictions.id"), nullable=True
+    )
 
     # What type of favorite
     favorite_type: Mapped[str] = mapped_column(String(20), default="pick")  # pick, match, team
@@ -424,7 +442,9 @@ class UserPreferences(Base):
     # Display preferences
     language: Mapped[str] = mapped_column(String(5), default="fr")  # fr, en, nl
     timezone: Mapped[str] = mapped_column(String(50), default="Europe/Paris")
-    odds_format: Mapped[str] = mapped_column(String(20), default="decimal")  # decimal, fractional, american
+    odds_format: Mapped[str] = mapped_column(
+        String(20), default="decimal"
+    )  # decimal, fractional, american
     dark_mode: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Notification preferences
@@ -436,12 +456,16 @@ class UserPreferences(Base):
 
     # Betting preferences
     default_stake: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=10.0)
-    bankroll: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)  # Optional bankroll tracking
+    bankroll: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2), nullable=True
+    )  # Optional bankroll tracking
     risk_level: Mapped[str] = mapped_column(String(20), default="medium")  # low, medium, high
 
     # Favorite competitions (JSON array of codes)
     favorite_competitions: Mapped[str | None] = mapped_column(Text, nullable=True)  # ["PL", "CL"]
-    favorite_teams: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of team IDs
+    favorite_teams: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # JSON array of team IDs
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())

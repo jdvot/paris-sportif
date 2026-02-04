@@ -30,7 +30,8 @@ def init_cache_table() -> None:
     cursor = conn.cursor()
 
     # Create table (PostgreSQL syntax, but works with SQLite too)
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS cached_data (
             id SERIAL PRIMARY KEY,
             cache_key VARCHAR(100) UNIQUE NOT NULL,
@@ -40,12 +41,15 @@ def init_cache_table() -> None:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """)
+    """
+    )
 
     # Create index on cache_key if not exists
     try:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_cached_data_key ON cached_data (cache_key)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_cached_data_expires ON cached_data (expires_at)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cached_data_expires ON cached_data (expires_at)"
+        )
     except Exception:
         pass  # Index might already exist
 
@@ -59,10 +63,12 @@ def get_cached_data(cache_key: str) -> dict[str, Any] | None:
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    query = adapt_query("""
+    query = adapt_query(
+        """
         SELECT data FROM cached_data
         WHERE cache_key = ? AND expires_at > ?
-    """)
+    """
+    )
     cursor.execute(query, (cache_key, datetime.utcnow()))
     result = fetch_one_dict(cursor)
     conn.close()
@@ -91,10 +97,12 @@ def set_cached_data(
     cursor.execute(delete_query, (cache_key,))
 
     # Insert new entry
-    insert_query = adapt_query("""
+    insert_query = adapt_query(
+        """
         INSERT INTO cached_data (cache_key, cache_type, data, expires_at, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?)
-    """)
+    """
+    )
     cursor.execute(insert_query, (cache_key, cache_type, json_data, expires_at, now, now))
 
     conn.commit()
@@ -167,7 +175,7 @@ async def calculate_standings(competition_code: str) -> dict[str, Any] | None:
 
 async def calculate_upcoming_matches() -> dict[str, Any]:
     """Calculate upcoming matches for next 7 days."""
-    from src.data.database import fetch_all_dict, get_db_connection, adapt_query
+    from src.data.database import adapt_query, get_db_connection
 
     logger.info("Calculating upcoming matches...")
 
@@ -175,7 +183,8 @@ async def calculate_upcoming_matches() -> dict[str, Any]:
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    query = adapt_query("""
+    query = adapt_query(
+        """
         SELECT
             m.id, m.external_id, m.match_date, m.status,
             ht.name as home_team, ht.logo_url as home_logo,
@@ -188,7 +197,8 @@ async def calculate_upcoming_matches() -> dict[str, Any]:
         WHERE m.match_date >= ? AND m.match_date <= ?
         AND m.status IN ('scheduled', 'SCHEDULED', 'TIMED')
         ORDER BY m.match_date ASC
-    """)
+    """
+    )
 
     now = datetime.utcnow()
     end_date = now + timedelta(days=7)
@@ -219,21 +229,23 @@ async def calculate_upcoming_matches() -> dict[str, Any]:
 
 async def calculate_teams() -> dict[str, Any]:
     """Calculate teams data with stats."""
-    from src.data.database import fetch_all_dict, get_db_connection, adapt_query
+    from src.data.database import adapt_query, get_db_connection
 
     logger.info("Calculating teams data...")
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    query = adapt_query("""
+    query = adapt_query(
+        """
         SELECT
             id, external_id, name, short_name, tla, country, logo_url,
             elo_rating, avg_goals_scored_home, avg_goals_scored_away,
             avg_goals_conceded_home, avg_goals_conceded_away
         FROM teams
         ORDER BY name ASC
-    """)
+    """
+    )
     cursor.execute(query)
     teams = fetch_all_dict(cursor)
     conn.close()
@@ -248,10 +260,22 @@ async def calculate_teams() -> dict[str, Any]:
             "country": t.get("country"),
             "logo_url": t.get("logo_url"),
             "elo_rating": float(t.get("elo_rating")) if t.get("elo_rating") else 1500.0,
-            "avg_goals_scored_home": float(t.get("avg_goals_scored_home")) if t.get("avg_goals_scored_home") else None,
-            "avg_goals_scored_away": float(t.get("avg_goals_scored_away")) if t.get("avg_goals_scored_away") else None,
-            "avg_goals_conceded_home": float(t.get("avg_goals_conceded_home")) if t.get("avg_goals_conceded_home") else None,
-            "avg_goals_conceded_away": float(t.get("avg_goals_conceded_away")) if t.get("avg_goals_conceded_away") else None,
+            "avg_goals_scored_home": (
+                float(t.get("avg_goals_scored_home")) if t.get("avg_goals_scored_home") else None
+            ),
+            "avg_goals_scored_away": (
+                float(t.get("avg_goals_scored_away")) if t.get("avg_goals_scored_away") else None
+            ),
+            "avg_goals_conceded_home": (
+                float(t.get("avg_goals_conceded_home"))
+                if t.get("avg_goals_conceded_home")
+                else None
+            ),
+            "avg_goals_conceded_away": (
+                float(t.get("avg_goals_conceded_away"))
+                if t.get("avg_goals_conceded_away")
+                else None
+            ),
         }
         for t in teams
     ]
@@ -273,7 +297,8 @@ async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
     4. Store complete predictions in database
     """
     import asyncio
-    from src.data.database import adapt_query, fetch_all_dict, get_db_connection
+
+    from src.data.database import adapt_query, get_db_connection
 
     logger.info("Pre-calculating predictions for upcoming matches...")
 
@@ -281,7 +306,8 @@ async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    query = adapt_query("""
+    query = adapt_query(
+        """
         SELECT m.id, m.external_id
         FROM matches m
         LEFT JOIN predictions p ON m.id = p.match_id
@@ -291,7 +317,8 @@ async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
         AND p.id IS NULL
         ORDER BY m.match_date ASC
         LIMIT 50
-    """)
+    """
+    )
 
     now = datetime.utcnow()
     end_date = now + timedelta(days=7)
@@ -339,13 +366,15 @@ async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
 
                 if prediction:
                     predicted += 1
-                    predicted_matches.append({
-                        "match_id": match_id,
-                        "external_id": external_id,
-                        "home_prob": prediction.probabilities.home_win,
-                        "away_prob": prediction.probabilities.away_win,
-                        "recommended": prediction.recommended_bet,
-                    })
+                    predicted_matches.append(
+                        {
+                            "match_id": match_id,
+                            "external_id": external_id,
+                            "home_prob": prediction.probabilities.home_win,
+                            "away_prob": prediction.probabilities.away_win,
+                            "recommended": prediction.recommended_bet,
+                        }
+                    )
                     logger.info(f"Prediction saved for match {match_id}")
                 else:
                     failed += 1

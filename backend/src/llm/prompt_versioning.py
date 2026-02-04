@@ -13,7 +13,7 @@ import random
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -147,13 +147,33 @@ class PromptVersionManager:
         )
 
         defaults = [
-            (PromptType.INJURY_ANALYSIS, INJURY_ANALYSIS_PROMPT, "Original injury analysis with few-shot examples"),
-            (PromptType.SENTIMENT_ANALYSIS, SENTIMENT_ANALYSIS_PROMPT, "Original sentiment analysis with examples"),
-            (PromptType.MATCH_EXPLANATION, MATCH_EXPLANATION_PROMPT, "Original match explanation prompt"),
-            (PromptType.TACTICAL_ANALYSIS, TACTICAL_ANALYSIS_PROMPT, "Original tactical analysis prompt"),
+            (
+                PromptType.INJURY_ANALYSIS,
+                INJURY_ANALYSIS_PROMPT,
+                "Original injury analysis with few-shot examples",
+            ),
+            (
+                PromptType.SENTIMENT_ANALYSIS,
+                SENTIMENT_ANALYSIS_PROMPT,
+                "Original sentiment analysis with examples",
+            ),
+            (
+                PromptType.MATCH_EXPLANATION,
+                MATCH_EXPLANATION_PROMPT,
+                "Original match explanation prompt",
+            ),
+            (
+                PromptType.TACTICAL_ANALYSIS,
+                TACTICAL_ANALYSIS_PROMPT,
+                "Original tactical analysis prompt",
+            ),
             (PromptType.DAILY_PICKS, DAILY_PICKS_SUMMARY_PROMPT, "Original daily picks summary"),
             (PromptType.WEATHER_IMPACT, WEATHER_IMPACT_PROMPT, "Original weather impact analysis"),
-            (PromptType.MOTIVATION_FACTORS, MOTIVATION_FACTORS_PROMPT, "Original motivation factors analysis"),
+            (
+                PromptType.MOTIVATION_FACTORS,
+                MOTIVATION_FACTORS_PROMPT,
+                "Original motivation factors analysis",
+            ),
         ]
 
         for prompt_type, template, description in defaults:

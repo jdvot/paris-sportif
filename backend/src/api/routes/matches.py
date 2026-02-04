@@ -838,9 +838,13 @@ async def get_standings(
                 ]
                 return StandingsResponse(
                     competition_code=competition_code,
-                    competition_name=cached.get("competition_name", COMPETITIONS.get(competition_code, competition_code)),
+                    competition_name=cached.get(
+                        "competition_name", COMPETITIONS.get(competition_code, competition_code)
+                    ),
                     standings=standings,
-                    last_updated=datetime.fromisoformat(cached.get("calculated_at", datetime.now().isoformat())),
+                    last_updated=datetime.fromisoformat(
+                        cached.get("calculated_at", datetime.now().isoformat())
+                    ),
                     data_source=DataSourceInfo(source="cache"),
                 )
         except Exception as e:

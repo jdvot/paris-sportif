@@ -7,12 +7,12 @@ for semantic retrieval in the RAG pipeline.
 import hashlib
 import logging
 import re
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any
 
 from src.vector.embeddings import embed_text, embed_texts
-from src.vector.qdrant_store import QdrantStore, COLLECTION_NEWS
+from src.vector.qdrant_store import COLLECTION_NEWS, QdrantStore
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class NewsArticle:
     """News article to be indexed."""
+
     title: str
     content: str | None = None
     url: str | None = None
@@ -80,33 +81,64 @@ class NewsIndexer:
 
         # Injury patterns
         injury_patterns = [
-            r"injur", r"bless", r"out for", r"sidelined", r"ruled out",
-            r"hamstring", r"knee", r"ankle", r"muscle", r"surgery",
-            r"recovery", r"return from", r"fitness doubt"
+            r"injur",
+            r"bless",
+            r"out for",
+            r"sidelined",
+            r"ruled out",
+            r"hamstring",
+            r"knee",
+            r"ankle",
+            r"muscle",
+            r"surgery",
+            r"recovery",
+            r"return from",
+            r"fitness doubt",
         ]
         if any(re.search(p, text) for p in injury_patterns):
             return "injury"
 
         # Transfer patterns
         transfer_patterns = [
-            r"transfer", r"sign", r"deal", r"contract", r"loan",
-            r"join", r"move to", r"bid", r"offer", r"fee"
+            r"transfer",
+            r"sign",
+            r"deal",
+            r"contract",
+            r"loan",
+            r"join",
+            r"move to",
+            r"bid",
+            r"offer",
+            r"fee",
         ]
         if any(re.search(p, text) for p in transfer_patterns):
             return "transfer"
 
         # Form/performance patterns
         form_patterns = [
-            r"form", r"streak", r"winning", r"losing", r"unbeaten",
-            r"goals? in", r"assists?", r"performance", r"impressive"
+            r"form",
+            r"streak",
+            r"winning",
+            r"losing",
+            r"unbeaten",
+            r"goals? in",
+            r"assists?",
+            r"performance",
+            r"impressive",
         ]
         if any(re.search(p, text) for p in form_patterns):
             return "form"
 
         # Match preview patterns
         preview_patterns = [
-            r"preview", r"prediction", r"expect", r"key battle",
-            r"head.to.head", r"h2h", r"clash", r"showdown"
+            r"preview",
+            r"prediction",
+            r"expect",
+            r"key battle",
+            r"head.to.head",
+            r"h2h",
+            r"clash",
+            r"showdown",
         ]
         if any(re.search(p, text) for p in preview_patterns):
             return "preview"
@@ -132,9 +164,7 @@ class NewsIndexer:
 
             # Auto-classify if not specified
             if article.article_type == "general":
-                article.article_type = self._classify_article(
-                    article.title, article.content
-                )
+                article.article_type = self._classify_article(article.title, article.content)
 
             # Prepare payload
             payload = {
@@ -162,7 +192,7 @@ class NewsIndexer:
             logger.error(f"Failed to index article '{article.title[:50]}': {e}")
             return False
 
-    def index_articles(self, articles: List[NewsArticle]) -> int:
+    def index_articles(self, articles: list[NewsArticle]) -> int:
         """Index multiple articles (batch processing).
 
         Args:
@@ -187,24 +217,26 @@ class NewsIndexer:
 
             # Auto-classify
             if article.article_type == "general":
-                article.article_type = self._classify_article(
-                    article.title, article.content
-                )
+                article.article_type = self._classify_article(article.title, article.content)
 
             ids.append(article_id)
             texts.append(text)
-            payloads.append({
-                "title": article.title,
-                "content_snippet": (article.content or "")[:200],
-                "url": article.url,
-                "source": article.source,
-                "team_name": article.team_name,
-                "team_id": article.team_id,
-                "competition": article.competition,
-                "article_type": article.article_type,
-                "language": article.language,
-                "published_at": article.published_at.isoformat() if article.published_at else None,
-            })
+            payloads.append(
+                {
+                    "title": article.title,
+                    "content_snippet": (article.content or "")[:200],
+                    "url": article.url,
+                    "source": article.source,
+                    "team_name": article.team_name,
+                    "team_id": article.team_id,
+                    "competition": article.competition,
+                    "article_type": article.article_type,
+                    "language": article.language,
+                    "published_at": (
+                        article.published_at.isoformat() if article.published_at else None
+                    ),
+                }
+            )
 
         # Batch embed
         embeddings = embed_texts(texts)
@@ -223,7 +255,7 @@ class NewsIndexer:
         limit: int = 5,
         min_score: float = 0.5,
         max_age_days: int | None = 7,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search for relevant news articles.
 
         Args:
@@ -295,7 +327,7 @@ class NewsIndexer:
         team_name: str,
         context_query: str = "recent news injuries form",
         limit: int = 5,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get comprehensive context for a team.
 
         Args:
@@ -338,7 +370,7 @@ class NewsIndexer:
 
         return context
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get indexer statistics."""
         return {
             "collection": COLLECTION_NEWS,

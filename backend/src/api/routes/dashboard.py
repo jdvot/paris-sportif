@@ -18,15 +18,15 @@ async def get_user_stats(
 ) -> dict[str, Any]:
     """Get user prediction statistics and ROI."""
     user_id = current_user.get("id")
-    
+
     conn = get_db_connection()
     if not conn:
         return _get_demo_stats(days)
-    
+
     try:
         cursor = conn.cursor()
         start_date = datetime.now() - timedelta(days=days)
-        
+
         # Get user predictions with results
         cursor.execute(
             """
@@ -51,21 +51,18 @@ async def get_user_stats(
             (user_id, start_date),
         )
         predictions = cursor.fetchall()
-        
+
         # Calculate stats
         total = len(predictions)
         won = sum(1 for p in predictions if p[7] is True)
         lost = sum(1 for p in predictions if p[7] is False)
         pending = sum(1 for p in predictions if p[7] is None)
-        
+
         # Calculate ROI
         total_stake = sum(p[6] or 1.0 for p in predictions if p[7] is not None)
-        total_return = sum(
-            (p[5] or 2.0) * (p[6] or 1.0) if p[7] else 0
-            for p in predictions
-        )
+        total_return = sum((p[5] or 2.0) * (p[6] or 1.0) if p[7] else 0 for p in predictions)
         roi = ((total_return - total_stake) / total_stake * 100) if total_stake > 0 else 0
-        
+
         # Stats by competition
         competition_stats: dict[str, dict[str, int]] = {}
         for p in predictions:
@@ -77,10 +74,10 @@ async def get_user_stats(
                 competition_stats[comp]["won"] += 1
             elif p[7] is False:
                 competition_stats[comp]["lost"] += 1
-        
+
         # ROI over time (weekly buckets)
         roi_history = _calculate_roi_history(predictions, days)
-        
+
         return {
             "period_days": days,
             "summary": {
@@ -100,9 +97,13 @@ async def get_user_stats(
                     "total": stats["total"],
                     "won": stats["won"],
                     "lost": stats["lost"],
-                    "win_rate": round(stats["won"] / stats["total"] * 100, 1) if stats["total"] > 0 else 0,
+                    "win_rate": (
+                        round(stats["won"] / stats["total"] * 100, 1) if stats["total"] > 0 else 0
+                    ),
                 }
-                for comp, stats in sorted(competition_stats.items(), key=lambda x: x[1]["total"], reverse=True)
+                for comp, stats in sorted(
+                    competition_stats.items(), key=lambda x: x[1]["total"], reverse=True
+                )
             ],
             "roi_history": roi_history,
             "recent_predictions": [
@@ -130,7 +131,7 @@ def _calculate_roi_history(predictions: list, days: int) -> list[dict[str, Any]]
     """Calculate ROI history in weekly buckets."""
     if not predictions:
         return []
-    
+
     # Group by week
     weeks: dict[str, dict[str, float]] = {}
     for p in predictions:
@@ -141,30 +142,36 @@ def _calculate_roi_history(predictions: list, days: int) -> list[dict[str, Any]]
             continue
         week_start = date - timedelta(days=date.weekday())
         week_key = week_start.strftime("%Y-%m-%d")
-        
+
         if week_key not in weeks:
             weeks[week_key] = {"stake": 0, "return": 0}
-        
+
         stake = p[6] or 1.0
         weeks[week_key]["stake"] += stake
         if p[7]:  # Won
             weeks[week_key]["return"] += (p[5] or 2.0) * stake
-    
+
     # Convert to list with cumulative ROI
     result = []
     cumulative_stake = 0
     cumulative_return = 0
-    
+
     for week in sorted(weeks.keys()):
         cumulative_stake += weeks[week]["stake"]
         cumulative_return += weeks[week]["return"]
-        roi = ((cumulative_return - cumulative_stake) / cumulative_stake * 100) if cumulative_stake > 0 else 0
-        result.append({
-            "week": week,
-            "roi": round(roi, 2),
-            "cumulative_profit": round(cumulative_return - cumulative_stake, 2),
-        })
-    
+        roi = (
+            ((cumulative_return - cumulative_stake) / cumulative_stake * 100)
+            if cumulative_stake > 0
+            else 0
+        )
+        result.append(
+            {
+                "week": week,
+                "roi": round(roi, 2),
+                "cumulative_profit": round(cumulative_return - cumulative_stake, 2),
+            }
+        )
+
     return result
 
 

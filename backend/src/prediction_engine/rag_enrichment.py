@@ -17,11 +17,11 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import quote
 
-import httpx
 import defusedxml.ElementTree as ET
+import httpx
 
 from src.core.config import settings
-from src.llm.client import get_llm_client, GroqClient
+from src.llm.client import GroqClient, get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -387,6 +387,7 @@ class RAGEnrichment:
         self.semantic_search = None
         try:
             from src.vector.search import SemanticSearch
+
             self.semantic_search = SemanticSearch()
             logger.info("RAG enrichment initialized with semantic search")
         except Exception as e:
@@ -447,13 +448,15 @@ class RAGEnrichment:
                 existing_titles = {n.get("title", "").lower() for n in context["news"]}
                 for sem_news in semantic_context.get("news", []):
                     if sem_news.get("title", "").lower() not in existing_titles:
-                        context["news"].append({
-                            "title": sem_news.get("title"),
-                            "date": sem_news.get("published_at"),
-                            "url": sem_news.get("url"),
-                            "source": f"Semantic ({sem_news.get('source', 'cache')})",
-                            "score": sem_news.get("score"),
-                        })
+                        context["news"].append(
+                            {
+                                "title": sem_news.get("title"),
+                                "date": sem_news.get("published_at"),
+                                "url": sem_news.get("url"),
+                                "source": f"Semantic ({sem_news.get('source', 'cache')})",
+                                "score": sem_news.get("score"),
+                            }
+                        )
 
             # Analyze sentiment if we have news
             if context["news"] and self.llm_client:

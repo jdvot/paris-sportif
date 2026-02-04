@@ -8,8 +8,6 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any
 
-import httpx
-
 from src.vector.news_indexer import NewsArticle, NewsIndexer
 
 logger = logging.getLogger(__name__)
@@ -105,9 +103,7 @@ class NewsIngestionService:
 
         # Try to fetch from NewsAPI (if API key is available)
         # For now, we'll generate simulated news for development
-        articles.extend(
-            self._generate_simulated_news(team_name, max_articles)
-        )
+        articles.extend(self._generate_simulated_news(team_name, max_articles))
 
         return articles
 
@@ -200,10 +196,12 @@ class NewsIngestionService:
                 results.append(result)
             except Exception as e:
                 logger.error(f"Error ingesting news for {team}: {e}")
-                results.append({
-                    "team": team,
-                    "error": str(e),
-                })
+                results.append(
+                    {
+                        "team": team,
+                        "error": str(e),
+                    }
+                )
 
         total_indexed = sum(r.get("indexed", 0) for r in results)
 
@@ -218,29 +216,65 @@ class NewsIngestionService:
         """Get list of team names for a competition."""
         teams_by_comp = {
             "PL": [
-                "Arsenal", "Chelsea", "Manchester United", "Manchester City",
-                "Liverpool", "Tottenham", "Newcastle", "Aston Villa",
-                "Brighton", "West Ham", "Fulham", "Crystal Palace",
-                "Brentford", "Everton", "Nottingham Forest", "Bournemouth",
-                "Wolves", "Leicester",
+                "Arsenal",
+                "Chelsea",
+                "Manchester United",
+                "Manchester City",
+                "Liverpool",
+                "Tottenham",
+                "Newcastle",
+                "Aston Villa",
+                "Brighton",
+                "West Ham",
+                "Fulham",
+                "Crystal Palace",
+                "Brentford",
+                "Everton",
+                "Nottingham Forest",
+                "Bournemouth",
+                "Wolves",
+                "Leicester",
             ],
             "PD": [
-                "Real Madrid", "Barcelona", "Atletico Madrid", "Sevilla",
-                "Real Betis", "Valencia", "Villarreal", "Athletic Club",
+                "Real Madrid",
+                "Barcelona",
+                "Atletico Madrid",
+                "Sevilla",
+                "Real Betis",
+                "Valencia",
+                "Villarreal",
+                "Athletic Club",
                 "Real Sociedad",
             ],
             "SA": [
-                "Juventus", "AC Milan", "Inter", "Napoli",
-                "AS Roma", "Lazio", "Fiorentina", "Atalanta",
+                "Juventus",
+                "AC Milan",
+                "Inter",
+                "Napoli",
+                "AS Roma",
+                "Lazio",
+                "Fiorentina",
+                "Atalanta",
             ],
             "BL1": [
-                "Bayern Munich", "Borussia Dortmund", "RB Leipzig",
-                "Bayer Leverkusen", "Eintracht Frankfurt", "Union Berlin",
-                "Freiburg", "Wolfsburg",
+                "Bayern Munich",
+                "Borussia Dortmund",
+                "RB Leipzig",
+                "Bayer Leverkusen",
+                "Eintracht Frankfurt",
+                "Union Berlin",
+                "Freiburg",
+                "Wolfsburg",
             ],
             "FL1": [
-                "PSG", "Marseille", "Lyon", "Monaco",
-                "Lille", "Nice", "Lens", "Rennes",
+                "PSG",
+                "Marseille",
+                "Lyon",
+                "Monaco",
+                "Lille",
+                "Nice",
+                "Lens",
+                "Rennes",
             ],
         }
         return teams_by_comp.get(competition, [])
@@ -259,10 +293,12 @@ class NewsIngestionService:
                 results.append(result)
             except Exception as e:
                 logger.error(f"Error ingesting competition {comp_code}: {e}")
-                results.append({
-                    "competition": comp_code,
-                    "error": str(e),
-                })
+                results.append(
+                    {
+                        "competition": comp_code,
+                        "error": str(e),
+                    }
+                )
 
         total_indexed = sum(r.get("total_indexed", 0) for r in results)
 

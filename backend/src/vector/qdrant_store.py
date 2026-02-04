@@ -4,13 +4,13 @@ Handles connection to Qdrant Cloud and collection management.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
-from qdrant_client.http.models import Distance, VectorParams, PointStruct
+from qdrant_client.http.models import Distance, PointStruct, VectorParams
 
 from src.core.config import settings
 from src.vector.embeddings import EMBEDDING_DIM
@@ -23,15 +23,16 @@ COLLECTION_MATCHES = "match_embeddings"
 COLLECTION_LLM_CACHE = "llm_cache"
 
 # Singleton client
-_client: Optional[QdrantClient] = None
+_client: QdrantClient | None = None
 
 
 @dataclass
 class SearchResult:
     """Search result from Qdrant."""
+
     id: str
     score: float
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
 
 
 def get_qdrant_client() -> QdrantClient:
@@ -92,8 +93,8 @@ class QdrantStore:
     def upsert(
         self,
         id: str,
-        embedding: List[float],
-        payload: Dict[str, Any],
+        embedding: list[float],
+        payload: dict[str, Any],
     ) -> bool:
         """Insert or update a vector.
 
@@ -126,9 +127,9 @@ class QdrantStore:
 
     def upsert_batch(
         self,
-        ids: List[str],
-        embeddings: List[List[float]],
-        payloads: List[Dict[str, Any]],
+        ids: list[str],
+        embeddings: list[list[float]],
+        payloads: list[dict[str, Any]],
         batch_size: int = 100,
     ) -> int:
         """Insert or update multiple vectors.
@@ -175,11 +176,11 @@ class QdrantStore:
 
     def search(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         limit: int = 5,
         score_threshold: float = 0.5,
-        filter_conditions: Optional[Dict[str, Any]] = None,
-    ) -> List[SearchResult]:
+        filter_conditions: dict[str, Any] | None = None,
+    ) -> list[SearchResult]:
         """Search for similar vectors.
 
         Args:
@@ -233,7 +234,7 @@ class QdrantStore:
             logger.error(f"Search failed: {e}")
             return []
 
-    def delete(self, ids: List[str]) -> bool:
+    def delete(self, ids: list[str]) -> bool:
         """Delete vectors by ID.
 
         Args:

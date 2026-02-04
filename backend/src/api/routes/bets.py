@@ -1,8 +1,7 @@
 """Bets and bankroll management endpoints."""
 
 import logging
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -103,7 +102,8 @@ def _init_bets_tables():
         cursor = conn.cursor()
 
         # User bankroll settings
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS user_bankroll (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT UNIQUE NOT NULL,
@@ -113,10 +113,12 @@ def _init_bets_tables():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         # User bets
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS user_bets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
@@ -131,12 +133,15 @@ def _init_bets_tables():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
         # Create index for user_id
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_user_bets_user_id ON user_bets(user_id)
-        """)
+        """
+        )
 
 
 try:
@@ -239,7 +244,7 @@ async def update_bankroll(
         )
         existing = cursor.fetchone()
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         if existing:
             cursor.execute(
@@ -334,7 +339,9 @@ async def list_bets(
     ]
 
 
-@router.post("", response_model=BetResponse, status_code=status.HTTP_201_CREATED, responses=AUTH_RESPONSES)
+@router.post(
+    "", response_model=BetResponse, status_code=status.HTTP_201_CREATED, responses=AUTH_RESPONSES
+)
 async def create_bet(
     user: AuthenticatedUser,
     bet: BetCreate,
@@ -350,7 +357,7 @@ async def create_bet(
         )
 
     potential_return = bet.amount * bet.odds
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     with db_session() as conn:
         cursor = conn.cursor()
@@ -441,7 +448,7 @@ async def update_bet(
             SET status = {ph}, actual_return = {ph}, updated_at = {ph}
             WHERE id = {ph}
             """,
-            (update.status, actual_return, datetime.now(timezone.utc).isoformat(), bet_id),
+            (update.status, actual_return, datetime.now(UTC).isoformat(), bet_id),
         )
 
     return BetResponse(

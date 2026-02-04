@@ -749,9 +749,7 @@ def get_scheduled_matches_from_db(
 # ============== PREDICTION TRACKING ==============
 
 
-def verify_prediction(
-    match_id: int, home_score: int, away_score: int
-) -> dict[str, Any] | None:
+def verify_prediction(match_id: int, home_score: int, away_score: int) -> dict[str, Any] | None:
     """
     Verify a prediction against actual match result.
     Updates the prediction record with actual scores and correctness.

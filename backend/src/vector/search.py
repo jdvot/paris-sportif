@@ -5,15 +5,14 @@ Provides high-level search functions for the prediction system.
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from src.vector.news_indexer import NewsIndexer
-from src.vector.embeddings import embed_text
 
 logger = logging.getLogger(__name__)
 
 # Singleton indexer
-_news_indexer: Optional[NewsIndexer] = None
+_news_indexer: NewsIndexer | None = None
 
 
 def get_news_indexer() -> NewsIndexer:
@@ -36,7 +35,7 @@ class SemanticSearch:
         away_team: str,
         competition: str | None = None,
         match_date: datetime | None = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get comprehensive context for a match.
 
         Searches for relevant news about both teams and the matchup.
@@ -82,7 +81,7 @@ class SemanticSearch:
         self,
         team_name: str,
         limit: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search specifically for injury news.
 
         Args:
@@ -105,7 +104,7 @@ class SemanticSearch:
         self,
         team_name: str,
         limit: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search for team form and performance news.
 
         Args:
@@ -128,7 +127,7 @@ class SemanticSearch:
         self,
         query: str,
         limit: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Generic semantic search.
 
         Args:
@@ -144,7 +143,7 @@ class SemanticSearch:
             min_score=0.5,
         )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get search system statistics."""
         return {
             "news_index": self.news_indexer.get_stats(),
@@ -157,7 +156,7 @@ def enrich_with_semantic_search(
     home_team: str,
     away_team: str,
     competition: str | None = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Enrich match prediction with semantic search.
 
     This is the main entry point for the RAG pipeline.

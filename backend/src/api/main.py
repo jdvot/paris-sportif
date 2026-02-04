@@ -90,7 +90,9 @@ async def auto_sync_and_verify():
         # Verify predictions against actual results
         verified_count = verify_finished_matches()
 
-        logger.info(f"[Scheduler] Auto sync complete: {total_synced} matches synced, {verified_count} predictions verified")
+        logger.info(
+            f"[Scheduler] Auto sync complete: {total_synced} matches synced, {verified_count} predictions verified"
+        )
 
     except Exception as e:
         logger.error(f"[Scheduler] Auto sync failed: {e}")
@@ -192,7 +194,9 @@ async def _run_daily_cache():
 
         init_cache_table()
         result = await run_daily_cache_calculation()
-        logger.info(f"[Scheduler] Cache calculation complete: {len(result['success'])} success, {len(result['failed'])} failed")
+        logger.info(
+            f"[Scheduler] Cache calculation complete: {len(result['success'])} success, {len(result['failed'])} failed"
+        )
     except Exception as e:
         logger.error(f"[Scheduler] Cache calculation failed: {e}")
 

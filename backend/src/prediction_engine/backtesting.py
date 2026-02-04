@@ -199,9 +199,7 @@ class WalkForwardBacktest:
         min_date = sorted_matches[0].match_date
         max_date = sorted_matches[-1].match_date
 
-        logger.info(
-            f"Running backtest on {len(matches)} matches from {min_date} to {max_date}"
-        )
+        logger.info(f"Running backtest on {len(matches)} matches from {min_date} to {max_date}")
 
         # Calculate number of folds
         total_days = (max_date - min_date).days
@@ -229,12 +227,8 @@ class WalkForwardBacktest:
             test_end = current_test_start + timedelta(days=self.test_window_days - 1)
 
             # Get train and test matches
-            train_matches = [
-                m for m in sorted_matches if train_start <= m.match_date <= train_end
-            ]
-            test_matches = [
-                m for m in sorted_matches if test_start <= m.match_date <= test_end
-            ]
+            train_matches = [m for m in sorted_matches if train_start <= m.match_date <= train_end]
+            test_matches = [m for m in sorted_matches if test_start <= m.match_date <= test_end]
 
             if not train_matches or not test_matches:
                 current_test_start += timedelta(days=self.test_window_days)
@@ -249,9 +243,7 @@ class WalkForwardBacktest:
             predictor = self._train_predictor(train_matches, retrain_ml)
 
             # Make predictions on test data
-            fold_predictions = self._make_predictions(
-                predictor, test_matches, use_llm_adjustments
-            )
+            fold_predictions = self._make_predictions(predictor, test_matches, use_llm_adjustments)
             all_predictions.extend(fold_predictions)
 
             # Calculate fold metrics
@@ -276,12 +268,8 @@ class WalkForwardBacktest:
         overall_metrics = self._calculate_metrics(all_predictions)
 
         # Calculate rolling metrics
-        rolling_accuracy = self._calculate_rolling_metrics(
-            all_predictions, metric="accuracy"
-        )
-        rolling_brier = self._calculate_rolling_metrics(
-            all_predictions, metric="brier"
-        )
+        rolling_accuracy = self._calculate_rolling_metrics(all_predictions, metric="accuracy")
+        rolling_brier = self._calculate_rolling_metrics(all_predictions, metric="brier")
 
         return BacktestResults(
             overall_metrics=overall_metrics,
@@ -399,22 +387,24 @@ class WalkForwardBacktest:
                 else:
                     actual_outcome = "draw"
 
-                predictions.append({
-                    "match_id": match.match_id,
-                    "match_date": match.match_date,
-                    "home_team": match.home_team,
-                    "away_team": match.away_team,
-                    "prob_home": pred.home_win_prob,
-                    "prob_draw": pred.draw_prob,
-                    "prob_away": pred.away_win_prob,
-                    "predicted": predicted_outcome,
-                    "actual": actual_outcome,
-                    "confidence": pred.confidence,
-                    "model_agreement": pred.model_agreement,
-                    "odds_home": match.odds_home,
-                    "odds_draw": match.odds_draw,
-                    "odds_away": match.odds_away,
-                })
+                predictions.append(
+                    {
+                        "match_id": match.match_id,
+                        "match_date": match.match_date,
+                        "home_team": match.home_team,
+                        "away_team": match.away_team,
+                        "prob_home": pred.home_win_prob,
+                        "prob_draw": pred.draw_prob,
+                        "prob_away": pred.away_win_prob,
+                        "predicted": predicted_outcome,
+                        "actual": actual_outcome,
+                        "confidence": pred.confidence,
+                        "model_agreement": pred.model_agreement,
+                        "odds_home": match.odds_home,
+                        "odds_draw": match.odds_draw,
+                        "odds_away": match.odds_away,
+                    }
+                )
 
             except Exception as e:
                 logger.warning(f"Failed to predict match {match.match_id}: {e}")
@@ -431,9 +421,7 @@ class WalkForwardBacktest:
             return BacktestMetrics()
 
         # Filter by minimum confidence
-        filtered = [
-            p for p in predictions if p.get("confidence", 0) >= self.min_confidence
-        ]
+        filtered = [p for p in predictions if p.get("confidence", 0) >= self.min_confidence]
 
         if not filtered:
             return BacktestMetrics()
@@ -478,9 +466,7 @@ class WalkForwardBacktest:
             predicted_probs = [p["prob_home"], p["prob_draw"], p["prob_away"]]
 
             # Multi-class Brier score
-            brier = sum(
-                (pred - actual) ** 2 for pred, actual in zip(predicted_probs, actual_probs)
-            )
+            brier = sum((pred - actual) ** 2 for pred, actual in zip(predicted_probs, actual_probs))
             brier_scores.append(brier)
 
             # Per-outcome Brier
@@ -561,9 +547,7 @@ class WalkForwardBacktest:
 
             # Actual cumulative
             actual_idx = {"home": 0, "draw": 1, "away": 2}[p["actual"]]
-            actual_cum = np.array([
-                1.0 if i >= actual_idx else 0.0 for i in range(3)
-            ])
+            actual_cum = np.array([1.0 if i >= actual_idx else 0.0 for i in range(3)])
 
             # RPS
             rps = np.mean((pred_cum - actual_cum) ** 2)
@@ -585,11 +569,7 @@ class WalkForwardBacktest:
             bin_end = (i + 1) * bin_width
 
             # Get predictions in this bin (for home win probability)
-            in_bin = [
-                p
-                for p in predictions
-                if bin_start <= p["prob_home"] < bin_end
-            ]
+            in_bin = [p for p in predictions if bin_start <= p["prob_home"] < bin_end]
 
             if in_bin:
                 mean_pred = np.mean([p["prob_home"] for p in in_bin])
@@ -711,8 +691,7 @@ class WalkForwardBacktest:
                     ]
                     predicted_probs = [p["prob_home"], p["prob_draw"], p["prob_away"]]
                     brier = sum(
-                        (pred - actual) ** 2
-                        for pred, actual in zip(predicted_probs, actual_probs)
+                        (pred - actual) ** 2 for pred, actual in zip(predicted_probs, actual_probs)
                     )
                     brier_sum += brier
                 value = brier_sum / len(window)
@@ -740,7 +719,7 @@ def format_backtest_report(results: BacktestResults) -> str:
         "WALK-FORWARD BACKTEST REPORT",
         "=" * 60,
         "",
-        f"Configuration:",
+        "Configuration:",
         f"  Train window: {results.train_window_days} days",
         f"  Test window:  {results.test_window_days} days",
         f"  Min confidence: {results.min_confidence:.2f}",

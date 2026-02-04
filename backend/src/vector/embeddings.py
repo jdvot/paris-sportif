@@ -8,8 +8,6 @@ Uses all-MiniLM-L6-v2 model:
 """
 
 import logging
-from functools import lru_cache
-from typing import List
 
 import numpy as np
 
@@ -33,7 +31,9 @@ def get_embedding_model():
             _model = SentenceTransformer(MODEL_NAME)
             logger.info(f"Embedding model loaded successfully (dim={EMBEDDING_DIM})")
         except ImportError:
-            logger.error("sentence-transformers not installed. Run: pip install sentence-transformers")
+            logger.error(
+                "sentence-transformers not installed. Run: pip install sentence-transformers"
+            )
             raise
         except Exception as e:
             logger.error(f"Failed to load embedding model: {e}")
@@ -42,7 +42,7 @@ def get_embedding_model():
     return _model
 
 
-def embed_text(text: str) -> List[float]:
+def embed_text(text: str) -> list[float]:
     """Generate embedding for a single text.
 
     Args:
@@ -66,7 +66,7 @@ def embed_text(text: str) -> List[float]:
     return embedding.tolist()
 
 
-def embed_texts(texts: List[str], batch_size: int = 32) -> List[List[float]]:
+def embed_texts(texts: list[str], batch_size: int = 32) -> list[list[float]]:
     """Generate embeddings for multiple texts (batch processing).
 
     Args:
@@ -113,7 +113,7 @@ def embed_texts(texts: List[str], batch_size: int = 32) -> List[List[float]]:
     return results
 
 
-def compute_similarity(embedding1: List[float], embedding2: List[float]) -> float:
+def compute_similarity(embedding1: list[float], embedding2: list[float]) -> float:
     """Compute cosine similarity between two embeddings.
 
     Args:

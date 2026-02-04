@@ -603,9 +603,7 @@ class ModelTrainer:
             )
 
             self.optimization_results["xgboost"] = result
-            logger.info(
-                f"XGBoost optimization complete. Best accuracy: {result.best_score:.4f}"
-            )
+            logger.info(f"XGBoost optimization complete. Best accuracy: {result.best_score:.4f}")
             logger.info(f"Best params: {result.best_params}")
 
             return result
@@ -819,9 +817,7 @@ class ModelTrainer:
                 feature_names = XGBoostModel.FEATURE_NAMES
                 for i, importance in enumerate(model.feature_importances_):
                     if i < len(feature_names):
-                        self.xgboost_model.feature_importance[feature_names[i]] = float(
-                            importance
-                        )
+                        self.xgboost_model.feature_importance[feature_names[i]] = float(importance)
 
             # Evaluate if validation set provided
             if X_val is not None and y_val is not None:

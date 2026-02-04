@@ -291,7 +291,9 @@ class FeatureEngineer:
             current_match_date = datetime.now()
         elif isinstance(current_match_date, str):
             try:
-                current_match_date = datetime.fromisoformat(current_match_date.replace("Z", "+00:00"))
+                current_match_date = datetime.fromisoformat(
+                    current_match_date.replace("Z", "+00:00")
+                )
             except ValueError:
                 current_match_date = datetime.now()
 
@@ -346,7 +348,9 @@ class FeatureEngineer:
             current_match_date = datetime.now()
         elif isinstance(current_match_date, str):
             try:
-                current_match_date = datetime.fromisoformat(current_match_date.replace("Z", "+00:00"))
+                current_match_date = datetime.fromisoformat(
+                    current_match_date.replace("Z", "+00:00")
+                )
             except ValueError:
                 current_match_date = datetime.now()
 

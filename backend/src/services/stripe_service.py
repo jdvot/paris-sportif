@@ -45,7 +45,9 @@ class StripeService:
             dict with session_id and checkout_url
         """
         if plan not in StripeService.PLAN_PRICES:
-            raise ValueError(f"Invalid plan: {plan}. Must be one of {list(StripeService.PLAN_PRICES.keys())}")
+            raise ValueError(
+                f"Invalid plan: {plan}. Must be one of {list(StripeService.PLAN_PRICES.keys())}"
+            )
 
         price_id = StripeService.PLAN_PRICES[plan]
 
@@ -126,8 +128,12 @@ class StripeService:
                 "id": subscription.id,
                 "status": subscription.status,
                 "plan": subscription.metadata.get("plan", "premium"),
-                "current_period_start": datetime.fromtimestamp(subscription.current_period_start).isoformat(),
-                "current_period_end": datetime.fromtimestamp(subscription.current_period_end).isoformat(),
+                "current_period_start": datetime.fromtimestamp(
+                    subscription.current_period_start
+                ).isoformat(),
+                "current_period_end": datetime.fromtimestamp(
+                    subscription.current_period_end
+                ).isoformat(),
                 "cancel_at_period_end": subscription.cancel_at_period_end,
                 "customer_id": subscription.customer,
             }

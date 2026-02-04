@@ -1,7 +1,7 @@
 """Alert scheduler for triggering match notifications."""
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from src.data.database import db_session, get_placeholder
 from src.notifications.push_service import get_push_service
@@ -28,7 +28,7 @@ class AlertScheduler:
         Returns:
             List of matches that triggered alerts
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         alert_window_start = now + timedelta(minutes=self.MATCH_START_MINUTES_BEFORE - 5)
         alert_window_end = now + timedelta(minutes=self.MATCH_START_MINUTES_BEFORE + 5)
 
@@ -84,13 +84,17 @@ class AlertScheduler:
                     sent_count=result["sent"],
                 )
 
-                alerts_sent.append({
-                    "match_id": match_id,
-                    "match": f"{home_team} vs {away_team}",
-                    "sent": result["sent"],
-                })
+                alerts_sent.append(
+                    {
+                        "match_id": match_id,
+                        "match": f"{home_team} vs {away_team}",
+                        "sent": result["sent"],
+                    }
+                )
 
-                logger.info(f"Match start alert sent for {home_team} vs {away_team}: {result['sent']} notifications")
+                logger.info(
+                    f"Match start alert sent for {home_team} vs {away_team}: {result['sent']} notifications"
+                )
 
             except Exception as e:
                 logger.error(f"Failed to send match start alert for match {match_id}: {e}")
@@ -100,7 +104,7 @@ class AlertScheduler:
     async def send_daily_picks_alert(self) -> dict:
         """Send daily picks notification."""
         ph = get_placeholder()
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
 
         # Check if already sent today
         with db_session() as conn:
@@ -164,7 +168,8 @@ class AlertScheduler:
             cursor = conn.cursor()
 
             # Ensure table exists
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS notification_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     match_id INTEGER,
@@ -172,7 +177,8 @@ class AlertScheduler:
                     sent_count INTEGER DEFAULT 0,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
             cursor.execute(
                 f"""
@@ -183,7 +189,7 @@ class AlertScheduler:
                     match_id,
                     notification_type,
                     sent_count,
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
                 ),
             )
 
@@ -192,7 +198,7 @@ class AlertScheduler:
         results = {
             "match_alerts": [],
             "daily_picks": None,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         # Check match start alerts
@@ -203,7 +209,7 @@ class AlertScheduler:
             results["match_alerts_error"] = str(e)
 
         # Check daily picks (only send once per day at specific times)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if 7 <= now.hour <= 9:  # Send between 7-9 AM UTC
             try:
                 results["daily_picks"] = await self.send_daily_picks_alert()

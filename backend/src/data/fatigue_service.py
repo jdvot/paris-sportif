@@ -8,7 +8,7 @@ Part of ML-007: Integrate fatigue data from API.
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from src.data.sources.football_data import FootballDataClient, MatchData, get_football_data_client

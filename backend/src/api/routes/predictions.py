@@ -21,8 +21,8 @@ from pydantic import BaseModel, Field
 
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.config import settings
-from src.core.rate_limit import RATE_LIMITS, limiter
 from src.core.exceptions import FootballDataAPIError, RateLimitError
+from src.core.rate_limit import RATE_LIMITS, limiter
 
 # Data source type for beta feedback
 DataSourceType = Literal["live_api", "cache", "database", "mock", "fallback"]
@@ -33,7 +33,7 @@ from src.data.database import (
     save_prediction,
     verify_prediction,
 )
-from src.data.fatigue_service import get_fatigue_service, MatchFatigueData
+from src.data.fatigue_service import MatchFatigueData, get_fatigue_service
 from src.data.sources.football_data import MatchData, get_football_data_client
 from src.llm.prompts_advanced import (
     get_prediction_analysis_prompt,
@@ -106,9 +106,7 @@ class TeamFatigueInfo(BaseModel):
     fixture_congestion_score: float = Field(
         0.5, ge=0.0, le=1.0, description="Fixture congestion score (0=congested, 1=light)"
     )
-    combined_score: float = Field(
-        0.5, ge=0.0, le=1.0, description="Combined fatigue score"
-    )
+    combined_score: float = Field(0.5, ge=0.0, le=1.0, description="Combined fatigue score")
 
 
 class FatigueInfo(BaseModel):
@@ -1132,7 +1130,9 @@ async def get_prediction_stats(
                     roi_simulated=cached.get("roi_simulated", 0.0),
                     by_competition=cached.get("by_competition", {}),
                     by_bet_type=cached.get("by_bet_type", {}),
-                    last_updated=datetime.fromisoformat(cached.get("calculated_at", datetime.now().isoformat())),
+                    last_updated=datetime.fromisoformat(
+                        cached.get("calculated_at", datetime.now().isoformat())
+                    ),
                 )
         except Exception as e:
             logger.warning(f"Cache lookup failed, falling back to live calculation: {e}")
@@ -1496,7 +1496,9 @@ async def verify_prediction_endpoint(
 
 @router.post("/{match_id}/refresh", responses=AUTH_RESPONSES, operation_id="refreshPrediction")
 @limiter.limit(RATE_LIMITS["predictions"])
-async def refresh_prediction(request: Request, match_id: int, user: AuthenticatedUser) -> dict[str, str]:
+async def refresh_prediction(
+    request: Request, match_id: int, user: AuthenticatedUser
+) -> dict[str, str]:
     """Force refresh a prediction (admin only)."""
     try:
         # Verify match exists
@@ -1517,5 +1519,9 @@ async def refresh_prediction(request: Request, match_id: int, user: Authenticate
     except FootballDataAPIError as e:
         raise HTTPException(
             status_code=404 if "not found" in str(e).lower() else 502,
-            detail=f"Match {match_id} not found" if "not found" in str(e).lower() else f"[BETA] Erreur API: {str(e)}",
+            detail=(
+                f"Match {match_id} not found"
+                if "not found" in str(e).lower()
+                else f"[BETA] Erreur API: {str(e)}"
+            ),
         )

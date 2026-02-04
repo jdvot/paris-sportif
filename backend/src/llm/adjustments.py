@@ -8,24 +8,21 @@ Integrates with prompt versioning system for A/B testing and metrics tracking.
 
 import logging
 import time
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 from src.llm.client import get_llm_client
+from src.llm.prompt_versioning import (
+    PromptType,
+    prompt_version_manager,
+)
 from src.llm.prompts import (
-    INJURY_ANALYSIS_PROMPT,
-    SENTIMENT_ANALYSIS_PROMPT,
     SYSTEM_JSON_EXTRACTOR,
 )
 from src.llm.prompts_advanced import (
     get_form_analysis_prompt,
     get_head_to_head_analysis_prompt,
-    get_injury_impact_analysis_prompt,
-)
-from src.llm.prompt_versioning import (
-    PromptType,
-    prompt_version_manager,
 )
 from src.prediction_engine.ensemble import LLMAdjustments
 
@@ -52,9 +49,7 @@ class InjuryAnalysis(BaseModel):
         default=0.5, ge=0.0, le=1.0, description="Confidence in analysis (0.0-1.0)"
     )
     is_key_player: bool = Field(default=False, description="Whether player is key")
-    expected_return: str | None = Field(
-        default=None, description="Expected return timeframe"
-    )
+    expected_return: str | None = Field(default=None, description="Expected return timeframe")
     reasoning: str = Field(default="", description="Analysis reasoning")
 
     @field_validator("impact_score", "confidence", mode="before")
@@ -249,9 +244,7 @@ class H2HDominance(BaseModel):
         le=0.1,
         description="Home advantage adjustment (-0.1 to 0.1)",
     )
-    trend: Literal["home_improving", "balanced", "away_improving"] = Field(
-        default="balanced"
-    )
+    trend: Literal["home_improving", "balanced", "away_improving"] = Field(default="balanced")
     reliability: Literal["strong", "moderate", "weak"] = Field(default="moderate")
 
     @field_validator("home_advantage", mode="before")
@@ -1000,8 +993,7 @@ def _calculate_h2h_adjustment(
         else:
             favored_team = away_team
         reasoning = (
-            f"H2H ({record}) favors {favored_team} "
-            f"({trend} trend, {reliability} reliability)"
+            f"H2H ({record}) favors {favored_team} " f"({trend} trend, {reliability} reliability)"
         )
     else:
         reasoning = ""
