@@ -196,7 +196,40 @@
     "clearAll": "Clear all",
     "addedOn": "Added on",
     "removeFavorite": "Remove from favorites",
-    "infoBanner": "Favorites are saved locally and expire automatically after 7 days."
+    "infoBanner": "Favorites are synced with your account and accessible on all your devices."
+  },
+  "preferences": {
+    "title": "Preferences",
+    "subtitle": "Customize your experience",
+    "save": "Save",
+    "notifications": {
+      "title": "Notifications",
+      "dailyPicks": "Daily picks",
+      "dailyPicksDesc": "Get notified when daily picks are ready",
+      "matchAlerts": "Match alerts",
+      "matchAlertsDesc": "Get alerts for your favorite matches",
+      "resultUpdates": "Results",
+      "resultUpdatesDesc": "Receive results for followed matches",
+      "promotions": "Promotions",
+      "promotionsDesc": "Receive special offers and promotions"
+    },
+    "display": {
+      "title": "Display",
+      "showOdds": "Show odds",
+      "showOddsDesc": "Display bookmaker odds on cards",
+      "compactMode": "Compact mode",
+      "compactModeDesc": "Reduced display for more matches on screen",
+      "showStats": "Detailed statistics",
+      "showStatsDesc": "Show advanced statistics on matches"
+    },
+    "competitions": {
+      "title": "Competitions",
+      "description": "Select the competitions you want to follow"
+    },
+    "language": {
+      "title": "Language",
+      "description": "Choose your preferred language"
+    }
   },
   "auth": {
     "login": {
