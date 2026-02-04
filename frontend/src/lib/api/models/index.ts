@@ -29,7 +29,6 @@ export * from './betStatus';
 export * from './betUpdate';
 export * from './broadcastNotificationApiV1AdminNotificationsBroadcastPost200';
 export * from './bttsResponse';
-export * from './bTTSResponse';
 export * from './cacheRefreshResponse';
 export * from './cancelRequest';
 export * from './checkoutResponse';
