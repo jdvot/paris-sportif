@@ -64,47 +64,59 @@ Voir [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) pour le guide complet.
 ## Quick Start (Local)
 
 ### Prerequisites
-- Python 3.11+
-- Node.js 18+
+- Python 3.11+ avec [uv](https://docs.astral.sh/uv/)
+- Node.js 22+
 - Docker & Docker Compose
 - Groq API key (gratuit)
 - football-data.org API key (gratuit)
 
 ### Installation
 
-1. **Clone & Setup**
 ```bash
+# 1. Clone
 git clone <repo>
 cd paris-sportif
-```
 
-2. **Start Services**
-```bash
-docker-compose up -d
-```
-
-3. **Backend Setup**
-```bash
-cd backend
+# 2. Configuration
 cp .env.example .env
-# Edit .env with your API keys
-uv sync
-uv run alembic upgrade head
-uv run uvicorn src.api.main:app --reload
+# Éditer .env avec vos clés API
+
+# 3. Installer les dépendances
+make install
+
+# 4. Démarrer les services Docker
+docker-compose up -d
+
+# 5. Lancer en développement
+make dev
 ```
 
-4. **Frontend Setup**
-```bash
-cd frontend
-cp .env.example .env.local
-npm install
-npm run dev
-```
-
-5. **Access**
+**Accès:**
 - Frontend: http://localhost:3000
 - API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
+
+## Commandes Makefile
+
+| Commande | Description |
+|----------|-------------|
+| `make dev` | Lance backend + frontend en parallèle |
+| `make test` | Exécute tous les tests |
+| `make lint` | Vérifie le code (ruff, mypy, eslint) |
+| `make format` | Formate le code (black, prettier) |
+| `make install` | Installe toutes les dépendances |
+| `make sync-api` | Sync OpenAPI et regénère Orval |
+| `make build` | Build frontend pour production |
+| `make clean` | Nettoie les fichiers temporaires |
+
+### Commandes individuelles
+
+```bash
+make dev-backend   # Lance uniquement le backend (port 8000)
+make dev-frontend  # Lance uniquement le frontend (port 3000)
+make test-backend  # Tests backend uniquement
+make test-frontend # Tests frontend uniquement
+```
 
 ## Prediction Models
 
@@ -213,22 +225,24 @@ paris-sportif/
 
 ### Running Tests
 ```bash
-# Backend
-cd backend && uv run pytest
+# Tous les tests
+make test
 
-# Frontend
-cd frontend && npm test
+# Par projet
+make test-backend
+make test-frontend
 ```
 
 ### Code Quality
 ```bash
-# Backend
-uv run black src/
-uv run mypy src/
+# Linting complet
+make lint
 
-# Frontend
-npm run lint
-npm run type-check
+# Formatting
+make format
+
+# API Sync (OpenAPI → Orval)
+make sync-api
 ```
 
 ## Performance Tracking

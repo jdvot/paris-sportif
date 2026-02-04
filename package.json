@@ -1,0 +1,35 @@
+{
+  "name": "paris-sportif",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Application de paris sportifs - Monorepo avec backend Python et frontend Next.js",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "make dev",
+    "dev:frontend": "make dev-frontend",
+    "dev:backend": "make dev-backend",
+    "test": "make test",
+    "lint": "make lint",
+    "format": "make format",
+    "build": "make build",
+    "install:all": "make install",
+    "sync-api": "make sync-api",
+    "clean": "make clean"
+  },
+  "keywords": [
+    "sports-betting",
+    "football",
+    "predictions",
+    "machine-learning",
+    "nextjs",
+    "fastapi"
+  ],
+  "author": "Paris Sportif Team",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  }
+}
