@@ -31,5 +31,10 @@
   "engines": {
     "node": ">=22.0.0",
     "npm": ">=10.0.0"
+  },
+  "devDependencies": {
+    "next": "^15.5.11",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   }
 }

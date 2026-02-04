@@ -230,7 +230,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     // STEP 1: Use getSession() to read session from cookies
     // This is the workaround for INITIAL_SESSION not firing in Next.js 15
     console.log('[Providers] Calling getSession() to read cookies...');
-    supabase.auth.getSession().then(({ data, error }) => {
+    supabase.auth.getSession().then(({ data, error }: { data: { session: { access_token?: string; expires_in?: number; user?: { email?: string } } | null }; error: { message?: string } | null }) => {
       console.log('[Providers] getSession() result:', {
         hasSession: !!data?.session,
         hasUser: !!data?.session?.user,
@@ -262,7 +262,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       // Mark as ready after getSession completes
       setIsReady(true);
       console.log('[Providers] isReady = true');
-    }).catch((err) => {
+    }).catch((err: unknown) => {
       console.error('[Providers] getSession() error:', err);
       markAuthInitialized();
       setIsReady(true);
