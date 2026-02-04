@@ -133,7 +133,7 @@ class OverUnderResponse(BaseModel):
     recommended: str = Field("over", description="Recommended bet: over or under")
 
 
-class BTTSResponse(BaseModel):
+class BttsResponse(BaseModel):
     """Both Teams To Score response."""
 
     yes_prob: float = Field(..., ge=0, le=1, description="Probability both teams score")
@@ -172,7 +172,7 @@ class MultiMarketsResponse(BaseModel):
     over_under_15: OverUnderResponse = Field(..., description="Over/Under 1.5 goals")
     over_under_25: OverUnderResponse = Field(..., description="Over/Under 2.5 goals")
     over_under_35: OverUnderResponse = Field(..., description="Over/Under 3.5 goals")
-    btts: BTTSResponse = Field(..., description="Both Teams To Score")
+    btts: BttsResponse = Field(..., description="Both Teams To Score")
     double_chance: DoubleChanceResponse = Field(..., description="Double Chance markets")
     correct_score: CorrectScoreResponse = Field(..., description="Top correct score predictions")
     expected_home_goals: float = Field(..., description="Expected goals for home team")
@@ -839,7 +839,7 @@ async def _generate_prediction_from_api_match(
                     under_value=mm_prediction.over_under_35.under_value,
                     recommended=mm_prediction.over_under_35.recommended,
                 ),
-                btts=BTTSResponse(
+                btts=BttsResponse(
                     yes_prob=mm_prediction.btts.yes_prob,
                     no_prob=mm_prediction.btts.no_prob,
                     yes_odds=mm_prediction.btts.yes_odds,
@@ -1309,7 +1309,7 @@ def _generate_fallback_prediction(
                     under_value=mm_prediction.over_under_35.under_value,
                     recommended=mm_prediction.over_under_35.recommended,
                 ),
-                btts=BTTSResponse(
+                btts=BttsResponse(
                     yes_prob=mm_prediction.btts.yes_prob,
                     no_prob=mm_prediction.btts.no_prob,
                     yes_odds=mm_prediction.btts.yes_odds,
