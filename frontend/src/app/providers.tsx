@@ -13,6 +13,85 @@ let isRedirecting = false;
 // Interval for server-side user validation (5 minutes)
 const USER_VALIDATION_INTERVAL_MS = 5 * 60 * 1000;
 
+/**
+ * Manually parse Supabase session from chunked cookies
+ * Workaround for getSession() hanging bug in @supabase/ssr
+ *
+ * Supabase stores session in chunked cookies like:
+ * - sb-{project_ref}-auth-token.0
+ * - sb-{project_ref}-auth-token.1
+ * etc.
+ */
+function parseSessionFromCookies(): { access_token: string; expires_in: number; user: { email?: string } } | null {
+  if (typeof document === 'undefined') return null;
+
+  try {
+    const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+      const [name, value] = cookie.trim().split('=');
+      if (name) acc[name] = value;
+      return acc;
+    }, {} as Record<string, string>);
+
+    // Find all Supabase auth token chunks
+    const authTokenChunks: { index: number; value: string }[] = [];
+
+    for (const [name, value] of Object.entries(cookies)) {
+      // Match both sb-xxx-auth-token.N (chunked) and sb-xxx-auth-token (single)
+      const chunkMatch = name.match(/^sb-[^-]+-auth-token\.(\d+)$/);
+      const singleMatch = name.match(/^sb-[^-]+-auth-token$/);
+
+      if (chunkMatch) {
+        authTokenChunks.push({ index: parseInt(chunkMatch[1], 10), value });
+      } else if (singleMatch && !authTokenChunks.length) {
+        // Single cookie (not chunked)
+        authTokenChunks.push({ index: 0, value });
+      }
+    }
+
+    if (authTokenChunks.length === 0) {
+      console.log('[CookieParser] No auth token cookies found');
+      return null;
+    }
+
+    // Sort by index and concatenate
+    authTokenChunks.sort((a, b) => a.index - b.index);
+    const encodedSession = authTokenChunks.map(c => c.value).join('');
+
+    console.log('[CookieParser] Found', authTokenChunks.length, 'cookie chunks');
+
+    // Decode - Supabase uses base64url encoding with 'base64-' prefix
+    let sessionJson: string;
+    if (encodedSession.startsWith('base64-')) {
+      // Remove prefix and decode
+      const base64 = encodedSession.slice(7);
+      // base64url to base64
+      const base64Standard = base64.replace(/-/g, '+').replace(/_/g, '/');
+      sessionJson = atob(base64Standard);
+    } else {
+      // Try direct decode
+      sessionJson = decodeURIComponent(encodedSession);
+    }
+
+    const session = JSON.parse(sessionJson);
+
+    if (!session.access_token) {
+      console.log('[CookieParser] Session missing access_token');
+      return null;
+    }
+
+    console.log('[CookieParser] Successfully parsed session for:', session.user?.email);
+
+    return {
+      access_token: session.access_token,
+      expires_in: session.expires_in || 3600,
+      user: session.user || {}
+    };
+  } catch (err) {
+    console.error('[CookieParser] Failed to parse session:', err);
+    return null;
+  }
+}
+
 // Check if we recently redirected (persists across page loads)
 function wasRecentlyRedirected(): boolean {
   if (typeof window === 'undefined') return false;
@@ -234,45 +313,67 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Step 1: Bootstrap auth with getSession() + timeout
+    // Helper to set up session from access token
+    const setupSession = (accessToken: string, expiresIn: number, userEmail?: string) => {
+      console.log('[Providers] Setting up session for:', userEmail);
+      setAuthToken(accessToken, expiresIn);
+
+      // Clear redirect marker
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('auth_redirect_time');
+      }
+
+      // Set up periodic validation
+      if (!validationIntervalRef.current) {
+        validationIntervalRef.current = setInterval(() => {
+          console.log('[Providers] Periodic validation');
+          validateUserWithServer();
+        }, USER_VALIDATION_INTERVAL_MS);
+      }
+    };
+
+    // Step 1: Bootstrap auth with getSession() + timeout + cookie fallback
     const initAuth = async () => {
       try {
         console.log('[Providers] Calling getSession()...');
 
-        // Create a promise that resolves with null session after 3 seconds
-        const timeoutPromise = new Promise<{ data: { session: null }; error: null }>((resolve) => {
+        // Create a promise that resolves with a special marker after 2 seconds
+        let didTimeout = false;
+        const timeoutPromise = new Promise<{ data: { session: null }; error: null; timedOut: true }>((resolve) => {
           setTimeout(() => {
-            console.warn('[Providers] getSession() timeout after 3s');
-            resolve({ data: { session: null }, error: null });
-          }, 3000);
+            didTimeout = true;
+            console.warn('[Providers] getSession() timeout after 2s');
+            resolve({ data: { session: null }, error: null, timedOut: true });
+          }, 2000);
         });
 
         // Race between getSession and timeout
-        const { data, error } = await Promise.race([
-          supabase.auth.getSession(),
+        const result = await Promise.race([
+          supabase.auth.getSession().then((r: { data: { session: Session | null }; error: unknown }) => ({ ...r, timedOut: false })),
           timeoutPromise,
         ]);
 
         if (!isActive) return;
 
+        const { data, error, timedOut } = result as { data: { session: Session | null }; error: unknown; timedOut: boolean };
+
         if (error) {
-          console.error('[Providers] getSession error:', error.message);
+          console.error('[Providers] getSession error:', (error as { message?: string }).message);
           markAuthInitialized();
         } else if (data.session?.access_token) {
-          console.log('[Providers] Session found:', data.session.user?.email);
-          setAuthToken(data.session.access_token, data.session.expires_in);
+          // getSession worked! Use the session
+          setupSession(data.session.access_token, data.session.expires_in, data.session.user?.email);
+        } else if (timedOut) {
+          // getSession timed out - try cookie fallback
+          console.log('[Providers] getSession timed out, trying cookie fallback...');
+          const cookieSession = parseSessionFromCookies();
 
-          // Clear redirect marker
-          if (typeof window !== 'undefined') {
-            sessionStorage.removeItem('auth_redirect_time');
-          }
-
-          // Set up periodic validation
-          if (!validationIntervalRef.current) {
-            validationIntervalRef.current = setInterval(() => {
-              console.log('[Providers] Periodic validation');
-              validateUserWithServer();
-            }, USER_VALIDATION_INTERVAL_MS);
+          if (cookieSession) {
+            console.log('[Providers] Cookie fallback successful!');
+            setupSession(cookieSession.access_token, cookieSession.expires_in, cookieSession.user?.email);
+          } else {
+            console.log('[Providers] No session from cookies either');
+            markAuthInitialized();
           }
         } else {
           console.log('[Providers] No session from getSession');
@@ -283,10 +384,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
         // Don't treat AbortError as failure (StrictMode double-mount)
         if (error?.name === 'AbortError') {
           console.log('[Providers] getSession aborted (StrictMode)');
+          // Still try cookie fallback on abort
+          const cookieSession = parseSessionFromCookies();
+          if (cookieSession) {
+            console.log('[Providers] Cookie fallback after abort successful!');
+            setupSession(cookieSession.access_token, cookieSession.expires_in, cookieSession.user?.email);
+          } else {
+            markAuthInitialized();
+          }
         } else {
           console.error('[Providers] getSession failed:', error?.message);
+          markAuthInitialized();
         }
-        markAuthInitialized();
       } finally {
         // CRITICAL: Always mark ready, even on error/timeout
         markReady();
