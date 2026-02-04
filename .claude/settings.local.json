@@ -1,6 +1,24 @@
 {
   "permissions": {
     "allow": [
+      "Read(path:/Users/admin/paris-sportif-worktrees/**)",
+      "Write(path:/Users/admin/paris-sportif-worktrees/**)",
+      "Edit(path:/Users/admin/paris-sportif-worktrees/**)",
+      "Glob(path:/Users/admin/paris-sportif-worktrees/**)",
+      "Grep(path:/Users/admin/paris-sportif-worktrees/**)",
+      "Bash(cd /Users/admin/paris-sportif-worktrees:*)",
+      "Bash(cd:*)",
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(uv:*)",
+      "Bash(uv run:*)",
+      "Bash(uv add:*)",
+      "Bash(uv sync:*)",
+      "Bash(npx husky:*)",
+      "Bash(npx lint-staged:*)",
+      "Bash(pre-commit:*)",
       "Bash(npm run build:*)",
       "Bash(npm install)",
       "Bash(git add:*)",
@@ -47,7 +65,20 @@
       "Bash(DEBUG=*)",
       "Bash(__NEW_LINE_8ef8323ae2be835c__ echo \"\")",
       "Bash(ls:*)",
-      "WebFetch(domain:supabase.com)"
+      "WebFetch(domain:supabase.com)",
+      "mcp__linear__get_issue",
+      "mcp__linear__list_issues",
+      "mcp__linear__update_issue",
+      "mcp__linear__create_issue",
+      "Bash(npm run lint)",
+      "Bash(npx eslint:*)",
+      "mcp__linear__list_teams",
+      "Bash(git merge:*)",
+      "Bash(git branch:*)",
+      "Bash(chmod:*)",
+      "WebSearch",
+      "Bash(npm ci:*)"
     ]
-  }
+  },
+  "model": "opus"
 }
