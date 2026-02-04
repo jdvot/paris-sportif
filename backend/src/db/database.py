@@ -1,13 +1,15 @@
 """Database connection and session management.
 
 Uses SQLAlchemy 2.0 async patterns with connection pooling and
-proper transaction handling.
+proper transaction handling. Also provides sync access for background tasks.
 """
 
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncGenerator, Generator
+from contextlib import asynccontextmanager, contextmanager
 
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
 from src.core.config import settings
@@ -117,3 +119,47 @@ async def init_db() -> None:
 async def close_db() -> None:
     """Close database connections."""
     await engine.dispose()
+
+
+# =============================================================================
+# Sync Database Access (for background tasks that can't use async)
+# =============================================================================
+
+# Create sync engine for use in background tasks
+_sync_database_url = settings.database_url  # Use original URL (not async)
+_sync_engine = create_engine(
+    _sync_database_url,
+    echo=settings.debug,
+    pool_pre_ping=True,
+    pool_size=3,
+    max_overflow=5,
+)
+
+# Sync session factory
+_sync_session_maker = sessionmaker(
+    bind=_sync_engine,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
+
+@contextmanager
+def get_db_context() -> Generator[Session, None, None]:
+    """Sync context manager for database sessions.
+
+    For use in background tasks or sync code that needs database access.
+
+    Usage:
+        with get_db_context() as db:
+            result = db.execute(text("SELECT * FROM teams"))
+            db.commit()
+    """
+    session = _sync_session_maker()
+    try:
+        yield session
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()

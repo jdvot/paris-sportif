@@ -14,7 +14,7 @@ Usage:
         await uow.commit()
 """
 
-from src.db.database import async_session_factory, get_db, get_session, init_db
+from src.db.database import async_session_factory, get_db, get_db_context, get_session, init_db
 from src.db.models import (
     Base,
     CachedData,
@@ -51,6 +51,7 @@ __all__ = [
     # Database utilities
     "async_session_factory",
     "get_db",
+    "get_db_context",
     "get_session",
     "init_db",
     # Base
