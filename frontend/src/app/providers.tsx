@@ -101,7 +101,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
   // Hydration gate: block rendering until auth is initialized
   const [isReady, setIsReady] = useState(false);
   const validationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const initRef = useRef(false);
 
   // Reset redirect flag on mount (new page load)
   useEffect(() => {
@@ -211,12 +210,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
    * then use onAuthStateChange only for subsequent updates.
    */
   useEffect(() => {
-    // Prevent double initialization in StrictMode
-    if (initRef.current) {
-      console.log('[Providers] Already initialized, skipping');
-      return;
-    }
-    initRef.current = true;
+    // Track if this effect instance is still active (not cleaned up)
+    let isActive = true;
 
     console.log('[Providers] Setting up auth...');
 
@@ -231,6 +226,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
     // This is the workaround for INITIAL_SESSION not firing in Next.js 15
     console.log('[Providers] Calling getSession() to read cookies...');
     supabase.auth.getSession().then(({ data, error }: { data: { session: { access_token?: string; expires_in?: number; user?: { email?: string } } | null }; error: { message?: string } | null }) => {
+      // Ignore if component was unmounted (StrictMode cleanup)
+      if (!isActive) {
+        console.log('[Providers] getSession() completed but component unmounted, ignoring');
+        return;
+      }
+
       console.log('[Providers] getSession() result:', {
         hasSession: !!data?.session,
         hasUser: !!data?.session?.user,
@@ -263,6 +264,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
       setIsReady(true);
       console.log('[Providers] isReady = true');
     }).catch((err: unknown) => {
+      // Ignore AbortError from StrictMode unmount
+      const error = err as { name?: string };
+      if (error?.name === 'AbortError') {
+        console.log('[Providers] getSession() aborted (StrictMode unmount), will retry on remount');
+        return;
+      }
+
+      if (!isActive) return;
+
       console.error('[Providers] getSession() error:', err);
       markAuthInitialized();
       setIsReady(true);
@@ -320,6 +330,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     return () => {
       console.log('[Providers] Cleanup');
+      isActive = false;
       subscription.unsubscribe();
       if (validationIntervalRef.current) {
         clearInterval(validationIntervalRef.current);
