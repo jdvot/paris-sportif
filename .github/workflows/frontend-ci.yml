@@ -12,10 +12,6 @@ on:
       - 'frontend/**'
       - '.github/workflows/frontend-ci.yml'
 
-defaults:
-  run:
-    working-directory: frontend
-
 jobs:
   lint-and-typecheck:
     name: Lint & Type Check
@@ -30,16 +26,16 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
       - name: TypeScript type check
-        run: npm run type-check
+        run: npm run type-check -w frontend
 
       - name: Run ESLint
-        run: npm run lint --if-present
+        run: npm run lint -w frontend --if-present
         continue-on-error: true  # Don't fail on lint warnings initially
 
   build:
@@ -56,13 +52,13 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build application
-        run: npm run build
+        run: npm run build -w frontend
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:8000' }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
@@ -72,7 +68,6 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     needs: lint-and-typecheck
-    if: false  # Enable when tests are added
 
     steps:
       - name: Checkout code
@@ -83,10 +78,10 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
       - name: Run tests
-        run: npm test
+        run: npm run test -w frontend
