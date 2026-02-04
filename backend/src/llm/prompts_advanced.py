@@ -602,8 +602,8 @@ TACTICAL EDGE SCALE:
 RESPONSE FORMAT - JSON ONLY:
 {{
     "formation_analysis": {{
-        "home_formation": "{home_formation or 'Not specified'}",
-        "away_formation": "{away_formation or 'Not specified'}",
+        "home_formation": "{home_formation or "Not specified"}",
+        "away_formation": "{away_formation or "Not specified"}",
         "formation_compatibility": "home_advantage|balanced|away_advantage"
     }},
     "tactical_edge": -0.05 to 0.05,

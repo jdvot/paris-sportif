@@ -246,7 +246,7 @@ def example_batch_predictions() -> None:
 
     print(f"Predicted probabilities for {len(features)} matches:")
     for i, prob in enumerate(probs):
-        print(f"  Match {i+1}: Home {prob[0]:.1%}, Draw {prob[1]:.1%}, Away {prob[2]:.1%}")
+        print(f"  Match {i + 1}: Home {prob[0]:.1%}, Draw {prob[1]:.1%}, Away {prob[2]:.1%}")
 
 
 # Example 6: Feature Importance

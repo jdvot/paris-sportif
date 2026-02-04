@@ -41,8 +41,9 @@ from src.core.config import settings
 from src.core.exceptions import ParisportifError
 from src.core.rate_limit import limiter
 from src.core.sentry import init_sentry
-from src.data.database import save_matches, verify_finished_matches
 from src.data.sources.football_data import COMPETITIONS, get_football_data_client
+from src.db.services.match_service import MatchService
+from src.db.services.prediction_service import PredictionService
 
 # Initialize Sentry for error monitoring
 init_sentry()
@@ -77,7 +78,7 @@ async def auto_sync_and_verify():
                     status="FINISHED",
                 )
                 matches_dict = [m.model_dump() for m in matches]
-                synced = save_matches(matches_dict)
+                synced = await MatchService.save_matches(matches_dict)
                 total_synced += synced
 
                 # Small delay between API calls to respect rate limits
@@ -88,7 +89,7 @@ async def auto_sync_and_verify():
                 await asyncio.sleep(10)  # Wait longer on error
 
         # Verify predictions against actual results
-        verified_count = verify_finished_matches()
+        verified_count = await PredictionService.verify_all_finished()
 
         logger.info(
             f"[Scheduler] Auto sync complete: {total_synced} matches synced, {verified_count} predictions verified"
@@ -131,6 +132,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize database tables
     try:
         from src.db.database import init_db
+
         await init_db()
         print("[Database] Tables initialized")
     except Exception as e:
@@ -200,7 +202,7 @@ async def _run_daily_cache():
     try:
         from src.services.cache_service import init_cache_table, run_daily_cache_calculation
 
-        init_cache_table()
+        await init_cache_table()
         result = await run_daily_cache_calculation()
         logger.info(
             f"[Scheduler] Cache calculation complete: {len(result['success'])} success, {len(result['failed'])} failed"

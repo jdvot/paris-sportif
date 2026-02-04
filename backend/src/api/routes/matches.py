@@ -13,8 +13,8 @@ from pydantic import BaseModel
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 from src.core.rate_limit import RATE_LIMITS, limiter
-from src.data.database import get_matches_from_db, get_standings_from_db
 from src.data.sources.football_data import COMPETITIONS, MatchData, get_football_data_client
+from src.db.services import MatchService, StandingService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -338,9 +338,9 @@ async def get_matches(
         logger.warning(f"External API rate limit: {e}, trying database fallback...")
         retry_after = e.details.get("retry_after", 60) if e.details else 60
 
-        # Try database first
+        # Try database first using async service
         try:
-            db_matches = get_matches_from_db(
+            db_matches = await MatchService.get_matches(
                 date_from=date_from,
                 date_to=date_to,
                 competition=competition,
@@ -348,7 +348,31 @@ async def get_matches(
 
             if db_matches:
                 logger.info(f"Found {len(db_matches)} matches in database")
-                matches = [_convert_api_match(MatchData(**m)) for m in db_matches]
+                matches = [
+                    MatchResponse(
+                        id=m["id"],
+                        external_id=m.get("external_id", f"DB_{m['id']}"),
+                        home_team=TeamInfo(
+                            id=m["home_team"]["id"],
+                            name=m["home_team"]["name"] or "Unknown",
+                            short_name=(m["home_team"]["name"] or "UNK")[:3].upper(),
+                        ),
+                        away_team=TeamInfo(
+                            id=m["away_team"]["id"],
+                            name=m["away_team"]["name"] or "Unknown",
+                            short_name=(m["away_team"]["name"] or "UNK")[:3].upper(),
+                        ),
+                        competition="Unknown",
+                        competition_code=competition or "UNK",
+                        match_date=datetime.fromisoformat(m["match_date"])
+                        if m.get("match_date")
+                        else datetime.now(UTC),
+                        status=m.get("status", "scheduled"),
+                        home_score=m.get("home_score"),
+                        away_score=m.get("away_score"),
+                    )
+                    for m in db_matches
+                ]
                 matches = sorted(matches, key=lambda m: m.match_date)
 
                 total = len(matches)
@@ -394,9 +418,9 @@ async def get_matches(
     except (FootballDataAPIError, Exception) as e:
         logger.warning(f"API error: {e}, trying database fallback...")
 
-        # Try database first
+        # Try database first using async service
         try:
-            db_matches = get_matches_from_db(
+            db_matches = await MatchService.get_matches(
                 date_from=date_from,
                 date_to=date_to,
                 competition=competition,
@@ -404,7 +428,31 @@ async def get_matches(
 
             if db_matches:
                 logger.info(f"Found {len(db_matches)} matches in database")
-                matches = [_convert_api_match(MatchData(**m)) for m in db_matches]
+                matches = [
+                    MatchResponse(
+                        id=m["id"],
+                        external_id=m.get("external_id", f"DB_{m['id']}"),
+                        home_team=TeamInfo(
+                            id=m["home_team"]["id"],
+                            name=m["home_team"]["name"] or "Unknown",
+                            short_name=(m["home_team"]["name"] or "UNK")[:3].upper(),
+                        ),
+                        away_team=TeamInfo(
+                            id=m["away_team"]["id"],
+                            name=m["away_team"]["name"] or "Unknown",
+                            short_name=(m["away_team"]["name"] or "UNK")[:3].upper(),
+                        ),
+                        competition="Unknown",
+                        competition_code=competition or "UNK",
+                        match_date=datetime.fromisoformat(m["match_date"])
+                        if m.get("match_date")
+                        else datetime.now(UTC),
+                        status=m.get("status", "scheduled"),
+                        home_score=m.get("home_score"),
+                        away_score=m.get("away_score"),
+                    )
+                    for m in db_matches
+                ]
                 matches = sorted(matches, key=lambda m: m.match_date)
 
                 total = len(matches)
@@ -816,7 +864,7 @@ async def get_standings(
         try:
             from src.services.cache_service import get_cached_data
 
-            cached = get_cached_data(f"standings_{competition_code}")
+            cached = await get_cached_data(f"standings_{competition_code}")
             if cached:
                 logger.debug(f"Returning cached standings for {competition_code}")
                 standings = [
@@ -889,9 +937,9 @@ async def get_standings(
         logger.warning(f"External API rate limit for standings {competition_code}: {e}")
         retry_after = e.details.get("retry_after", 60) if e.details else 60
 
-        # Try database first
+        # Try database first using async service
         try:
-            db_standings = get_standings_from_db(competition_code)
+            db_standings = await StandingService.get_standings(competition_code)
             if db_standings:
                 logger.info(f"Found {len(db_standings)} standings in DB for {competition_code}")
                 standings = []
@@ -934,9 +982,9 @@ async def get_standings(
     except (FootballDataAPIError, Exception) as e:
         logger.warning(f"API error for standings {competition_code}: {e}, trying database...")
 
-        # Try database first
+        # Try database first using async service
         try:
-            db_standings = get_standings_from_db(competition_code)
+            db_standings = await StandingService.get_standings(competition_code)
             if db_standings:
                 logger.info(f"Found {len(db_standings)} standings in DB for {competition_code}")
                 standings = []

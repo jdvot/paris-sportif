@@ -23,26 +23,18 @@ from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.config import settings
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 from src.core.rate_limit import RATE_LIMITS, limiter
+from src.data.data_enrichment import get_data_enrichment
+from src.data.fatigue_service import MatchFatigueData, get_fatigue_service
+from src.data.sources.football_data import MatchData, get_football_data_client
+from src.db.services.match_service import MatchService
+from src.db.services.prediction_service import PredictionService
+from src.llm.prompts_advanced import get_prediction_analysis_prompt
+from src.prediction_engine.ensemble_advanced import advanced_ensemble_predictor
+from src.prediction_engine.multi_markets import get_multi_markets_prediction
+from src.prediction_engine.rag_enrichment import get_rag_enrichment
 
 # Data source type for beta feedback
 DataSourceType = Literal["live_api", "cache", "database", "mock", "fallback"]
-from src.data.data_enrichment import get_data_enrichment
-from src.data.database import (
-    get_predictions_by_date,
-    get_scheduled_matches_from_db,
-    save_prediction,
-    verify_prediction,
-)
-from src.data.fatigue_service import MatchFatigueData, get_fatigue_service
-from src.data.sources.football_data import MatchData, get_football_data_client
-from src.llm.prompts_advanced import (
-    get_prediction_analysis_prompt,
-)
-from src.prediction_engine.ensemble_advanced import (
-    advanced_ensemble_predictor,
-)
-from src.prediction_engine.multi_markets import get_multi_markets_prediction
-from src.prediction_engine.rag_enrichment import get_rag_enrichment
 
 logger = logging.getLogger(__name__)
 
@@ -938,17 +930,33 @@ async def get_daily_picks(
         target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
 
         # First, check if we have cached predictions in DB
-        cached_predictions = get_predictions_by_date(target_date)
+        cached_predictions = await PredictionService.get_predictions_for_date_with_details(
+            target_date
+        )
         if cached_predictions:
             logger.info(f"Found {len(cached_predictions)} cached predictions for {target_date_str}")
             # Convert cached predictions to response format
             all_predictions = []
             for cached in cached_predictions:
-                comp_code = cached["competition_code"]
+                comp_code = cached.get("competition_code") or "UNKNOWN"
+                # Map service outcome format to API format
+                # Service returns: home, draw, away
+                # API expects: home_win, draw, away_win
+                recommendation = cached.get("recommendation", "")
+                outcome_map: dict[str, Literal["home_win", "draw", "away_win"]] = {
+                    "home": "home_win",
+                    "draw": "draw",
+                    "away": "away_win",
+                    "home_win": "home_win",
+                    "away_win": "away_win",
+                }
+                recommended_bet: Literal["home_win", "draw", "away_win"] = outcome_map.get(
+                    recommendation, "draw"
+                )
                 pred = PredictionResponse(
                     match_id=cached["match_id"],
-                    home_team=cached["home_team"],
-                    away_team=cached["away_team"],
+                    home_team=cached.get("home_team") or "Unknown",
+                    away_team=cached.get("away_team") or "Unknown",
                     competition=COMPETITION_NAMES.get(comp_code, comp_code),
                     match_date=datetime.fromisoformat(cached["match_date"]),
                     probabilities=PredictionProbabilities(
@@ -956,10 +964,10 @@ async def get_daily_picks(
                         draw=cached["draw_prob"],
                         away_win=cached["away_win_prob"],
                     ),
-                    recommended_bet=cached["recommendation"],
+                    recommended_bet=recommended_bet,
                     confidence=cached["confidence"],
                     value_score=0.10,  # Default value
-                    explanation=cached["explanation"] or "",
+                    explanation=cached.get("explanation") or "",
                     key_factors=["Données en cache"],
                     risk_factors=["Mise à jour recommandée"],
                     created_at=datetime.fromisoformat(cached["created_at"]),
@@ -985,7 +993,7 @@ async def get_daily_picks(
         date_to = target_date
 
         # Try to get scheduled matches from DB first (fallback)
-        db_matches = get_scheduled_matches_from_db(date_from=target_date, date_to=date_to)
+        db_matches = await MatchService.get_scheduled(date_from=target_date, date_to=date_to)
 
         # Fetch matches for date range from real API
         client = get_football_data_client()
@@ -1022,7 +1030,7 @@ async def get_daily_picks(
             pred = await _generate_prediction_from_api_match(api_match, include_model_details=False)
 
             # Save prediction to database for caching
-            save_prediction(
+            await PredictionService.save_prediction_from_api(
                 {
                     "match_id": pred.match_id,
                     "match_external_id": f"{api_match.competition.code}_{pred.match_id}",
@@ -1033,8 +1041,6 @@ async def get_daily_picks(
                     "home_win_prob": pred.probabilities.home_win,
                     "draw_prob": pred.probabilities.draw,
                     "away_win_prob": pred.probabilities.away_win,
-                    "predicted_home_goals": None,
-                    "predicted_away_goals": None,
                     "confidence": pred.confidence,
                     "recommendation": pred.recommended_bet,
                     "explanation": pred.explanation,
@@ -1108,18 +1114,12 @@ async def get_prediction_stats(
     Stats are pre-calculated daily at 6am and cached.
     Use force_refresh=true to bypass cache.
     """
-    from src.data.database import (
-        get_all_predictions_stats,
-        get_prediction_statistics,
-        verify_finished_matches,
-    )
-
     # Try to get cached data first (only for default 30 days)
     if days == 30 and not force_refresh:
         try:
             from src.services.cache_service import get_cached_data
 
-            cached = get_cached_data("prediction_stats_30d")
+            cached = await get_cached_data("prediction_stats_30d")
             if cached:
                 logger.debug("Returning cached prediction stats")
                 return PredictionStatsResponse(
@@ -1138,14 +1138,14 @@ async def get_prediction_stats(
             logger.warning(f"Cache lookup failed, falling back to live calculation: {e}")
 
     # First, verify any finished matches that haven't been verified
-    verify_finished_matches()
+    await PredictionService.verify_all_finished()
 
     # Get the statistics
-    stats = get_prediction_statistics(days)
+    stats = await PredictionService.get_statistics(days)
 
     # If no verified predictions, generate simulated stats from unverified predictions
     if stats["total_predictions"] == 0:
-        simulated_stats = get_all_predictions_stats(days)
+        simulated_stats = await PredictionService.get_all_statistics(days)
         if simulated_stats["total_predictions"] > 0:
             return PredictionStatsResponse(
                 total_predictions=simulated_stats["total_predictions"],
@@ -1475,8 +1475,8 @@ async def verify_prediction_endpoint(
     Updates the prediction record with actual scores and correctness.
     Used for tracking prediction accuracy and ROI.
     """
-    # Verify the prediction
-    result = verify_prediction(match_id, body.home_score, body.away_score)
+    # Verify the prediction using async service
+    result = await PredictionService.verify_prediction(match_id, body.home_score, body.away_score)
 
     if result is None:
         raise HTTPException(
@@ -1484,11 +1484,18 @@ async def verify_prediction_endpoint(
             detail=f"No prediction found for match {match_id}",
         )
 
+    # Map actual_outcome to actual_result format expected by response
+    # Service returns: home, draw, away
+    # Response expects: home_win, draw, away_win
+    actual_outcome = result.get("actual_outcome", "")
+    outcome_map = {"home": "home_win", "away": "away_win", "draw": "draw"}
+    actual_result = outcome_map.get(actual_outcome, actual_outcome)
+
     return VerifyPredictionResponse(
         match_id=match_id,
         home_score=body.home_score,
         away_score=body.away_score,
-        actual_result=result["actual_result"],
+        actual_result=actual_result,
         was_correct=result["was_correct"],
         message=f"Prediction for match {match_id} verified successfully",
     )

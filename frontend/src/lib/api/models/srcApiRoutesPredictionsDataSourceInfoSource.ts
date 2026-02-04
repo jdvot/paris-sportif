@@ -6,12 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type DataSourceInfoSource = typeof DataSourceInfoSource[keyof typeof DataSourceInfoSource];
+export type SrcApiRoutesPredictionsDataSourceInfoSource = typeof SrcApiRoutesPredictionsDataSourceInfoSource[keyof typeof SrcApiRoutesPredictionsDataSourceInfoSource];
 
 
-export const DataSourceInfoSource = {
+export const SrcApiRoutesPredictionsDataSourceInfoSource = {
   live_api: 'live_api',
   cache: 'cache',
   database: 'database',
   mock: 'mock',
+  fallback: 'fallback',
 } as const;

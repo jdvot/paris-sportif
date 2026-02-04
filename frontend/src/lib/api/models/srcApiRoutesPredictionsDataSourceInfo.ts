@@ -5,17 +5,13 @@
  * API de predictions de paris sportifs sur le football europeen
  * OpenAPI spec version: 0.1.0
  */
-import type { DataSourceInfoSource } from './dataSourceInfoSource';
+import type { SrcApiRoutesPredictionsDataSourceInfoSource } from './srcApiRoutesPredictionsDataSourceInfoSource';
 
 /**
  * Information about data source and any warnings (Beta feature).
-
-Distinguishes between:
-- external_api_limited: football-data.org rate limit (10 req/min free tier)
-- app_rate_limited: our API rate limit for user protection
  */
-export interface DataSourceInfo {
-  source?: DataSourceInfoSource;
+export interface SrcApiRoutesPredictionsDataSourceInfo {
+  source?: SrcApiRoutesPredictionsDataSourceInfoSource;
   is_fallback?: boolean;
   warning?: string | null;
   warning_code?: string | null;

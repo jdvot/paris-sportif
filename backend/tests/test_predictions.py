@@ -31,15 +31,18 @@ class TestGetDailyPicks:
     """Test suite for GET /predictions/daily endpoint."""
 
     @patch("src.api.routes.predictions.get_football_data_client")
-    @patch("src.api.routes.predictions.get_predictions_by_date")
+    @patch(
+        "src.db.services.prediction_service.PredictionService.get_predictions_for_date_with_details",
+        new_callable=AsyncMock,
+    )
     def test_get_daily_picks_from_cache(
         self,
-        mock_db_predictions: MagicMock,
+        mock_db_predictions: AsyncMock,
         mock_api_client: MagicMock,
         client: TestClient,
     ):
         """Test daily picks retrieval from database cache."""
-        # Mock cached predictions
+        # Mock cached predictions (async method)
         mock_db_predictions.return_value = [
             {
                 "match_id": 12345,
@@ -66,18 +69,31 @@ class TestGetDailyPicks:
         assert "total_matches_analyzed" in data
 
     @patch("src.api.routes.predictions.get_football_data_client")
-    @patch("src.api.routes.predictions.get_predictions_by_date")
-    @patch("src.api.routes.predictions.save_prediction")
+    @patch(
+        "src.db.services.prediction_service.PredictionService.get_predictions_for_date_with_details",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "src.db.services.prediction_service.PredictionService.save_prediction_from_api",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "src.db.services.match_service.MatchService.get_scheduled",
+        new_callable=AsyncMock,
+    )
     def test_get_daily_picks_generates_new(
         self,
-        mock_save: MagicMock,
-        mock_db_predictions: MagicMock,
+        mock_get_scheduled: AsyncMock,
+        mock_save: AsyncMock,
+        mock_db_predictions: AsyncMock,
         mock_api_client: MagicMock,
         client: TestClient,
         sample_match_data: dict[str, Any],
     ):
         """Test daily picks generation when no cache exists."""
         mock_db_predictions.return_value = []  # No cached predictions
+        mock_save.return_value = True
+        mock_get_scheduled.return_value = []  # No DB fallback matches
 
         mock_client = AsyncMock()
         mock_client.get_matches = AsyncMock(return_value=[MatchData(**sample_match_data)])
@@ -90,15 +106,24 @@ class TestGetDailyPicks:
         assert "picks" in data
 
     @patch("src.api.routes.predictions.get_football_data_client")
-    @patch("src.api.routes.predictions.get_predictions_by_date")
+    @patch(
+        "src.db.services.prediction_service.PredictionService.get_predictions_for_date_with_details",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "src.db.services.match_service.MatchService.get_scheduled",
+        new_callable=AsyncMock,
+    )
     def test_get_daily_picks_with_date_param(
         self,
-        mock_db_predictions: MagicMock,
+        mock_get_scheduled: AsyncMock,
+        mock_db_predictions: AsyncMock,
         mock_api_client: MagicMock,
         client: TestClient,
     ):
         """Test daily picks with specific date parameter."""
         mock_db_predictions.return_value = []
+        mock_get_scheduled.return_value = []
 
         mock_client = AsyncMock()
         mock_client.get_matches = AsyncMock(return_value=[])
@@ -111,15 +136,24 @@ class TestGetDailyPicks:
         assert data["date"] == "2026-02-10"
 
     @patch("src.api.routes.predictions.get_football_data_client")
-    @patch("src.api.routes.predictions.get_predictions_by_date")
+    @patch(
+        "src.db.services.prediction_service.PredictionService.get_predictions_for_date_with_details",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "src.db.services.match_service.MatchService.get_scheduled",
+        new_callable=AsyncMock,
+    )
     def test_get_daily_picks_empty_response(
         self,
-        mock_db_predictions: MagicMock,
+        mock_get_scheduled: AsyncMock,
+        mock_db_predictions: AsyncMock,
         mock_api_client: MagicMock,
         client: TestClient,
     ):
         """Test daily picks returns empty list when no matches."""
         mock_db_predictions.return_value = []
+        mock_get_scheduled.return_value = []
 
         mock_client = AsyncMock()
         mock_client.get_matches = AsyncMock(return_value=[])
@@ -291,18 +325,27 @@ class TestPredictionProbabilities:
 class TestGetPredictionStats:
     """Test suite for GET /predictions/stats endpoint."""
 
-    @patch("src.data.database.verify_finished_matches")
-    @patch("src.data.database.get_prediction_statistics")
-    @patch("src.data.database.get_all_predictions_stats")
+    @patch(
+        "src.db.services.prediction_service.PredictionService.verify_all_finished",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "src.db.services.prediction_service.PredictionService.get_statistics",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "src.db.services.prediction_service.PredictionService.get_all_statistics",
+        new_callable=AsyncMock,
+    )
     def test_get_prediction_stats_success(
         self,
-        mock_all_stats: MagicMock,
-        mock_stats: MagicMock,
-        mock_verify: MagicMock,
+        mock_all_stats: AsyncMock,
+        mock_stats: AsyncMock,
+        mock_verify: AsyncMock,
         client: TestClient,
     ):
         """Test successful stats retrieval."""
-        mock_verify.return_value = None
+        mock_verify.return_value = 0
         mock_stats.return_value = {
             "total_predictions": 100,
             "correct_predictions": 65,
@@ -323,18 +366,27 @@ class TestGetPredictionStats:
         assert "by_competition" in data
         assert "by_bet_type" in data
 
-    @patch("src.data.database.verify_finished_matches")
-    @patch("src.data.database.get_prediction_statistics")
-    @patch("src.data.database.get_all_predictions_stats")
+    @patch(
+        "src.db.services.prediction_service.PredictionService.verify_all_finished",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "src.db.services.prediction_service.PredictionService.get_statistics",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "src.db.services.prediction_service.PredictionService.get_all_statistics",
+        new_callable=AsyncMock,
+    )
     def test_get_prediction_stats_with_days_param(
         self,
-        mock_all_stats: MagicMock,
-        mock_stats: MagicMock,
-        mock_verify: MagicMock,
+        mock_all_stats: AsyncMock,
+        mock_stats: AsyncMock,
+        mock_verify: AsyncMock,
         client: TestClient,
     ):
         """Test stats with days parameter."""
-        mock_verify.return_value = None
+        mock_verify.return_value = 0
         mock_stats.return_value = {
             "total_predictions": 50,
             "correct_predictions": 30,
@@ -417,19 +469,19 @@ class TestVerifyPrediction:
         )
         assert response.status_code == 401
 
-    @patch("src.api.routes.predictions.verify_prediction")
+    @patch(
+        "src.db.services.prediction_service.PredictionService.verify_prediction",
+        new_callable=AsyncMock,
+    )
     def test_verify_prediction_success(
         self,
-        mock_verify: MagicMock,
+        mock_verify: AsyncMock,
         client: TestClient,
     ):
         """Test successful prediction verification."""
+        # Service returns actual_outcome (home/draw/away), route maps to actual_result
         mock_verify.return_value = {
-            "match_id": 12345,
-            "home_score": 2,
-            "away_score": 1,
-            "actual_result": "home_win",
-            "predicted_result": "home_win",
+            "actual_outcome": "home",
             "was_correct": True,
         }
 
@@ -447,19 +499,18 @@ class TestVerifyPrediction:
         assert data["was_correct"] is True
         assert "message" in data
 
-    @patch("src.api.routes.predictions.verify_prediction")
+    @patch(
+        "src.db.services.prediction_service.PredictionService.verify_prediction",
+        new_callable=AsyncMock,
+    )
     def test_verify_prediction_incorrect(
         self,
-        mock_verify: MagicMock,
+        mock_verify: AsyncMock,
         client: TestClient,
     ):
         """Test verification of incorrect prediction."""
         mock_verify.return_value = {
-            "match_id": 12345,
-            "home_score": 0,
-            "away_score": 2,
-            "actual_result": "away_win",
-            "predicted_result": "home_win",
+            "actual_outcome": "away",
             "was_correct": False,
         }
 
@@ -473,10 +524,13 @@ class TestVerifyPrediction:
         assert data["actual_result"] == "away_win"
         assert data["was_correct"] is False
 
-    @patch("src.api.routes.predictions.verify_prediction")
+    @patch(
+        "src.db.services.prediction_service.PredictionService.verify_prediction",
+        new_callable=AsyncMock,
+    )
     def test_verify_prediction_not_found(
         self,
-        mock_verify: MagicMock,
+        mock_verify: AsyncMock,
         client: TestClient,
     ):
         """Test verification for non-existent prediction."""
@@ -490,19 +544,18 @@ class TestVerifyPrediction:
         assert response.status_code == 404
         assert "No prediction found" in response.json()["detail"]
 
-    @patch("src.api.routes.predictions.verify_prediction")
+    @patch(
+        "src.db.services.prediction_service.PredictionService.verify_prediction",
+        new_callable=AsyncMock,
+    )
     def test_verify_prediction_draw(
         self,
-        mock_verify: MagicMock,
+        mock_verify: AsyncMock,
         client: TestClient,
     ):
         """Test verification with draw result."""
         mock_verify.return_value = {
-            "match_id": 12345,
-            "home_score": 1,
-            "away_score": 1,
-            "actual_result": "draw",
-            "predicted_result": "draw",
+            "actual_outcome": "draw",
             "was_correct": True,
         }
 

@@ -89,7 +89,9 @@ class HistoricalDataCollector:
         """
         url = f"{FOOTBALL_DATA_BASE_URL}/competitions/{competition}/matches?season={season}"
 
-        logger.info(f"Fetching {COMPETITIONS.get(competition, competition)} {season}/{season+1}...")
+        logger.info(
+            f"Fetching {COMPETITIONS.get(competition, competition)} {season}/{season + 1}..."
+        )
 
         data = await self.fetch_with_retry(session, url)
         if not data or "matches" not in data:

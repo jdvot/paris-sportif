@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from src.core.config import settings
-from src.data.database import db_session, get_placeholder
+from src.db.repositories import get_uow
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +35,13 @@ class PushNotificationService:
             "sub": f"mailto:{getattr(settings, 'vapid_email', 'admin@paris-sportif.fr')}"
         }
 
-    def _get_active_subscriptions(
+    async def _get_active_subscriptions(
         self,
         preference: str | None = None,
         user_id: str | None = None,
     ) -> list[dict]:
         """
-        Get active push subscriptions from database.
+        Get active push subscriptions from database using async repository.
 
         Args:
             preference: Optional preference filter (daily_picks, match_start, result_updates)
@@ -50,68 +50,35 @@ class PushNotificationService:
         Returns:
             List of subscription dictionaries
         """
-        ph = get_placeholder()
-        conditions = ["is_active = 1"]
-        params: list = []
-
-        if preference:
-            conditions.append(f"{preference} = 1")
-
-        if user_id:
-            conditions.append(f"user_id = {ph}")
-            params.append(user_id)
-
-        where_clause = " AND ".join(conditions)
-
-        with db_session() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                f"""
-                SELECT endpoint, p256dh_key, auth_key, user_id, id
-                FROM push_subscriptions
-                WHERE {where_clause}
-                """,
-                tuple(params),
+        async with get_uow() as uow:
+            subscriptions = await uow.push_subscriptions.get_active_subscriptions(
+                preference=preference,
+                user_id=user_id,
             )
-            rows = cursor.fetchall()
 
-        return [
-            {
-                "endpoint": row[0],
-                "keys": {"p256dh": row[1], "auth": row[2]},
-                "user_id": row[3],
-                "subscription_id": row[4],
-            }
-            for row in rows
-        ]
+            return [
+                {
+                    "endpoint": sub.endpoint,
+                    "keys": {"p256dh": sub.p256dh_key, "auth": sub.auth_key},
+                    "user_id": sub.user_id,
+                    "subscription_id": sub.id,
+                }
+                for sub in subscriptions
+            ]
 
-    def _mark_subscription_failed(self, subscription_id: int, increment: bool = True):
-        """Mark a subscription as failed or inactive."""
-        ph = get_placeholder()
-
-        with db_session() as conn:
-            cursor = conn.cursor()
-
-            if increment:
-                cursor.execute(
-                    f"""
-                    UPDATE push_subscriptions
-                    SET failed_count = failed_count + 1,
-                        is_active = CASE WHEN failed_count >= 2 THEN 0 ELSE is_active END,
-                        updated_at = {ph}
-                    WHERE id = {ph}
-                    """,
-                    (datetime.now(UTC).isoformat(), subscription_id),
-                )
-            else:
-                cursor.execute(
-                    f"""
-                    UPDATE push_subscriptions
-                    SET is_active = 0, updated_at = {ph}
-                    WHERE id = {ph}
-                    """,
-                    (datetime.now(UTC).isoformat(), subscription_id),
-                )
+    async def _mark_subscription_failed(self, subscription_id: int, increment: bool = True):
+        """Mark a subscription as failed or inactive using async repository."""
+        async with get_uow() as uow:
+            sub = await uow.push_subscriptions.get_by_id(subscription_id)
+            if sub:
+                if increment:
+                    sub.failed_count = (sub.failed_count or 0) + 1
+                    if sub.failed_count >= 3:
+                        sub.is_active = False
+                else:
+                    sub.is_active = False
+                sub.updated_at = datetime.now(UTC)
+                await uow.commit()
 
     async def send_notification(
         self,
@@ -168,12 +135,12 @@ class PushNotificationService:
         except WebPushException as e:
             logger.error(f"WebPush error: {e}")
             if e.response and e.response.status_code in (404, 410):
-                self._mark_subscription_failed(
+                await self._mark_subscription_failed(
                     subscription["subscription_id"],
                     increment=False,
                 )
             else:
-                self._mark_subscription_failed(subscription["subscription_id"])
+                await self._mark_subscription_failed(subscription["subscription_id"])
             return False
 
         except Exception as e:
@@ -197,7 +164,7 @@ class PushNotificationService:
         Returns:
             Dictionary with sent/failed counts
         """
-        subscriptions = self._get_active_subscriptions(
+        subscriptions = await self._get_active_subscriptions(
             preference=preference,
             user_id=user_id,
         )

@@ -230,7 +230,6 @@ class MLTrainer:
                 team_match_count[home_id] >= min_history
                 and team_match_count[away_id] >= min_history
             ):
-
                 # Create features BEFORE updating stats (no data leakage)
                 feature_vec = self.feature_engineer.create_features(home_id, away_id)
                 features.append(feature_vec)

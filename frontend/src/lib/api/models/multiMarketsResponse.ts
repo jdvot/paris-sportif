@@ -5,7 +5,7 @@
  * API de predictions de paris sportifs sur le football europeen
  * OpenAPI spec version: 0.1.0
  */
-import type { BTTSResponse } from './bttsResponse';
+import type { BttsResponse } from './bttsResponse';
 import type { CorrectScoreResponse } from './correctScoreResponse';
 import type { DoubleChanceResponse } from './doubleChanceResponse';
 import type { OverUnderResponse } from './overUnderResponse';
@@ -21,7 +21,7 @@ export interface MultiMarketsResponse {
   /** Over/Under 3.5 goals */
   over_under_35: OverUnderResponse;
   /** Both Teams To Score */
-  btts: BTTSResponse;
+  btts: BttsResponse;
   /** Double Chance markets */
   double_chance: DoubleChanceResponse;
   /** Top correct score predictions */

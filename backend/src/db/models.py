@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -302,6 +303,171 @@ class CachedData(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+
+# ============================================================================
+# Standings & Sync Models
+# ============================================================================
+
+
+class Standing(Base):
+    """League standings for a competition."""
+
+    __tablename__ = "standings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    competition_code: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    season: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    # Team info
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    team_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    team_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    team_logo: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Stats
+    played_games: Mapped[int] = mapped_column(Integer, default=0)
+    won: Mapped[int] = mapped_column(Integer, default=0)
+    drawn: Mapped[int] = mapped_column(Integer, default=0)
+    lost: Mapped[int] = mapped_column(Integer, default=0)
+    goals_for: Mapped[int] = mapped_column(Integer, default=0)
+    goals_against: Mapped[int] = mapped_column(Integer, default=0)
+    goal_difference: Mapped[int] = mapped_column(Integer, default=0)
+    points: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Form (last 5 matches as string, e.g., "WWDLW")
+    form: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+    # Unique constraint: one standing per competition per team
+    __table_args__ = (
+        Index("ix_standings_competition", "competition_code"),
+        Index("ix_standings_position", "competition_code", "position"),
+        Index("uq_standings_comp_team", "competition_code", "team_id", unique=True),
+    )
+
+
+class SyncLog(Base):
+    """Track data synchronization operations."""
+
+    __tablename__ = "sync_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    sync_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # matches, standings, predictions
+    status: Mapped[str] = mapped_column(String(20), nullable=False)  # running, success, failed
+    records_synced: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Timing
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Error handling
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_details: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON stack trace
+
+    # Metadata
+    triggered_by: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )  # scheduler, manual, api
+
+    __table_args__ = (Index("ix_sync_log_type_date", "sync_type", "started_at"),)
+
+
+class MLModel(Base):
+    """Trained machine learning model storage."""
+
+    __tablename__ = "ml_models"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    model_name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    model_type: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # xgboost, random_forest, neural_net
+    version: Mapped[str] = mapped_column(String(20), nullable=False)
+
+    # Performance metrics
+    accuracy: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    precision: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    recall: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    f1_score: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    training_samples: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Model storage
+    feature_columns: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array
+    hyperparameters: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
+    model_binary: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    scaler_binary: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+
+    # Status
+    # Whether this model is currently used for predictions
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    trained_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class NotificationLog(Base):
+    """Track sent notifications for auditing and debugging."""
+
+    __tablename__ = "notification_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    notification_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # daily_picks, match_start, result
+    channel: Mapped[str] = mapped_column(String(20), nullable=False)  # push, email, sms
+
+    # Target
+    user_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    subscription_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("push_subscriptions.id"), nullable=True
+    )
+
+    # Content
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payload: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
+
+    # Status
+    status: Mapped[str] = mapped_column(
+        String(20), default="pending"
+    )  # pending, sent, failed, delivered
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+    __table_args__ = (Index("ix_notification_logs_type_date", "notification_type", "created_at"),)
+
+
+class UserBankroll(Base):
+    """Track user bankroll transactions and balance history."""
+
+    __tablename__ = "user_bankrolls"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+
+    # Transaction
+    transaction_type: Mapped[str] = mapped_column(
+        String(20), nullable=False
+    )  # deposit, withdrawal, bet, win, adjustment
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    balance_after: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+
+    # Reference
+    bet_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("user_bets.id"), nullable=True)
+    description: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+    __table_args__ = (Index("ix_user_bankrolls_user_date", "user_id", "created_at"),)
 
 
 # ============================================================================

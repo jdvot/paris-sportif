@@ -14,15 +14,10 @@ from pydantic import BaseModel
 
 from src.auth import ADMIN_RESPONSES, AdminUser
 from src.core.exceptions import FootballDataAPIError, RateLimitError
-from src.data.database import (
-    get_db_stats,
-    get_last_sync,
-    log_sync,
-    save_matches,
-    save_standings,
-    verify_finished_matches,
-)
 from src.data.sources.football_data import COMPETITIONS, get_football_data_client
+from src.db.services.match_service import MatchService, StandingService
+from src.db.services.prediction_service import PredictionService
+from src.db.services.stats_service import StatsService, SyncServiceAsync
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +68,7 @@ async def _sync_matches_for_week(
 
             # Convert to dict for storage
             matches_dict = [m.model_dump() for m in matches]
-            synced = save_matches(matches_dict)
+            synced = await MatchService.save_matches(matches_dict)
             total_synced += synced
             logger.info(f"Synced {synced} matches for {comp_code}")
 
@@ -118,7 +113,7 @@ async def _sync_all_standings() -> tuple[int, list[str]]:
             for standing_group in data.get("standings", []):
                 if standing_group.get("type") == "TOTAL":
                     standings_list = standing_group.get("table", [])
-                    synced = save_standings(comp_code, standings_list)
+                    synced = await StandingService.save_standings(comp_code, standings_list)
                     total_synced += synced
                     break
 
@@ -161,7 +156,7 @@ async def sync_weekly_data(
     Cron example: 0 20 * * 0 curl -X POST https://api/sync/weekly
     """
     try:
-        log_sync("weekly", "running", 0)
+        await SyncServiceAsync.log_sync("weekly", "running", 0)
 
         # Sync matches
         matches_synced, match_errors = await _sync_matches_for_week(days)
@@ -175,7 +170,7 @@ async def sync_weekly_data(
         # Automatically verify predictions for finished matches
         verified_count = 0
         try:
-            verified_count = verify_finished_matches()
+            verified_count = await PredictionService.verify_all_finished()
             logger.info(f"Auto-verified {verified_count} predictions")
         except Exception as e:
             logger.warning(f"Failed to verify predictions: {e}")
@@ -183,7 +178,7 @@ async def sync_weekly_data(
         all_errors = match_errors + standings_errors
         status = "success" if not all_errors else "partial"
 
-        log_sync(
+        await SyncServiceAsync.log_sync(
             "weekly",
             status,
             matches_synced + standings_synced,
@@ -200,7 +195,7 @@ async def sync_weekly_data(
 
     except Exception as e:
         error_msg = str(e)
-        log_sync("weekly", "error", 0, error_msg)
+        await SyncServiceAsync.log_sync("weekly", "error", 0, error_msg)
         raise HTTPException(status_code=500, detail=f"Sync failed: {error_msg}")
 
 
@@ -216,13 +211,15 @@ async def sync_matches_only(
         # Automatically verify predictions for finished matches
         verified_count = 0
         try:
-            verified_count = verify_finished_matches()
+            verified_count = await PredictionService.verify_all_finished()
             logger.info(f"Auto-verified {verified_count} predictions")
         except Exception as e:
             logger.warning(f"Failed to verify predictions: {e}")
 
         status = "success" if not errors else "partial"
-        log_sync("matches", status, matches_synced, "; ".join(errors) if errors else None)
+        await SyncServiceAsync.log_sync(
+            "matches", status, matches_synced, "; ".join(errors) if errors else None
+        )
 
         return SyncResponse(
             status=status,
@@ -241,7 +238,9 @@ async def sync_standings_only(user: AdminUser) -> SyncResponse:
         standings_synced, errors = await _sync_all_standings()
 
         status = "success" if not errors else "partial"
-        log_sync("standings", status, standings_synced, "; ".join(errors) if errors else None)
+        await SyncServiceAsync.log_sync(
+            "standings", status, standings_synced, "; ".join(errors) if errors else None
+        )
 
         return SyncResponse(
             status=status,
@@ -256,7 +255,7 @@ async def sync_standings_only(user: AdminUser) -> SyncResponse:
 @router.get("/status", response_model=DbStatsResponse, responses=ADMIN_RESPONSES)
 async def get_sync_status(user: AdminUser) -> DbStatsResponse:
     """Get database sync status and statistics."""
-    stats = get_db_stats()
+    stats = await StatsService.get_db_stats()
     return DbStatsResponse(**stats)
 
 
@@ -266,9 +265,9 @@ async def get_last_sync_info(
     sync_type: str = Query("weekly", description="Type of sync to check"),
 ) -> dict[str, Any]:
     """Get info about the last successful sync."""
-    last = get_last_sync(sync_type)
+    last = await SyncServiceAsync.get_last_sync(sync_type)
     if last:
-        return dict(last)
+        return last
     return {"message": f"No successful {sync_type} sync found"}
 
 
@@ -307,7 +306,7 @@ async def sync_and_verify_predictions(
 
                 # Save to database
                 matches_dict = [m.model_dump() for m in matches]
-                synced = save_matches(matches_dict)
+                synced = await MatchService.save_matches(matches_dict)
                 total_synced += synced
 
             except RateLimitError as e:
@@ -324,10 +323,10 @@ async def sync_and_verify_predictions(
                 errors.append(error_msg)
 
         # Now verify predictions
-        verified_count = verify_finished_matches()
+        verified_count = await PredictionService.verify_all_finished()
 
         status = "success" if not errors else "partial"
-        log_sync("verify", status, verified_count)
+        await SyncServiceAsync.log_sync("verify", status, verified_count)
 
         return SyncResponse(
             status=status,
@@ -339,5 +338,5 @@ async def sync_and_verify_predictions(
 
     except Exception as e:
         error_msg = str(e)
-        log_sync("verify", "error", 0, error_msg)
+        await SyncServiceAsync.log_sync("verify", "error", 0, error_msg)
         raise HTTPException(status_code=500, detail=f"Verification failed: {error_msg}")
