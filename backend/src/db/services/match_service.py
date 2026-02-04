@@ -79,7 +79,7 @@ class MatchService:
                     external_id,
                     home_team_id=home_team_obj.id,
                     away_team_id=away_team_obj.id,
-                    competition_id=1,  # TODO: Get from competition table
+                    competition_code=match_data.get("competition", {}).get("code", "UNKNOWN"),
                     match_date=match_date,
                     matchday=match_data.get("matchday"),
                     status=match_data.get("status", "scheduled"),

@@ -21,22 +21,12 @@ logger = logging.getLogger(__name__)
 class NewsIngestionService:
     """Fetch and index news from real RSS sources."""
 
-    # RSS Feed sources by language/region
+    # RSS Feed sources by language/region (only verified working feeds)
     RSS_SOURCES = {
-        # French sources
-        "lequipe": "https://www.lequipe.fr/rss/actu_rss_Football.xml",
-        "footmercato": "https://www.footmercato.net/flux-rss",
-        "maxifoot": "https://www.maxifoot.fr/rss/football.xml",
-        # English sources
-        "skysports": "https://www.skysports.com/rss/12040",  # Football
+        # English sources (verified working)
         "bbc_football": "https://feeds.bbci.co.uk/sport/football/rss.xml",
         "guardian_football": "https://www.theguardian.com/football/rss",
-        # Italian
-        "gazzetta": "https://www.gazzetta.it/rss/calcio.xml",
-        # Spanish
-        "marca": "https://e00-marca.uecdn.es/rss/futbol/futbol.xml",
-        # German
-        "kicker": "https://rss.kicker.de/news/aktuell",
+        "skysports": "https://www.skysports.com/rss/12040",
     }
 
     # Google News RSS template for team-specific searches
@@ -182,7 +172,7 @@ class NewsIngestionService:
         """Fetch general football news from major RSS sources."""
         all_articles: list[NewsArticle] = []
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             for source_name, rss_url in self.RSS_SOURCES.items():
                 try:
                     response = await client.get(rss_url)
@@ -196,8 +186,12 @@ class NewsIngestionService:
                         logger.info(f"Fetched {len(articles[:max_per_source])} articles from {source_name}")
 
                     # Rate limit
-                    await asyncio.sleep(0.3)
+                    await asyncio.sleep(0.5)
 
+                except httpx.TimeoutException:
+                    logger.warning(f"Timeout fetching RSS from {source_name}")
+                except httpx.ConnectError:
+                    logger.warning(f"Connection error for {source_name}")
                 except Exception as e:
                     logger.warning(f"Error fetching RSS from {source_name}: {e}")
 
