@@ -338,10 +338,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         console.log('[Providers] Calling getSession()...');
 
         // Create a promise that resolves with a special marker after 2 seconds
-        let didTimeout = false;
         const timeoutPromise = new Promise<{ data: { session: null }; error: null; timedOut: true }>((resolve) => {
           setTimeout(() => {
-            didTimeout = true;
             console.warn('[Providers] getSession() timeout after 2s');
             resolve({ data: { session: null }, error: null, timedOut: true });
           }, 2000);
