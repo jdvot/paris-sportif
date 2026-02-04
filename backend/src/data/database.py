@@ -110,6 +110,23 @@ def init_database() -> None:
 
         if USE_POSTGRES:
             # PostgreSQL schema
+            # Teams table (required for cache_service queries)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS teams (
+                    id SERIAL PRIMARY KEY,
+                    external_id TEXT UNIQUE,
+                    name TEXT NOT NULL,
+                    short_name TEXT,
+                    tla TEXT,
+                    crest_url TEXT,
+                    country TEXT,
+                    founded INTEGER,
+                    venue TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS matches (
                     id INTEGER PRIMARY KEY,
@@ -215,6 +232,23 @@ def init_database() -> None:
 
         else:
             # SQLite schema
+            # Teams table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS teams (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    external_id TEXT UNIQUE,
+                    name TEXT NOT NULL,
+                    short_name TEXT,
+                    tla TEXT,
+                    crest_url TEXT,
+                    country TEXT,
+                    founded INTEGER,
+                    venue TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS matches (
                     id INTEGER PRIMARY KEY,
