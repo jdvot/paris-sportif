@@ -33,6 +33,7 @@ from src.api.routes import (
     stripe,
     sync,
     users,
+    vector,
 )
 from src.core.config import settings
 from src.core.exceptions import ParisportifError
@@ -283,6 +284,11 @@ app.include_router(
     stripe.router,
     prefix=f"{settings.api_v1_prefix}/stripe",
     tags=["Payments"],
+)
+app.include_router(
+    vector.router,
+    prefix=f"{settings.api_v1_prefix}/vector",
+    tags=["Vector Store"],
 )
 
 

@@ -383,6 +383,15 @@ class RAGEnrichment:
             self.llm_client = get_llm_client()
             logger.info("RAG enrichment initialized with LLM client")
 
+        # Initialize semantic search (optional, graceful degradation)
+        self.semantic_search = None
+        try:
+            from src.vector.search import SemanticSearch
+            self.semantic_search = SemanticSearch()
+            logger.info("RAG enrichment initialized with semantic search")
+        except Exception as e:
+            logger.warning(f"Semantic search not available: {e}")
+
     async def get_team_context(self, team_name: str) -> dict[str, Any]:
         """
         Get contextual information about a team.
@@ -405,9 +414,10 @@ class RAGEnrichment:
             news_task = self._fetch_team_news(team_name)
             injuries_task = self._fetch_team_injuries(team_name)
             form_task = self._fetch_team_form(team_name)
+            semantic_task = self._fetch_semantic_context(team_name)
 
-            news, injuries, form_data = await asyncio.gather(
-                news_task, injuries_task, form_task, return_exceptions=True
+            news, injuries, form_data, semantic_context = await asyncio.gather(
+                news_task, injuries_task, form_task, semantic_task, return_exceptions=True
             )
 
             # Handle results with proper exception logging
@@ -426,6 +436,24 @@ class RAGEnrichment:
             else:
                 context["recent_form"] = form_data.get("results", [])
                 context["form_notes"] = form_data.get("summary", "")
+
+            # Merge semantic search results (enhanced context)
+            if isinstance(semantic_context, Exception):
+                logger.warning(f"Semantic search failed for {team_name}: {semantic_context}")
+            elif semantic_context:
+                context["semantic_news"] = semantic_context.get("news", [])
+                context["semantic_injuries"] = semantic_context.get("injuries", [])
+                # Merge unique news titles from semantic search
+                existing_titles = {n.get("title", "").lower() for n in context["news"]}
+                for sem_news in semantic_context.get("news", []):
+                    if sem_news.get("title", "").lower() not in existing_titles:
+                        context["news"].append({
+                            "title": sem_news.get("title"),
+                            "date": sem_news.get("published_at"),
+                            "url": sem_news.get("url"),
+                            "source": f"Semantic ({sem_news.get('source', 'cache')})",
+                            "score": sem_news.get("score"),
+                        })
 
             # Analyze sentiment if we have news
             if context["news"] and self.llm_client:
@@ -483,6 +511,36 @@ class RAGEnrichment:
             logger.error(f"Error fetching news for {team_name}: {e}")
 
         return news
+
+    async def _fetch_semantic_context(self, team_name: str) -> dict[str, Any] | None:
+        """Fetch context using semantic search (Qdrant).
+
+        This provides additional context by searching indexed news articles
+        using vector similarity instead of keyword matching.
+
+        Returns:
+            Dict with news and injuries from semantic search, or None if unavailable
+        """
+        if not self.semantic_search:
+            return None
+
+        try:
+            # Get team context from semantic search
+            context = self.semantic_search.news_indexer.get_team_context(
+                team_name=team_name,
+                context_query="injury news form performance",
+                limit=3,
+            )
+
+            return {
+                "news": context.get("general", []) + context.get("form", []),
+                "injuries": context.get("injuries", []),
+                "transfers": context.get("transfers", []),
+                "total_found": context.get("total_articles", 0),
+            }
+        except Exception as e:
+            logger.warning(f"Semantic search error for {team_name}: {e}")
+            return None
 
     async def _fetch_team_injuries(self, team_name: str) -> list[dict[str, Any]]:
         """

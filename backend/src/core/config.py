@@ -30,8 +30,9 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379"
 
-    # Qdrant
-    qdrant_url: str = "http://localhost:6333"
+    # Qdrant (Vector DB for semantic search)
+    qdrant_url: str = "http://localhost:6333"  # Or Qdrant Cloud URL
+    qdrant_api_key: str = ""  # Required for Qdrant Cloud
 
     # External APIs
     football_data_api_key: str = ""
