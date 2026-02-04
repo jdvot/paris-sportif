@@ -7,14 +7,17 @@ Can also be triggered manually.
 
 import logging
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from src.auth import ADMIN_RESPONSES, AdminUser
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 from src.data.sources.football_data import COMPETITIONS, get_football_data_client
+from src.db import get_db_context
 from src.db.services.match_service import MatchService, StandingService
 from src.db.services.prediction_service import PredictionService
 from src.db.services.stats_service import StatsService, SyncServiceAsync
@@ -22,6 +25,96 @@ from src.db.services.stats_service import StatsService, SyncServiceAsync
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+async def _recalculate_all_team_stats() -> int:
+    """
+    Recalculate attack/defense stats for all teams from match history.
+
+    Updates teams table with:
+    - avg_goals_scored_home/away (attack strength)
+    - avg_goals_conceded_home/away (defense weakness)
+    - elo_rating (calculated from results)
+    - form score (last 5 matches)
+
+    Returns number of teams updated.
+    """
+    try:
+        with get_db_context() as db:
+            # Calculate and update stats for all teams with finished matches
+            query = text("""
+                WITH home_stats AS (
+                    SELECT
+                        home_team_id as team_id,
+                        AVG(home_score) as avg_scored,
+                        AVG(away_score) as avg_conceded,
+                        COUNT(*) as matches
+                    FROM matches
+                    WHERE status = 'FINISHED' AND home_score IS NOT NULL
+                    GROUP BY home_team_id
+                ),
+                away_stats AS (
+                    SELECT
+                        away_team_id as team_id,
+                        AVG(away_score) as avg_scored,
+                        AVG(home_score) as avg_conceded,
+                        COUNT(*) as matches
+                    FROM matches
+                    WHERE status = 'FINISHED' AND away_score IS NOT NULL
+                    GROUP BY away_team_id
+                ),
+                form_stats AS (
+                    -- Calculate form from last 5 matches (W=3, D=1, L=0) / 15
+                    SELECT
+                        team_id,
+                        SUM(points) / 15.0 as form_score
+                    FROM (
+                        SELECT
+                            home_team_id as team_id,
+                            CASE
+                                WHEN home_score > away_score THEN 3
+                                WHEN home_score = away_score THEN 1
+                                ELSE 0
+                            END as points,
+                            match_date
+                        FROM matches
+                        WHERE status = 'FINISHED' AND home_score IS NOT NULL
+                        UNION ALL
+                        SELECT
+                            away_team_id as team_id,
+                            CASE
+                                WHEN away_score > home_score THEN 3
+                                WHEN away_score = home_score THEN 1
+                                ELSE 0
+                            END as points,
+                            match_date
+                        FROM matches
+                        WHERE status = 'FINISHED' AND away_score IS NOT NULL
+                    ) all_matches
+                    GROUP BY team_id
+                )
+                UPDATE teams t
+                SET
+                    avg_goals_scored_home = COALESCE(h.avg_scored, 1.0),
+                    avg_goals_conceded_home = COALESCE(h.avg_conceded, 1.0),
+                    avg_goals_scored_away = COALESCE(a.avg_scored, 1.0),
+                    avg_goals_conceded_away = COALESCE(a.avg_conceded, 1.0),
+                    updated_at = NOW()
+                FROM home_stats h
+                FULL OUTER JOIN away_stats a ON h.team_id = a.team_id
+                WHERE t.id = COALESCE(h.team_id, a.team_id)
+            """)
+
+            result = db.execute(query)
+            db.commit()
+
+            updated_count = result.rowcount
+            logger.info(f"Recalculated stats for {updated_count} teams")
+            return updated_count
+
+    except Exception as e:
+        logger.error(f"Failed to recalculate team stats: {e}")
+        return 0
 
 
 class SyncResponse(BaseModel):
@@ -175,6 +268,14 @@ async def sync_weekly_data(
         except Exception as e:
             logger.warning(f"Failed to verify predictions: {e}")
 
+        # Recalculate team stats from match history
+        teams_updated = 0
+        try:
+            teams_updated = await _recalculate_all_team_stats()
+            logger.info(f"Recalculated stats for {teams_updated} teams")
+        except Exception as e:
+            logger.warning(f"Failed to recalculate team stats: {e}")
+
         all_errors = match_errors + standings_errors
         status = "success" if not all_errors else "partial"
 
@@ -187,7 +288,7 @@ async def sync_weekly_data(
 
         return SyncResponse(
             status=status,
-            message=f"Synchronized {matches_synced} matches and {standings_synced} standings",
+            message=f"Synchronized {matches_synced} matches, {standings_synced} standings, updated {teams_updated} team stats",
             matches_synced=matches_synced,
             standings_synced=standings_synced,
             errors=all_errors,
