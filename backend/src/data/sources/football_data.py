@@ -264,7 +264,8 @@ class StandingTeam(BaseModel):
     goalDifference: int
 
 
-# Supported competitions
+# Supported competitions (free tier football-data.org)
+# Note: EL (Europa League) and ECL (Conference League) require paid tier
 COMPETITIONS = {
     "PL": "Premier League",
     "PD": "La Liga",
@@ -272,7 +273,6 @@ COMPETITIONS = {
     "SA": "Serie A",
     "FL1": "Ligue 1",
     "CL": "Champions League",
-    "EL": "Europa League",
 }
 
 
