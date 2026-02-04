@@ -27,7 +27,7 @@ class LLMResponse(BaseModel):
 
     content: str
     model: str
-    usage: dict[str, int]
+    usage: dict[str, Any] = {}
 
 
 class GroqClient:
@@ -132,9 +132,9 @@ class GroqClient:
                     )
 
                 return LLMResponse(
-                    content=data["choices"][0]["message"]["content"],
-                    model=data.get("model", model),
-                    usage=data.get("usage", {}),
+                    content=data["choices"][0]["message"]["content"] or "",
+                    model=data.get("model") or model,
+                    usage=data.get("usage") or {},
                 )
             except httpx.TimeoutException as e:
                 raise LLMError(
