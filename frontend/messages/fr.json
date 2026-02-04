@@ -196,7 +196,40 @@
     "clearAll": "Tout supprimer",
     "addedOn": "Ajoute le",
     "removeFavorite": "Retirer des favoris",
-    "infoBanner": "Les favoris sont sauvegardes localement et expirent automatiquement apres 7 jours."
+    "infoBanner": "Les favoris sont synchronises avec votre compte et accessibles sur tous vos appareils."
+  },
+  "preferences": {
+    "title": "Preferences",
+    "subtitle": "Personnalisez votre experience",
+    "save": "Enregistrer",
+    "notifications": {
+      "title": "Notifications",
+      "dailyPicks": "Picks quotidiens",
+      "dailyPicksDesc": "Recevoir une notification quand les picks du jour sont prets",
+      "matchAlerts": "Alertes matchs",
+      "matchAlertsDesc": "Recevoir des alertes pour vos matchs favoris",
+      "resultUpdates": "Resultats",
+      "resultUpdatesDesc": "Recevoir les resultats des matchs suivis",
+      "promotions": "Promotions",
+      "promotionsDesc": "Recevoir des offres et promotions speciales"
+    },
+    "display": {
+      "title": "Affichage",
+      "showOdds": "Afficher les cotes",
+      "showOddsDesc": "Afficher les cotes des bookmakers sur les cartes",
+      "compactMode": "Mode compact",
+      "compactModeDesc": "Affichage reduit pour plus de matchs a l'ecran",
+      "showStats": "Statistiques detaillees",
+      "showStatsDesc": "Afficher les statistiques avancees sur les matchs"
+    },
+    "competitions": {
+      "title": "Competitions",
+      "description": "Selectionnez les competitions que vous souhaitez suivre"
+    },
+    "language": {
+      "title": "Langue",
+      "description": "Choisissez votre langue preferee"
+    }
   },
   "auth": {
     "login": {
