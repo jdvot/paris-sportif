@@ -12,19 +12,48 @@ from sqlalchemy.pool import NullPool
 
 from src.core.config import settings
 
+
+def _get_async_database_url(url: str) -> str:
+    """Convert sync database URL to async format.
+
+    - postgresql:// -> postgresql+asyncpg://
+    - sqlite:// -> sqlite+aiosqlite://
+    """
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if url.startswith("sqlite://"):
+        return url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+    return url
+
+
+# Convert URL to async format if needed
+_database_url = _get_async_database_url(settings.database_url)
+
+# Check if using SQLite (for tests)
+_is_sqlite = _database_url.startswith("sqlite")
+
 # Determine pool class based on environment
-# Use NullPool for serverless/testing, QueuePool (default) for production
-_pool_class = NullPool if settings.app_env == "test" else None
+# Use NullPool for serverless/testing/SQLite, QueuePool (default) for production PostgreSQL
+_pool_class = NullPool if (settings.app_env == "test" or _is_sqlite) else None
 
 # Create async engine with optimized settings
-engine = create_async_engine(
-    settings.database_url,
-    echo=settings.debug,
-    pool_pre_ping=True,  # Verify connections before use
-    pool_size=5 if _pool_class is None else 0,
-    max_overflow=10 if _pool_class is None else 0,
-    poolclass=_pool_class,
-)
+# SQLite doesn't support pool_size/max_overflow, so we skip them
+_engine_kwargs: dict = {
+    "echo": settings.debug,
+    "poolclass": _pool_class,
+}
+
+if not _is_sqlite:
+    # PostgreSQL-specific pool settings
+    _engine_kwargs.update(
+        {
+            "pool_pre_ping": True,  # Verify connections before use
+            "pool_size": 5 if _pool_class is None else 0,
+            "max_overflow": 10 if _pool_class is None else 0,
+        }
+    )
+
+engine = create_async_engine(_database_url, **_engine_kwargs)
 
 # Session factory - used directly and by Unit of Work
 async_session_maker = async_sessionmaker(
