@@ -213,6 +213,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     const supabase = createClient();
 
+    // Debug: Try getSession() to see if we can read the session
+    console.log('[Providers] Attempting getSession() for debug...');
+    supabase.auth.getSession().then(({ data, error }) => {
+      console.log('[Providers] getSession() result:', {
+        hasSession: !!data?.session,
+        hasUser: !!data?.session?.user,
+        userEmail: data?.session?.user?.email,
+        error: error?.message,
+      });
+    }).catch((e) => {
+      console.error('[Providers] getSession() error:', e);
+    });
+
     // Use onAuthStateChange as the ONLY source of truth
     // The INITIAL_SESSION event fires immediately with the current session
     console.log('[Providers] Setting up onAuthStateChange listener');

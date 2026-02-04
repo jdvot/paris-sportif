@@ -41,11 +41,15 @@ export function createClient() {
     const allCookies = document.cookie;
     const supabaseCookies = allCookies
       .split(";")
-      .filter((c) => c.trim().startsWith("sb-"))
-      .map((c) => c.trim().split("=")[0]);
+      .filter((c) => c.trim().startsWith("sb-"));
     console.log("[SupabaseClient] Creating browser client");
     console.log("[SupabaseClient] document.cookie length:", allCookies.length);
-    console.log("[SupabaseClient] Supabase cookies found:", supabaseCookies);
+    console.log("[SupabaseClient] Supabase cookies count:", supabaseCookies.length);
+    // Log first 100 chars of each cookie for debug
+    supabaseCookies.forEach((c) => {
+      const [name, value] = c.trim().split("=");
+      console.log(`[SupabaseClient] Cookie ${name}: ${value?.substring(0, 50)}...`);
+    });
   }
 
   supabaseClient = createBrowserClient(url, anonKey);
