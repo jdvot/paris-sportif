@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@ta
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { createClient } from "@/lib/supabase/client";
-import { setAuthToken, clearAuthToken } from "@/lib/auth/token-store";
+import { setAuthToken, clearAuthToken, markAuthInitialized } from "@/lib/auth/token-store";
 
 // Flag to prevent multiple redirects
 let isRedirecting = false;
@@ -260,6 +260,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
           console.log('[Providers] Set up periodic validation every', USER_VALIDATION_INTERVAL_MS / 1000, 'seconds');
         } else {
           console.log('[Providers] No session found');
+          // Mark auth as initialized even without a session
+          // This allows API calls to proceed (and get 401 if needed)
+          markAuthInitialized();
         }
       } catch (err) {
         const error = err as { name?: string; message?: string };
@@ -268,9 +271,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
           // Navigation cancelled the request - this is fine
           // Keep existing auth state, the next render will re-init
           console.log('[Providers] Auth init aborted, keeping existing state');
+          markAuthInitialized(); // Still mark as initialized to unblock API calls
         } else {
           console.error('[Providers] Auth init error:', err);
           clearAuthToken();
+          markAuthInitialized(); // Mark initialized even on error
         }
       } finally {
         console.log('[Providers] initializeAuth complete, setting isReady=true');

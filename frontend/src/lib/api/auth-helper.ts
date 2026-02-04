@@ -7,13 +7,16 @@
  * API requests which can cause AbortError issues.
  */
 
-import { getAuthToken } from "../auth/token-store";
+import { getAuthToken, isAuthInitialized, waitForAuthReady } from "../auth/token-store";
+
+// Timeout for waiting for auth to be ready (3 seconds max)
+const AUTH_READY_TIMEOUT_MS = 3000;
 
 /**
  * Get auth token for API requests
  *
- * This is synchronous and returns the cached token from the global store.
- * The token is kept fresh by onAuthStateChange listener in Providers.
+ * IMPORTANT: This now waits for auth to be initialized before returning.
+ * This prevents API calls from firing before we know the auth state.
  */
 export async function getSupabaseToken(): Promise<string | null> {
   if (typeof window === "undefined") {
@@ -21,7 +24,23 @@ export async function getSupabaseToken(): Promise<string | null> {
     return null; // Server-side, no token
   }
 
+  // If auth is not yet initialized, wait for it (with timeout)
+  if (!isAuthInitialized()) {
+    console.log("[AuthHelper] Auth not initialized, waiting...");
+    try {
+      await Promise.race([
+        waitForAuthReady(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Auth init timeout")), AUTH_READY_TIMEOUT_MS)
+        ),
+      ]);
+      console.log("[AuthHelper] Auth ready, proceeding");
+    } catch (err) {
+      console.warn("[AuthHelper] Auth wait timed out, proceeding without token");
+    }
+  }
+
   const token = getAuthToken();
-  console.log("[AuthHelper] getSupabaseToken() called, token:", token ? "present" : "MISSING");
+  console.log("[AuthHelper] getSupabaseToken() called, token:", token ? "present" : "MISSING", "authInitialized:", isAuthInitialized());
   return token;
 }

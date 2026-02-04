@@ -17,6 +17,16 @@ let cachedToken: string | null = null;
 let tokenExpiresAt: number | null = null;
 let refreshInProgress = false;
 
+// Flag to track if auth has been initialized
+// This distinguishes "not logged in" from "not yet checked"
+let authInitialized = false;
+
+// Promise that resolves when auth is initialized
+let authReadyResolve: (() => void) | null = null;
+const authReadyPromise = new Promise<void>((resolve) => {
+  authReadyResolve = resolve;
+});
+
 // Buffer time before expiration (5 seconds - just enough to avoid race conditions)
 const EXPIRY_BUFFER_MS = 5 * 1000;
 // Threshold to trigger proactive refresh (2 minutes before expiry)
@@ -57,10 +67,17 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
  * @param expiresIn Optional expiration time in seconds
  */
 export function setAuthToken(token: string | null, expiresIn?: number): void {
-  console.log('[TokenStore] Setting token:', !!token, expiresIn ? `expires in ${expiresIn}s` : '');
+  console.log('[TokenStore] Setting token:', !!token, expiresIn ? `expires in ${expiresIn}s` : '', 'authInitialized:', authInitialized);
   cachedToken = token;
   tokenExpiresAt = token && expiresIn ? Date.now() + expiresIn * 1000 : null;
   refreshInProgress = false;
+
+  // Mark auth as initialized (we now know the auth state)
+  if (!authInitialized) {
+    authInitialized = true;
+    authReadyResolve?.();
+    console.log('[TokenStore] Auth initialized');
+  }
 
   // Broadcast token update to other tabs
   if (token && broadcastChannel) {
@@ -142,4 +159,35 @@ export function clearAuthToken(): void {
  */
 export function hasAuthToken(): boolean {
   return cachedToken !== null;
+}
+
+/**
+ * Check if auth has been initialized
+ * Use this to distinguish between "not logged in" and "auth not yet checked"
+ */
+export function isAuthInitialized(): boolean {
+  return authInitialized;
+}
+
+/**
+ * Wait for auth to be initialized
+ * Returns immediately if already initialized
+ */
+export function waitForAuthReady(): Promise<void> {
+  if (authInitialized) {
+    return Promise.resolve();
+  }
+  return authReadyPromise;
+}
+
+/**
+ * Mark auth as initialized without a token (for unauthenticated state)
+ * Called by Providers when getSession returns no session
+ */
+export function markAuthInitialized(): void {
+  if (!authInitialized) {
+    console.log('[TokenStore] Marking auth as initialized (no session)');
+    authInitialized = true;
+    authReadyResolve?.();
+  }
 }
