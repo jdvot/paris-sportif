@@ -727,15 +727,17 @@ async def _generate_prediction_from_api_match(
             sentiment_home = sentiment_map.get(str(home_sentiment_raw).lower(), 0.0)
             sentiment_away = sentiment_map.get(str(away_sentiment_raw).lower(), 0.0)
 
+            # Calculate total and clamp to [-0.5, 0.5] bounds
+            raw_total = injury_impact_home + injury_impact_away + sentiment_home + sentiment_away
+            clamped_total = max(-0.5, min(0.5, raw_total))
+
             llm_adjustments = LLMAdjustments(
                 injury_impact_home=injury_impact_home,
                 injury_impact_away=injury_impact_away,
                 sentiment_home=round(sentiment_home, 3),
                 sentiment_away=round(sentiment_away, 3),
                 tactical_edge=0.0,
-                total_adjustment=round(
-                    injury_impact_home + injury_impact_away + sentiment_home + sentiment_away, 3
-                ),
+                total_adjustment=round(clamped_total, 3),
                 reasoning="Analyse basée sur le contexte RAG (news, blessures, sentiment).",
             )
         else:
