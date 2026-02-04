@@ -87,13 +87,15 @@ export async function GET(request: Request) {
         console.log("[Callback] Setting cookie on response:", name, "options:", JSON.stringify(options));
         // CRITICAL: Ensure cookies are NOT httpOnly so client JavaScript can read them
         // This is required for onAuthStateChange to detect the session
+        const isProduction = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
         response.cookies.set(name, value, {
           ...options,
           httpOnly: false, // Must be false for client-side access
-          secure: process.env.NODE_ENV === "production", // Only secure in production
+          secure: true, // Always true for Vercel HTTPS
           sameSite: "lax", // Lax is recommended for auth cookies
           path: "/", // Ensure cookie is available on all paths
         });
+        console.log("[Callback] Cookie set:", name, "secure:", true, "isProduction:", isProduction);
       });
 
       console.log("[Callback] Response cookies set:", response.cookies.getAll().map(c => c.name));
