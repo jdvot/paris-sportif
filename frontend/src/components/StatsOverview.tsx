@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp,
   TrendingDown,
@@ -23,7 +22,7 @@ import {
   Cell,
 } from "recharts";
 import { useTranslations } from "next-intl";
-import { fetchPredictionStats } from "@/lib/api";
+import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
 import { ROUNDED_TOP } from "@/lib/recharts-types";
 
 const COMPETITION_NAMES: Record<string, string> = {
@@ -36,27 +35,29 @@ const COMPETITION_NAMES: Record<string, string> = {
 
 export function StatsOverview() {
   const t = useTranslations("stats");
-  const { data: stats, isLoading, error } = useQuery({
-    queryKey: ["predictionStats"],
-    queryFn: () => fetchPredictionStats(30),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  const { data: response, isLoading, error } = useGetPredictionStats(
+    { days: 30 },
+    { query: { staleTime: 5 * 60 * 1000 } } // 5 minutes
+  );
 
-  // Transform byCompetition data - if no data, use placeholder data
-  const hasRealData = Object.keys(stats?.byCompetition || {}).length > 0;
+  // Extract stats from Orval response (status 200 returns data)
+  const stats = response?.status === 200 ? response.data : null;
+
+  // Transform by_competition data - if no data, use placeholder data
+  const hasRealData = Object.keys(stats?.by_competition || {}).length > 0;
 
   // ALL useMemo hooks MUST be called before any early returns (React hooks rules)
   const competitionStats = useMemo(() => {
     if (!stats) return [];
     if (hasRealData) {
-      return Object.entries(stats.byCompetition)
-        .map(([code, data]: [string, any]) => ({
+      return Object.entries(stats.by_competition)
+        .map(([code, data]: [string, Record<string, unknown>]) => ({
           name: COMPETITION_NAMES[code] || code,
           code,
-          predictions: data.total || 0,
-          correct: data.correct || 0,
-          accuracy: data.accuracy || 0,
-          trend: data.accuracy >= 55 ? "up" : data.accuracy < 50 ? "down" : "neutral",
+          predictions: (data.total as number) || 0,
+          correct: (data.correct as number) || 0,
+          accuracy: (data.accuracy as number) || 0,
+          trend: ((data.accuracy as number) || 0) >= 55 ? "up" : ((data.accuracy as number) || 0) < 50 ? "down" : "neutral",
         }))
         .sort((a, b) => b.predictions - a.predictions);
     }
@@ -86,7 +87,7 @@ export function StatsOverview() {
 
   const roiAmount = useMemo(() => {
     if (!stats) return 0;
-    return stats.roiSimulated ? (stats.roiSimulated / 100) * stats.totalPredictions * 10 : 0;
+    return stats.roi_simulated ? (stats.roi_simulated / 100) * stats.total_predictions * 10 : 0;
   }, [stats]);
 
   const COLORS = useMemo(() => ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"], []);
@@ -201,10 +202,10 @@ export function StatsOverview() {
             <Target className="w-4 sm:w-5 h-4 sm:h-5 text-primary-600 dark:text-primary-400" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
-            {stats.totalPredictions}
+            {stats.total_predictions}
           </p>
           <p className="text-xs sm:text-sm text-primary-700 dark:text-primary-300">
-            {stats.correctPredictions} {t("correct")}
+            {stats.correct_predictions} {t("correct")}
           </p>
         </div>
 
@@ -229,7 +230,7 @@ export function StatsOverview() {
             <Zap className="w-4 sm:w-5 h-4 sm:h-5 text-green-600 dark:text-green-400" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
-            {(stats.roiSimulated || 0) >= 0 ? "+" : ""}{(stats.roiSimulated || 0).toFixed(1)}%
+            {(stats.roi_simulated || 0) >= 0 ? "+" : ""}{(stats.roi_simulated || 0).toFixed(1)}%
           </p>
           <p className="text-xs sm:text-sm text-green-700 dark:text-green-300">
             {roiAmount > 0 ? "+" : ""}{Math.round(roiAmount)}€ {t("profit")}
