@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   LineChart,
   Line,
@@ -17,10 +16,9 @@ import {
 } from "recharts";
 import { Loader2 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
-import { fetchPredictionStats } from "@/lib/api";
+import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
 import { cn } from "@/lib/utils";
 import { ROUNDED_TOP } from "@/lib/recharts-types";
-import type { CompetitionStats } from "@/lib/types/stats";
 
 const COMPETITION_NAMES: Record<string, string> = {
   PL: "Premier League",
@@ -47,11 +45,13 @@ interface CompetitionChartData {
 export function PerformanceHistory() {
   const t = useTranslations("stats");
   const locale = useLocale();
-  const { data: stats, isLoading, error } = useQuery({
-    queryKey: ["predictionStats", 30],
-    queryFn: () => fetchPredictionStats(30),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  const { data: response, isLoading, error } = useGetPredictionStats(
+    { days: 30 },
+    { query: { staleTime: 5 * 60 * 1000 } } // 5 minutes
+  );
+
+  // Extract stats from Orval response (status 200 returns data)
+  const stats = response?.status === 200 ? response.data : null;
 
   // Memoize historical data to prevent re-generation on each render
   // All useMemo hooks must be called before any conditional returns
@@ -59,8 +59,8 @@ export function PerformanceHistory() {
     if (!stats) return [];
     const data: HistoryDataPoint[] = [];
     const today = new Date();
-    const totalPredictions = stats.totalPredictions || 1;
-    const correctPredictions = stats.correctPredictions || 0;
+    const totalPredictions = stats.total_predictions || 1;
+    const correctPredictions = stats.correct_predictions || 0;
     const dateLocale = locale === "fr" ? "fr-FR" : "en-US";
 
     // Create 30 data points (one per day, going backward)
@@ -90,12 +90,12 @@ export function PerformanceHistory() {
   // Memoize competition chart data with proper types
   const competitionData = useMemo((): CompetitionChartData[] => {
     if (!stats) return [];
-    return Object.entries(stats.byCompetition || {})
-      .map(([code, data]: [string, CompetitionStats]) => ({
+    return Object.entries(stats.by_competition || {})
+      .map(([code, data]: [string, Record<string, unknown>]) => ({
         name: COMPETITION_NAMES[code] || code,
-        predictions: data.total || data.predictions || 0,
-        correct: data.correct || 0,
-        accuracy: data.accuracy || 0,
+        predictions: (data.total as number) || (data.predictions as number) || 0,
+        correct: (data.correct as number) || 0,
+        accuracy: (data.accuracy as number) || 0,
       }))
       .filter((comp) => comp.predictions > 0)
       .sort((a, b) => b.predictions - a.predictions);
@@ -104,7 +104,7 @@ export function PerformanceHistory() {
   // Memoize ROI calculation
   const roiAmount = useMemo(() => {
     if (!stats) return 0;
-    return stats.roiSimulated ? stats.roiSimulated * stats.totalPredictions * 10 : 0;
+    return stats.roi_simulated ? stats.roi_simulated * stats.total_predictions * 10 : 0;
   }, [stats]);
 
   // Memoize stat cards data
@@ -113,8 +113,8 @@ export function PerformanceHistory() {
     return [
       {
         label: t("totalPredictions"),
-        value: stats.totalPredictions.toString(),
-        subtext: `${stats.correctPredictions} ${t("correct")}`,
+        value: stats.total_predictions.toString(),
+        subtext: `${stats.correct_predictions} ${t("correct")}`,
         color: "from-primary-500/20 to-primary-600/20",
         borderColor: "border-primary-500/30",
       },
@@ -127,7 +127,7 @@ export function PerformanceHistory() {
       },
       {
         label: t("roiSimulated"),
-        value: `${((stats.roiSimulated || 0) * 100).toFixed(1)}%`,
+        value: `${((stats.roi_simulated || 0) * 100).toFixed(1)}%`,
         subtext: `+${Math.round(roiAmount)}€ ${t("profit")}`,
         color: "from-green-500/20 to-green-600/20",
         borderColor: "border-green-500/30",

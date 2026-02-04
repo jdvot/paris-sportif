@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   PieChart,
   Pie,
@@ -17,7 +16,7 @@ import {
 } from "recharts";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { fetchPredictionStats } from "@/lib/api";
+import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
 import { ROUNDED_TOP } from "@/lib/recharts-types";
 
 const COMPETITION_NAMES: Record<string, string> = {
@@ -53,23 +52,25 @@ interface ConfidenceData {
 
 export function PerformanceStats() {
   const t = useTranslations("stats");
-  const { data: stats, isLoading, error } = useQuery({
-    queryKey: ["predictionStats", 30],
-    queryFn: () => fetchPredictionStats(30),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  const { data: response, isLoading, error } = useGetPredictionStats(
+    { days: 30 },
+    { query: { staleTime: 5 * 60 * 1000 } } // 5 minutes
+  );
+
+  // Extract stats from Orval response (status 200 returns data)
+  const stats = response?.status === 200 ? response.data : null;
 
   // All useMemo hooks must be called before any conditional returns
   // Memoize bet type data to prevent recalculation on every render
   const betTypeData = useMemo<BetTypeData[]>(() => {
     if (!stats) return [];
-    return Object.entries(stats.byBetType || {})
-      .map(([type, data]: [string, Record<string, number>]) => ({
+    return Object.entries(stats.by_bet_type || {})
+      .map(([type, data]: [string, Record<string, unknown>]) => ({
         name: BET_TYPE_KEYS[type] ? t(BET_TYPE_KEYS[type]) : type,
-        correct: data.correct || 0,
-        total: data.total || data.predictions || 0,
-        accuracy: data.accuracy || 0,
-        avgValue: data.avgValue,
+        correct: (data.correct as number) || 0,
+        total: (data.total as number) || (data.predictions as number) || 0,
+        accuracy: (data.accuracy as number) || 0,
+        avgValue: data.avg_value as number | undefined,
       }))
       .filter((bt) => bt.total > 0);
   }, [stats, t]);
@@ -77,11 +78,11 @@ export function PerformanceStats() {
   // Memoize competition data for pie chart
   const competitionPieData = useMemo(() => {
     if (!stats) return [];
-    return Object.entries(stats.byCompetition || {})
-      .map(([code, data]: [string, Record<string, number>]) => ({
+    return Object.entries(stats.by_competition || {})
+      .map(([code, data]: [string, Record<string, unknown>]) => ({
         name: COMPETITION_NAMES[code] || code,
-        value: data.total || data.predictions || 0,
-        accuracy: data.accuracy || 0,
+        value: (data.total as number) || (data.predictions as number) || 0,
+        accuracy: (data.accuracy as number) || 0,
       }))
       .filter((comp) => comp.value > 0);
   }, [stats]);
@@ -92,19 +93,19 @@ export function PerformanceStats() {
     return [
       {
         range: ">70%",
-        count: Math.floor(stats.totalPredictions * 0.35),
+        count: Math.floor(stats.total_predictions * 0.35),
         accuracy: Math.min(100, (stats.accuracy || 0) + 8),
         color: "#4ade80",
       },
       {
         range: "60-70%",
-        count: Math.floor(stats.totalPredictions * 0.45),
+        count: Math.floor(stats.total_predictions * 0.45),
         accuracy: Math.max(40, (stats.accuracy || 0) - 2),
         color: "#60a5fa",
       },
       {
         range: "<60%",
-        count: Math.floor(stats.totalPredictions * 0.2),
+        count: Math.floor(stats.total_predictions * 0.2),
         accuracy: Math.max(35, (stats.accuracy || 0) - 12),
         color: "#fbbf24",
       },
@@ -262,7 +263,7 @@ export function PerformanceStats() {
                   </div>
                   <div className="flex items-center justify-between text-xs text-dark-300">
                     <span>{comp.value} predictions</span>
-                    <span className="text-dark-400">{((comp.value / stats.totalPredictions) * 100).toFixed(1)}% {t("ofTotal")}</span>
+                    <span className="text-dark-400">{((comp.value / stats.total_predictions) * 100).toFixed(1)}% {t("ofTotal")}</span>
                   </div>
                 </div>
               ))

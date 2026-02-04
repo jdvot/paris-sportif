@@ -6,7 +6,6 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { AppShell } from "@/components/AppShell";
 import { Analytics } from "@/components/Analytics";
-import { PWAProvider } from "@/components/PWAProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -147,9 +146,7 @@ export default async function RootLayout({
         <Analytics />
         <NextIntlClientProvider messages={messages}>
           <Providers>
-            <PWAProvider>
-              <AppShell>{children}</AppShell>
-            </PWAProvider>
+            <AppShell>{children}</AppShell>
           </Providers>
         </NextIntlClientProvider>
       </body>
