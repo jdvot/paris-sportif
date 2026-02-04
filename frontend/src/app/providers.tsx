@@ -18,6 +18,27 @@ function wasRecentlyRedirected(): boolean {
   return Date.now() - parseInt(redirectTime, 10) < 5000;
 }
 
+// Clear all Supabase cookies manually (fallback when signOut fails)
+function clearSupabaseCookies() {
+  if (typeof document === 'undefined') return;
+
+  // Get all cookies
+  const cookies = document.cookie.split(';');
+
+  // Clear all sb- prefixed cookies (Supabase cookies)
+  cookies.forEach(cookie => {
+    const cookieName = cookie.split('=')[0].trim();
+    if (cookieName.startsWith('sb-')) {
+      // Clear for all possible paths and domains
+      document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}`;
+      document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname}`;
+    }
+  });
+
+  console.log('[Auth] Manually cleared Supabase cookies');
+}
+
 async function handleAuthError(status: number) {
   // Prevent multiple redirects
   if (isRedirecting || typeof window === 'undefined') return;
@@ -37,7 +58,7 @@ async function handleAuthError(status: number) {
   }
 
   if (status === 401) {
-    console.log('[Auth] 401 detected, signing out and redirecting to login...');
+    console.log('[Auth] 401 detected, clearing auth and redirecting...');
     isRedirecting = true;
 
     // Mark that we're redirecting (persists across the navigation)
@@ -45,16 +66,28 @@ async function handleAuthError(status: number) {
 
     const loginUrl = `/auth/login?next=${encodeURIComponent(currentPath)}`;
 
-    // IMPORTANT: Wait for signOut to complete before redirecting
-    // This ensures cookies are cleared so middleware doesn't redirect back
+    // Try to sign out properly first
+    let signOutSuccess = false;
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
-      console.log('[Auth] Sign out complete, redirecting...');
+      signOutSuccess = true;
+      console.log('[Auth] Sign out complete');
     } catch (e) {
-      console.error('[Auth] Sign out error (continuing anyway):', e);
+      const error = e as { name?: string };
+      console.error('[Auth] Sign out failed:', error.name || 'Unknown error');
+
+      // If signOut failed (especially AbortError), manually clear cookies
+      // This ensures middleware won't see the user on next request
+      if (error?.name === 'AbortError' || !signOutSuccess) {
+        clearSupabaseCookies();
+      }
     }
 
+    // Clear token store
+    clearAuthToken();
+
+    // Hard redirect to login (this will reload the page and clear any in-flight requests)
     window.location.replace(loginUrl);
   }
   // 403 errors are handled locally by components (e.g., showing upgrade prompts)
@@ -172,11 +205,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
         // Handle different error types
         const error = err as { name?: string; message?: string };
 
-        // AbortError = request cancelled (navigation, component unmount)
-        // Don't clear token - user may still be valid
         if (error?.name === 'AbortError') {
-          console.log('[Providers] Auth init aborted (navigation), keeping existing token');
-          // Don't clear token on AbortError - just continue
+          console.log('[Providers] Auth init aborted by navigation');
+          // Auth check was cancelled - this happens during navigation
+          // Clear any stale auth state and let the app render
+          // If auth is required, the 401 handler will redirect to login
+          clearAuthToken();
+
+          // Also clear cookies to prevent middleware loops
+          clearSupabaseCookies();
         } else {
           // Timeout or other error - log and continue without auth
           console.error('[Providers] Auth init error:', err);
@@ -184,6 +221,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }
       } finally {
         // Always mark as ready, even on error
+        // The 401 handler will take care of redirecting if needed
         setIsReady(true);
       }
     };
