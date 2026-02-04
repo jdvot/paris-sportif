@@ -11,8 +11,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from src.auth import ADMIN_RESPONSES, AdminUser
-from src.data.database import get_db_stats
 from src.data.quality_monitor import AlertLevel, run_quality_check, send_slack_alert
+from src.db.services.stats_service import StatsService
 from src.notifications.alert_scheduler import get_alert_scheduler
 from src.notifications.push_service import PushPayload, get_push_service
 
@@ -62,7 +62,7 @@ async def get_admin_stats(user: AdminUser) -> AdminStatsResponse:
     Admin role required.
     """
     # Get database stats
-    db_stats = get_db_stats()
+    db_stats = await StatsService.get_db_stats()
 
     # TODO: Fetch real user stats from Supabase admin API
     # For now, return placeholder data combined with real DB stats
@@ -339,8 +339,8 @@ async def refresh_cache(user: AdminUser) -> CacheRefreshResponse:
     from src.services.cache_service import init_cache_table, run_daily_cache_calculation
 
     try:
-        # Ensure cache table exists
-        init_cache_table()
+        # Ensure cache table exists (now async)
+        await init_cache_table()
 
         # Run cache calculation
         result = await run_daily_cache_calculation()
@@ -363,35 +363,12 @@ async def get_cache_status(user: AdminUser) -> dict[str, Any]:
 
     Admin role required.
     """
-    from src.data.database import adapt_query, fetch_all_dict, get_db_connection
-
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        query = adapt_query("""
-            SELECT cache_key, cache_type, expires_at, created_at, updated_at
-            FROM cached_data
-            ORDER BY cache_type, cache_key
-        """)
-        cursor.execute(query)
-        cached_items = fetch_all_dict(cursor)
-        conn.close()
+        cached_items = await StatsService.get_cache_status()
 
         return {
             "status": "success",
-            "cached_items": [
-                {
-                    "key": item.get("cache_key"),
-                    "type": item.get("cache_type"),
-                    "expires_at": str(item.get("expires_at")),
-                    "created_at": str(item.get("created_at")),
-                    "is_expired": (
-                        datetime.now() > item.get("expires_at") if item.get("expires_at") else True
-                    ),
-                }
-                for item in cached_items
-            ],
+            "cached_items": cached_items,
             "total_cached": len(cached_items),
             "timestamp": datetime.now().isoformat(),
         }

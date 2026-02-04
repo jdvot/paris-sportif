@@ -993,7 +993,7 @@ def _calculate_h2h_adjustment(
         else:
             favored_team = away_team
         reasoning = (
-            f"H2H ({record}) favors {favored_team} " f"({trend} trend, {reliability} reliability)"
+            f"H2H ({record}) favors {favored_team} ({trend} trend, {reliability} reliability)"
         )
     else:
         reasoning = ""

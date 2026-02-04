@@ -3,7 +3,7 @@
 import logging
 from datetime import UTC, datetime, timedelta
 
-from src.data.database import db_session, get_placeholder
+from src.db.repositories import get_uow
 from src.notifications.push_service import get_push_service
 
 logger = logging.getLogger(__name__)
@@ -32,61 +32,70 @@ class AlertScheduler:
         alert_window_start = now + timedelta(minutes=self.MATCH_START_MINUTES_BEFORE - 5)
         alert_window_end = now + timedelta(minutes=self.MATCH_START_MINUTES_BEFORE + 5)
 
-        ph = get_placeholder()
         alerts_sent = []
 
-        with db_session() as conn:
-            cursor = conn.cursor()
+        async with get_uow() as uow:
+            from sqlalchemy import select
+            from sqlalchemy.orm import joinedload
 
-            # Find matches in the alert window that haven't been notified
-            cursor.execute(
-                f"""
-                SELECT m.id, m.home_team, m.away_team, m.competition, m.utc_date,
-                       p.predicted_outcome
-                FROM matches m
-                LEFT JOIN predictions p ON m.id = p.match_id
-                WHERE m.utc_date >= {ph}
-                  AND m.utc_date <= {ph}
-                  AND m.status = 'SCHEDULED'
-                  AND m.id NOT IN (
-                      SELECT DISTINCT match_id FROM notification_log
-                      WHERE notification_type = 'match_start'
-                      AND created_at >= {ph}
-                  )
-                ORDER BY m.utc_date
-                LIMIT 10
-                """,
-                (
-                    alert_window_start.isoformat(),
-                    alert_window_end.isoformat(),
-                    (now - timedelta(hours=2)).isoformat(),
-                ),
+            from src.db.models import Match, Prediction
+
+            # Find matches in the alert window
+            stmt = (
+                select(Match)
+                .outerjoin(Prediction, Match.id == Prediction.match_id)
+                .options(joinedload(Match.home_team), joinedload(Match.away_team))
+                .where(
+                    Match.match_date >= alert_window_start,
+                    Match.match_date <= alert_window_end,
+                    Match.status.in_(["SCHEDULED", "scheduled", "TIMED"]),
+                )
+                .order_by(Match.match_date)
+                .limit(10)
             )
-            matches = cursor.fetchall()
 
+            result = await uow._session.execute(stmt)
+            matches = result.unique().scalars().all()
+
+        # Filter out recently notified matches and process
         for match in matches:
-            match_id, home_team, away_team, competition, utc_date, prediction = match
+            # Check if already notified (simple in-DB check)
+            already_notified = await self._check_if_notified(match.id, "match_start")
+            if already_notified:
+                continue
+
+            home_team = match.home_team.name if match.home_team else "Unknown"
+            away_team = match.away_team.name if match.away_team else "Unknown"
+
+            # Get prediction if available
+            prediction = None
+            async with get_uow() as uow:
+                pred = await uow.predictions.get_by_match_id(match.id)
+                if pred:
+                    prediction = pred.predicted_outcome
 
             try:
                 result = await self.push_service.send_match_start_alert(
-                    match_id=match_id,
+                    match_id=match.id,
                     home_team=home_team,
                     away_team=away_team,
-                    competition=competition or "Football",
-                    kickoff_time=utc_date,
+                    competition="Football",  # Could be enriched with competition data
+                    kickoff_time=match.match_date.isoformat() if match.match_date else "",
                     prediction=prediction,
                 )
 
                 # Log the notification
-                self._log_notification(
-                    match_id=match_id,
+                await self._log_notification(
+                    match_id=match.id,
                     notification_type="match_start",
                     sent_count=result["sent"],
+                    title="Match dans 1h",
+                    body=f"{home_team} vs {away_team}",
                 )
 
                 alerts_sent.append(
                     {
-                        "match_id": match_id,
+                        "match_id": match.id,
                         "match": f"{home_team} vs {away_team}",
                         "sent": result["sent"],
                     }
@@ -97,103 +106,124 @@ class AlertScheduler:
                 )
 
             except Exception as e:
-                logger.error(f"Failed to send match start alert for match {match_id}: {e}")
+                logger.error(f"Failed to send match start alert for match {match.id}: {e}")
 
         return alerts_sent
 
+    async def _check_if_notified(self, match_id: int, notification_type: str) -> bool:
+        """Check if a notification has already been sent for this match."""
+        async with get_uow() as uow:
+            from sqlalchemy import func, select
+
+            from src.db.models import NotificationLog
+
+            now = datetime.now(UTC)
+            stmt = select(func.count(NotificationLog.id)).where(
+                NotificationLog.notification_type == notification_type,
+                NotificationLog.payload.contains(f'"match_id": {match_id}'),
+                NotificationLog.created_at >= (now - timedelta(hours=2)),
+            )
+            result = await uow._session.execute(stmt)
+            count = result.scalar_one()
+            return count > 0
+
     async def send_daily_picks_alert(self) -> dict:
         """Send daily picks notification."""
-        ph = get_placeholder()
         today = datetime.now(UTC).date()
 
         # Check if already sent today
-        with db_session() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                f"""
-                SELECT COUNT(*) FROM notification_log
-                WHERE notification_type = 'daily_picks'
-                AND DATE(created_at) = {ph}
-                """,
-                (today.isoformat(),),
+        async with get_uow() as uow:
+            from sqlalchemy import func, select
+
+            from src.db.models import NotificationLog
+
+            stmt = select(func.count(NotificationLog.id)).where(
+                NotificationLog.notification_type == "daily_picks",
+                func.date(NotificationLog.created_at) == today,
             )
-            count = cursor.fetchone()[0]
+            result = await uow._session.execute(stmt)
+            count = result.scalar_one()
 
         if count > 0:
             logger.info("Daily picks notification already sent today")
             return {"sent": 0, "already_sent": True}
 
         # Get top pick for today
-        with db_session() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                f"""
-                SELECT m.home_team, m.away_team
-                FROM matches m
-                JOIN predictions p ON m.id = p.match_id
-                WHERE DATE(m.utc_date) = {ph}
-                  AND m.status = 'SCHEDULED'
-                ORDER BY p.value_score DESC
-                LIMIT 1
-                """,
-                (today.isoformat(),),
-            )
-            top_pick = cursor.fetchone()
+        top_pick_match = None
+        async with get_uow() as uow:
+            from sqlalchemy import func, select
+            from sqlalchemy.orm import joinedload
 
-        top_pick_match = f"{top_pick[0]} vs {top_pick[1]}" if top_pick else None
+            from src.db.models import Match, Prediction
+
+            today_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=UTC)
+            today_end = datetime.combine(today, datetime.max.time()).replace(tzinfo=UTC)
+
+            stmt = (
+                select(Match)
+                .join(Prediction, Match.id == Prediction.match_id)
+                .options(joinedload(Match.home_team), joinedload(Match.away_team))
+                .where(
+                    Match.match_date >= today_start,
+                    Match.match_date <= today_end,
+                    Match.status.in_(["SCHEDULED", "scheduled", "TIMED"]),
+                )
+                .order_by(Prediction.confidence.desc())
+                .limit(1)
+            )
+            result = await uow._session.execute(stmt)
+            top_match = result.unique().scalar_one_or_none()
+
+            if top_match:
+                home_name = top_match.home_team.name if top_match.home_team else "Unknown"
+                away_name = top_match.away_team.name if top_match.away_team else "Unknown"
+                top_pick_match = f"{home_name} vs {away_name}"
 
         result = await self.push_service.send_daily_picks_notification(
             picks_count=5,
             top_pick_match=top_pick_match,
         )
 
-        self._log_notification(
+        await self._log_notification(
             match_id=None,
             notification_type="daily_picks",
             sent_count=result["sent"],
+            title="Picks du jour disponibles!",
+            body="5 picks premium disponibles",
         )
 
         return result
 
-    def _log_notification(
+    async def _log_notification(
         self,
         match_id: int | None,
         notification_type: str,
         sent_count: int,
+        title: str = "",
+        body: str = "",
     ):
         """Log a sent notification to prevent duplicates."""
-        ph = get_placeholder()
+        import json
 
-        with db_session() as conn:
-            cursor = conn.cursor()
+        async with get_uow() as uow:
+            from src.db.models import NotificationLog
 
-            # Ensure table exists
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS notification_log (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    match_id INTEGER,
-                    notification_type TEXT NOT NULL,
-                    sent_count INTEGER DEFAULT 0,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-
-            cursor.execute(
-                f"""
-                INSERT INTO notification_log (match_id, notification_type, sent_count, created_at)
-                VALUES ({ph}, {ph}, {ph}, {ph})
-                """,
-                (
-                    match_id,
-                    notification_type,
-                    sent_count,
-                    datetime.now(UTC).isoformat(),
-                ),
+            log_entry = NotificationLog(
+                notification_type=notification_type,
+                channel="push",
+                title=title,
+                body=body,
+                payload=json.dumps({"match_id": match_id, "sent_count": sent_count}),
+                status="sent",
+                sent_at=datetime.now(UTC),
+                created_at=datetime.now(UTC),
             )
+            uow._session.add(log_entry)
+            await uow.commit()
 
     async def run_alert_check(self) -> dict:
         """Run a complete alert check cycle."""
-        results = {
+        results: dict = {
             "match_alerts": [],
             "daily_picks": None,
             "timestamp": datetime.now(UTC).isoformat(),

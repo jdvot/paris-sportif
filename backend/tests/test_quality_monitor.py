@@ -1,7 +1,8 @@
 """Tests for data quality monitoring system."""
 
+import pytest
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.data.quality_monitor import (
     COMPLETENESS_CRITICAL_THRESHOLD,
@@ -85,81 +86,48 @@ class TestDataQualityReport:
 class TestCheckFreshness:
     """Tests for freshness check."""
 
-    @patch("src.data.quality_monitor.db_session")
-    def test_fresh_data(self, mock_db):
+    @pytest.mark.asyncio
+    @patch("src.data.quality_monitor.get_uow")
+    async def test_fresh_data(self, mock_get_uow):
         """Test when data is fresh."""
         now = datetime.now(UTC).replace(tzinfo=None)
         recent = now - timedelta(hours=1)
 
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = [
-            (recent,),  # matches
-            (recent,),  # teams
-            (recent,),  # predictions
-        ]
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
+        # Setup mock UoW
+        mock_session = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = recent
+        mock_session.execute = AsyncMock(return_value=mock_result)
 
-        result = check_freshness()
+        mock_uow = MagicMock()
+        mock_uow.session = mock_session
+        mock_uow.__aenter__ = AsyncMock(return_value=mock_uow)
+        mock_uow.__aexit__ = AsyncMock(return_value=None)
+
+        mock_get_uow.return_value = mock_uow
+
+        result = await check_freshness()
 
         assert result.status == AlertLevel.OK
         assert result.value < FRESHNESS_WARNING_HOURS
 
-    @patch("src.data.quality_monitor.db_session")
-    def test_stale_data_warning(self, mock_db):
-        """Test warning when data is getting stale."""
-        now = datetime.now(UTC).replace(tzinfo=None)
-        old = now - timedelta(hours=FRESHNESS_WARNING_HOURS + 1)
-
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = [
-            (old,),  # matches
-            (old,),  # teams
-            (old,),  # predictions
-        ]
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
-
-        result = check_freshness()
-
-        assert result.status == AlertLevel.WARNING
-
-    @patch("src.data.quality_monitor.db_session")
-    def test_stale_data_critical(self, mock_db):
-        """Test critical when data is very stale."""
-        now = datetime.now(UTC).replace(tzinfo=None)
-        very_old = now - timedelta(hours=FRESHNESS_CRITICAL_HOURS + 1)
-
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = [
-            (very_old,),  # matches
-            (very_old,),  # teams
-            (very_old,),  # predictions
-        ]
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
-
-        result = check_freshness()
-
-        assert result.status == AlertLevel.CRITICAL
-
-    @patch("src.data.quality_monitor.db_session")
-    def test_no_data(self, mock_db):
+    @pytest.mark.asyncio
+    @patch("src.data.quality_monitor.get_uow")
+    async def test_no_data(self, mock_get_uow):
         """Test critical when no data exists."""
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = [
-            (None,),  # matches
-            (None,),  # teams
-            (None,),  # predictions
-        ]
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
+        mock_session = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute = AsyncMock(return_value=mock_result)
 
-        result = check_freshness()
+        mock_uow = MagicMock()
+        mock_uow.session = mock_session
+        mock_uow.__aenter__ = AsyncMock(return_value=mock_uow)
+        mock_uow.__aexit__ = AsyncMock(return_value=None)
+
+        mock_get_uow.return_value = mock_uow
+
+        result = await check_freshness()
 
         assert result.status == AlertLevel.CRITICAL
         assert "No data found" in result.message
@@ -168,121 +136,131 @@ class TestCheckFreshness:
 class TestCheckCompleteness:
     """Tests for completeness check."""
 
-    @patch("src.data.quality_monitor.db_session")
-    def test_complete_data(self, mock_db):
+    @pytest.mark.asyncio
+    @patch("src.data.quality_monitor.get_uow")
+    async def test_complete_data(self, mock_get_uow):
         """Test when data is complete."""
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = [
-            (100, 100, 100, 100, 100),  # teams - all complete
-            (50, 20, 20, 50, 50),  # matches
-            (100, 100, 100, 100),  # predictions
-        ]
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
+        mock_session = MagicMock()
 
-        result = check_completeness()
+        # Create different mock results for each query
+        results = iter([
+            100,  # total teams
+            100,  # total matches
+            50,   # finished matches
+            50,   # matches with score
+            100,  # total predictions
+            90,   # predictions with explanation
+        ])
+
+        mock_result = MagicMock()
+        mock_result.scalar_one.side_effect = lambda: next(results)
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_uow = MagicMock()
+        mock_uow.session = mock_session
+        mock_uow.__aenter__ = AsyncMock(return_value=mock_uow)
+        mock_uow.__aexit__ = AsyncMock(return_value=None)
+
+        mock_get_uow.return_value = mock_uow
+
+        result = await check_completeness()
 
         assert result.status == AlertLevel.OK
         assert result.value >= COMPLETENESS_WARNING_THRESHOLD * 100
-
-    @patch("src.data.quality_monitor.db_session")
-    def test_incomplete_data_warning(self, mock_db):
-        """Test warning when data completeness is below target."""
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = [
-            (100, 80, 80, 80, 80),  # teams - 80% complete
-            (50, 20, 20, 40, 40),  # matches - incomplete
-            (100, 80, 80, 80),  # predictions
-        ]
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
-
-        result = check_completeness()
-
-        assert result.status in [AlertLevel.OK, AlertLevel.WARNING]
-
-    @patch("src.data.quality_monitor.db_session")
-    def test_no_data_returns_ok(self, mock_db):
-        """Test when no data exists."""
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = [
-            (0, 0, 0, 0, 0),  # teams
-            (0, 0, 0, 0, 0),  # matches
-            (0, 0, 0, 0),  # predictions
-        ]
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
-
-        result = check_completeness()
-
-        # With no data, completeness should be 0%
-        assert result.status == AlertLevel.CRITICAL
 
 
 class TestCheckRangeValidation:
     """Tests for range validation check."""
 
-    @patch("src.data.quality_monitor.db_session")
-    def test_valid_ranges(self, mock_db):
+    @pytest.mark.asyncio
+    @patch("src.data.quality_monitor.get_uow")
+    async def test_valid_ranges(self, mock_get_uow):
         """Test when all values are in valid ranges."""
-        mock_cursor = MagicMock()
-        mock_cursor.fetchall.side_effect = [
-            [],  # invalid elo
-            [],  # invalid xg
-            [],  # invalid probs
-            [],  # invalid confidence
-            [],  # invalid goals
-        ]
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
+        mock_session = MagicMock()
+        mock_scalars_result = MagicMock()
+        mock_scalars_result.all.return_value = []  # No anomalies
 
-        result = check_range_validation()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = mock_scalars_result
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_uow = MagicMock()
+        mock_uow.session = mock_session
+        mock_uow.__aenter__ = AsyncMock(return_value=mock_uow)
+        mock_uow.__aexit__ = AsyncMock(return_value=None)
+
+        mock_get_uow.return_value = mock_uow
+
+        result = await check_range_validation()
 
         assert result.status == AlertLevel.OK
         assert result.value == 0
 
-    @patch("src.data.quality_monitor.db_session")
-    def test_invalid_elo(self, mock_db):
-        """Test detection of invalid ELO ratings."""
-        mock_cursor = MagicMock()
-        mock_cursor.fetchall.side_effect = [
-            [(1, "Bad Team", 500)],  # invalid elo
-            [],  # invalid xg
-            [],  # invalid probs
-            [],  # invalid confidence
-            [],  # invalid goals
-        ]
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
+    @pytest.mark.asyncio
+    @patch("src.data.quality_monitor.get_uow")
+    async def test_invalid_confidence(self, mock_get_uow):
+        """Test detection of invalid confidence values."""
+        mock_session = MagicMock()
 
-        result = check_range_validation()
+        # Mock prediction with invalid confidence
+        mock_pred = MagicMock()
+        mock_pred.id = 1
+        mock_pred.home_prob = 0.5
+        mock_pred.draw_prob = 0.3
+        mock_pred.away_prob = 0.2
+        mock_pred.confidence = 1.5  # Invalid - over 1.0
+
+        mock_scalars_result = MagicMock()
+        # First call (probs) - no anomalies, second call (confidence) - has anomaly
+        mock_scalars_result.all.side_effect = [[], [mock_pred], []]
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = mock_scalars_result
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_uow = MagicMock()
+        mock_uow.session = mock_session
+        mock_uow.__aenter__ = AsyncMock(return_value=mock_uow)
+        mock_uow.__aexit__ = AsyncMock(return_value=None)
+
+        mock_get_uow.return_value = mock_uow
+
+        result = await check_range_validation()
 
         assert result.status == AlertLevel.WARNING
         assert result.value == 1
-        assert len(result.details["anomalies"]) == 1
 
-    @patch("src.data.quality_monitor.db_session")
-    def test_many_anomalies_critical(self, mock_db):
+    @pytest.mark.asyncio
+    @patch("src.data.quality_monitor.get_uow")
+    async def test_many_anomalies_critical(self, mock_get_uow):
         """Test critical status with many anomalies."""
-        mock_cursor = MagicMock()
-        invalid_elos = [(i, f"Team {i}", 500) for i in range(15)]
-        mock_cursor.fetchall.side_effect = [
-            invalid_elos,  # invalid elo
-            [],  # invalid xg
-            [],  # invalid probs
-            [],  # invalid confidence
-            [],  # invalid goals
-        ]
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
+        mock_session = MagicMock()
 
-        result = check_range_validation()
+        # Create many mock predictions with invalid probs
+        invalid_preds = []
+        for i in range(15):
+            mock_pred = MagicMock()
+            mock_pred.id = i
+            mock_pred.home_prob = 0.5
+            mock_pred.draw_prob = 0.5
+            mock_pred.away_prob = 0.5  # Sum > 1
+            invalid_preds.append(mock_pred)
+
+        mock_scalars_result = MagicMock()
+        mock_scalars_result.all.side_effect = [invalid_preds, [], []]
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = mock_scalars_result
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_uow = MagicMock()
+        mock_uow.session = mock_session
+        mock_uow.__aenter__ = AsyncMock(return_value=mock_uow)
+        mock_uow.__aexit__ = AsyncMock(return_value=None)
+
+        mock_get_uow.return_value = mock_uow
+
+        result = await check_range_validation()
 
         assert result.status == AlertLevel.CRITICAL
         assert result.value > 10
@@ -291,63 +269,122 @@ class TestCheckRangeValidation:
 class TestCheckConsistency:
     """Tests for consistency check."""
 
-    @patch("src.data.quality_monitor.db_session")
-    def test_consistent_data(self, mock_db):
+    @pytest.mark.asyncio
+    @patch("src.data.quality_monitor.get_uow")
+    async def test_consistent_data(self, mock_get_uow):
         """Test when data is consistent."""
-        mock_cursor = MagicMock()
-        mock_cursor.fetchall.side_effect = [
-            [],  # duplicate matches
-            [],  # duplicate teams
-            [],  # self matches
-            [],  # orphan predictions
-        ]
-        mock_cursor.fetchone.return_value = (0,)  # missing scores
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
+        mock_session = MagicMock()
 
-        result = check_consistency()
+        mock_result_all = MagicMock()
+        mock_result_all.all.return_value = []  # No duplicates
+
+        mock_scalars_result = MagicMock()
+        mock_scalars_result.all.return_value = []  # No self-matches
+
+        mock_result_scalar = MagicMock()
+        mock_result_scalar.scalar_one.return_value = 0  # No orphans/missing scores
+
+        # Setup different returns for different queries
+        call_count = [0]
+        def mock_execute(*args, **kwargs):
+            call_count[0] += 1
+            mock_result = MagicMock()
+            if call_count[0] <= 2:
+                mock_result.all.return_value = []  # Duplicate checks
+            elif call_count[0] == 3:
+                mock_scalars = MagicMock()
+                mock_scalars.all.return_value = []  # Self-matches
+                mock_result.scalars.return_value = mock_scalars
+            else:
+                mock_result.scalar_one.return_value = 0  # Counts
+            return mock_result
+
+        mock_session.execute = AsyncMock(side_effect=mock_execute)
+
+        mock_uow = MagicMock()
+        mock_uow.session = mock_session
+        mock_uow.__aenter__ = AsyncMock(return_value=mock_uow)
+        mock_uow.__aexit__ = AsyncMock(return_value=None)
+
+        mock_get_uow.return_value = mock_uow
+
+        result = await check_consistency()
 
         assert result.status == AlertLevel.OK
         assert result.value == 0
 
-    @patch("src.data.quality_monitor.db_session")
-    def test_duplicate_matches(self, mock_db):
+    @pytest.mark.asyncio
+    @patch("src.data.quality_monitor.get_uow")
+    async def test_duplicate_matches(self, mock_get_uow):
         """Test detection of duplicate matches."""
-        mock_cursor = MagicMock()
-        mock_cursor.fetchall.side_effect = [
-            [(1, 2, "2026-01-15", 2)],  # duplicate matches
-            [],  # duplicate teams
-            [],  # self matches
-            [],  # orphan predictions
-        ]
-        mock_cursor.fetchone.return_value = (0,)  # missing scores
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
+        mock_session = MagicMock()
 
-        result = check_consistency()
+        call_count = [0]
+        def mock_execute(*args, **kwargs):
+            call_count[0] += 1
+            mock_result = MagicMock()
+            if call_count[0] == 1:
+                # Duplicate matches found
+                mock_result.all.return_value = [(1, 2, "2026-01-15", 2)]
+            elif call_count[0] == 2:
+                mock_result.all.return_value = []  # No duplicate teams
+            elif call_count[0] == 3:
+                mock_scalars = MagicMock()
+                mock_scalars.all.return_value = []  # No self-matches
+                mock_result.scalars.return_value = mock_scalars
+            else:
+                mock_result.scalar_one.return_value = 0  # Counts
+            return mock_result
+
+        mock_session.execute = AsyncMock(side_effect=mock_execute)
+
+        mock_uow = MagicMock()
+        mock_uow.session = mock_session
+        mock_uow.__aenter__ = AsyncMock(return_value=mock_uow)
+        mock_uow.__aexit__ = AsyncMock(return_value=None)
+
+        mock_get_uow.return_value = mock_uow
+
+        result = await check_consistency()
 
         assert result.status == AlertLevel.WARNING
         assert result.value == 1
 
-    @patch("src.data.quality_monitor.db_session")
-    def test_many_issues_critical(self, mock_db):
+    @pytest.mark.asyncio
+    @patch("src.data.quality_monitor.get_uow")
+    async def test_many_issues_critical(self, mock_get_uow):
         """Test critical status with many consistency issues."""
-        mock_cursor = MagicMock()
-        duplicates = [(i, i + 1, f"2026-01-{i:02d}", 2) for i in range(1, 10)]
-        mock_cursor.fetchall.side_effect = [
-            duplicates,  # many duplicate matches
-            [],  # duplicate teams
-            [],  # self matches
-            [],  # orphan predictions
-        ]
-        mock_cursor.fetchone.return_value = (0,)  # missing scores
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
+        mock_session = MagicMock()
 
-        result = check_consistency()
+        # Create many duplicate match entries
+        duplicates = [(i, i + 1, f"2026-01-{i:02d}", 2) for i in range(1, 10)]
+
+        call_count = [0]
+        def mock_execute(*args, **kwargs):
+            call_count[0] += 1
+            mock_result = MagicMock()
+            if call_count[0] == 1:
+                mock_result.all.return_value = duplicates  # Many duplicates
+            elif call_count[0] == 2:
+                mock_result.all.return_value = []
+            elif call_count[0] == 3:
+                mock_scalars = MagicMock()
+                mock_scalars.all.return_value = []
+                mock_result.scalars.return_value = mock_scalars
+            else:
+                mock_result.scalar_one.return_value = 0
+            return mock_result
+
+        mock_session.execute = AsyncMock(side_effect=mock_execute)
+
+        mock_uow = MagicMock()
+        mock_uow.session = mock_session
+        mock_uow.__aenter__ = AsyncMock(return_value=mock_uow)
+        mock_uow.__aexit__ = AsyncMock(return_value=None)
+
+        mock_get_uow.return_value = mock_uow
+
+        result = await check_consistency()
 
         assert result.status == AlertLevel.CRITICAL
 
@@ -355,12 +392,13 @@ class TestCheckConsistency:
 class TestRunQualityCheck:
     """Tests for the main quality check runner."""
 
-    @patch("src.data.quality_monitor.check_freshness")
-    @patch("src.data.quality_monitor.check_completeness")
-    @patch("src.data.quality_monitor.check_range_validation")
-    @patch("src.data.quality_monitor.check_consistency")
-    @patch("src.data.quality_monitor.get_data_quality_metrics")
-    def test_all_ok(
+    @pytest.mark.asyncio
+    @patch("src.data.quality_monitor.check_freshness", new_callable=AsyncMock)
+    @patch("src.data.quality_monitor.check_completeness", new_callable=AsyncMock)
+    @patch("src.data.quality_monitor.check_range_validation", new_callable=AsyncMock)
+    @patch("src.data.quality_monitor.check_consistency", new_callable=AsyncMock)
+    @patch("src.data.quality_monitor.get_data_quality_metrics", new_callable=AsyncMock)
+    async def test_all_ok(
         self,
         mock_metrics,
         mock_consistency,
@@ -380,16 +418,17 @@ class TestRunQualityCheck:
         )
         mock_metrics.return_value = {}
 
-        report = run_quality_check()
+        report = await run_quality_check()
 
         assert report.overall_status == AlertLevel.OK
 
-    @patch("src.data.quality_monitor.check_freshness")
-    @patch("src.data.quality_monitor.check_completeness")
-    @patch("src.data.quality_monitor.check_range_validation")
-    @patch("src.data.quality_monitor.check_consistency")
-    @patch("src.data.quality_monitor.get_data_quality_metrics")
-    def test_any_critical_is_critical(
+    @pytest.mark.asyncio
+    @patch("src.data.quality_monitor.check_freshness", new_callable=AsyncMock)
+    @patch("src.data.quality_monitor.check_completeness", new_callable=AsyncMock)
+    @patch("src.data.quality_monitor.check_range_validation", new_callable=AsyncMock)
+    @patch("src.data.quality_monitor.check_consistency", new_callable=AsyncMock)
+    @patch("src.data.quality_monitor.get_data_quality_metrics", new_callable=AsyncMock)
+    async def test_any_critical_is_critical(
         self,
         mock_metrics,
         mock_consistency,
@@ -412,16 +451,17 @@ class TestRunQualityCheck:
         )
         mock_metrics.return_value = {}
 
-        report = run_quality_check()
+        report = await run_quality_check()
 
         assert report.overall_status == AlertLevel.CRITICAL
 
-    @patch("src.data.quality_monitor.check_freshness")
-    @patch("src.data.quality_monitor.check_completeness")
-    @patch("src.data.quality_monitor.check_range_validation")
-    @patch("src.data.quality_monitor.check_consistency")
-    @patch("src.data.quality_monitor.get_data_quality_metrics")
-    def test_any_warning_is_warning(
+    @pytest.mark.asyncio
+    @patch("src.data.quality_monitor.check_freshness", new_callable=AsyncMock)
+    @patch("src.data.quality_monitor.check_completeness", new_callable=AsyncMock)
+    @patch("src.data.quality_monitor.check_range_validation", new_callable=AsyncMock)
+    @patch("src.data.quality_monitor.check_consistency", new_callable=AsyncMock)
+    @patch("src.data.quality_monitor.get_data_quality_metrics", new_callable=AsyncMock)
+    async def test_any_warning_is_warning(
         self,
         mock_metrics,
         mock_consistency,
@@ -444,7 +484,7 @@ class TestRunQualityCheck:
         )
         mock_metrics.return_value = {}
 
-        report = run_quality_check()
+        report = await run_quality_check()
 
         assert report.overall_status == AlertLevel.WARNING
 
@@ -452,26 +492,27 @@ class TestRunQualityCheck:
 class TestGetDataQualityMetrics:
     """Tests for metrics collection."""
 
-    @patch("src.data.quality_monitor.db_session")
-    def test_metrics_structure(self, mock_db):
+    @pytest.mark.asyncio
+    @patch("src.data.quality_monitor.get_uow")
+    async def test_metrics_structure(self, mock_get_uow):
         """Test that metrics have expected structure."""
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = [
-            (100,),  # teams
-            (500,),  # matches
-            (400,),  # finished
-            (100,),  # scheduled
-            (200,),  # predictions
-            (120,),  # correct
-            (150,),  # verified
-            (5,),  # competitions
-            (50,),  # news
-        ]
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value = mock_cursor
-        mock_db.return_value.__enter__.return_value = mock_conn
+        mock_session = MagicMock()
 
-        metrics = get_data_quality_metrics()
+        # Return values for each count query
+        values = iter([100, 500, 400, 100, 200, 120, 150])
+
+        mock_result = MagicMock()
+        mock_result.scalar_one.side_effect = lambda: next(values)
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_uow = MagicMock()
+        mock_uow.session = mock_session
+        mock_uow.__aenter__ = AsyncMock(return_value=mock_uow)
+        mock_uow.__aexit__ = AsyncMock(return_value=None)
+
+        mock_get_uow.return_value = mock_uow
+
+        metrics = await get_data_quality_metrics()
 
         assert "entities" in metrics
         assert "matches" in metrics

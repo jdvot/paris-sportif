@@ -698,8 +698,8 @@ class RAGEnrichment:
 
 DONNÉES:
 - Actualités: {news_titles}
-- Blessures/Absences: {injuries if injuries else 'Aucune signalée'}
-- Forme récente: {form if form else 'Non disponible'}
+- Blessures/Absences: {injuries if injuries else "Aucune signalée"}
+- Forme récente: {form if form else "Non disponible"}
 
 INSTRUCTIONS:
 - Retourne exactement 3 points clés
@@ -934,7 +934,7 @@ Réponse:"""
 
 ═══════════════════════════════════════════════════
 MATCH: {home_team} (domicile) vs {away_team} (extérieur)
-COMPÉTITION: {match_ctx.get('competition', 'Championnat')}
+COMPÉTITION: {match_ctx.get("competition", "Championnat")}
 ═══════════════════════════════════════════════════
 
 PROBABILITÉS (modèle ML):

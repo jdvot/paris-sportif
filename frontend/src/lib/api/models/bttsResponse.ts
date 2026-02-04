@@ -9,7 +9,7 @@
 /**
  * Both Teams To Score response.
  */
-export interface BTTSResponse {
+export interface BttsResponse {
   /**
    * Probability both teams score
    * @minimum 0

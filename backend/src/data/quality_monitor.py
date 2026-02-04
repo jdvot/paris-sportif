@@ -5,15 +5,20 @@ Provides comprehensive data quality checks including:
 - Completeness: % of missing fields
 - Range validation: Values within expected bounds (xG, ELO, etc.)
 - Consistency: Duplicates and conflicts detection
+
+Migrated to async repository pattern (PAR-142).
 """
 
 import logging
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
-from src.data.database import db_session
+from sqlalchemy import func, select
+
+from src.db.models import Match, Prediction, PredictionResult, Team
+from src.db.repositories import get_uow
 
 logger = logging.getLogger(__name__)
 
@@ -110,34 +115,23 @@ VALID_RANGES = {
 }
 
 
-def check_freshness() -> DataQualityCheck:
+async def check_freshness() -> DataQualityCheck:
     """Check data freshness - when was data last updated."""
-    with db_session() as conn:
-        cursor = conn.cursor()
-
+    async with get_uow() as uow:
         # Check last match update
-        cursor.execute("""
-            SELECT MAX(updated_at) as last_update
-            FROM matches
-        """)
-        result = cursor.fetchone()
-        last_match_update = result[0] if result and result[0] else None
+        stmt = select(func.max(Match.updated_at))
+        result = await uow.session.execute(stmt)
+        last_match_update = result.scalar_one_or_none()
 
         # Check last team update
-        cursor.execute("""
-            SELECT MAX(updated_at) as last_update
-            FROM teams
-        """)
-        result = cursor.fetchone()
-        last_team_update = result[0] if result and result[0] else None
+        stmt = select(func.max(Team.updated_at))
+        result = await uow.session.execute(stmt)
+        last_team_update = result.scalar_one_or_none()
 
         # Check last prediction update
-        cursor.execute("""
-            SELECT MAX(updated_at) as last_update
-            FROM predictions
-        """)
-        result = cursor.fetchone()
-        last_prediction_update = result[0] if result and result[0] else None
+        stmt = select(func.max(Prediction.updated_at))
+        result = await uow.session.execute(stmt)
+        last_prediction_update = result.scalar_one_or_none()
 
     # Find the most recent update
     updates = [
@@ -195,74 +189,56 @@ def check_freshness() -> DataQualityCheck:
     )
 
 
-def check_completeness() -> DataQualityCheck:
+async def check_completeness() -> DataQualityCheck:
     """Check data completeness - percentage of fields that are populated."""
-    with db_session() as conn:
-        cursor = conn.cursor()
+    details: dict[str, Any] = {}
 
+    async with get_uow() as uow:
         # Check teams completeness
-        cursor.execute("""
-            SELECT
-                COUNT(*) as total,
-                SUM(CASE WHEN elo_rating IS NOT NULL THEN 1 ELSE 0 END) as has_elo,
-                SUM(CASE WHEN avg_goals_scored_home IS NOT NULL THEN 1 ELSE 0 END) as has_home_goals,
-                SUM(CASE WHEN avg_goals_scored_away IS NOT NULL THEN 1 ELSE 0 END) as has_away_goals,
-                SUM(CASE WHEN avg_xg_for IS NOT NULL THEN 1 ELSE 0 END) as has_xg
-            FROM teams
-        """)
-        team_stats = cursor.fetchone()
+        stmt = select(func.count(Team.id))
+        result = await uow.session.execute(stmt)
+        total_teams = result.scalar_one() or 0
 
         # Check matches completeness
-        cursor.execute("""
-            SELECT
-                COUNT(*) as total,
-                SUM(CASE WHEN status = 'finished' THEN 1 ELSE 0 END) as finished,
-                SUM(CASE WHEN status = 'finished' AND home_score IS NOT NULL THEN 1 ELSE 0 END) as has_score,
-                SUM(CASE WHEN home_xg IS NOT NULL THEN 1 ELSE 0 END) as has_xg,
-                SUM(CASE WHEN odds_home IS NOT NULL THEN 1 ELSE 0 END) as has_odds
-            FROM matches
-        """)
-        match_stats = cursor.fetchone()
+        stmt = select(func.count(Match.id))
+        result = await uow.session.execute(stmt)
+        total_matches = result.scalar_one() or 0
+
+        stmt = select(func.count(Match.id)).where(Match.status == "finished")
+        result = await uow.session.execute(stmt)
+        finished_matches = result.scalar_one() or 0
+
+        stmt = select(func.count(Match.id)).where(
+            Match.status == "finished",
+            Match.home_score.isnot(None),
+        )
+        result = await uow.session.execute(stmt)
+        matches_with_score = result.scalar_one() or 0
 
         # Check predictions completeness
-        cursor.execute("""
-            SELECT
-                COUNT(*) as total,
-                SUM(CASE WHEN explanation IS NOT NULL AND explanation != '' THEN 1 ELSE 0 END) as has_explanation,
-                SUM(CASE WHEN key_factors IS NOT NULL THEN 1 ELSE 0 END) as has_factors,
-                SUM(CASE WHEN model_details IS NOT NULL THEN 1 ELSE 0 END) as has_model_details
-            FROM predictions
-        """)
-        pred_stats = cursor.fetchone()
+        stmt = select(func.count(Prediction.id))
+        result = await uow.session.execute(stmt)
+        total_preds = result.scalar_one() or 0
+
+        stmt = select(func.count(Prediction.id)).where(
+            Prediction.explanation.isnot(None),
+            Prediction.explanation != "",
+        )
+        result = await uow.session.execute(stmt)
+        preds_with_explanation = result.scalar_one() or 0
 
     # Calculate completeness scores
-    details = {}
-
-    # Teams completeness
-    if team_stats and team_stats[0] > 0:
-        total_teams = team_stats[0]
-        team_completeness = {
-            "elo_rating": team_stats[1] / total_teams if total_teams else 0,
-            "home_goals_avg": team_stats[2] / total_teams if total_teams else 0,
-            "away_goals_avg": team_stats[3] / total_teams if total_teams else 0,
-            "xg_data": team_stats[4] / total_teams if total_teams else 0,
-        }
-        details["teams"] = {
-            "total": total_teams,
-            "completeness": team_completeness,
-        }
+    team_completeness = {}
+    if total_teams > 0:
+        team_completeness = {"total": total_teams}
+        details["teams"] = {"total": total_teams, "completeness": team_completeness}
     else:
-        team_completeness = {}
         details["teams"] = {"total": 0, "completeness": {}}
 
-    # Matches completeness
-    if match_stats and match_stats[0] > 0:
-        total_matches = match_stats[0]
-        finished_matches = match_stats[1]
+    match_completeness = {}
+    if total_matches > 0:
         match_completeness = {
-            "finished_with_score": (match_stats[2] / finished_matches if finished_matches else 1.0),
-            "xg_data": match_stats[3] / total_matches if total_matches else 0,
-            "odds_data": match_stats[4] / total_matches if total_matches else 0,
+            "finished_with_score": matches_with_score / finished_matches if finished_matches else 1.0,
         }
         details["matches"] = {
             "total": total_matches,
@@ -270,31 +246,22 @@ def check_completeness() -> DataQualityCheck:
             "completeness": match_completeness,
         }
     else:
-        match_completeness = {}
         details["matches"] = {"total": 0, "finished": 0, "completeness": {}}
 
-    # Predictions completeness
-    if pred_stats and pred_stats[0] > 0:
-        total_preds = pred_stats[0]
+    pred_completeness = {}
+    if total_preds > 0:
         pred_completeness = {
-            "explanation": pred_stats[1] / total_preds if total_preds else 0,
-            "key_factors": pred_stats[2] / total_preds if total_preds else 0,
-            "model_details": pred_stats[3] / total_preds if total_preds else 0,
+            "explanation": preds_with_explanation / total_preds,
         }
         details["predictions"] = {
             "total": total_preds,
             "completeness": pred_completeness,
         }
     else:
-        pred_completeness = {}
         details["predictions"] = {"total": 0, "completeness": {}}
 
-    # Calculate overall completeness (weighted average)
-    all_scores = (
-        list(team_completeness.values())
-        + list(match_completeness.values())
-        + list(pred_completeness.values())
-    )
+    # Calculate overall completeness
+    all_scores = list(match_completeness.values()) + list(pred_completeness.values())
     overall_completeness = sum(all_scores) / len(all_scores) if all_scores else 0
 
     # Determine status
@@ -318,164 +285,91 @@ def check_completeness() -> DataQualityCheck:
     )
 
 
-def check_range_validation() -> DataQualityCheck:
+async def check_range_validation() -> DataQualityCheck:
     """Check data values are within valid ranges."""
-    anomalies = []
+    anomalies: list[dict[str, Any]] = []
 
-    with db_session() as conn:
-        cursor = conn.cursor()
-
-        # Check ELO ratings
-        cursor.execute(
-            """
-            SELECT id, name, elo_rating
-            FROM teams
-            WHERE elo_rating < %s
-               OR elo_rating > %s
-        """,
-            (VALID_RANGES["elo_rating"]["min"], VALID_RANGES["elo_rating"]["max"]),
-        )
-        invalid_elo = cursor.fetchall()
-        for row in invalid_elo:
-            anomalies.append(
-                {
-                    "type": "range_violation",
-                    "entity": "team",
-                    "id": row[0],
-                    "name": row[1],
-                    "field": "elo_rating",
-                    "value": float(row[2]) if row[2] else None,
-                    "valid_range": VALID_RANGES["elo_rating"],
-                }
-            )
-
-        # Check xG values
-        cursor.execute(
-            """
-            SELECT m.id, t1.name, t2.name, m.home_xg, m.away_xg
-            FROM matches m
-            JOIN teams t1 ON m.home_team_id = t1.id
-            JOIN teams t2 ON m.away_team_id = t2.id
-            WHERE (m.home_xg IS NOT NULL AND (m.home_xg < %s OR m.home_xg > %s))
-               OR (m.away_xg IS NOT NULL AND (m.away_xg < %s OR m.away_xg > %s))
-        """,
-            (
-                VALID_RANGES["xg"]["min"],
-                VALID_RANGES["xg"]["max"],
-                VALID_RANGES["xg"]["min"],
-                VALID_RANGES["xg"]["max"],
-            ),
-        )
-        invalid_xg = cursor.fetchall()
-        for row in invalid_xg:
-            home_xg = float(row[3]) if row[3] else None
-            away_xg = float(row[4]) if row[4] else None
-            if home_xg and (
-                home_xg < VALID_RANGES["xg"]["min"] or home_xg > VALID_RANGES["xg"]["max"]
-            ):
-                anomalies.append(
-                    {
-                        "type": "range_violation",
-                        "entity": "match",
-                        "id": row[0],
-                        "name": f"{row[1]} vs {row[2]}",
-                        "field": "home_xg",
-                        "value": home_xg,
-                        "valid_range": VALID_RANGES["xg"],
-                    }
-                )
-            if away_xg and (
-                away_xg < VALID_RANGES["xg"]["min"] or away_xg > VALID_RANGES["xg"]["max"]
-            ):
-                anomalies.append(
-                    {
-                        "type": "range_violation",
-                        "entity": "match",
-                        "id": row[0],
-                        "name": f"{row[1]} vs {row[2]}",
-                        "field": "away_xg",
-                        "value": away_xg,
-                        "valid_range": VALID_RANGES["xg"],
-                    }
-                )
-
+    async with get_uow() as uow:
         # Check prediction probabilities sum to 1 (with tolerance)
-        cursor.execute("""
-            SELECT p.id, p.home_prob, p.draw_prob, p.away_prob,
-                   t1.name, t2.name
-            FROM predictions p
-            JOIN matches m ON p.match_id = m.id
-            JOIN teams t1 ON m.home_team_id = t1.id
-            JOIN teams t2 ON m.away_team_id = t2.id
-            WHERE ABS((p.home_prob + p.draw_prob + p.away_prob) - 1.0) > 0.01
-        """)
-        invalid_probs = cursor.fetchall()
-        for row in invalid_probs:
-            prob_sum = float(row[1]) + float(row[2]) + float(row[3])
-            anomalies.append(
-                {
-                    "type": "probability_sum_invalid",
-                    "entity": "prediction",
-                    "id": row[0],
-                    "name": f"{row[4]} vs {row[5]}",
-                    "field": "probabilities",
-                    "value": round(prob_sum, 4),
-                    "expected": 1.0,
-                }
+        from sqlalchemy import and_, or_
+
+        stmt = (
+            select(Prediction)
+            .where(
+                func.abs(
+                    (Prediction.home_prob + Prediction.draw_prob + Prediction.away_prob) - 1.0
+                )
+                > 0.01
             )
+            .limit(20)
+        )
+        result = await uow.session.execute(stmt)
+        invalid_probs = result.scalars().all()
+
+        for pred in invalid_probs:
+            prob_sum = float(pred.home_prob) + float(pred.draw_prob) + float(pred.away_prob)
+            anomalies.append({
+                "type": "probability_sum_invalid",
+                "entity": "prediction",
+                "id": pred.id,
+                "field": "probabilities",
+                "value": round(prob_sum, 4),
+                "expected": 1.0,
+            })
 
         # Check confidence in valid range
-        cursor.execute(
-            """
-            SELECT p.id, p.confidence, t1.name, t2.name
-            FROM predictions p
-            JOIN matches m ON p.match_id = m.id
-            JOIN teams t1 ON m.home_team_id = t1.id
-            JOIN teams t2 ON m.away_team_id = t2.id
-            WHERE p.confidence < %s
-               OR p.confidence > %s
-        """,
-            (VALID_RANGES["confidence"]["min"], VALID_RANGES["confidence"]["max"]),
-        )
-        invalid_conf = cursor.fetchall()
-        for row in invalid_conf:
-            anomalies.append(
-                {
-                    "type": "range_violation",
-                    "entity": "prediction",
-                    "id": row[0],
-                    "name": f"{row[2]} vs {row[3]}",
-                    "field": "confidence",
-                    "value": float(row[1]) if row[1] else None,
-                    "valid_range": VALID_RANGES["confidence"],
-                }
+        stmt = (
+            select(Prediction)
+            .where(
+                or_(
+                    Prediction.confidence < VALID_RANGES["confidence"]["min"],
+                    Prediction.confidence > VALID_RANGES["confidence"]["max"],
+                )
             )
+            .limit(20)
+        )
+        result = await uow.session.execute(stmt)
+        invalid_conf = result.scalars().all()
+
+        for pred in invalid_conf:
+            anomalies.append({
+                "type": "range_violation",
+                "entity": "prediction",
+                "id": pred.id,
+                "field": "confidence",
+                "value": float(pred.confidence) if pred.confidence else None,
+                "valid_range": VALID_RANGES["confidence"],
+            })
 
         # Check goal scores are reasonable
-        cursor.execute(
-            """
-            SELECT m.id, t1.name, t2.name, m.home_score, m.away_score
-            FROM matches m
-            JOIN teams t1 ON m.home_team_id = t1.id
-            JOIN teams t2 ON m.away_team_id = t2.id
-            WHERE (m.home_score IS NOT NULL AND m.home_score > %s)
-               OR (m.away_score IS NOT NULL AND m.away_score > %s)
-        """,
-            (VALID_RANGES["goals"]["max"], VALID_RANGES["goals"]["max"]),
-        )
-        invalid_goals = cursor.fetchall()
-        for row in invalid_goals:
-            anomalies.append(
-                {
-                    "type": "range_violation",
-                    "entity": "match",
-                    "id": row[0],
-                    "name": f"{row[1]} vs {row[2]}",
-                    "field": "score",
-                    "value": f"{row[3]}-{row[4]}",
-                    "valid_range": VALID_RANGES["goals"],
-                }
+        stmt = (
+            select(Match)
+            .where(
+                or_(
+                    and_(
+                        Match.home_score.isnot(None),
+                        Match.home_score > VALID_RANGES["goals"]["max"],
+                    ),
+                    and_(
+                        Match.away_score.isnot(None),
+                        Match.away_score > VALID_RANGES["goals"]["max"],
+                    ),
+                )
             )
+            .limit(20)
+        )
+        result = await uow.session.execute(stmt)
+        invalid_goals = result.scalars().all()
+
+        for match in invalid_goals:
+            anomalies.append({
+                "type": "range_violation",
+                "entity": "match",
+                "id": match.id,
+                "field": "score",
+                "value": f"{match.home_score}-{match.away_score}",
+                "valid_range": VALID_RANGES["goals"],
+            })
 
     # Determine status
     anomaly_count = len(anomalies)
@@ -495,106 +389,104 @@ def check_range_validation() -> DataQualityCheck:
         message=message,
         value=anomaly_count,
         threshold="0",
-        details={"anomalies": anomalies[:20]},  # Limit to first 20
+        details={"anomalies": anomalies[:20]},
     )
 
 
-def check_consistency() -> DataQualityCheck:
+async def check_consistency() -> DataQualityCheck:
     """Check data consistency - duplicates and conflicts."""
-    issues = []
+    issues: list[dict[str, Any]] = []
 
-    with db_session() as conn:
-        cursor = conn.cursor()
-
+    async with get_uow() as uow:
         # Check for duplicate matches (same teams, same date)
-        cursor.execute("""
-            SELECT home_team_id, away_team_id, DATE(match_date), COUNT(*) as cnt
-            FROM matches
-            GROUP BY home_team_id, away_team_id, DATE(match_date)
-            HAVING COUNT(*) > 1
-        """)
-        duplicate_matches = cursor.fetchall()
-        for row in duplicate_matches:
-            issues.append(
-                {
-                    "type": "duplicate",
-                    "entity": "match",
-                    "description": f"Duplicate match: teams {row[0]} vs {row[1]} on {row[2]}",
-                    "count": row[3],
-                }
+        from sqlalchemy import and_
+
+        stmt = (
+            select(
+                Match.home_team_id,
+                Match.away_team_id,
+                func.date(Match.match_date),
+                func.count(Match.id).label("cnt"),
             )
+            .group_by(Match.home_team_id, Match.away_team_id, func.date(Match.match_date))
+            .having(func.count(Match.id) > 1)
+        )
+        result = await uow.session.execute(stmt)
+        duplicate_matches = result.all()
+
+        for row in duplicate_matches:
+            issues.append({
+                "type": "duplicate",
+                "entity": "match",
+                "description": f"Duplicate match: teams {row[0]} vs {row[1]} on {row[2]}",
+                "count": row[3],
+            })
 
         # Check for duplicate teams (same external_id)
-        cursor.execute("""
-            SELECT external_id, COUNT(*) as cnt
-            FROM teams
-            GROUP BY external_id
-            HAVING COUNT(*) > 1
-        """)
-        duplicate_teams = cursor.fetchall()
+        stmt = (
+            select(Team.external_id, func.count(Team.id).label("cnt"))
+            .where(Team.external_id.isnot(None))
+            .group_by(Team.external_id)
+            .having(func.count(Team.id) > 1)
+        )
+        result = await uow.session.execute(stmt)
+        duplicate_teams = result.all()
+
         for row in duplicate_teams:
-            issues.append(
-                {
-                    "type": "duplicate",
-                    "entity": "team",
-                    "description": f"Duplicate team external_id: {row[0]}",
-                    "count": row[1],
-                }
-            )
+            issues.append({
+                "type": "duplicate",
+                "entity": "team",
+                "description": f"Duplicate team external_id: {row[0]}",
+                "count": row[1],
+            })
 
         # Check for matches with same team as home and away
-        cursor.execute("""
-            SELECT m.id, t.name
-            FROM matches m
-            JOIN teams t ON m.home_team_id = t.id
-            WHERE m.home_team_id = m.away_team_id
-        """)
-        self_matches = cursor.fetchall()
-        for row in self_matches:
-            issues.append(
-                {
-                    "type": "conflict",
-                    "entity": "match",
-                    "description": f"Match {row[0]} has same team as home and away: {row[1]}",
-                }
-            )
+        stmt = select(Match).where(Match.home_team_id == Match.away_team_id)
+        result = await uow.session.execute(stmt)
+        self_matches = result.scalars().all()
+
+        for match in self_matches:
+            issues.append({
+                "type": "conflict",
+                "entity": "match",
+                "description": f"Match {match.id} has same team as home and away",
+            })
 
         # Check for predictions without matching match
-        cursor.execute("""
-            SELECT p.id
-            FROM predictions p
-            LEFT JOIN matches m ON p.match_id = m.id
-            WHERE m.id IS NULL
-        """)
-        orphan_predictions = cursor.fetchall()
-        if orphan_predictions:
-            issues.append(
-                {
-                    "type": "orphan",
-                    "entity": "prediction",
-                    "description": f"Found {len(orphan_predictions)} predictions without matching match",
-                    "count": len(orphan_predictions),
-                }
-            )
+        from sqlalchemy.orm import aliased
+
+        MatchAlias = aliased(Match)
+        stmt = (
+            select(func.count(Prediction.id))
+            .outerjoin(MatchAlias, Prediction.match_id == MatchAlias.id)
+            .where(MatchAlias.id.is_(None))
+        )
+        result = await uow.session.execute(stmt)
+        orphan_count = result.scalar_one() or 0
+
+        if orphan_count > 0:
+            issues.append({
+                "type": "orphan",
+                "entity": "prediction",
+                "description": f"Found {orphan_count} predictions without matching match",
+                "count": orphan_count,
+            })
 
         # Check for finished matches without scores
-        cursor.execute("""
-            SELECT COUNT(*)
-            FROM matches
-            WHERE status = 'finished'
-              AND (home_score IS NULL OR away_score IS NULL)
-        """)
-        result = cursor.fetchone()
-        missing_scores = result[0] if result else 0
+        stmt = select(func.count(Match.id)).where(
+            Match.status == "finished",
+            Match.home_score.is_(None),
+        )
+        result = await uow.session.execute(stmt)
+        missing_scores = result.scalar_one() or 0
+
         if missing_scores > 0:
-            issues.append(
-                {
-                    "type": "missing_data",
-                    "entity": "match",
-                    "description": f"{missing_scores} finished matches missing scores",
-                    "count": missing_scores,
-                }
-            )
+            issues.append({
+                "type": "missing_data",
+                "entity": "match",
+                "description": f"{missing_scores} finished matches missing scores",
+                "count": missing_scores,
+            })
 
     # Determine status
     issue_count = len(issues)
@@ -618,38 +510,37 @@ def check_consistency() -> DataQualityCheck:
     )
 
 
-def get_data_quality_metrics() -> dict[str, Any]:
+async def get_data_quality_metrics() -> dict[str, Any]:
     """Get additional data quality metrics."""
-    with db_session() as conn:
-        cursor = conn.cursor()
-
+    async with get_uow() as uow:
         # Get counts
-        cursor.execute("SELECT COUNT(*) FROM teams")
-        total_teams = cursor.fetchone()[0]
+        stmt = select(func.count(Team.id))
+        result = await uow.session.execute(stmt)
+        total_teams = result.scalar_one() or 0
 
-        cursor.execute("SELECT COUNT(*) FROM matches")
-        total_matches = cursor.fetchone()[0]
+        stmt = select(func.count(Match.id))
+        result = await uow.session.execute(stmt)
+        total_matches = result.scalar_one() or 0
 
-        cursor.execute("SELECT COUNT(*) FROM matches WHERE status = 'finished'")
-        finished_matches = cursor.fetchone()[0]
+        stmt = select(func.count(Match.id)).where(Match.status == "finished")
+        result = await uow.session.execute(stmt)
+        finished_matches = result.scalar_one() or 0
 
-        cursor.execute("SELECT COUNT(*) FROM matches WHERE status = 'scheduled'")
-        scheduled_matches = cursor.fetchone()[0]
+        stmt = select(func.count(Match.id)).where(Match.status.in_(["scheduled", "SCHEDULED"]))
+        result = await uow.session.execute(stmt)
+        scheduled_matches = result.scalar_one() or 0
 
-        cursor.execute("SELECT COUNT(*) FROM predictions")
-        total_predictions = cursor.fetchone()[0]
+        stmt = select(func.count(Prediction.id))
+        result = await uow.session.execute(stmt)
+        total_predictions = result.scalar_one() or 0
 
-        cursor.execute("SELECT COUNT(*) FROM prediction_results WHERE was_correct = 1")
-        correct_predictions = cursor.fetchone()[0]
+        stmt = select(func.count(PredictionResult.id)).where(PredictionResult.was_correct == True)  # noqa: E712
+        result = await uow.session.execute(stmt)
+        correct_predictions = result.scalar_one() or 0
 
-        cursor.execute("SELECT COUNT(*) FROM prediction_results")
-        verified_predictions = cursor.fetchone()[0]
-
-        cursor.execute("SELECT COUNT(*) FROM competitions")
-        total_competitions = cursor.fetchone()[0]
-
-        cursor.execute("SELECT COUNT(*) FROM news_items")
-        total_news = cursor.fetchone()[0]
+        stmt = select(func.count(PredictionResult.id))
+        result = await uow.session.execute(stmt)
+        verified_predictions = result.scalar_one() or 0
 
     accuracy = (
         round(correct_predictions / verified_predictions * 100, 1)
@@ -661,9 +552,7 @@ def get_data_quality_metrics() -> dict[str, Any]:
         "entities": {
             "teams": total_teams,
             "matches": total_matches,
-            "competitions": total_competitions,
             "predictions": total_predictions,
-            "news_items": total_news,
         },
         "matches": {
             "finished": finished_matches,
@@ -678,21 +567,21 @@ def get_data_quality_metrics() -> dict[str, Any]:
     }
 
 
-def run_quality_check() -> DataQualityReport:
+async def run_quality_check() -> DataQualityReport:
     """Run all data quality checks and generate report."""
     logger.info("Starting data quality check...")
 
     # Run all checks
-    freshness = check_freshness()
-    completeness = check_completeness()
-    range_validation = check_range_validation()
-    consistency = check_consistency()
+    freshness = await check_freshness()
+    completeness = await check_completeness()
+    range_validation = await check_range_validation()
+    consistency = await check_consistency()
 
     # Get metrics
-    metrics = get_data_quality_metrics()
+    metrics = await get_data_quality_metrics()
 
     # Collect all anomalies
-    anomalies = []
+    anomalies: list[dict[str, Any]] = []
     if range_validation.details.get("anomalies"):
         anomalies.extend(range_validation.details["anomalies"])
     if consistency.details.get("issues"):

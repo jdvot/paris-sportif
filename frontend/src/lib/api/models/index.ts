@@ -179,6 +179,8 @@ export * from './searchResult';
 export * from './sendDailyPicksNotificationApiV1AdminNotificationsDailyPicksPost200';
 export * from './srcApiRoutesMatchesDataSourceInfo';
 export * from './srcApiRoutesMatchesDataSourceInfoSource';
+export * from './srcApiRoutesPredictionsDataSourceInfo';
+export * from './srcApiRoutesPredictionsDataSourceInfoSource';
 export * from './standingsContext';
 export * from './standingsResponse';
 export * from './standingTeam';

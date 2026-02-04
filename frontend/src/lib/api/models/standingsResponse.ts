@@ -5,7 +5,7 @@
  * API de predictions de paris sportifs sur le football europeen
  * OpenAPI spec version: 0.1.0
  */
-import type { SrcApiRoutesMatchesDataSourceInfo } from './srcApiRoutesMatchesDataSourceInfo';
+import type { DataSourceInfo } from './dataSourceInfo';
 import type { StandingTeamResponse } from './standingTeamResponse';
 
 /**
@@ -16,5 +16,5 @@ export interface StandingsResponse {
   competition_name: string;
   standings: StandingTeamResponse[];
   last_updated?: string | null;
-  data_source?: SrcApiRoutesMatchesDataSourceInfo | null;
+  data_source?: DataSourceInfo | null;
 }
