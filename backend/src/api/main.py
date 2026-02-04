@@ -224,10 +224,91 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 async def _delayed_initial_sync():
-    """Run initial sync after app startup."""
+    """Run initial sync after app startup. Fetches historical data if needed."""
     await asyncio.sleep(30)  # Wait 30 seconds for app to fully start
-    logger.info("[Scheduler] Running initial sync...")
-    await auto_sync_and_verify()
+
+    # Check if we need historical data (less than 200 matches = fetch full season)
+    try:
+        from src.db import get_db_context
+        from sqlalchemy import text
+
+        with get_db_context() as db:
+            result = db.execute(text("SELECT COUNT(*) FROM matches WHERE status = 'FINISHED'"))
+            match_count = result.scalar() or 0
+
+        if match_count < 200:
+            logger.info(f"[Scheduler] Only {match_count} matches in DB, fetching historical season data...")
+            await _fetch_historical_season()
+        else:
+            logger.info(f"[Scheduler] {match_count} matches in DB, running normal sync...")
+            await auto_sync_and_verify()
+
+    except Exception as e:
+        logger.error(f"[Scheduler] Error checking match count: {e}")
+        await auto_sync_and_verify()
+
+
+async def _fetch_historical_season():
+    """Fetch all matches from the start of the season."""
+    import asyncio as aio
+    from datetime import date
+
+    from src.api.routes.sync import (
+        _recalculate_all_team_stats,
+        _sync_all_standings,
+        _sync_form_from_standings,
+    )
+    from src.core.exceptions import FootballDataAPIError, RateLimitError
+
+    logger.info("[Scheduler] Starting historical season sync...")
+
+    client = get_football_data_client()
+    season_start = date(2025, 8, 1)
+    today = date.today()
+    total_synced = 0
+
+    for comp_code in COMPETITIONS.keys():
+        try:
+            logger.info(f"[Scheduler] Fetching historical matches for {comp_code}...")
+            matches = await client.get_matches(
+                competition=comp_code,
+                date_from=season_start,
+                date_to=today,
+                status="FINISHED",
+            )
+            matches_dict = [m.model_dump() for m in matches]
+            synced = await MatchService.save_matches(matches_dict)
+            total_synced += synced
+            logger.info(f"[Scheduler] Synced {synced} matches for {comp_code}")
+            await aio.sleep(8)  # Respect rate limits
+
+        except RateLimitError:
+            logger.warning(f"[Scheduler] Rate limit for {comp_code}, waiting 60s...")
+            await aio.sleep(60)
+        except (FootballDataAPIError, Exception) as e:
+            logger.error(f"[Scheduler] Error syncing {comp_code}: {e}")
+
+    # Sync standings
+    try:
+        await _sync_all_standings()
+    except Exception as e:
+        logger.error(f"[Scheduler] Standings sync failed: {e}")
+
+    # Recalculate team stats
+    try:
+        teams = await _recalculate_all_team_stats()
+        logger.info(f"[Scheduler] Updated stats for {teams} teams")
+    except Exception as e:
+        logger.error(f"[Scheduler] Stats calculation failed: {e}")
+
+    # Sync form
+    try:
+        forms = await _sync_form_from_standings()
+        logger.info(f"[Scheduler] Synced form for {forms} teams")
+    except Exception as e:
+        logger.error(f"[Scheduler] Form sync failed: {e}")
+
+    logger.info(f"[Scheduler] Historical sync complete: {total_synced} matches")
 
 
 async def _run_daily_cache():

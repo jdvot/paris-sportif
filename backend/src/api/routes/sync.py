@@ -345,6 +345,15 @@ async def sync_weekly_data(
         except Exception as e:
             logger.warning(f"Failed to sync form data: {e}")
 
+        # Sync xG data from Understat (weekly only, slow)
+        xg_synced = 0
+        try:
+            from src.data.sources.understat import sync_all_xg_data
+            xg_synced = await sync_all_xg_data()
+            logger.info(f"Synced xG for {xg_synced} teams")
+        except Exception as e:
+            logger.warning(f"Failed to sync xG data: {e}")
+
         all_errors = match_errors + standings_errors
         status = "success" if not all_errors else "partial"
 

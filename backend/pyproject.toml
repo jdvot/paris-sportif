@@ -13,7 +13,7 @@ dependencies = [
     # Database
     "sqlalchemy>=2.0.0",
     "asyncpg>=0.30.0",
-    "aiosqlite>=0.20.0",  # SQLite async driver for tests
+    "aiosqlite>=0.20.0", # SQLite async driver for tests
     "alembic>=1.14.0",
     "redis>=5.2.0",
     "psycopg2-binary>=2.9.0", # PostgreSQL driver for sync operations
@@ -50,6 +50,7 @@ dependencies = [
     "pywebpush>=2.0.0",
     "defusedxml>=0.7.1",
     "stripe>=14.3.0",
+    "understat>=0.1.4",
 ]
 
 [project.optional-dependencies]
