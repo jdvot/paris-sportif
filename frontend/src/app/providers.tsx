@@ -207,13 +207,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
         if (error?.name === 'AbortError') {
           console.log('[Providers] Auth init aborted by navigation');
-          // Auth check was cancelled - this happens during navigation
-          // Clear any stale auth state and let the app render
-          // If auth is required, the 401 handler will redirect to login
+          // Auth check was cancelled - this is normal during navigation
+          // DON'T clear cookies here - they might be valid
+          // Just clear the token store since we don't have a confirmed session
           clearAuthToken();
-
-          // Also clear cookies to prevent middleware loops
-          clearSupabaseCookies();
+          console.log('[Providers] Token cleared, cookies kept for potential re-auth');
         } else {
           // Timeout or other error - log and continue without auth
           console.error('[Providers] Auth init error:', err);
