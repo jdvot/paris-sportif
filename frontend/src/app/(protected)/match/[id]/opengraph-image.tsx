@@ -20,19 +20,18 @@ export default async function Image({ params }: { params: Promise<{ id: string }
 
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    const response = await fetch(`${apiUrl}/api/v1/predictions/${matchId}`, {
+    // Use matches endpoint (doesn't require auth) for basic match info
+    const response = await fetch(`${apiUrl}/api/v1/matches/${matchId}`, {
       next: { revalidate: 300 }, // Cache for 5 minutes
     });
 
     if (response.ok) {
       const data = await response.json();
-      homeTeam = data.home_team || homeTeam;
-      awayTeam = data.away_team || awayTeam;
-      prediction = data.recommended_bet || prediction;
-      confidence = Math.round((data.confidence || 0.7) * 100);
-      homeProb = Math.round((data.probabilities?.home_win || 0.5) * 100);
-      drawProb = Math.round((data.probabilities?.draw || 0.25) * 100);
-      awayProb = Math.round((data.probabilities?.away_win || 0.25) * 100);
+      // Get team names from match data
+      homeTeam = typeof data.home_team === 'string' ? data.home_team : (data.home_team?.name || homeTeam);
+      awayTeam = typeof data.away_team === 'string' ? data.away_team : (data.away_team?.name || awayTeam);
+      // Note: prediction data (confidence, probabilities) requires auth
+      // OG image will use default values for these
     }
   } catch {
     // Use defaults

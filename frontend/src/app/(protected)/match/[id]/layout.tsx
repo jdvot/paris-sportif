@@ -18,18 +18,26 @@ interface PredictionData {
   };
 }
 
-async function fetchPrediction(matchId: string): Promise<PredictionData | null> {
+async function fetchMatchData(matchId: string): Promise<PredictionData | null> {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    const response = await fetch(`${apiUrl}/api/v1/predictions/${matchId}`, {
+    // Use matches endpoint (public for metadata) instead of predictions (requires auth)
+    const response = await fetch(`${apiUrl}/api/v1/matches/${matchId}`, {
       next: { revalidate: 300 },
     });
 
     if (response.ok) {
-      return await response.json();
+      const data = await response.json();
+      // Map match response to prediction data format for metadata
+      return {
+        home_team: typeof data.home_team === 'string' ? data.home_team : data.home_team?.name,
+        away_team: typeof data.away_team === 'string' ? data.away_team : data.away_team?.name,
+        match_date: data.match_date,
+        competition: data.competition,
+      };
     }
   } catch {
-    // Ignore errors
+    // Ignore errors - use default metadata
   }
   return null;
 }
@@ -43,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   let homeTeam = "Equipe";
   let awayTeam = "Equipe";
 
-  const data = await fetchPrediction(matchId);
+  const data = await fetchMatchData(matchId);
   if (data) {
     homeTeam = data.home_team || homeTeam;
     awayTeam = data.away_team || awayTeam;
@@ -144,7 +152,7 @@ export default async function MatchLayout({ params, children }: Props) {
   const { id: matchId } = await params;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://paris-sportif.vercel.app";
 
-  const data = await fetchPrediction(matchId);
+  const data = await fetchMatchData(matchId);
   const homeTeam = data?.home_team || "Equipe Domicile";
   const awayTeam = data?.away_team || "Equipe Exterieure";
   const matchDate = data?.match_date;
