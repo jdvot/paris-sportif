@@ -18,7 +18,7 @@ function wasRecentlyRedirected(): boolean {
   return Date.now() - parseInt(redirectTime, 10) < 5000;
 }
 
-function handleAuthError(status: number) {
+async function handleAuthError(status: number) {
   // Prevent multiple redirects
   if (isRedirecting || typeof window === 'undefined') return;
 
@@ -37,7 +37,7 @@ function handleAuthError(status: number) {
   }
 
   if (status === 401) {
-    console.log('[Auth] 401 detected, forcing redirect to login...');
+    console.log('[Auth] 401 detected, signing out and redirecting to login...');
     isRedirecting = true;
 
     // Mark that we're redirecting (persists across the navigation)
@@ -45,9 +45,16 @@ function handleAuthError(status: number) {
 
     const loginUrl = `/auth/login?next=${encodeURIComponent(currentPath)}`;
 
-    // Sign out in background, redirect immediately
-    const supabase = createClient();
-    supabase.auth.signOut().catch(() => {});
+    // IMPORTANT: Wait for signOut to complete before redirecting
+    // This ensures cookies are cleared so middleware doesn't redirect back
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      console.log('[Auth] Sign out complete, redirecting...');
+    } catch (e) {
+      console.error('[Auth] Sign out error (continuing anyway):', e);
+    }
+
     window.location.replace(loginUrl);
   }
   // 403 errors are handled locally by components (e.g., showing upgrade prompts)
