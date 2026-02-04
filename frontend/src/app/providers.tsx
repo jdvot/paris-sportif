@@ -100,7 +100,6 @@ async function handleAuthError(status: number) {
 export function Providers({ children }: { children: React.ReactNode }) {
   // Hydration gate: block rendering until auth is initialized
   const [isReady, setIsReady] = useState(false);
-  const initStarted = useRef(false);
   const validationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reset redirect flag on mount (new page load)
@@ -205,10 +204,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
   // Initialize auth using onAuthStateChange ONLY
   // This is more reliable than getSession() which can abort
   useEffect(() => {
-    // Prevent double initialization in StrictMode
-    if (initStarted.current) return;
-    initStarted.current = true;
-
     console.log('[Providers] Setting up auth...');
 
     // Clear OAuth pending flag if present

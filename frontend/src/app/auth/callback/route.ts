@@ -84,11 +84,20 @@ export async function GET(request: Request) {
       const response = NextResponse.redirect(redirectUrl);
 
       cookiesToSet.forEach(({ name, value, options }) => {
-        console.log("[Callback] Setting cookie on response:", name);
-        response.cookies.set(name, value, options);
+        console.log("[Callback] Setting cookie on response:", name, "options:", JSON.stringify(options));
+        // CRITICAL: Ensure cookies are NOT httpOnly so client JavaScript can read them
+        // This is required for onAuthStateChange to detect the session
+        response.cookies.set(name, value, {
+          ...options,
+          httpOnly: false, // Must be false for client-side access
+          secure: process.env.NODE_ENV === "production", // Only secure in production
+          sameSite: "lax", // Lax is recommended for auth cookies
+          path: "/", // Ensure cookie is available on all paths
+        });
       });
 
       console.log("[Callback] Response cookies set:", response.cookies.getAll().map(c => c.name));
+      console.log("[Callback] First cookie details:", JSON.stringify(response.cookies.getAll()[0]));
       console.log("[Callback] ===== OAUTH CALLBACK END (success) =====");
 
       return response;
