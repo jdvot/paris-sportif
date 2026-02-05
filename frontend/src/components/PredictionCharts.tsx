@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
-import type { DetailedPrediction, ModelContribution } from "@/lib/types";
+import type { DetailedPrediction } from "@/lib/types";
 import type { PredictionResponse } from "@/lib/api/models";
 import { cn } from "@/lib/utils";
 

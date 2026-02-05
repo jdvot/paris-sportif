@@ -352,7 +352,7 @@ async def get_matches(
     per_page: int = Query(20, ge=1, le=100),
 ) -> MatchListResponse:
     """
-    Get list of matches with optional filters.
+    Get list of matches with optional filters from database.
 
     Competition codes:
     - PL: Premier League
@@ -363,205 +363,66 @@ async def get_matches(
     - CL: Champions League
     - EL: Europa League
     """
-    try:
-        # Map our status to API status
-        api_status: APIStatus | None = None
-        if status:
-            api_status_map: dict[str, APIStatus] = {
-                "scheduled": "SCHEDULED",
-                "live": "LIVE",
-                "finished": "FINISHED",
-            }
-            api_status = api_status_map.get(status)
+    # Default date range if not specified: next 10 days
+    if not date_from and not date_to:
+        date_from = date.today()
+        date_to = date.today() + timedelta(days=10)
 
-        # Default date range if not specified: next 10 days (API free tier limit)
-        if not date_from and not date_to:
-            date_from = date.today()
-            date_to = date.today() + timedelta(days=10)
+    # Fetch matches from database only
+    db_matches = await MatchService.get_matches(
+        date_from=date_from,
+        date_to=date_to,
+        competition=competition,
+        status=status.upper() if status else None,
+    )
 
-        # Fetch matches from API
-        client = get_football_data_client()
-        api_matches = await client.get_matches(
-            competition=competition,
-            date_from=date_from,
-            date_to=date_to,
-            status=api_status,
+    matches = [
+        MatchResponse(
+            id=m["id"],
+            external_id=m.get("external_id", f"DB_{m['id']}"),
+            home_team=TeamInfo(
+                id=m["home_team"]["id"],
+                name=m["home_team"]["name"] or "Unknown",
+                short_name=m["home_team"].get("short_name") or (m["home_team"]["name"] or "UNK")[:3].upper(),
+                logo_url=m["home_team"].get("logo_url"),
+                elo_rating=m["home_team"].get("elo_rating", 1500.0),
+                form=m["home_team"].get("form"),
+            ),
+            away_team=TeamInfo(
+                id=m["away_team"]["id"],
+                name=m["away_team"]["name"] or "Unknown",
+                short_name=m["away_team"].get("short_name") or (m["away_team"]["name"] or "UNK")[:3].upper(),
+                logo_url=m["away_team"].get("logo_url"),
+                elo_rating=m["away_team"].get("elo_rating", 1500.0),
+                form=m["away_team"].get("form"),
+            ),
+            competition=COMPETITION_NAMES.get(m.get("competition_code", ""), "Unknown"),
+            competition_code=m.get("competition_code") or competition or "UNK",
+            match_date=datetime.fromisoformat(m["match_date"])
+            if m.get("match_date")
+            else datetime.now(timezone.utc),
+            status=m.get("status", "scheduled"),
+            home_score=m.get("home_score"),
+            away_score=m.get("away_score"),
+            matchday=m.get("matchday"),
         )
+        for m in db_matches
+    ]
+    matches = sorted(matches, key=lambda m: m.match_date)
 
-        # Convert to our format
-        matches = [_convert_api_match(m) for m in api_matches]
+    # Pagination
+    total = len(matches)
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated_matches = matches[start_idx:end_idx]
 
-        # Sort by match date
-        matches = sorted(matches, key=lambda m: m.match_date)
-
-        # Pagination
-        total = len(matches)
-        start_idx = (page - 1) * per_page
-        end_idx = start_idx + per_page
-        paginated_matches = matches[start_idx:end_idx]
-
-        return MatchListResponse(
-            matches=paginated_matches,
-            total=total,
-            page=page,
-            per_page=per_page,
-            data_source=DataSourceInfo(source="live_api"),
-        )
-
-    except RateLimitError as e:
-        logger.warning(f"External API rate limit: {e}, trying database fallback...")
-        retry_after = e.details.get("retry_after", 60) if e.details else 60
-
-        # Try database first using async service
-        try:
-            db_matches = await MatchService.get_matches(
-                date_from=date_from,
-                date_to=date_to,
-                competition=competition,
-            )
-
-            if db_matches:
-                logger.info(f"Found {len(db_matches)} matches in database")
-                matches = [
-                    MatchResponse(
-                        id=m["id"],
-                        external_id=m.get("external_id", f"DB_{m['id']}"),
-                        home_team=TeamInfo(
-                            id=m["home_team"]["id"],
-                            name=m["home_team"]["name"] or "Unknown",
-                            short_name=m["home_team"].get("short_name") or (m["home_team"]["name"] or "UNK")[:3].upper(),
-                            logo_url=m["home_team"].get("logo_url"),
-                            elo_rating=m["home_team"].get("elo_rating", 1500.0),
-                        ),
-                        away_team=TeamInfo(
-                            id=m["away_team"]["id"],
-                            name=m["away_team"]["name"] or "Unknown",
-                            short_name=m["away_team"].get("short_name") or (m["away_team"]["name"] or "UNK")[:3].upper(),
-                            logo_url=m["away_team"].get("logo_url"),
-                            elo_rating=m["away_team"].get("elo_rating", 1500.0),
-                        ),
-                        competition=COMPETITION_NAMES.get(m.get("competition_code", ""), "Unknown"),
-                        competition_code=m.get("competition_code") or competition or "UNK",
-                        match_date=datetime.fromisoformat(m["match_date"])
-                        if m.get("match_date")
-                        else datetime.now(timezone.utc),
-                        status=m.get("status", "scheduled"),
-                        home_score=m.get("home_score"),
-                        away_score=m.get("away_score"),
-                        matchday=m.get("matchday"),
-                    )
-                    for m in db_matches
-                ]
-                matches = sorted(matches, key=lambda m: m.match_date)
-
-                total = len(matches)
-                start_idx = (page - 1) * per_page
-                end_idx = start_idx + per_page
-                paginated_matches = matches[start_idx:end_idx]
-
-                return MatchListResponse(
-                    matches=paginated_matches,
-                    total=total,
-                    page=page,
-                    per_page=per_page,
-                    data_source=DataSourceInfo(
-                        source="database",
-                        is_fallback=True,
-                        warning="[BETA] Données en cache - Limite API externe atteinte (football-data.org: 10 req/min)",
-                        warning_code="EXTERNAL_API_RATE_LIMIT",
-                        details="Les données peuvent avoir quelques minutes de retard",
-                        retry_after_seconds=retry_after,
-                    ),
-                )
-        except Exception as db_error:
-            logger.warning(f"Database fallback failed: {db_error}")
-
-        # No data available - return error
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "message": "Service temporairement indisponible",
-                "error_code": "SERVICE_UNAVAILABLE",
-                "details": "API externe et base de donnees indisponibles. Reessayez dans quelques instants.",
-                "retry_after_seconds": retry_after,
-            },
-        )
-
-    except (FootballDataAPIError, Exception) as e:
-        logger.warning(f"API error: {e}, trying database fallback...")
-
-        # Try database first using async service
-        try:
-            db_matches = await MatchService.get_matches(
-                date_from=date_from,
-                date_to=date_to,
-                competition=competition,
-            )
-
-            if db_matches:
-                logger.info(f"Found {len(db_matches)} matches in database")
-                matches = [
-                    MatchResponse(
-                        id=m["id"],
-                        external_id=m.get("external_id", f"DB_{m['id']}"),
-                        home_team=TeamInfo(
-                            id=m["home_team"]["id"],
-                            name=m["home_team"]["name"] or "Unknown",
-                            short_name=m["home_team"].get("short_name") or (m["home_team"]["name"] or "UNK")[:3].upper(),
-                            logo_url=m["home_team"].get("logo_url"),
-                            elo_rating=m["home_team"].get("elo_rating", 1500.0),
-                        ),
-                        away_team=TeamInfo(
-                            id=m["away_team"]["id"],
-                            name=m["away_team"]["name"] or "Unknown",
-                            short_name=m["away_team"].get("short_name") or (m["away_team"]["name"] or "UNK")[:3].upper(),
-                            logo_url=m["away_team"].get("logo_url"),
-                            elo_rating=m["away_team"].get("elo_rating", 1500.0),
-                        ),
-                        competition=COMPETITION_NAMES.get(m.get("competition_code", ""), "Unknown"),
-                        competition_code=m.get("competition_code") or competition or "UNK",
-                        match_date=datetime.fromisoformat(m["match_date"])
-                        if m.get("match_date")
-                        else datetime.now(timezone.utc),
-                        status=m.get("status", "scheduled"),
-                        home_score=m.get("home_score"),
-                        away_score=m.get("away_score"),
-                        matchday=m.get("matchday"),
-                    )
-                    for m in db_matches
-                ]
-                matches = sorted(matches, key=lambda m: m.match_date)
-
-                total = len(matches)
-                start_idx = (page - 1) * per_page
-                end_idx = start_idx + per_page
-                paginated_matches = matches[start_idx:end_idx]
-
-                return MatchListResponse(
-                    matches=paginated_matches,
-                    total=total,
-                    page=page,
-                    per_page=per_page,
-                    data_source=DataSourceInfo(
-                        source="database",
-                        is_fallback=True,
-                        warning="[BETA] Données en cache - API externe indisponible",
-                        warning_code="EXTERNAL_API_ERROR",
-                        details=f"Erreur: {str(e)[:100]}",
-                    ),
-                )
-        except Exception as db_error:
-            logger.warning(f"Database fallback failed: {db_error}")
-
-        # No data available - return error
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "message": "Service temporairement indisponible",
-                "error_code": "SERVICE_UNAVAILABLE",
-                "details": f"API externe et base de donnees indisponibles: {str(e)[:100]}",
-            },
-        )
+    return MatchListResponse(
+        matches=paginated_matches,
+        total=total,
+        page=page,
+        per_page=per_page,
+        data_source=DataSourceInfo(source="database"),
+    )
 
 
 @router.get("/upcoming", responses=AUTH_RESPONSES, operation_id="getUpcomingMatches")
@@ -572,50 +433,63 @@ async def get_upcoming_matches(
     days: int = Query(2, ge=1, le=7, description="Number of days ahead"),
     competition: str | None = Query(None),
 ) -> MatchListResponse:
-    """Get upcoming matches for the next N days with real team data from DB."""
-    try:
-        client = get_football_data_client()
-        api_matches = await client.get_upcoming_matches(
-            days=days,
-            competition=competition,
-        )
+    """Get upcoming matches for the next N days from database."""
+    date_from = date.today()
+    date_to = date.today() + timedelta(days=days)
 
-        # Use async function to enrich with real DB data (ELO, form)
-        import asyncio
-        matches = await asyncio.gather(*[_convert_api_match_with_db(m) for m in api_matches])
-        matches = sorted(matches, key=lambda m: m.match_date)
+    # Fetch from database only
+    db_matches = await MatchService.get_scheduled(
+        date_from=date_from,
+        date_to=date_to,
+        competition=competition,
+    )
 
-        return MatchListResponse(
-            matches=matches,
-            total=len(matches),
-            page=1,
-            per_page=len(matches),
-            data_source=DataSourceInfo(source="live_api"),
-        )
+    # Get full match data for each scheduled match
+    matches = []
+    for m in db_matches:
+        match_data = await MatchService.get_match_by_api_id(int(m["external_id"].split("_")[-1]))
+        if match_data:
+            home = match_data["home_team"]
+            away = match_data["away_team"]
+            matches.append(
+                MatchResponse(
+                    id=int(m["external_id"].split("_")[-1]),
+                    external_id=m["external_id"],
+                    home_team=TeamInfo(
+                        id=home["id"],
+                        name=home["name"],
+                        short_name=home.get("short_name") or home["name"][:3].upper(),
+                        logo_url=home.get("logo_url"),
+                        elo_rating=home.get("elo_rating", 1500.0),
+                        form=home.get("form"),
+                    ),
+                    away_team=TeamInfo(
+                        id=away["id"],
+                        name=away["name"],
+                        short_name=away.get("short_name") or away["name"][:3].upper(),
+                        logo_url=away.get("logo_url"),
+                        elo_rating=away.get("elo_rating", 1500.0),
+                        form=away.get("form"),
+                    ),
+                    competition=COMPETITION_NAMES.get(match_data.get("competition_code", ""), "Unknown"),
+                    competition_code=match_data.get("competition_code", "UNK"),
+                    match_date=datetime.fromisoformat(match_data["match_date"])
+                    if match_data.get("match_date")
+                    else datetime.now(timezone.utc),
+                    status=match_data.get("status", "scheduled"),
+                    matchday=match_data.get("matchday"),
+                )
+            )
 
-    except RateLimitError as e:
-        logger.warning(f"External API rate limit in upcoming: {e}")
-        retry_after = e.details.get("retry_after", 60) if e.details else 60
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "message": "Limite API externe atteinte",
-                "error_code": "EXTERNAL_API_RATE_LIMIT",
-                "details": "football-data.org limite: 10 req/min. Reessayez dans quelques instants.",
-                "retry_after_seconds": retry_after,
-            },
-        )
+    matches = sorted(matches, key=lambda m: m.match_date)
 
-    except (FootballDataAPIError, Exception) as e:
-        logger.warning(f"API error in upcoming: {e}")
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "message": "Service temporairement indisponible",
-                "error_code": "SERVICE_UNAVAILABLE",
-                "details": f"API externe indisponible: {str(e)[:100]}",
-            },
-        )
+    return MatchListResponse(
+        matches=matches,
+        total=len(matches),
+        page=1,
+        per_page=len(matches),
+        data_source=DataSourceInfo(source="database"),
+    )
 
 
 # ============================================================================
