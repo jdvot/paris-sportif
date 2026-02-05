@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -84,7 +85,12 @@ class Match(Base):
 
     __tablename__ = "matches"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        server_default=text("nextval('matches_id_seq')"),
+    )
     external_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
 
     home_team_id: Mapped[int] = mapped_column(Integer, ForeignKey("teams.id"), nullable=False)
