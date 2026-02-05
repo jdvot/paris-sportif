@@ -255,7 +255,22 @@ export function useAuth() {
 
   const signOut = async () => {
     setState((prev) => ({ ...prev, loading: true }));
-    await supabase.auth.signOut();
+
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('[useAuth] signOut error:', err);
+      // Even if signOut fails, clear cookies manually
+      if (typeof document !== 'undefined') {
+        document.cookie.split(';').forEach(cookie => {
+          const name = cookie.split('=')[0].trim();
+          if (name.startsWith('sb-')) {
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          }
+        });
+      }
+    }
+
     setState({
       user: null,
       profile: null,
@@ -263,6 +278,11 @@ export function useAuth() {
       loading: false,
       error: null,
     });
+
+    // Force page reload to clear all state
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
   };
 
   const signInWithGoogle = async (nextUrl?: string) => {

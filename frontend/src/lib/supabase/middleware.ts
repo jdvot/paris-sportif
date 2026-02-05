@@ -45,15 +45,38 @@ export async function updateSession(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
   console.log("[updateSession] Calling getUser()...");
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
 
-  if (error) {
-    console.error("[updateSession] getUser() error:", error.message, error.status);
+  // Add timeout to prevent middleware hanging if Supabase is slow
+  const timeoutPromise = new Promise<{ data: { user: null }; error: { message: string }; timedOut: true }>((resolve) => {
+    setTimeout(() => resolve({ data: { user: null }, error: { message: 'Timeout' }, timedOut: true }), 3000);
+  });
+
+  const result = await Promise.race([
+    supabase.auth.getUser().then(r => ({ ...r, timedOut: false })),
+    timeoutPromise,
+  ]) as { data: { user: import('@supabase/supabase-js').User | null }; error?: { message: string } | null; timedOut: boolean };
+
+  let user = result.data.user;
+
+  if (result.error) {
+    console.error("[updateSession] getUser() error:", result.error.message);
   }
-  console.log("[updateSession] getUser() result - user:", user?.email || "none", "id:", user?.id || "none");
+
+  // On timeout or error, fallback to getSession() which reads from cookies
+  if (!user && supabaseCookies.length > 0) {
+    console.log("[updateSession] getUser() failed but cookies exist, trying getSession()...");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        console.log("[updateSession] getSession() fallback successful:", session.user.email);
+        user = session.user;
+      }
+    } catch (sessionError) {
+      console.error("[updateSession] getSession() fallback failed:", sessionError);
+    }
+  }
+
+  console.log("[updateSession] Final result - user:", user?.email || "none", "id:", user?.id || "none");
 
   return { supabaseResponse, user, supabase };
 }
