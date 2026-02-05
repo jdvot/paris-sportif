@@ -136,16 +136,4 @@ export function TickerCarousel({
   );
 }
 
-// Demo component with sample data
-export function TickerCarouselDemo() {
-  const sampleItems: TickerItem[] = [
-    { id: "1", homeTeam: "Arsenal", awayTeam: "Chelsea", prediction: "1", confidence: 72, odds: 1.85, status: "pending" },
-    { id: "2", homeTeam: "Barcelona", awayTeam: "Real Madrid", prediction: "X", confidence: 58, odds: 3.40, status: "pending" },
-    { id: "3", homeTeam: "Bayern", awayTeam: "Dortmund", prediction: "1", confidence: 68, odds: 1.65, status: "won" },
-    { id: "4", homeTeam: "PSG", awayTeam: "Marseille", prediction: "1", confidence: 75, odds: 1.45, status: "won" },
-    { id: "5", homeTeam: "Juventus", awayTeam: "Inter", prediction: "2", confidence: 55, odds: 2.80, status: "lost" },
-    { id: "6", homeTeam: "Liverpool", awayTeam: "Man City", prediction: "BTTS", confidence: 82, odds: 1.72, status: "pending" },
-  ];
-
-  return <TickerCarousel items={sampleItems} />;
-}
+// NOTE: Demo component removed - use TickerCarousel with real data from API

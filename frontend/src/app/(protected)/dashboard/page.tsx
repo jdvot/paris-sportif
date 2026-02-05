@@ -35,68 +35,125 @@ import {
   Target,
   Trophy,
   DollarSign,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
+import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
+import type { PredictionStatsResponse } from "@/lib/api/models";
+import { getCompetitionName } from "@/lib/constants";
 
-const demoStats = {
-  period_days: 30,
-  summary: {
-    total_predictions: 47,
-    won: 28,
-    lost: 15,
-    pending: 4,
-    win_rate: 65.1,
-    roi: 12.5,
-    total_stake: 470.0,
-    total_return: 528.75,
-    profit: 58.75,
-  },
-  by_competition: [
-    { competition: "Premier League", total: 18, won: 12, lost: 6, win_rate: 66.7 },
-    { competition: "Ligue 1", total: 12, won: 7, lost: 5, win_rate: 58.3 },
-    { competition: "La Liga", total: 9, won: 5, lost: 4, win_rate: 55.6 },
-    { competition: "Serie A", total: 8, won: 4, lost: 0, win_rate: 100.0 },
-  ],
-  roi_history: [
-    { week: "2026-01-06", roi: 5.2, cumulative_profit: 15.0 },
-    { week: "2026-01-13", roi: 8.1, cumulative_profit: 32.0 },
-    { week: "2026-01-20", roi: 6.5, cumulative_profit: 28.0 },
-    { week: "2026-01-27", roi: 12.5, cumulative_profit: 58.75 },
-  ],
+// Default stats when no data is available
+const defaultStats = {
+  total_predictions: 0,
+  verified_predictions: 0,
+  correct_predictions: 0,
+  accuracy: 0,
+  roi_simulated: 0,
+  by_competition: {},
+  by_bet_type: {},
 };
 
 export default function DashboardPage() {
   const [period, setPeriod] = useState("30");
-  const stats = demoStats;
+
+  // Fetch real stats from API
+  const { data: response, isLoading, error } = useGetPredictionStats(
+    { days: parseInt(period) },
+    { query: { staleTime: 5 * 60 * 1000, retry: 2 } }
+  );
+
+  // Extract stats from response
+  const apiStats = (response?.data as PredictionStatsResponse | undefined);
+  const stats = apiStats || defaultStats;
+
+  // Calculate derived values
+  const totalPredictions = stats.total_predictions || 0;
+  const verifiedPredictions = stats.verified_predictions || 0;
+  const correctPredictions = stats.correct_predictions || 0;
+  const accuracy = stats.accuracy || 0;
+  const roi = stats.roi_simulated || 0;
+
+  // Calculate win/loss from verified predictions
+  const won = correctPredictions;
+  const lost = verifiedPredictions - correctPredictions;
+  const pending = totalPredictions - verifiedPredictions;
+
+  // Convert by_competition to array for chart
+  const byCompetitionData = Object.entries(stats.by_competition || {}).map(([code, data]) => {
+    const compData = data as { total?: number; correct?: number; accuracy?: number };
+    return {
+      competition: getCompetitionName(code),
+      total: compData.total || 0,
+      won: compData.correct || 0,
+      lost: (compData.total || 0) - (compData.correct || 0),
+      win_rate: (compData.accuracy || 0) * 100,
+    };
+  });
+
+  // Simulated profit based on ROI (assuming €10 stake per bet)
+  const stakePerBet = 10;
+  const totalStake = totalPredictions * stakePerBet;
+  const profit = totalStake * (roi / 100);
+  const totalReturn = totalStake + profit;
 
   const statCards = [
     {
       title: "Total Predictions",
-      value: stats.summary.total_predictions,
+      value: totalPredictions,
       icon: Target,
-      description: stats.summary.pending + " pending",
+      description: pending > 0 ? `${pending} pending` : "All verified",
     },
     {
       title: "Win Rate",
-      value: stats.summary.win_rate.toFixed(1) + "%",
+      value: verifiedPredictions > 0 ? `${(accuracy * 100).toFixed(1)}%` : "N/A",
       icon: Trophy,
-      description: stats.summary.won + "W - " + stats.summary.lost + "L",
-      positive: stats.summary.win_rate > 50,
+      description: verifiedPredictions > 0 ? `${won}W - ${lost}L` : "No verified bets",
+      positive: accuracy > 0.5,
     },
     {
       title: "ROI",
-      value: (stats.summary.roi > 0 ? "+" : "") + stats.summary.roi.toFixed(1) + "%",
-      icon: stats.summary.roi >= 0 ? TrendingUp : TrendingDown,
+      value: verifiedPredictions > 0 ? `${roi > 0 ? "+" : ""}${roi.toFixed(1)}%` : "N/A",
+      icon: roi >= 0 ? TrendingUp : TrendingDown,
       description: "Return on investment",
-      positive: stats.summary.roi > 0,
+      positive: roi > 0,
     },
     {
-      title: "Profit",
-      value: "€" + stats.summary.profit.toFixed(2),
+      title: "Est. Profit",
+      value: verifiedPredictions > 0 ? `€${profit.toFixed(2)}` : "N/A",
       icon: DollarSign,
-      description: "Staked: €" + stats.summary.total_stake,
-      positive: stats.summary.profit > 0,
+      description: `Staked: €${totalStake.toFixed(0)}`,
+      positive: profit > 0,
     },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-6 flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading statistics...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-6">
+        <Card className="border-red-500/30 bg-red-500/5">
+          <CardContent className="p-6 flex items-start gap-4">
+            <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0" />
+            <div>
+              <h3 className="font-semibold text-red-500">Error loading statistics</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Unable to fetch prediction statistics. Please try again later.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -153,120 +210,100 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <Tabs defaultValue="roi" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="roi">ROI Evolution</TabsTrigger>
-          <TabsTrigger value="competitions">By Competition</TabsTrigger>
-        </TabsList>
+      {totalPredictions === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="font-semibold text-lg mb-2">No predictions yet</h3>
+            <p className="text-muted-foreground">
+              Start making predictions to see your performance statistics here.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <Tabs defaultValue="competitions" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="competitions">By Competition</TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="roi" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>ROI Over Time</CardTitle>
-              <CardDescription>
-                Cumulative return on investment progression
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats.roi_history}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis
-                    dataKey="week"
-                    tickFormatter={(value) => {
-                      const date = new Date(value);
-                      return date.getDate() + "/" + (date.getMonth() + 1);
-                    }}
-                    className="text-xs"
-                  />
-                  <YAxis
-                    tickFormatter={(value) => value + "%"}
-                    className="text-xs"
-                  />
-                  <Tooltip
-                    formatter={(value: number) => [value.toFixed(1) + "%", "ROI"]}
-                    labelFormatter={(label) => "Week of " + label}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="roi"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    dot={{ fill: "hsl(var(--primary))" }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            <TabsContent value="competitions" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Performance by Competition</CardTitle>
+                  <CardDescription>
+                    Win rate across different leagues
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="h-[300px]">
+                  {byCompetitionData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={byCompetitionData} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => v + "%"} />
+                        <YAxis dataKey="competition" type="category" width={120} className="text-xs" />
+                        <Tooltip
+                          formatter={(value: number) => [value.toFixed(1) + "%", "Win Rate"]}
+                        />
+                        <Bar dataKey="win_rate" radius={[0, 4, 4, 0]}>
+                          {byCompetitionData.map((entry, index) => (
+                            <Cell
+                              key={"cell-" + index}
+                              fill={entry.win_rate >= 60 ? "hsl(var(--chart-1))" : entry.win_rate >= 50 ? "hsl(var(--chart-2))" : "hsl(var(--chart-3))"}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      No competition data available
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
-        <TabsContent value="competitions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Performance by Competition</CardTitle>
-              <CardDescription>
-                Win rate across different leagues
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.by_competition} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => v + "%"} />
-                  <YAxis dataKey="competition" type="category" width={120} className="text-xs" />
-                  <Tooltip
-                    formatter={(value: number) => [value.toFixed(1) + "%", "Win Rate"]}
-                  />
-                  <Bar dataKey="win_rate" radius={[0, 4, 4, 0]}>
-                    {stats.by_competition.map((entry, index) => (
-                      <Cell
-                        key={"cell-" + index}
-                        fill={entry.win_rate >= 60 ? "hsl(var(--chart-1))" : entry.win_rate >= 50 ? "hsl(var(--chart-2))" : "hsl(var(--chart-3))"}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Detailed Statistics</CardTitle>
-          <CardDescription>
-            Breakdown by competition
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {stats.by_competition.map((comp) => (
-              <div
-                key={comp.competition}
-                className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="font-medium">{comp.competition}</div>
-                  <Badge variant="outline">{comp.total} picks</Badge>
+          {byCompetitionData.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Detailed Statistics</CardTitle>
+                <CardDescription>
+                  Breakdown by competition
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {byCompetitionData.map((comp) => (
+                    <div
+                      key={comp.competition}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="font-medium">{comp.competition}</div>
+                        <Badge variant="outline">{comp.total} picks</Badge>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-sm">
+                          <span className="text-green-500">{comp.won}W</span>
+                          {" - "}
+                          <span className="text-red-500">{comp.lost}L</span>
+                        </div>
+                        <Badge
+                          variant={comp.win_rate >= 60 ? "default" : comp.win_rate >= 50 ? "secondary" : "destructive"}
+                        >
+                          {comp.win_rate.toFixed(1)}%
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-sm">
-                    <span className="text-green-500">{comp.won}W</span>
-                    {" - "}
-                    <span className="text-red-500">{comp.lost}L</span>
-                  </div>
-                  <Badge
-                    variant={comp.win_rate >= 60 ? "default" : comp.win_rate >= 50 ? "secondary" : "destructive"}
-                  >
-                    {comp.win_rate.toFixed(1)}%
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
     </div>
   );
 }

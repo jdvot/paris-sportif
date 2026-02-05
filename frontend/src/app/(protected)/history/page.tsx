@@ -34,18 +34,18 @@ export default function HistoryPage() {
 
   const picks = (response?.data as { picks?: DailyPick[] } | undefined)?.picks || [];
 
-  // Simulated historical data with results
-  const historicalPicks = picks.map((pick, index) => ({
+  // NOTE: Result tracking requires PAR-168 (user bet tracking feature)
+  // For now, all picks show as pending - no simulated data
+  const historicalPicks = picks.map((pick) => ({
     ...pick,
-    // Simulate results for demonstration
-    result: index % 3 === 0 ? "pending" : index % 3 === 1 ? "won" : "lost",
-    actualScore: index % 3 !== 0 ? `${Math.floor(Math.random() * 4)}-${Math.floor(Math.random() * 3)}` : null,
+    result: "pending" as "pending" | "won" | "lost",
+    actualScore: null as string | null,
   }));
 
-  const wonCount = historicalPicks.filter((p) => p.result === "won").length;
-  const lostCount = historicalPicks.filter((p) => p.result === "lost").length;
-  const pendingCount = historicalPicks.filter((p) => p.result === "pending").length;
-  const winRate = wonCount + lostCount > 0 ? (wonCount / (wonCount + lostCount)) * 100 : 0;
+  const wonCount = 0;
+  const lostCount = 0;
+  const pendingCount = historicalPicks.length;
+  const winRate = 0;
 
   return (
     <div className="space-y-6">

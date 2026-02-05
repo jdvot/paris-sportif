@@ -1,6 +1,7 @@
-"""Match endpoints - Real data from football-data.org API with DB and mock fallback.
+"""Match endpoints - Real data from football-data.org API with DB fallback.
 
 All endpoints require authentication.
+Returns HTTP errors (429, 503) when data is unavailable rather than mock data.
 """
 
 import logging
@@ -13,7 +14,8 @@ from pydantic import BaseModel
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 from src.core.rate_limit import RATE_LIMITS, limiter
-from src.data.sources.football_data import COMPETITIONS, MatchData, get_football_data_client
+from src.core.constants import COMPETITIONS, COMPETITION_NAMES
+from src.data.sources.football_data import COMPETITIONS as API_COMPETITIONS, MatchData, get_football_data_client
 from src.db.services import MatchService, StandingService
 
 router = APIRouter()
@@ -22,7 +24,7 @@ logger = logging.getLogger(__name__)
 # Type aliases for match status
 MatchStatus = Literal["scheduled", "live", "finished", "postponed"]
 APIStatus = Literal["SCHEDULED", "LIVE", "FINISHED"]
-DataSourceType = Literal["live_api", "cache", "database", "mock"]
+DataSourceType = Literal["live_api", "cache", "database"]
 
 
 class DataSourceInfo(BaseModel):
@@ -41,50 +43,8 @@ class DataSourceInfo(BaseModel):
     retry_after_seconds: int | None = None  # When to retry for fresh data
 
 
-def _generate_mock_matches() -> list["MatchResponse"]:
-    """Generate mock matches when API is unavailable."""
-
-    base_date = datetime.now(UTC)
-
-    mock_data = [
-        {"home": "Manchester City", "away": "Chelsea", "comp": "Premier League", "code": "PL"},
-        {"home": "Liverpool", "away": "Arsenal", "comp": "Premier League", "code": "PL"},
-        {"home": "Real Madrid", "away": "Barcelona", "comp": "La Liga", "code": "PD"},
-        {"home": "Atletico Madrid", "away": "Sevilla", "comp": "La Liga", "code": "PD"},
-        {"home": "Bayern Munich", "away": "Borussia Dortmund", "comp": "Bundesliga", "code": "BL1"},
-        {"home": "RB Leipzig", "away": "Bayer Leverkusen", "comp": "Bundesliga", "code": "BL1"},
-        {"home": "Inter", "away": "AC Milan", "comp": "Serie A", "code": "SA"},
-        {"home": "Juventus", "away": "Napoli", "comp": "Serie A", "code": "SA"},
-        {"home": "PSG", "away": "Marseille", "comp": "Ligue 1", "code": "FL1"},
-        {"home": "Lyon", "away": "Monaco", "comp": "Ligue 1", "code": "FL1"},
-    ]
-
-    matches = []
-    for i, m in enumerate(mock_data):
-        match_time = base_date + timedelta(days=i // 3, hours=15 + (i % 3) * 2)
-        matches.append(
-            MatchResponse(
-                id=1000 + i,
-                external_id=f"{m['code']}_{1000 + i}",
-                home_team=TeamInfo(
-                    id=100 + i * 2,
-                    name=m["home"],
-                    short_name=m["home"][:3].upper(),
-                ),
-                away_team=TeamInfo(
-                    id=101 + i * 2,
-                    name=m["away"],
-                    short_name=m["away"][:3].upper(),
-                ),
-                competition=m["comp"],
-                competition_code=m["code"],
-                match_date=match_time,
-                status="scheduled",
-                matchday=i % 20 + 1,
-            )
-        )
-
-    return matches
+# NOTE: Mock data removed - we only return real data from API or DB
+# If both are unavailable, we return HTTP errors with clear messages
 
 
 class TeamInfo(BaseModel):
@@ -201,6 +161,22 @@ class HeadToHeadResponse(BaseModel):
     total_matches: int
     # Beta: data source info for transparency
     data_source: DataSourceInfo | None = None
+
+
+class CompetitionResponse(BaseModel):
+    """Single competition info."""
+
+    code: str
+    name: str
+    country: str
+    flag: str
+
+
+class CompetitionsListResponse(BaseModel):
+    """List of supported competitions."""
+
+    competitions: list[CompetitionResponse]
+    total: int
 
 
 def _convert_api_match(api_match: MatchData) -> MatchResponse:
@@ -366,7 +342,7 @@ async def get_matches(
                             logo_url=m["away_team"].get("logo_url"),
                             elo_rating=m["away_team"].get("elo_rating", 1500.0),
                         ),
-                        competition=COMPETITIONS.get(m.get("competition_code", ""), "Unknown"),
+                        competition=COMPETITION_NAMES.get(m.get("competition_code", ""), "Unknown"),
                         competition_code=m.get("competition_code") or competition or "UNK",
                         match_date=datetime.fromisoformat(m["match_date"])
                         if m.get("match_date")
@@ -402,22 +378,15 @@ async def get_matches(
         except Exception as db_error:
             logger.warning(f"Database fallback failed: {db_error}")
 
-        # Final fallback to mock data
-        logger.warning("Using mock data as final fallback")
-        matches = _generate_mock_matches()
-        return MatchListResponse(
-            matches=matches[:per_page],
-            total=len(matches),
-            page=page,
-            per_page=per_page,
-            data_source=DataSourceInfo(
-                source="mock",
-                is_fallback=True,
-                warning="[BETA] Données de démonstration - Limite API externe atteinte",
-                warning_code="EXTERNAL_API_RATE_LIMIT",
-                details="API football-data.org temporairement indisponible (10 req/min). Données fictives affichées.",
-                retry_after_seconds=retry_after,
-            ),
+        # No data available - return error
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Service temporairement indisponible",
+                "error_code": "SERVICE_UNAVAILABLE",
+                "details": "API externe et base de donnees indisponibles. Reessayez dans quelques instants.",
+                "retry_after_seconds": retry_after,
+            },
         )
 
     except (FootballDataAPIError, Exception) as e:
@@ -451,7 +420,7 @@ async def get_matches(
                             logo_url=m["away_team"].get("logo_url"),
                             elo_rating=m["away_team"].get("elo_rating", 1500.0),
                         ),
-                        competition=COMPETITIONS.get(m.get("competition_code", ""), "Unknown"),
+                        competition=COMPETITION_NAMES.get(m.get("competition_code", ""), "Unknown"),
                         competition_code=m.get("competition_code") or competition or "UNK",
                         match_date=datetime.fromisoformat(m["match_date"])
                         if m.get("match_date")
@@ -486,21 +455,14 @@ async def get_matches(
         except Exception as db_error:
             logger.warning(f"Database fallback failed: {db_error}")
 
-        # Final fallback to mock data
-        logger.warning("Using mock data as final fallback")
-        matches = _generate_mock_matches()
-        return MatchListResponse(
-            matches=matches[:per_page],
-            total=len(matches),
-            page=page,
-            per_page=per_page,
-            data_source=DataSourceInfo(
-                source="mock",
-                is_fallback=True,
-                warning="[BETA] Données de démonstration - API externe indisponible",
-                warning_code="EXTERNAL_API_ERROR",
-                details=f"Erreur: {str(e)[:100]}. Données fictives affichées.",
-            ),
+        # No data available - return error
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Service temporairement indisponible",
+                "error_code": "SERVICE_UNAVAILABLE",
+                "details": f"API externe et base de donnees indisponibles: {str(e)[:100]}",
+            },
         )
 
 
@@ -532,39 +494,27 @@ async def get_upcoming_matches(
         )
 
     except RateLimitError as e:
-        logger.warning(f"External API rate limit in upcoming: {e}, using mock data")
+        logger.warning(f"External API rate limit in upcoming: {e}")
         retry_after = e.details.get("retry_after", 60) if e.details else 60
-        matches = _generate_mock_matches()[:5]
-        return MatchListResponse(
-            matches=matches,
-            total=len(matches),
-            page=1,
-            per_page=len(matches),
-            data_source=DataSourceInfo(
-                source="mock",
-                is_fallback=True,
-                warning="[BETA] Données de démonstration - Limite API externe atteinte (10 req/min)",
-                warning_code="EXTERNAL_API_RATE_LIMIT",
-                details="API football-data.org temporairement saturée",
-                retry_after_seconds=retry_after,
-            ),
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": "Limite API externe atteinte",
+                "error_code": "EXTERNAL_API_RATE_LIMIT",
+                "details": "football-data.org limite: 10 req/min. Reessayez dans quelques instants.",
+                "retry_after_seconds": retry_after,
+            },
         )
 
     except (FootballDataAPIError, Exception) as e:
-        logger.warning(f"API error in upcoming: {e}, using mock data")
-        matches = _generate_mock_matches()[:5]
-        return MatchListResponse(
-            matches=matches,
-            total=len(matches),
-            page=1,
-            per_page=len(matches),
-            data_source=DataSourceInfo(
-                source="mock",
-                is_fallback=True,
-                warning="[BETA] Données de démonstration - API externe indisponible",
-                warning_code="EXTERNAL_API_ERROR",
-                details=f"Erreur: {str(e)[:100]}",
-            ),
+        logger.warning(f"API error in upcoming: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Service temporairement indisponible",
+                "error_code": "SERVICE_UNAVAILABLE",
+                "details": f"API externe indisponible: {str(e)[:100]}",
+            },
         )
 
 
@@ -582,18 +532,31 @@ async def get_match(request: Request, match_id: int, user: AuthenticatedUser) ->
         api_match = await client.get_match(match_id)
         return _convert_api_match(api_match)
 
-    except (RateLimitError, FootballDataAPIError, Exception) as e:
-        logger.warning(f"API error for match {match_id}: {e}, using mock data")
-        # Return mock match
-        mock_matches = _generate_mock_matches()
-        # Find by ID or return first one
-        for m in mock_matches:
-            if m.id == match_id:
-                return m
-        # Clone the first mock match and set the requested ID (avoid mutation)
-        mock = mock_matches[0].model_copy()
-        mock.id = match_id
-        return mock
+    except RateLimitError as e:
+        logger.warning(f"Rate limit for match {match_id}: {e}")
+        retry_after = e.details.get("retry_after", 60) if e.details else 60
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": "Limite API externe atteinte",
+                "error_code": "EXTERNAL_API_RATE_LIMIT",
+                "details": "Reessayez dans quelques instants.",
+                "retry_after_seconds": retry_after,
+            },
+        )
+
+    except FootballDataAPIError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=f"Match {match_id} non trouve")
+        logger.warning(f"API error for match {match_id}: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Service temporairement indisponible",
+                "error_code": "SERVICE_UNAVAILABLE",
+                "details": f"API externe indisponible: {str(e)[:100]}",
+            },
+        )
 
 
 @router.get(
@@ -662,41 +625,27 @@ async def get_head_to_head(
         )
 
     except RateLimitError as e:
-        logger.warning(f"External API rate limit for H2H: {e}, using mock data")
+        logger.warning(f"External API rate limit for H2H: {e}")
         retry_after = e.details.get("retry_after", 60) if e.details else 60
-        return HeadToHeadResponse(
-            matches=[],
-            home_wins=3,
-            draws=2,
-            away_wins=2,
-            avg_goals=2.8,
-            total_matches=7,
-            data_source=DataSourceInfo(
-                source="mock",
-                is_fallback=True,
-                warning="[BETA] Historique H2H estimé - Limite API externe atteinte",
-                warning_code="EXTERNAL_API_RATE_LIMIT",
-                details="football-data.org temporairement saturée (10 req/min)",
-                retry_after_seconds=retry_after,
-            ),
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": "Limite API externe atteinte",
+                "error_code": "EXTERNAL_API_RATE_LIMIT",
+                "details": "Historique H2H indisponible. Reessayez dans quelques instants.",
+                "retry_after_seconds": retry_after,
+            },
         )
 
     except (FootballDataAPIError, Exception) as e:
-        logger.warning(f"API error for head-to-head: {e}, using mock data")
-        return HeadToHeadResponse(
-            matches=[],
-            home_wins=3,
-            draws=2,
-            away_wins=2,
-            avg_goals=2.8,
-            total_matches=7,
-            data_source=DataSourceInfo(
-                source="mock",
-                is_fallback=True,
-                warning="[BETA] Historique H2H estimé - API externe indisponible",
-                warning_code="EXTERNAL_API_ERROR",
-                details=f"Erreur: {str(e)[:80]}",
-            ),
+        logger.warning(f"API error for head-to-head: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Historique H2H indisponible",
+                "error_code": "SERVICE_UNAVAILABLE",
+                "details": f"API externe indisponible: {str(e)[:80]}",
+            },
         )
 
 
@@ -793,47 +742,36 @@ async def get_team_form(
         )
 
     except RateLimitError as e:
-        logger.warning(f"External API rate limit for team form: {e}, using mock data")
+        logger.warning(f"External API rate limit for team form: {e}")
         retry_after = e.details.get("retry_after", 60) if e.details else 60
-        fallback_name = team_name if team_name else "Équipe inconnue"
-        return TeamFormResponse(
-            team_id=team_id,
-            team_name=fallback_name,
-            last_matches=[],
-            form_string="WDWLW",
-            points_last_5=10,
-            goals_scored_avg=1.8,
-            goals_conceded_avg=0.8,
-            clean_sheets=2,
-            data_source=DataSourceInfo(
-                source="mock",
-                is_fallback=True,
-                warning="[BETA] Forme estimée - Limite API externe atteinte (10 req/min)",
-                warning_code="EXTERNAL_API_RATE_LIMIT",
-                details=f"football-data.org temporairement saturée pour {fallback_name}",
-                retry_after_seconds=retry_after,
-            ),
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": "External API rate limit reached. Please retry later.",
+                "warning_code": "EXTERNAL_API_RATE_LIMIT",
+                "retry_after_seconds": retry_after,
+            },
+            headers={"Retry-After": str(retry_after)},
         )
 
-    except (FootballDataAPIError, Exception) as e:
-        logger.warning(f"API error for team form: {e}, using mock data")
-        fallback_name = team_name if team_name else "Équipe inconnue"
-        return TeamFormResponse(
-            team_id=team_id,
-            team_name=fallback_name,
-            last_matches=[],
-            form_string="WDWLW",
-            points_last_5=10,
-            goals_scored_avg=1.8,
-            goals_conceded_avg=0.8,
-            clean_sheets=2,
-            data_source=DataSourceInfo(
-                source="mock",
-                is_fallback=True,
-                warning="[BETA] Forme estimée - API externe indisponible",
-                warning_code="EXTERNAL_API_ERROR",
-                details=f"Erreur pour {fallback_name}: {str(e)[:80]}",
-            ),
+    except FootballDataAPIError as e:
+        logger.error(f"Football Data API error for team form: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "External football data service unavailable. Please retry later.",
+                "warning_code": "EXTERNAL_API_ERROR",
+            },
+        )
+
+    except Exception as e:
+        logger.error(f"Unexpected error for team form {team_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": "Internal server error while fetching team form.",
+                "warning_code": "INTERNAL_ERROR",
+            },
         )
 
 
@@ -863,8 +801,8 @@ async def get_standings(
     """
     try:
         # Validate competition code
-        if competition_code not in COMPETITIONS:
-            valid_codes = ", ".join(COMPETITIONS.keys())
+        if competition_code not in COMPETITION_NAMES:
+            valid_codes = ", ".join(COMPETITION_NAMES.keys())
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid competition: {competition_code}. Use: {valid_codes}",
@@ -897,7 +835,7 @@ async def get_standings(
                 return StandingsResponse(
                     competition_code=competition_code,
                     competition_name=cached.get(
-                        "competition_name", COMPETITIONS.get(competition_code, competition_code)
+                        "competition_name", COMPETITION_NAMES.get(competition_code, competition_code)
                     ),
                     standings=standings,
                     last_updated=datetime.fromisoformat(
@@ -934,7 +872,7 @@ async def get_standings(
 
         return StandingsResponse(
             competition_code=competition_code,
-            competition_name=COMPETITIONS.get(competition_code, competition_code),
+            competition_name=COMPETITION_NAMES.get(competition_code, competition_code),
             standings=standings,
             last_updated=datetime.now(),
             data_source=DataSourceInfo(source="live_api"),
@@ -974,7 +912,7 @@ async def get_standings(
 
                 return StandingsResponse(
                     competition_code=competition_code,
-                    competition_name=COMPETITIONS.get(competition_code, competition_code),
+                    competition_name=COMPETITION_NAMES.get(competition_code, competition_code),
                     standings=standings,
                     last_updated=datetime.now(),
                     data_source=DataSourceInfo(
@@ -1019,7 +957,7 @@ async def get_standings(
 
                 return StandingsResponse(
                     competition_code=competition_code,
-                    competition_name=COMPETITIONS.get(competition_code, competition_code),
+                    competition_name=COMPETITION_NAMES.get(competition_code, competition_code),
                     standings=standings,
                     last_updated=datetime.now(),
                     data_source=DataSourceInfo(
@@ -1033,36 +971,52 @@ async def get_standings(
         except Exception as db_error:
             logger.warning(f"Database fallback failed for standings: {db_error}")
 
-    # Final fallback to mock data (outside exception blocks)
-    logger.warning(f"Using mock data for standings {competition_code}")
-    mock_standings = [
-        StandingTeamResponse(
-            position=i + 1,
-            team_id=1000 + i,
-            team_name=f"Team {i + 1}",
-            team_logo_url=None,
-            played=30,
-            won=20 - i,
-            drawn=6 - (i % 3),
-            lost=4 + i,
-            goals_for=70 - (i * 2),
-            goals_against=30 + (i * 2),
-            goal_difference=40 - (i * 4),
-            points=66 - (i * 3),
+        # If we reach here after RateLimitError, no data available
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": "External API rate limit reached and no cached data available.",
+                "warning_code": "EXTERNAL_API_RATE_LIMIT",
+                "retry_after_seconds": retry_after,
+            },
+            headers={"Retry-After": str(retry_after)},
         )
-        for i in range(20)
-    ]
 
-    return StandingsResponse(
-        competition_code=competition_code,
-        competition_name=COMPETITIONS.get(competition_code, competition_code),
-        standings=mock_standings,
-        last_updated=datetime.now(),
-        data_source=DataSourceInfo(
-            source="mock",
-            is_fallback=True,
-            warning="[BETA] Classement de démonstration - API externe indisponible",
-            warning_code="EXTERNAL_API_ERROR",
-            details="Données fictives affichées. Réessayez dans quelques instants.",
-        ),
+    # If we reach here after other exceptions, raise 503
+    raise HTTPException(
+        status_code=503,
+        detail={
+            "message": "Standings data unavailable. External API and database both failed.",
+            "warning_code": "SERVICE_UNAVAILABLE",
+        },
+    )
+
+
+@router.get(
+    "/competitions",
+    response_model=CompetitionsListResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getCompetitions",
+)
+async def get_competitions(
+    request: Request,
+    user: AuthenticatedUser,
+) -> CompetitionsListResponse:
+    """
+    Get list of all supported competitions.
+
+    Returns competition codes, names, countries, and flag codes for UI display.
+    This is the single source of truth for competition data.
+    """
+    return CompetitionsListResponse(
+        competitions=[
+            CompetitionResponse(
+                code=comp["code"],
+                name=comp["name"],
+                country=comp["country"],
+                flag=comp["flag"],
+            )
+            for comp in COMPETITIONS
+        ],
+        total=len(COMPETITIONS),
     )

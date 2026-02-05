@@ -14,16 +14,10 @@ import { ExportCSV } from "@/components/ExportCSV";
 import { NewsFeed } from "@/components/NewsFeed";
 import { getErrorMessage } from "@/lib/errors";
 import type { DailyPick } from "@/lib/api/models";
+import { COMPETITIONS as COMPETITIONS_DATA } from "@/lib/constants";
 
-const COMPETITIONS = [
-  { id: "PL", name: "Premier League" },
-  { id: "PD", name: "La Liga" },
-  { id: "BL1", name: "Bundesliga" },
-  { id: "SA", name: "Serie A" },
-  { id: "FL1", name: "Ligue 1" },
-  { id: "CL", name: "Champions League" },
-  { id: "EL", name: "Europa League" },
-];
+// Map centralized competitions to the format used by CompetitionFilter
+const COMPETITIONS = COMPETITIONS_DATA.map(c => ({ id: c.code, name: c.name }));
 
 export default function PicksPage() {
   const t = useTranslations("picks");

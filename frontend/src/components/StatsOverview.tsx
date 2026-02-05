@@ -43,7 +43,7 @@ export function StatsOverview() {
   // Extract stats from Orval response (status 200 returns data)
   const stats = response?.status === 200 ? response.data : null;
 
-  // Transform by_competition data - if no data, use placeholder data
+  // Transform by_competition data - if no data, show empty state with zeros
   const hasRealData = Object.keys(stats?.by_competition || {}).length > 0;
 
   // ALL useMemo hooks MUST be called before any early returns (React hooks rules)
@@ -71,19 +71,7 @@ export function StatsOverview() {
     }));
   }, [hasRealData, stats]);
 
-  const trendData = useMemo(() => {
-    const data = [];
-    const baseAccuracy = stats?.accuracy || 0;
-    for (let i = 0; i < 7; i++) {
-      const seed = (baseAccuracy * (i + 1)) % 1;
-      const variance = (seed - 0.5) * 8;
-      data.push({
-        day: i,
-        accuracy: Math.max(0, Math.min(100, baseAccuracy + variance)),
-      });
-    }
-    return data;
-  }, [stats?.accuracy]);
+  // NOTE: trendData removed - daily trend should come from backend API with real historical data
 
   const roiAmount = useMemo(() => {
     if (!stats) return 0;
@@ -315,54 +303,7 @@ export function StatsOverview() {
           </div>
         </div>
 
-        {/* Trend Indicator */}
-        <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            {t("trend7Days")}
-          </h3>
-          <div className="w-full h-72 sm:h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                <XAxis
-                  dataKey="day"
-                  stroke="#94a3b8"
-                  style={{ fontSize: "0.75rem" }}
-                  tick={{ fill: "#94a3b8" }}
-                  tickFormatter={(value) => `J${value + 1}`}
-                />
-                <YAxis
-                  stroke="#94a3b8"
-                  style={{ fontSize: "0.75rem" }}
-                  tick={{ fill: "#94a3b8" }}
-                  domain={[0, 100]}
-                  ticks={[0, 25, 50, 75, 100]}
-                  tickFormatter={(value) => `${value}%`}
-                  width={45}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e293b",
-                    border: "1px solid #334155",
-                    borderRadius: "8px",
-                  }}
-                  labelStyle={{ color: "#e2e8f0" }}
-                  labelFormatter={(value) => `${t("day")} ${Number(value) + 1}`}
-                  formatter={(value: number) => [`${value.toFixed(1)}%`, t("precision")]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="accuracy"
-                  stroke="#4ade80"
-                  strokeWidth={2}
-                  dot={{ fill: "#4ade80", r: 4 }}
-                  activeDot={{ r: 6, fill: "#22c55e" }}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        {/* NOTE: Trend Indicator section removed - requires real historical data from backend */}
       </div>
 
       {/* Competition Details */}

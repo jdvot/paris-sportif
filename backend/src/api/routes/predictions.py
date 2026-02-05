@@ -36,11 +36,34 @@ from src.prediction_engine.multi_markets import get_multi_markets_prediction
 from src.prediction_engine.rag_enrichment import get_rag_enrichment
 
 # Data source type for beta feedback
-DataSourceType = Literal["live_api", "cache", "database", "mock", "fallback"]
+DataSourceType = Literal["live_api", "cache", "database", "fallback"]
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _detect_language(request: Request) -> str:
+    """
+    Detect user's preferred language from Accept-Language header.
+
+    Returns:
+        "fr" for French, "en" for English (default)
+    """
+    accept_language = request.headers.get("Accept-Language", "")
+
+    # Parse Accept-Language header (e.g., "fr-FR,fr;q=0.9,en;q=0.8")
+    if accept_language:
+        # Get first language preference
+        primary_lang = accept_language.split(",")[0].split("-")[0].lower()
+        if primary_lang == "fr":
+            return "fr"
+        elif primary_lang == "en":
+            return "en"
+        elif primary_lang == "nl":
+            return "nl"  # Dutch support for future
+
+    return "fr"  # Default to French
 
 
 class DataSourceInfo(BaseModel):
@@ -268,70 +291,233 @@ class PredictionStatsResponse(BaseModel):
     last_updated: datetime
 
 
-COMPETITION_NAMES = {
-    "PL": "Premier League",
-    "PD": "La Liga",
-    "BL1": "Bundesliga",
-    "SA": "Serie A",
-    "FL1": "Ligue 1",
-    "CL": "Champions League",
-    "EL": "Europa League",
-}
+# Import centralized competition names
+from src.core.constants import COMPETITION_NAMES
+from src.core.messages import (
+    get_key_factors_templates,
+    get_risk_factors_templates,
+    get_label,
+    Language,
+)
 
-KEY_FACTORS_TEMPLATES = {
-    "home_dominant": [
-        "Très bonne forme domestique",
-        "Avantage du terrain significatif",
-        "Supériorité en possession statistique",
-        "Attaque puissante à domicile",
-        "Série de victoires à domicile",
-        "Défense solide sur leur terrain",
-    ],
-    "away_strong": [
-        "Excellente série en déplacement",
-        "Défense très solide en extérieur",
-        "Efficacité offensive élevée",
-        "Moral de l'équipe excellent",
-        "Bon bilan face à cet adversaire",
-        "Équipe en pleine confiance",
-    ],
-    "balanced": [
-        "Matchs équilibrés historiquement",
-        "Formes similaires actuellement",
-        "Qualité défensive comparable",
-        "Potentiel de score nul élevé",
-        "Confrontations souvent serrées",
-        "Peu de buts dans les H2H récents",
-    ],
-}
+# Legacy aliases for backward compatibility (used in fallback generator)
+KEY_FACTORS_TEMPLATES = get_key_factors_templates("fr")
+RISK_FACTORS_TEMPLATES = get_risk_factors_templates("fr")
 
-RISK_FACTORS_TEMPLATES = [
-    "Absence de joueurs clés possibles",
-    "Fatigue accumulée (calendrier chargé)",
-    "Conditions météorologiques défavorables",
-    "Historique imprévisible dans ce duel",
-    "Équipe en reconstruction",
-    "Pression du classement",
-    "Match retour de trêve internationale",
-    "Déplacement lointain récent",
-]
 
-EXPLANATIONS_TEMPLATES = {
-    "home_win": (
-        "Notre analyse privilégie {home} pour cette rencontre. L'équipe bénéficie d'un "
-        "fort avantage du terrain combiné à une excellente forme actuelle. {away} reste "
-        "compétitif mais devrait avoir du mal à créer des occasions décisives."
-    ),
-    "draw": (
-        "Un match équilibré où les deux équipes possèdent les atouts pour obtenir un "
-        "résultat positif. Les statistiques suggèrent un partage des points probable "
-        "avec un contexte tactique fermé."
-    ),
-    "away_win": (
-        "Malgré le déplacement, {away} dispose des arguments suffisants pour s'imposer. "
-        "La qualité de leur jeu actuel pourrait faire la différence face à {home}."
-    ),
-}
+async def _generate_llm_explanation(
+    home_team: str,
+    away_team: str,
+    team_stats: dict[str, Any],
+    recommended_bet: str,
+    home_prob: float,
+    draw_prob: float,
+    away_prob: float,
+    rag_context: dict[str, Any] | None = None,
+    language: str = "fr",
+) -> tuple[str, list[str], list[str]]:
+    """
+    Generate explanation and factors using LLM based on REAL data.
+
+    Args:
+        language: "fr" for French, "en" for English
+
+    Returns:
+        (explanation, key_factors, risk_factors)
+    """
+    from src.llm.client import get_llm_client
+
+    # Extract real stats for the prompt
+    home_elo = team_stats.get("home_elo", 1500)
+    away_elo = team_stats.get("away_elo", 1500)
+    home_form = team_stats.get("home_form", 50)
+    away_form = team_stats.get("away_form", 50)
+    home_attack = team_stats.get("home_attack", 1.3)
+    away_attack = team_stats.get("away_attack", 1.3)
+    home_defense = team_stats.get("home_defense", 1.3)
+    away_defense = team_stats.get("away_defense", 1.3)
+
+    # Build RAG context summary
+    rag_summary = ""
+    if rag_context:
+        home_ctx = rag_context.get("home_context", {})
+        away_ctx = rag_context.get("away_context", {})
+
+        home_injuries = home_ctx.get("injuries", [])
+        away_injuries = away_ctx.get("injuries", [])
+        home_key_info = home_ctx.get("key_info", [])
+        away_key_info = away_ctx.get("key_info", [])
+        home_sentiment = home_ctx.get("sentiment", "neutral")
+        away_sentiment = away_ctx.get("sentiment", "neutral")
+
+        rag_summary = f"""
+CONTEXTE ACTUALITÉS:
+- {home_team}: sentiment={home_sentiment}, blessures={[i.get('player', '?') for i in home_injuries[:3]]}
+- {away_team}: sentiment={away_sentiment}, blessures={[i.get('player', '?') for i in away_injuries[:3]]}
+- Infos {home_team}: {home_key_info[:2] if home_key_info else 'Aucune'}
+- Infos {away_team}: {away_key_info[:2] if away_key_info else 'Aucune'}
+"""
+
+    # Determine language instructions
+    if language == "en":
+        lang_instruction = "Respond in English."
+        default_explanation = f"Our analysis favors {'a draw' if recommended_bet == 'draw' else home_team if recommended_bet == 'home_win' else away_team}."
+    else:
+        lang_instruction = "Réponds en français."
+        default_explanation = f"Notre analyse privilégie {'le match nul' if recommended_bet == 'draw' else home_team if recommended_bet == 'home_win' else away_team}."
+
+    prompt = f"""Tu es un analyste football expert. Génère une analyse pour {home_team} vs {away_team}.
+
+DONNÉES RÉELLES:
+- Probabilités: {home_team}={home_prob:.1%}, Nul={draw_prob:.1%}, {away_team}={away_prob:.1%}
+- Recommandation: {recommended_bet}
+- ELO: {home_team}={home_elo:.0f}, {away_team}={away_elo:.0f}
+- Forme (0-100): {home_team}={home_form:.0f}%, {away_team}={away_form:.0f}%
+- Attaque (buts/match): {home_team}={home_attack:.2f}, {away_team}={away_attack:.2f}
+- Défense (buts encaissés/match): {home_team}={home_defense:.2f}, {away_team}={away_defense:.2f}
+{rag_summary}
+
+INSTRUCTIONS:
+{lang_instruction}
+Génère une réponse JSON avec exactement ce format:
+{{
+  "explanation": "2-3 phrases d'analyse basées sur les données ci-dessus (max 200 caractères)",
+  "key_factors": ["facteur clé 1 basé sur les stats", "facteur clé 2", "facteur clé 3"],
+  "risk_factors": ["risque 1", "risque 2"]
+}}
+
+IMPORTANT: Base ton analyse UNIQUEMENT sur les données fournies. Pas de généralités."""
+
+    try:
+        llm_client = get_llm_client()
+        if llm_client:
+            response = await llm_client.complete(
+                prompt=prompt,
+                max_tokens=400,
+                temperature=0.3,
+            )
+
+            if response:
+                # Parse JSON from response
+                import json
+                import re
+
+                # Try to extract JSON from response
+                json_match = re.search(r'\{[^{}]*\}', response, re.DOTALL)
+                if json_match:
+                    data = json.loads(json_match.group())
+                    explanation = data.get("explanation", default_explanation)[:500]
+                    key_factors = data.get("key_factors", [])[:5]
+                    risk_factors = data.get("risk_factors", [])[:3]
+
+                    if explanation and key_factors:
+                        logger.info(f"LLM generated explanation for {home_team} vs {away_team}")
+                        return explanation, key_factors, risk_factors
+
+    except Exception as e:
+        logger.warning(f"LLM explanation generation failed: {e}")
+
+    # Fallback to programmatic generation if LLM fails
+    return _generate_fallback_explanation(
+        home_team, away_team, team_stats, recommended_bet,
+        home_prob, away_prob, rag_context, language
+    )
+
+
+def _generate_fallback_explanation(
+    home_team: str,
+    away_team: str,
+    team_stats: dict[str, Any],
+    recommended_bet: str,
+    home_prob: float,
+    away_prob: float,
+    rag_context: dict[str, Any] | None = None,
+    language: str = "fr",
+) -> tuple[str, list[str], list[str]]:
+    """
+    Fallback explanation generator when LLM is unavailable.
+
+    IMPORTANT: Only uses REAL statistical data (ELO, form, injuries from RAG).
+    No invented/templated text - clearly indicates when LLM analysis is unavailable.
+    """
+    key_factors: list[str] = []
+    risk_factors: list[str] = []
+
+    home_elo = team_stats.get("home_elo")
+    away_elo = team_stats.get("away_elo")
+    home_form = team_stats.get("home_form")
+    away_form = team_stats.get("away_form")
+
+    lang: Language = language if language in ("fr", "en", "nl") else "fr"
+    is_fr = lang == "fr"
+
+    # Only add ELO factor if we have REAL data (not default 1500)
+    if home_elo and away_elo and home_elo != 1500 and away_elo != 1500:
+        elo_diff = home_elo - away_elo
+        if abs(elo_diff) > 50:
+            if elo_diff > 0:
+                key_factors.append(f"ELO: {home_team} {home_elo:.0f} (+{elo_diff:.0f})")
+            else:
+                key_factors.append(f"ELO: {away_team} {away_elo:.0f} (+{-elo_diff:.0f})")
+
+    # Only add form factor if we have REAL data (not default 50)
+    if home_form and home_form != 50:
+        if home_form > 60:
+            key_factors.append(f"{home_team}: {home_form:.0f}%")
+        elif home_form < 40:
+            risk_factors.append(f"{home_team}: {home_form:.0f}%")
+
+    if away_form and away_form != 50:
+        if away_form > 60:
+            key_factors.append(f"{away_team}: {away_form:.0f}%")
+        elif away_form < 40:
+            risk_factors.append(f"{away_team}: {away_form:.0f}%")
+
+    # RAG-based factors - these come from real news/injury data
+    if rag_context:
+        home_ctx = rag_context.get("home_context", {})
+        away_ctx = rag_context.get("away_context", {})
+
+        # Real news/key info from RAG
+        for info in home_ctx.get("key_info", [])[:1]:
+            if info:
+                key_factors.append(info[:80])
+        for info in away_ctx.get("key_info", [])[:1]:
+            if info:
+                key_factors.append(info[:80])
+
+        # Real injury data from RAG
+        home_injuries = home_ctx.get("injuries", [])
+        if home_injuries:
+            players = [i.get("player", "?") for i in home_injuries[:2]]
+            risk_factors.append(f"{home_team}: {', '.join(players)}")
+
+        away_injuries = away_ctx.get("injuries", [])
+        if away_injuries:
+            players = [i.get("player", "?") for i in away_injuries[:2]]
+            risk_factors.append(f"{away_team}: {', '.join(players)}")
+
+    # Build explanation - indicate LLM unavailable if we have no real data
+    has_real_data = bool(key_factors or risk_factors)
+
+    if has_real_data:
+        # We have some real statistical data to show
+        if is_fr:
+            explanation = f"Analyse statistique: {home_team} vs {away_team}. Probabilites basees sur ELO et forme."
+        else:
+            explanation = f"Statistical analysis: {home_team} vs {away_team}. Probabilities based on ELO and form."
+    else:
+        # No real data available - be transparent
+        if is_fr:
+            explanation = f"Analyse LLM indisponible. Prediction basee uniquement sur les modeles statistiques."
+            key_factors = ["Donnees detaillees non disponibles"]
+            risk_factors = ["Analyse qualitative indisponible"]
+        else:
+            explanation = f"LLM analysis unavailable. Prediction based on statistical models only."
+            key_factors = ["Detailed data unavailable"]
+            risk_factors = ["Qualitative analysis unavailable"]
+
+    return explanation, key_factors[:5], risk_factors[:3]
 
 
 def _get_groq_prediction(
@@ -544,7 +730,10 @@ async def _get_team_stats_for_ml(home_team: str, away_team: str, match_id: int) 
 
 
 async def _generate_prediction_from_api_match(
-    api_match: MatchData, include_model_details: bool = False, use_rag: bool = True
+    api_match: MatchData,
+    include_model_details: bool = False,
+    use_rag: bool = True,
+    request: Request | None = None,
 ) -> PredictionResponse:
     """
     Generate a prediction for a real match using the advanced ensemble predictor.
@@ -671,27 +860,26 @@ async def _generate_prediction_from_api_match(
     base_value = 0.05 + (model_agreement * 0.10)  # 5-15% based on agreement
     value_score = round(base_value + random.uniform(0.0, 0.05), 3)
 
-    # Select key factors based on predicted outcome
-    if recommended_bet == "home_win":
-        key_factors = random.sample(KEY_FACTORS_TEMPLATES["home_dominant"], 3)
-    elif recommended_bet == "away_win":
-        key_factors = random.sample(KEY_FACTORS_TEMPLATES["away_strong"], 3)
-    else:
-        key_factors = random.sample(KEY_FACTORS_TEMPLATES["balanced"], 3)
+    # Generate REAL explanation and factors using LLM + RAG context
+    explanation, key_factors, risk_factors = await _generate_llm_explanation(
+        home_team=home_team,
+        away_team=away_team,
+        team_stats=team_stats,
+        recommended_bet=recommended_bet,
+        home_prob=home_prob,
+        draw_prob=draw_prob,
+        away_prob=away_prob,
+        rag_context=rag_context,
+        language=_detect_language(request) if request else "fr",
+    )
 
     # Add fatigue factor if significant advantage exists
+    lang: Language = _detect_language(request) if request else "fr"
     if fatigue_data:
         if fatigue_data.fatigue_advantage > 0.15:
-            key_factors.append("Avantage physique (plus de repos)")
+            key_factors.append(get_label("physical_advantage", lang))
         elif fatigue_data.fatigue_advantage < -0.15:
-            key_factors.append("Calendrier chargé (fatigue potentielle)")
-
-    # Select risk factors
-    risk_factors = random.sample(RISK_FACTORS_TEMPLATES, 2)
-
-    # Generate explanation
-    explanation_template = EXPLANATIONS_TEMPLATES[recommended_bet]
-    explanation = explanation_template.format(home=home_team, away=away_team)
+            key_factors.append(get_label("busy_schedule", lang))
 
     # Model contributions from ensemble (real data)
     model_contributions = None
@@ -1045,6 +1233,11 @@ async def get_daily_picks(
                 recommended_bet: Literal["home_win", "draw", "away_win"] = outcome_map.get(
                     recommendation, "draw"
                 )
+                # Get cached key_factors/risk_factors if available
+                cached_key_factors = cached.get("key_factors")
+                cached_risk_factors = cached.get("risk_factors")
+                cached_value_score = cached.get("value_score")
+
                 pred = PredictionResponse(
                     match_id=cached["match_id"],
                     home_team=cached.get("home_team") or "Unknown",
@@ -1058,10 +1251,10 @@ async def get_daily_picks(
                     ),
                     recommended_bet=recommended_bet,
                     confidence=cached["confidence"],
-                    value_score=0.10,  # Default value
+                    value_score=cached_value_score if cached_value_score else 0.10,
                     explanation=cached.get("explanation") or "",
-                    key_factors=["Données en cache"],
-                    risk_factors=["Mise à jour recommandée"],
+                    key_factors=cached_key_factors if cached_key_factors else ["Analyse statistique"],
+                    risk_factors=cached_risk_factors if cached_risk_factors else ["Données en cache"],
                     created_at=datetime.fromisoformat(cached["created_at"]),
                     is_daily_pick=True,
                 )
@@ -1119,9 +1312,9 @@ async def get_daily_picks(
         # Generate predictions for all matches
         all_predictions = []
         for api_match in api_matches:
-            pred = await _generate_prediction_from_api_match(api_match, include_model_details=False)
+            pred = await _generate_prediction_from_api_match(api_match, include_model_details=False, request=request)
 
-            # Save prediction to database for caching
+            # Save prediction to database for caching (including LLM-generated factors)
             await PredictionService.save_prediction_from_api(
                 {
                     "match_id": pred.match_id,
@@ -1136,6 +1329,9 @@ async def get_daily_picks(
                     "confidence": pred.confidence,
                     "recommendation": pred.recommended_bet,
                     "explanation": pred.explanation,
+                    "key_factors": pred.key_factors,
+                    "risk_factors": pred.risk_factors,
+                    "value_score": pred.value_score,
                 }
             )
 
@@ -1335,12 +1531,35 @@ async def get_prediction_stats(
     )
 
 
+async def _get_match_info_from_db(match_id: int) -> dict[str, Any] | None:
+    """Try to get basic match info from database for fallback predictions."""
+    try:
+        async with get_uow() as uow:
+            match = await uow.matches.get_by_id(match_id)
+            if match:
+                home_team = await uow.teams.get_by_id(match.home_team_id) if match.home_team_id else None
+                away_team = await uow.teams.get_by_id(match.away_team_id) if match.away_team_id else None
+                return {
+                    "home_team": home_team.name if home_team else None,
+                    "away_team": away_team.name if away_team else None,
+                    "competition": COMPETITION_NAMES.get(match.competition_code, match.competition_code) if match.competition_code else None,
+                    "match_date": match.match_date,
+                }
+    except Exception as e:
+        logger.debug(f"Could not fetch match {match_id} from DB: {e}")
+    return None
+
+
 def _generate_fallback_prediction(
     match_id: int,
     include_model_details: bool = False,
     fallback_reason: str = "API externe indisponible",
     is_rate_limit: bool = False,
     retry_after: int | None = None,
+    home_team: str | None = None,
+    away_team: str | None = None,
+    competition: str | None = None,
+    match_date: datetime | None = None,
 ) -> PredictionResponse:
     """
     Generate a basic prediction when external API fails.
@@ -1517,10 +1736,10 @@ def _generate_fallback_prediction(
 
     return PredictionResponse(
         match_id=match_id,
-        home_team="Équipe Domicile",
-        away_team="Équipe Extérieur",
-        competition="Match",
-        match_date=datetime.now() + timedelta(hours=2),
+        home_team=home_team or "Unknown Home Team",
+        away_team=away_team or "Unknown Away Team",
+        competition=competition or "Unknown",
+        match_date=match_date or (datetime.now() + timedelta(hours=2)),
         probabilities=PredictionProbabilities(
             home_win=home_prob,
             draw=draw_prob,
@@ -1598,6 +1817,12 @@ async def get_prediction(
                 cached.get("predicted_outcome", "draw"), "draw"
             )
 
+            # Use cached key_factors and risk_factors if available, fallback to defaults
+            cached_key_factors = cached.get("key_factors")
+            cached_risk_factors = cached.get("risk_factors")
+            key_factors = cached_key_factors if cached_key_factors else ["Analyse statistique", "Modèles ML"]
+            risk_factors = cached_risk_factors if cached_risk_factors else ["Données en cache"]
+
             response = PredictionResponse(
                 match_id=match_id,
                 home_team=home_team,
@@ -1613,8 +1838,8 @@ async def get_prediction(
                 recommended_bet=recommended,
                 value_score=float(cached.get("value_score", 0.10)),
                 explanation=cached.get("explanation", "Prédiction mise en cache"),
-                key_factors=["Données en cache", "Analyse statistique", "Modèles ML"],
-                risk_factors=["Données potentiellement non actualisées"],
+                key_factors=key_factors,
+                risk_factors=risk_factors,
                 created_at=datetime.now(),
                 data_source=DataSourceInfo(source="database"),
             )
@@ -1635,10 +1860,10 @@ async def get_prediction(
         client = get_football_data_client()
         api_match = await client.get_match(match_id)
         prediction = await _generate_prediction_from_api_match(
-            api_match, include_model_details=include_model_details
+            api_match, include_model_details=include_model_details, request=request
         )
 
-        # 4. Save to DB for permanent storage
+        # 4. Save to DB for permanent storage (including LLM-generated factors)
         try:
             await PredictionService.save_prediction_from_api({
                 "match_id": prediction.match_id,
@@ -1653,6 +1878,8 @@ async def get_prediction(
                 "confidence": prediction.confidence,
                 "recommendation": prediction.recommended_bet,
                 "explanation": prediction.explanation,
+                "key_factors": prediction.key_factors,
+                "risk_factors": prediction.risk_factors,
                 "value_score": prediction.value_score,
             })
             logger.info(f"Saved prediction to DB for match {match_id}")
@@ -1671,12 +1898,18 @@ async def get_prediction(
         # On rate limit, try fallback instead of failing
         retry_after = e.details.get("retry_after", 60) if e.details else 60
         logger.warning(f"Rate limit hit for match {match_id}, using fallback prediction")
+        # Try to get real match info from DB
+        match_info = await _get_match_info_from_db(match_id)
         return _generate_fallback_prediction(
             match_id,
             include_model_details,
             fallback_reason="Limite API externe atteinte (10 req/min)",
             is_rate_limit=True,
             retry_after=retry_after,
+            home_team=match_info.get("home_team") if match_info else None,
+            away_team=match_info.get("away_team") if match_info else None,
+            competition=match_info.get("competition") if match_info else None,
+            match_date=match_info.get("match_date") if match_info else None,
         )
 
     except FootballDataAPIError as e:
@@ -1691,19 +1924,31 @@ async def get_prediction(
 
         # For other API failures (502, timeout, etc), use fallback
         logger.warning(f"API failed for match {match_id}: {e}. Using fallback prediction.")
+        # Try to get real match info from DB
+        match_info = await _get_match_info_from_db(match_id)
         return _generate_fallback_prediction(
             match_id,
             include_model_details,
             fallback_reason=f"Erreur API externe: {str(e)[:50]}",
+            home_team=match_info.get("home_team") if match_info else None,
+            away_team=match_info.get("away_team") if match_info else None,
+            competition=match_info.get("competition") if match_info else None,
+            match_date=match_info.get("match_date") if match_info else None,
         )
 
     except Exception as e:
         # Catch-all for any other errors, use fallback
         logger.error(f"Unexpected error for match {match_id}: {e}. Using fallback prediction.")
+        # Try to get real match info from DB
+        match_info = await _get_match_info_from_db(match_id)
         return _generate_fallback_prediction(
             match_id,
             include_model_details,
             fallback_reason=f"Erreur inattendue: {str(e)[:50]}",
+            home_team=match_info.get("home_team") if match_info else None,
+            away_team=match_info.get("away_team") if match_info else None,
+            competition=match_info.get("competition") if match_info else None,
+            match_date=match_info.get("match_date") if match_info else None,
         )
 
 

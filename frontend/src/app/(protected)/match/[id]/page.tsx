@@ -1147,12 +1147,8 @@ function ModelContributionsSection({ prediction }: { prediction: PredictionRespo
     xgboost: "🤖",
   };
 
-  const modelWeights: Record<string, string> = {
-    poisson: "15%",
-    elo: "10%",
-    xg_model: "15%",
-    xgboost: "35%",
-  };
+  // NOTE: Model weights should come from backend API, not hardcoded
+  // These are display-only hints, actual weights are in ensemble_advanced.py
 
   return (
     <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 sm:p-6 space-y-4 sm:space-y-6">
@@ -1173,7 +1169,6 @@ function ModelContributionsSection({ prediction }: { prediction: PredictionRespo
               modelName={modelName}
               modelKey={modelKey}
               contribution={contribution!}
-              weight={modelWeights[modelName] || "N/A"}
               icon={modelIcons[modelName] || "📐"}
             />
           );
@@ -1187,13 +1182,11 @@ function ModelContributionCard({
   modelName,
   modelKey,
   contribution,
-  weight,
   icon,
 }: {
   modelName: string;
   modelKey: string;
   contribution: { home_win?: number; draw?: number; away_win?: number };
-  weight: string;
   icon: string;
 }) {
   const t = useTranslations("matchDetail.models");
@@ -1229,7 +1222,6 @@ function ModelContributionCard({
         <span className="text-lg">{icon}</span>
         <div className="flex-1 min-w-0">
           <p className="text-gray-900 dark:text-white text-sm sm:text-base font-semibold truncate">{getModelName()}</p>
-          <p className="text-xs text-gray-500 dark:text-slate-400">{t("weight")}: {weight}</p>
         </div>
       </div>
       <p className="text-xs text-gray-500 dark:text-slate-400 line-clamp-2">{getModelDescription()}</p>
@@ -1349,21 +1341,16 @@ function OddsSection({
 
   if (!odds.home_win && !odds.draw && !odds.away_win) return null;
 
-  // Transform bookmaker data into the format expected by BookmakerOddsComparison
-  // If we have multiple bookmakers, create mock data with slight variations to show comparison
-  const bookmakerOdds: BookmakerOdds[] = odds.bookmakers && odds.bookmakers.length > 0
-    ? odds.bookmakers.map((bookie, index) => ({
-        bookmaker: bookie,
-        home: odds.home_win ? odds.home_win * (1 + (index * 0.02 - 0.02)) : 0,
-        draw: odds.draw ? odds.draw * (1 + (index * 0.015 - 0.015)) : 0,
-        away: odds.away_win ? odds.away_win * (1 + (index * 0.02 - 0.02)) : 0,
-      }))
-    : [{
-        bookmaker: "Best Odds",
+  // Transform bookmaker data - only use real odds from API, no simulated variations
+  // NOTE: Real bookmaker odds should come from backend API (e.g., The Odds API integration)
+  const bookmakerOdds: BookmakerOdds[] = odds.home_win || odds.draw || odds.away_win
+    ? [{
+        bookmaker: "Average",
         home: odds.home_win || 0,
         draw: odds.draw || 0,
         away: odds.away_win || 0,
-      }];
+      }]
+    : [];
 
   // If we have multiple bookmakers and team names, use the enhanced comparison view
   if (bookmakerOdds.length > 1 && homeTeam && awayTeam && matchId) {

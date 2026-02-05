@@ -14,40 +14,7 @@ interface Testimonial {
   verified?: boolean;
 }
 
-const defaultTestimonials: Testimonial[] = [
-  {
-    id: "1",
-    name: "Thomas M.",
-    rating: 5,
-    text: "Excellent service! Les predictions sont tres precises et l'interface est intuitive. J'ai ameliore mon taux de reussite de 15% depuis que j'utilise la plateforme.",
-    date: "2026-01-28",
-    verified: true,
-  },
-  {
-    id: "2",
-    name: "Sophie L.",
-    rating: 5,
-    text: "L'analyse IA est vraiment impressionnante. Les explications detaillees m'aident a comprendre pourquoi certains paris sont recommandes.",
-    date: "2026-01-25",
-    verified: true,
-  },
-  {
-    id: "3",
-    name: "Marc D.",
-    rating: 4,
-    text: "Tres bon outil pour les paris sportifs. Les Value Bets sont particulierement utiles. J'attends avec impatience les predictions multi-marches!",
-    date: "2026-01-20",
-    verified: true,
-  },
-  {
-    id: "4",
-    name: "Julie R.",
-    rating: 5,
-    text: "Interface claire et predictions fiables. Le systeme de favoris et l'historique sont tres pratiques pour suivre mes paris.",
-    date: "2026-01-15",
-    verified: true,
-  },
-];
+// No default testimonials - component shows nothing or message when no real data provided
 
 interface TestimonialsProps {
   testimonials?: Testimonial[];
@@ -57,13 +24,19 @@ interface TestimonialsProps {
 }
 
 export function Testimonials({
-  testimonials = defaultTestimonials,
+  testimonials = [],
   variant = "grid",
   showTrustpilot = true,
   className,
 }: TestimonialsProps) {
   const t = useTranslations("testimonials");
   const tCommon = useTranslations("common");
+
+  // Return nothing if no real testimonials provided
+  if (testimonials.length === 0) {
+    return null;
+  }
+
   const averageRating = testimonials.reduce((sum, t) => sum + t.rating, 0) / testimonials.length;
 
   return (
@@ -200,9 +173,22 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
   );
 }
 
-// Widget for homepage
-export function TrustpilotWidget({ className }: { className?: string }) {
+// Widget for homepage - requires real rating data
+export function TrustpilotWidget({
+  className,
+  rating
+}: {
+  className?: string;
+  rating?: number;
+}) {
   const t = useTranslations("testimonials");
+
+  // Don't render if no real rating data
+  if (rating === undefined) {
+    return null;
+  }
+
+  const filledStars = Math.round(rating);
 
   return (
     <div
@@ -216,11 +202,16 @@ export function TrustpilotWidget({ className }: { className?: string }) {
           {[1, 2, 3, 4, 5].map((star) => (
             <Star
               key={star}
-              className="w-4 h-4 text-green-500 fill-green-500"
+              className={cn(
+                "w-4 h-4",
+                star <= filledStars
+                  ? "text-green-500 fill-green-500"
+                  : "text-gray-300 dark:text-dark-600"
+              )}
             />
           ))}
         </div>
-        <span className="text-sm font-bold text-gray-900 dark:text-white">4.8</span>
+        <span className="text-sm font-bold text-gray-900 dark:text-white">{rating.toFixed(1)}</span>
       </div>
       <div className="h-4 w-px bg-gray-300 dark:bg-dark-600" />
       <span className="text-xs text-gray-600 dark:text-dark-400">

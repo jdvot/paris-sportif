@@ -161,44 +161,4 @@ export function MultiMarkets({
   );
 }
 
-// Simulated data generator for demo purposes
-export function generateMultiMarketData(homeProb: number, awayProb: number) {
-  const drawProb = 1 - homeProb - awayProb;
-
-  // Estimate Over/Under based on team strengths
-  const avgGoals = (homeProb + awayProb) * 3;
-  const over25Prob = Math.min(0.85, Math.max(0.15, avgGoals / 4));
-  const over15Prob = Math.min(0.95, over25Prob + 0.25);
-
-  // BTTS probability
-  const bttsProb = Math.min(0.75, Math.max(0.25, (homeProb * 0.6 + awayProb * 0.6)));
-
-  return {
-    overUnder25: {
-      prob: over25Prob,
-      odds: {
-        over: 1 / over25Prob * 0.9,
-        under: 1 / (1 - over25Prob) * 0.9,
-      },
-    },
-    overUnder15: {
-      prob: over15Prob,
-      odds: {
-        over: 1 / over15Prob * 0.9,
-        under: 1 / (1 - over15Prob) * 0.9,
-      },
-    },
-    btts: {
-      prob: bttsProb,
-      odds: {
-        yes: 1 / bttsProb * 0.9,
-        no: 1 / (1 - bttsProb) * 0.9,
-      },
-    },
-    doubleChance: {
-      homeOrDraw: { prob: homeProb + drawProb, odds: 1 / (homeProb + drawProb) * 0.9 },
-      awayOrDraw: { prob: awayProb + drawProb, odds: 1 / (awayProb + drawProb) * 0.9 },
-      homeOrAway: { prob: homeProb + awayProb, odds: 1 / (homeProb + awayProb) * 0.9 },
-    },
-  };
-}
+// NOTE: Simulated data generator removed - multi-market data should come from backend API

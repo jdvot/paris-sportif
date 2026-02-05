@@ -62,14 +62,23 @@ function PreferenceToggle({
   );
 }
 
-const COMPETITIONS = [
-  { code: "PL", name: "Premier League", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
-  { code: "PD", name: "La Liga", flag: "🇪🇸" },
-  { code: "BL1", name: "Bundesliga", flag: "🇩🇪" },
-  { code: "SA", name: "Serie A", flag: "🇮🇹" },
-  { code: "FL1", name: "Ligue 1", flag: "🇫🇷" },
-  { code: "CL", name: "Champions League", flag: "🇪🇺" },
-];
+import { COMPETITIONS as COMPETITIONS_DATA } from "@/lib/constants";
+
+// Map ISO flag codes to emoji flags for display
+const FLAG_EMOJI: Record<string, string> = {
+  "gb-eng": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+  "es": "🇪🇸",
+  "de": "🇩🇪",
+  "it": "🇮🇹",
+  "fr": "🇫🇷",
+  "eu": "🇪🇺",
+};
+
+const COMPETITIONS = COMPETITIONS_DATA.map(c => ({
+  code: c.code,
+  name: c.name,
+  flag: FLAG_EMOJI[c.flag] || "🏳️",
+}));
 
 export default function PreferencesPage() {
   const t = useTranslations("preferences");

@@ -7,14 +7,25 @@ import { useGetStandings } from "@/lib/api/endpoints/matches/matches";
 import type { StandingsResponse } from "@/lib/api/models";
 import { LeagueStandings } from "@/components/LeagueStandings";
 import { getErrorMessage } from "@/lib/errors";
+import { COMPETITIONS as COMPETITIONS_DATA } from "@/lib/constants";
 
-const COMPETITIONS = [
-  { code: "PL", label: "Premier League", flag: "🇬🇧" },
-  { code: "PD", label: "La Liga", flag: "🇪🇸" },
-  { code: "BL1", label: "Bundesliga", flag: "🇩🇪" },
-  { code: "SA", label: "Serie A", flag: "🇮🇹" },
-  { code: "FL1", label: "Ligue 1", flag: "🇫🇷" },
-];
+// Map ISO flag codes to emoji flags and filter to leagues only (no CL/EL)
+const FLAG_EMOJI: Record<string, string> = {
+  "gb-eng": "🇬🇧",
+  "es": "🇪🇸",
+  "de": "🇩🇪",
+  "it": "🇮🇹",
+  "fr": "🇫🇷",
+};
+
+// Only show domestic leagues in standings (exclude European competitions)
+const COMPETITIONS = COMPETITIONS_DATA
+  .filter(c => !["CL", "EL"].includes(c.code))
+  .map(c => ({
+    code: c.code,
+    label: c.name,
+    flag: FLAG_EMOJI[c.flag] || "🏳️",
+  }));
 
 export default function StandingsPage() {
   const t = useTranslations("standings");

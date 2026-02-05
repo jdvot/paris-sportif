@@ -92,6 +92,21 @@ class PredictionService:
             if not pred:
                 return None
 
+            import json
+            # Parse stored JSON arrays for key_factors and risk_factors
+            key_factors = None
+            risk_factors = None
+            if pred.key_factors:
+                try:
+                    key_factors = json.loads(pred.key_factors)
+                except (json.JSONDecodeError, TypeError):
+                    key_factors = None
+            if pred.risk_factors:
+                try:
+                    risk_factors = json.loads(pred.risk_factors)
+                except (json.JSONDecodeError, TypeError):
+                    risk_factors = None
+
             return {
                 "id": pred.id,
                 "match_id": pred.match_id,
@@ -101,6 +116,9 @@ class PredictionService:
                 "predicted_outcome": pred.predicted_outcome,
                 "confidence": float(pred.confidence),
                 "explanation": pred.explanation,
+                "key_factors": key_factors,
+                "risk_factors": risk_factors,
+                "value_score": float(pred.value_score) if pred.value_score else None,
                 "is_daily_pick": pred.is_daily_pick,
                 "pick_rank": pred.pick_rank,
                 "created_at": (
@@ -335,8 +353,24 @@ class PredictionService:
             result = await uow.session.execute(stmt)
             predictions = result.scalars().unique().all()
 
-            return [
-                {
+            results = []
+            for p in predictions:
+                # Parse stored JSON arrays for key_factors and risk_factors
+                import json
+                key_factors = None
+                risk_factors = None
+                if p.key_factors:
+                    try:
+                        key_factors = json.loads(p.key_factors)
+                    except (json.JSONDecodeError, TypeError):
+                        key_factors = None
+                if p.risk_factors:
+                    try:
+                        risk_factors = json.loads(p.risk_factors)
+                    except (json.JSONDecodeError, TypeError):
+                        risk_factors = None
+
+                results.append({
                     "id": p.id,
                     "match_id": p.match_id,
                     "match_external_id": p.match.external_id if p.match else None,
@@ -360,6 +394,9 @@ class PredictionService:
                     "confidence": float(p.confidence),
                     "recommendation": p.predicted_outcome,
                     "explanation": p.explanation,
+                    "key_factors": key_factors,
+                    "risk_factors": risk_factors,
+                    "value_score": float(p.value_score) if p.value_score else None,
                     "is_daily_pick": p.is_daily_pick,
                     "pick_rank": p.pick_rank,
                     "created_at": (
@@ -367,9 +404,8 @@ class PredictionService:
                         if p.created_at and hasattr(p.created_at, 'isoformat')
                         else str(p.created_at) if p.created_at else None
                     ),
-                }
-                for p in predictions
-            ]
+                })
+            return results
 
     @staticmethod
     async def save_prediction_from_api(prediction_data: dict[str, Any]) -> bool:
@@ -433,7 +469,13 @@ class PredictionService:
                     else:
                         predicted_outcome = "away"
 
-                # Upsert the prediction
+                # Prepare optional fields
+                import json
+                key_factors = prediction_data.get("key_factors")
+                risk_factors = prediction_data.get("risk_factors")
+                value_score = prediction_data.get("value_score")
+
+                # Upsert the prediction with all LLM-generated content
                 await uow.predictions.upsert(
                     "match_id",
                     match.id,
@@ -443,6 +485,9 @@ class PredictionService:
                     predicted_outcome=predicted_outcome,
                     confidence=confidence,
                     explanation=prediction_data.get("explanation"),
+                    key_factors=json.dumps(key_factors) if key_factors else None,
+                    risk_factors=json.dumps(risk_factors) if risk_factors else None,
+                    value_score=Decimal(str(value_score)) if value_score else None,
                 )
 
                 await uow.commit()

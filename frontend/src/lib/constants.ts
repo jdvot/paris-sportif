@@ -155,3 +155,37 @@ export function formatConfidence(confidence: number): string {
 export function formatValue(valueScore: number): string {
   return `+${Math.round(valueScore * 100)}%`;
 }
+
+// ============== COMPETITIONS ==============
+// Single source of truth for competition data
+// Sync with backend/src/core/constants.py
+
+export interface Competition {
+  code: string;
+  name: string;
+  country: string;
+  flag: string;  // ISO country code for flag-icons (e.g., "gb-eng", "es")
+}
+
+export const COMPETITIONS: Competition[] = [
+  { code: "PL", name: "Premier League", country: "England", flag: "gb-eng" },
+  { code: "PD", name: "La Liga", country: "Spain", flag: "es" },
+  { code: "BL1", name: "Bundesliga", country: "Germany", flag: "de" },
+  { code: "SA", name: "Serie A", country: "Italy", flag: "it" },
+  { code: "FL1", name: "Ligue 1", country: "France", flag: "fr" },
+  { code: "CL", name: "Champions League", country: "Europe", flag: "eu" },
+  { code: "EL", name: "Europa League", country: "Europe", flag: "eu" },
+];
+
+// Quick lookup by code
+export const COMPETITION_MAP = new Map(COMPETITIONS.map(c => [c.code, c]));
+
+// Get competition name by code
+export function getCompetitionName(code: string): string {
+  return COMPETITION_MAP.get(code)?.name ?? code;
+}
+
+// Get competition by code
+export function getCompetition(code: string): Competition | undefined {
+  return COMPETITION_MAP.get(code);
+}

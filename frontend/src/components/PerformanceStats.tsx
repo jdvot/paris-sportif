@@ -43,7 +43,8 @@ interface BetTypeData {
   avgValue?: number;
 }
 
-interface ConfidenceData {
+// NOTE: ConfidenceData interface removed - was used for fake data
+interface _UnusedConfidenceData {
   range: string;
   count: number;
   accuracy: number;
@@ -87,30 +88,8 @@ export function PerformanceStats() {
       .filter((comp) => comp.value > 0);
   }, [stats]);
 
-  // Memoize confidence level data
-  const confidenceData = useMemo<ConfidenceData[]>(() => {
-    if (!stats) return [];
-    return [
-      {
-        range: ">70%",
-        count: Math.floor(stats.total_predictions * 0.35),
-        accuracy: Math.min(100, (stats.accuracy || 0) + 8),
-        color: "#4ade80",
-      },
-      {
-        range: "60-70%",
-        count: Math.floor(stats.total_predictions * 0.45),
-        accuracy: Math.max(40, (stats.accuracy || 0) - 2),
-        color: "#60a5fa",
-      },
-      {
-        range: "<60%",
-        count: Math.floor(stats.total_predictions * 0.2),
-        accuracy: Math.max(35, (stats.accuracy || 0) - 12),
-        color: "#fbbf24",
-      },
-    ];
-  }, [stats]);
+  // NOTE: Confidence level breakdown removed - requires real data from API
+  // Stats by confidence level should come from backend, not be invented
 
   const COLORS = useMemo(() => ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"], []);
 
@@ -274,60 +253,7 @@ export function PerformanceStats() {
         </div>
       </div>
 
-      {/* Breakdown by Confidence Level */}
-      <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
-        <h3 className="text-base sm:text-lg font-semibold text-white mb-4">
-          {t("byConfidence")}
-        </h3>
-        <div className="w-full h-64 sm:h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={confidenceData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis
-                dataKey="range"
-                stroke="#94a3b8"
-                style={{ fontSize: "0.75rem" }}
-                tick={{ fill: "#94a3b8" }}
-              />
-              <YAxis
-                stroke="#94a3b8"
-                style={{ fontSize: "0.75rem" }}
-                tick={{ fill: "#94a3b8" }}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#1e293b",
-                  border: "1px solid #334155",
-                  borderRadius: "8px",
-                }}
-                labelStyle={{ color: "#e2e8f0" }}
-                formatter={(value: number, name: string) => {
-                  if (name === "accuracy") return `${value.toFixed(1)}%`;
-                  return value;
-                }}
-              />
-              <Bar dataKey="accuracy" fill="#4ade80" radius={ROUNDED_TOP}>
-                {confidenceData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {confidenceData.map((conf) => (
-            <div
-              key={conf.range}
-              className="bg-dark-700/50 p-3 sm:p-4 rounded-lg border-l-4"
-              style={{ borderLeftColor: conf.color }}
-            >
-              <p className="text-dark-400 text-xs sm:text-sm mb-1">{t("confidence")} {conf.range}</p>
-              <p className="text-lg sm:text-xl font-bold text-white">{conf.accuracy.toFixed(1)}%</p>
-              <p className="text-xs text-dark-300 mt-1">{conf.count} predictions</p>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* NOTE: Confidence level breakdown section removed - requires real stats from API */}
     </div>
   );
 }
