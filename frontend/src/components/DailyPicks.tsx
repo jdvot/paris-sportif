@@ -1,27 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AlertCircle, CheckCircle, CalendarDays } from "lucide-react";
+import { AlertCircle, CheckCircle, CalendarDays, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { cn, isAuthError } from "@/lib/utils";
 import { LoadingState } from "@/components/LoadingState";
 import { useGetDailyPicks } from "@/lib/api/endpoints/predictions/predictions";
-import type { DailyPick } from "@/lib/api/models";
+import type { DailyPick, DailyPicksResponse } from "@/lib/api/models";
 import { ValueBetIndicator } from "@/components/ValueBetBadge";
 import { getConfidenceTier, formatConfidence, isValueBet, formatValue } from "@/lib/constants";
+import { customInstance } from "@/lib/api/custom-instance";
 
 // Helper to format date as YYYY-MM-DD
 function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
 }
 
-// Get dates for fallback (today, yesterday, 2 days ago, etc.)
-function getFallbackDates(): string[] {
+// Get upcoming dates (today + next 6 days)
+function getUpcomingDates(): string[] {
   const dates: string[] = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date();
-    d.setDate(d.getDate() - i);
+    d.setDate(d.getDate() + i);
     dates.push(formatDate(d));
   }
   return dates;
@@ -29,39 +30,80 @@ function getFallbackDates(): string[] {
 
 export function DailyPicks() {
   const t = useTranslations("dailyPicks");
-  const [fallbackDateIndex, setFallbackDateIndex] = useState(0);
-  const [displayDate, setDisplayDate] = useState<string | null>(null);
+  const [upcomingPicks, setUpcomingPicks] = useState<DailyPick[] | null>(null);
+  const [isLoadingUpcoming, setIsLoadingUpcoming] = useState(false);
+  const [showingUpcoming, setShowingUpcoming] = useState(false);
 
-  const fallbackDates = getFallbackDates();
-  const currentDate = fallbackDates[fallbackDateIndex];
-
-  // Only pass date param if we're looking at a past date
-  const dateParam = fallbackDateIndex > 0 ? currentDate : undefined;
-
+  // First, try to get today's picks
   const { data: response, isLoading, error } = useGetDailyPicks(
-    dateParam ? { date: dateParam } : undefined,
+    undefined, // No date = today
     { query: { staleTime: 5 * 60 * 1000 } }
   );
 
-  // Extract picks from response - API returns { data: { picks: [...] }, status: number }
-  const picks = (response?.data as { picks?: DailyPick[]; date?: string } | undefined)?.picks || [];
+  // Extract picks from response
+  const todayPicks = (response?.data as { picks?: DailyPick[]; date?: string } | undefined)?.picks || [];
   const responseDate = (response?.data as { date?: string } | undefined)?.date;
 
-  // If no picks for today, try previous days
+  // If no picks today, fetch upcoming 7 days and get best 5
   useEffect(() => {
-    if (!isLoading && picks.length === 0 && fallbackDateIndex < 6) {
-      // No picks, try previous day
-      const timer = setTimeout(() => {
-        setFallbackDateIndex(prev => prev + 1);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-    if (picks.length > 0) {
-      setDisplayDate(responseDate || currentDate);
-    }
-  }, [isLoading, picks.length, fallbackDateIndex, responseDate, currentDate]);
+    async function fetchUpcomingPicks() {
+      if (isLoading || todayPicks.length > 0 || upcomingPicks !== null) return;
 
-  if (isLoading) {
+      setIsLoadingUpcoming(true);
+      const upcomingDates = getUpcomingDates();
+      const allPicks: (DailyPick & { date: string })[] = [];
+
+      try {
+        // Fetch picks for each of the next 7 days
+        const results = await Promise.all(
+          upcomingDates.slice(1).map(async (date) => { // Skip today (index 0)
+            try {
+              const res = await customInstance<{ data: DailyPicksResponse; status: number }>(
+                `/api/v1/predictions/daily?date=${date}`,
+                { method: "GET" }
+              );
+              if (res.status === 200 && res.data?.picks) {
+                return res.data.picks.map((pick) => ({ ...pick, date }));
+              }
+              return [];
+            } catch {
+              return [];
+            }
+          })
+        );
+
+        // Flatten and combine all picks
+        for (const dayPicks of results) {
+          allPicks.push(...dayPicks);
+        }
+
+        // Sort by pick_score (descending) and take top 5
+        allPicks.sort((a, b) => (b.pick_score || 0) - (a.pick_score || 0));
+        const bestPicks = allPicks.slice(0, 5);
+
+        // Re-rank from 1 to 5
+        bestPicks.forEach((pick, idx) => {
+          pick.rank = idx + 1;
+        });
+
+        setUpcomingPicks(bestPicks);
+        setShowingUpcoming(bestPicks.length > 0);
+      } catch (err) {
+        console.error("Error fetching upcoming picks:", err);
+        setUpcomingPicks([]);
+      } finally {
+        setIsLoadingUpcoming(false);
+      }
+    }
+
+    fetchUpcomingPicks();
+  }, [isLoading, todayPicks.length, upcomingPicks]);
+
+  // Determine which picks to show
+  const picks = todayPicks.length > 0 ? todayPicks : (upcomingPicks || []);
+  const isLoadingAny = isLoading || isLoadingUpcoming;
+
+  if (isLoadingAny && picks.length === 0) {
     return (
       <LoadingState
         variant="picks"
@@ -93,17 +135,8 @@ export function DailyPicks() {
     );
   }
 
-  // Still searching for picks in previous days
+  // No picks at all
   if (!picks || picks.length === 0) {
-    if (fallbackDateIndex < 6) {
-      return (
-        <LoadingState
-          variant="picks"
-          count={3}
-          message={t("searchingPreviousDays") || "Recherche des picks récents..."}
-        />
-      );
-    }
     return (
       <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-8 text-center">
         <p className="text-gray-600 dark:text-dark-400">{t("empty")}</p>
@@ -112,38 +145,42 @@ export function DailyPicks() {
     );
   }
 
-  // Show banner if showing past picks
-  const isShowingPastPicks = fallbackDateIndex > 0;
-
   return (
     <div className="space-y-4">
-      {/* Banner for past picks */}
-      {isShowingPastPicks && displayDate && (
-        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg">
-          <CalendarDays className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
-          <p className="text-sm text-amber-700 dark:text-amber-300">
-            {t("showingPicksFrom") || "Affichage des picks du"}{" "}
-            <span className="font-semibold">
-              {new Date(displayDate).toLocaleDateString("fr-FR", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-              })}
-            </span>
+      {/* Banner for upcoming picks (not today) */}
+      {showingUpcoming && (
+        <div className="flex items-center gap-2 p-3 bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/30 rounded-lg">
+          <Sparkles className="w-5 h-5 text-primary-600 dark:text-primary-400 shrink-0" />
+          <p className="text-sm text-primary-700 dark:text-primary-300">
+            {t("bestUpcomingPicks") || "Meilleurs picks des 7 prochains jours"}
+          </p>
+        </div>
+      )}
+
+      {/* Banner for today's picks */}
+      {!showingUpcoming && responseDate && (
+        <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-lg">
+          <CalendarDays className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <p className="text-sm text-emerald-700 dark:text-emerald-300">
+            {t("todaysPicks") || "Picks du jour"} - {new Date(responseDate).toLocaleDateString("fr-FR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
           </p>
         </div>
       )}
 
       <div className="grid gap-4">
         {picks.map((pick) => (
-          <PickCard key={pick.rank} pick={pick} />
+          <PickCard key={`${pick.rank}-${pick.prediction.match_id}`} pick={pick} showDate={showingUpcoming} />
         ))}
       </div>
     </div>
   );
 }
 
-function PickCard({ pick }: { pick: DailyPick }) {
+function PickCard({ pick, showDate = false }: { pick: DailyPick; showDate?: boolean }) {
   const t = useTranslations("dailyPicks");
   const { prediction } = pick;
 
@@ -151,6 +188,7 @@ function PickCard({ pick }: { pick: DailyPick }) {
   const homeTeam = prediction.home_team;
   const awayTeam = prediction.away_team;
   const matchId = prediction.match_id;
+  const matchDate = prediction.match_date;
 
   const getBetLabel = (bet: string) => {
     if (bet === "home" || bet === "home_win") return t("homeWin", { team: homeTeam });
@@ -170,8 +208,15 @@ function PickCard({ pick }: { pick: DailyPick }) {
   const drawProb = prediction.probabilities?.draw || 0;
   const awayProb = prediction.probabilities?.away_win || 0;
 
+  // Format match date if showing upcoming
+  const formattedDate = matchDate ? new Date(matchDate).toLocaleDateString("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }) : "";
+
   // Get competition from match_date context or default
-  const competition = t("sport");
+  const competition = showDate && formattedDate ? formattedDate : t("sport");
 
   return (
     <Link
