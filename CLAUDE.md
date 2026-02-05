@@ -129,6 +129,15 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
 - Commits: Conventional commits (feat:, fix:, docs:)
 - Dark mode: Use `dark:` Tailwind classes with `slate-*` colors for consistency
 
+## Recherche de Documentation
+
+**IMPORTANT**: Avant toute recherche de documentation externe (Supabase, Next.js, etc.):
+
+1. Toujours vérifier la date actuelle avec `date` avant d'utiliser WebSearch
+2. Inclure l'année courante dans les requêtes de recherche (ex: "Supabase SSR Next.js 2026")
+3. Privilégier les sources officielles et les exemples GitHub récents
+4. Vérifier la compatibilité des versions (Next.js 15, @supabase/ssr, etc.)
+
 ## Data Flow
 
 1. **football-data.org** → Backend fetches matches/stats

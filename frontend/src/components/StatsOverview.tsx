@@ -10,8 +10,6 @@ import {
   Zap,
 } from "lucide-react";
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
   XAxis,

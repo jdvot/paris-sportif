@@ -18,8 +18,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -90,11 +88,11 @@ export default function DashboardPage() {
     };
   });
 
-  // Simulated profit based on ROI (assuming €10 stake per bet)
+  // Estimated profit calculation based on ROI (hypothetical €10 stake per bet)
+  // NOTE: This is illustrative only - actual profit depends on user's real stakes
   const stakePerBet = 10;
   const totalStake = totalPredictions * stakePerBet;
   const profit = totalStake * (roi / 100);
-  const totalReturn = totalStake + profit;
 
   const statCards = [
     {

@@ -43,13 +43,6 @@ interface BetTypeData {
   avgValue?: number;
 }
 
-// NOTE: ConfidenceData interface removed - was used for fake data
-interface _UnusedConfidenceData {
-  range: string;
-  count: number;
-  accuracy: number;
-  color: string;
-}
 
 export function PerformanceStats() {
   const t = useTranslations("stats");

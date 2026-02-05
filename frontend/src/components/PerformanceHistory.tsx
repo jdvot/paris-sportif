@@ -15,7 +15,7 @@ import {
   Cell,
 } from "recharts";
 import { Loader2 } from "lucide-react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
 import { cn } from "@/lib/utils";
 import { ROUNDED_TOP } from "@/lib/recharts-types";
@@ -44,7 +44,7 @@ interface CompetitionChartData {
 
 export function PerformanceHistory() {
   const t = useTranslations("stats");
-  const locale = useLocale();
+  // locale is available via useLocale() if needed for date formatting
   const { data: response, isLoading, error } = useGetPredictionStats(
     { days: 30 },
     { query: { staleTime: 5 * 60 * 1000 } } // 5 minutes

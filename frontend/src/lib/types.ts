@@ -22,11 +22,11 @@ export interface Probabilities {
 }
 
 export interface Prediction {
-  // Legacy format (frontend mock data)
+  // Legacy format (deprecated - use probabilities instead)
   homeProb?: number;
   drawProb?: number;
   awayProb?: number;
-  // New format (backend API)
+  // Current format from backend API
   probabilities?: Probabilities;
   recommendedBet: "home" | "draw" | "away" | "home_win" | "away_win";
   confidence: number;

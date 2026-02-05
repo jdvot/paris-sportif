@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import {
   User,
   LogOut,
@@ -16,7 +15,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 export function AuthButton() {
-  const router = useRouter();
   const { user, profile, role, loading, signOut, isAuthenticated, isPremium, isAdmin } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
