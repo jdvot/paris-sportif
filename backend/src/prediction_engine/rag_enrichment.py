@@ -383,15 +383,16 @@ class RAGEnrichment:
             self.llm_client = get_llm_client()
             logger.info("RAG enrichment initialized with LLM client")
 
-        # Initialize semantic search (optional, graceful degradation)
+        # Initialize semantic search (requires Qdrant)
         self.semantic_search = None
         try:
             from src.vector.search import SemanticSearch
 
             self.semantic_search = SemanticSearch()
-            logger.info("RAG enrichment initialized with semantic search")
+            logger.info("RAG enrichment initialized with Qdrant semantic search")
         except Exception as e:
-            logger.warning(f"Semantic search not available: {e}")
+            logger.error(f"Failed to initialize Qdrant semantic search: {e}")
+            raise RuntimeError(f"Qdrant is required for RAG enrichment: {e}")
 
     async def get_team_context(self, team_name: str) -> dict[str, Any]:
         """

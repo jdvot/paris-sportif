@@ -36,14 +36,23 @@ class SearchResult:
 
 
 def get_qdrant_client() -> QdrantClient:
-    """Get or create Qdrant client."""
+    """Get or create Qdrant client.
+
+    Raises:
+        RuntimeError: If QDRANT_URL is not configured
+    """
     global _client
 
     if _client is None:
         qdrant_url = getattr(settings, "qdrant_url", None)
         qdrant_api_key = getattr(settings, "qdrant_api_key", None)
 
-        if qdrant_url and "cloud.qdrant.io" in qdrant_url:
+        if not qdrant_url:
+            raise RuntimeError(
+                "QDRANT_URL not configured. Qdrant Cloud is required for vector search."
+            )
+
+        if "cloud.qdrant.io" in qdrant_url:
             # Qdrant Cloud
             logger.info(f"Connecting to Qdrant Cloud: {qdrant_url}")
             _client = QdrantClient(
@@ -51,14 +60,10 @@ def get_qdrant_client() -> QdrantClient:
                 api_key=qdrant_api_key,
                 timeout=30,
             )
-        elif qdrant_url:
+        else:
             # Self-hosted Qdrant
             logger.info(f"Connecting to Qdrant: {qdrant_url}")
             _client = QdrantClient(url=qdrant_url, timeout=30)
-        else:
-            # In-memory for development
-            logger.warning("No Qdrant URL configured, using in-memory storage")
-            _client = QdrantClient(":memory:")
 
     return _client
 
