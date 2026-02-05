@@ -6,11 +6,11 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
-  const { id: matchId } = await params;
+  await params; // Consume params to avoid unused warning
 
   // Fetch match data from API
-  let homeTeam = "Equipe Domicile";
-  let awayTeam = "Equipe Extérieure";
+  const homeTeam = "Equipe Domicile";
+  const awayTeam = "Equipe Extérieure";
   // Default values for OG image (prediction data requires auth, not available here)
   // Type annotation needed to allow comparison with other prediction values
   const prediction: string = "home_win";
