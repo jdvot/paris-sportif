@@ -385,3 +385,85 @@ async def _update_user_profiles_table(
     except Exception as e:
         # Log but don't fail - user_profiles update is secondary
         logger.warning(f"Failed to update user_profiles table: {e}")
+
+
+async def get_user_role_from_profiles(user_id: str) -> str | None:
+    """
+    Fetch user role from the user_profiles table in Supabase.
+
+    This is used as a fallback when the role is not in app_metadata or user_metadata.
+
+    Args:
+        user_id: The user's UUID
+
+    Returns:
+        Role string or None if not found
+    """
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        return None
+
+    base_url = SUPABASE_URL.rstrip("/")
+    url = f"{base_url}/rest/v1/user_profiles?id=eq.{user_id}&select=role"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            if data and len(data) > 0:
+                role = data[0].get("role")
+                if role:
+                    logger.debug(f"Found role '{role}' in user_profiles for {user_id}")
+                    return str(role)
+    except Exception as e:
+        logger.debug(f"Failed to fetch role from user_profiles: {e}")
+
+    return None
+
+
+async def sync_role_to_app_metadata(user_id: str, role: str) -> bool:
+    """
+    Sync a user's role to their app_metadata in Supabase Auth.
+
+    This ensures future JWT tokens will contain the correct role.
+
+    Args:
+        user_id: The user's UUID
+        role: The role to set (e.g., 'admin', 'premium', 'free')
+
+    Returns:
+        True if successful, False otherwise
+    """
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        logger.warning("Supabase admin credentials not configured")
+        return False
+
+    base_url = SUPABASE_URL.rstrip("/")
+    auth_url = f"{base_url}/auth/v1/admin/users/{user_id}"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.put(
+                auth_url,
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Content-Type": "application/json",
+                },
+                json={"app_metadata": {"role": role}},
+            )
+            response.raise_for_status()
+            logger.info(f"Synced role '{role}' to app_metadata for user {user_id}")
+            return True
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Failed to sync role to app_metadata: {e.response.status_code}")
+        return False
+    except Exception as e:
+        logger.error(f"Error syncing role to app_metadata: {e}")
+        return False
