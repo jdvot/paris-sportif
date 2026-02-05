@@ -84,7 +84,7 @@ class Match(Base):
 
     __tablename__ = "matches"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     external_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
 
     home_team_id: Mapped[int] = mapped_column(Integer, ForeignKey("teams.id"), nullable=False)

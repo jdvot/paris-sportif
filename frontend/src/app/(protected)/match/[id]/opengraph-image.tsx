@@ -20,24 +20,9 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   const awayProb: number = 25;
   const competition: string = "Football";
 
-  try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    // Use matches endpoint (doesn't require auth) for basic match info
-    const response = await fetch(`${apiUrl}/api/v1/matches/${matchId}`, {
-      next: { revalidate: 300 }, // Cache for 5 minutes
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      // Get team names from match data
-      homeTeam = typeof data.home_team === 'string' ? data.home_team : (data.home_team?.name || homeTeam);
-      awayTeam = typeof data.away_team === 'string' ? data.away_team : (data.away_team?.name || awayTeam);
-      // Note: prediction data (confidence, probabilities) requires auth
-      // OG image will use default values for these
-    }
-  } catch {
-    // Use defaults
-  }
+  // Note: Cannot fetch match data here because OG images run on edge runtime
+  // without access to authentication. Using defaults for now.
+  // In the future, could store team names in URL params or use a public endpoint
 
   // Prediction labels
   const predictionLabels: Record<string, string> = {

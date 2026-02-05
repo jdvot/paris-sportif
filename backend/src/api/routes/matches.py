@@ -566,7 +566,7 @@ async def get_upcoming_matches(
 )
 @limiter.limit(RATE_LIMITS["matches"])
 async def get_match(request: Request, match_id: int, user: AuthenticatedUser) -> MatchResponse:
-    """Get details for a specific match."""
+    """Get details for a specific match (requires authentication)."""
     try:
         client = get_football_data_client()
         api_match = await client.get_match(match_id)
