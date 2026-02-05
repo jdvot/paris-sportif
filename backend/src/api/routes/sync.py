@@ -174,6 +174,102 @@ async def _sync_form_from_standings() -> int:
         return 0
 
 
+async def _update_missing_team_countries() -> int:
+    """
+    Update teams with missing country based on the competitions they play in.
+
+    Uses match data to determine which league each team belongs to,
+    then maps that to a country.
+    """
+    # Competition code -> Country mapping
+    COMP_TO_COUNTRY = {
+        "PL": "England",
+        "PD": "Spain",
+        "BL1": "Germany",
+        "SA": "Italy",
+        "FL1": "France",
+        "CL": None,  # Champions League - teams from various countries
+        "EL": None,  # Europa League - teams from various countries
+    }
+
+    try:
+        with get_db_context() as db:
+            # Update teams without country based on their most recent domestic league match
+            query = text("""
+                WITH team_leagues AS (
+                    -- Find primary league for each team (most matches)
+                    SELECT team_id, competition_code, count
+                    FROM (
+                        SELECT home_team_id as team_id, competition_code, COUNT(*) as count
+                        FROM matches
+                        WHERE competition_code IN ('PL', 'PD', 'BL1', 'SA', 'FL1')
+                        GROUP BY home_team_id, competition_code
+                        UNION ALL
+                        SELECT away_team_id as team_id, competition_code, COUNT(*) as count
+                        FROM matches
+                        WHERE competition_code IN ('PL', 'PD', 'BL1', 'SA', 'FL1')
+                        GROUP BY away_team_id, competition_code
+                    ) matches_per_league
+                ),
+                primary_league AS (
+                    SELECT team_id, competition_code
+                    FROM (
+                        SELECT team_id, competition_code,
+                               ROW_NUMBER() OVER (PARTITION BY team_id ORDER BY SUM(count) DESC) as rn
+                        FROM team_leagues
+                        GROUP BY team_id, competition_code
+                    ) ranked
+                    WHERE rn = 1
+                )
+                UPDATE teams t
+                SET country = CASE pl.competition_code
+                    WHEN 'PL' THEN 'England'
+                    WHEN 'PD' THEN 'Spain'
+                    WHEN 'BL1' THEN 'Germany'
+                    WHEN 'SA' THEN 'Italy'
+                    WHEN 'FL1' THEN 'France'
+                    ELSE t.country
+                END,
+                updated_at = NOW()
+                FROM primary_league pl
+                WHERE t.id = pl.team_id
+                    AND (t.country IS NULL OR t.country = '')
+            """)
+            result = db.execute(query)
+            db.commit()
+            updated = result.rowcount
+            logger.info(f"Updated country for {updated} teams")
+            return updated
+
+    except Exception as e:
+        logger.error(f"Failed to update team countries: {e}")
+        return 0
+
+
+async def _update_match_xg_from_understat() -> int:
+    """
+    Update match xG data from Understat for finished matches.
+
+    This updates home_xg and away_xg columns in the matches table.
+    """
+    # This is expensive, so only done during weekly sync
+    # For now, just update team avg_xg values which is done by sync_all_xg_data
+    return 0
+
+
+async def _fill_missing_odds_data() -> int:
+    """
+    Attempt to fill missing odds data.
+
+    For now, this is a placeholder. In future:
+    - Could integrate with The Odds API
+    - Could scrape from oddsportal
+    - Could use historical averages as fallback
+    """
+    # Placeholder - odds would need external API integration
+    return 0
+
+
 async def _recalculate_all_team_stats() -> int:
     """
     Recalculate all team stats from match history.
@@ -441,6 +537,14 @@ async def sync_weekly_data(
         except Exception as e:
             logger.warning(f"Failed to sync form data: {e}")
 
+        # Update missing team countries (needed before xG sync)
+        countries_updated = 0
+        try:
+            countries_updated = await _update_missing_team_countries()
+            logger.info(f"Updated country for {countries_updated} teams")
+        except Exception as e:
+            logger.warning(f"Failed to update team countries: {e}")
+
         # Sync xG data from Understat (weekly only, slow)
         xg_synced = 0
         try:
@@ -639,12 +743,29 @@ async def sync_historical_season(
     except Exception as e:
         errors.append(f"Form sync failed: {e}")
 
+    # Update missing team countries (needed before xG sync)
+    countries_updated = 0
+    try:
+        countries_updated = await _update_missing_team_countries()
+        logger.info(f"Updated country for {countries_updated} teams")
+    except Exception as e:
+        errors.append(f"Country update failed: {e}")
+
+    # Sync xG data from Understat
+    xg_synced = 0
+    try:
+        from src.data.sources.understat import sync_all_xg_data
+        xg_synced = await sync_all_xg_data()
+        logger.info(f"Synced xG for {xg_synced} teams")
+    except Exception as e:
+        errors.append(f"xG sync failed: {e}")
+
     status = "success" if not errors else "partial"
     await SyncServiceAsync.log_sync("historical", status, total_synced)
 
     return SyncResponse(
         status=status,
-        message=f"Historical sync: {total_synced} matches, {standings_synced} standings, {teams_updated} teams, {form_synced} forms",
+        message=f"Historical sync: {total_synced} matches, {standings_synced} standings, {teams_updated} teams, {form_synced} forms, {xg_synced} xG",
         matches_synced=total_synced,
         standings_synced=standings_synced,
         errors=errors,

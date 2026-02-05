@@ -355,21 +355,26 @@ async def get_matches(
                         home_team=TeamInfo(
                             id=m["home_team"]["id"],
                             name=m["home_team"]["name"] or "Unknown",
-                            short_name=(m["home_team"]["name"] or "UNK")[:3].upper(),
+                            short_name=m["home_team"].get("short_name") or (m["home_team"]["name"] or "UNK")[:3].upper(),
+                            logo_url=m["home_team"].get("logo_url"),
+                            elo_rating=m["home_team"].get("elo_rating", 1500.0),
                         ),
                         away_team=TeamInfo(
                             id=m["away_team"]["id"],
                             name=m["away_team"]["name"] or "Unknown",
-                            short_name=(m["away_team"]["name"] or "UNK")[:3].upper(),
+                            short_name=m["away_team"].get("short_name") or (m["away_team"]["name"] or "UNK")[:3].upper(),
+                            logo_url=m["away_team"].get("logo_url"),
+                            elo_rating=m["away_team"].get("elo_rating", 1500.0),
                         ),
-                        competition="Unknown",
-                        competition_code=competition or "UNK",
+                        competition=COMPETITIONS.get(m.get("competition_code", ""), "Unknown"),
+                        competition_code=m.get("competition_code") or competition or "UNK",
                         match_date=datetime.fromisoformat(m["match_date"])
                         if m.get("match_date")
                         else datetime.now(UTC),
                         status=m.get("status", "scheduled"),
                         home_score=m.get("home_score"),
                         away_score=m.get("away_score"),
+                        matchday=m.get("matchday"),
                     )
                     for m in db_matches
                 ]
@@ -435,21 +440,26 @@ async def get_matches(
                         home_team=TeamInfo(
                             id=m["home_team"]["id"],
                             name=m["home_team"]["name"] or "Unknown",
-                            short_name=(m["home_team"]["name"] or "UNK")[:3].upper(),
+                            short_name=m["home_team"].get("short_name") or (m["home_team"]["name"] or "UNK")[:3].upper(),
+                            logo_url=m["home_team"].get("logo_url"),
+                            elo_rating=m["home_team"].get("elo_rating", 1500.0),
                         ),
                         away_team=TeamInfo(
                             id=m["away_team"]["id"],
                             name=m["away_team"]["name"] or "Unknown",
-                            short_name=(m["away_team"]["name"] or "UNK")[:3].upper(),
+                            short_name=m["away_team"].get("short_name") or (m["away_team"]["name"] or "UNK")[:3].upper(),
+                            logo_url=m["away_team"].get("logo_url"),
+                            elo_rating=m["away_team"].get("elo_rating", 1500.0),
                         ),
-                        competition="Unknown",
-                        competition_code=competition or "UNK",
+                        competition=COMPETITIONS.get(m.get("competition_code", ""), "Unknown"),
+                        competition_code=m.get("competition_code") or competition or "UNK",
                         match_date=datetime.fromisoformat(m["match_date"])
                         if m.get("match_date")
                         else datetime.now(UTC),
                         status=m.get("status", "scheduled"),
                         home_score=m.get("home_score"),
                         away_score=m.get("away_score"),
+                        matchday=m.get("matchday"),
                     )
                     for m in db_matches
                 ]

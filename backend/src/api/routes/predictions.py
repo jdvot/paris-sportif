@@ -20,6 +20,7 @@ from groq import Groq
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
+from src.core.cache import cache_get, cache_set
 from src.core.config import settings
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 from src.core.rate_limit import RATE_LIMITS, limiter
@@ -53,12 +54,38 @@ class DataSourceInfo(BaseModel):
     retry_after_seconds: int | None = None
 
 
+# Redis cache TTL for predictions (30 minutes for quick access)
+PREDICTION_CACHE_TTL = 1800  # 30 minutes
+
+
 # Groq client initialization
 def get_groq_client() -> Groq:
     """Get Groq API client with configured API key."""
     if not settings.groq_api_key:
         raise ValueError("GROQ_API_KEY not configured in environment")
     return Groq(api_key=settings.groq_api_key)
+
+
+async def _get_prediction_from_redis(match_id: int) -> dict[str, Any] | None:
+    """Get prediction from Redis cache."""
+    try:
+        cache_key = f"prediction:{match_id}"
+        cached = await cache_get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception as e:
+        logger.debug(f"Redis cache miss for match {match_id}: {e}")
+    return None
+
+
+async def _cache_prediction_to_redis(match_id: int, prediction_data: dict[str, Any]) -> None:
+    """Cache prediction to Redis."""
+    try:
+        cache_key = f"prediction:{match_id}"
+        await cache_set(cache_key, json.dumps(prediction_data, default=str), PREDICTION_CACHE_TTL)
+        logger.debug(f"Cached prediction for match {match_id} in Redis")
+    except Exception as e:
+        logger.warning(f"Failed to cache prediction in Redis: {e}")
 
 
 class PredictionProbabilities(BaseModel):
@@ -441,26 +468,25 @@ def _get_recommended_bet(
     return "draw"
 
 
-def _get_team_stats_for_ml(home_team: str, away_team: str, match_id: int) -> dict[str, Any]:
+async def _get_team_stats_for_ml(home_team: str, away_team: str, match_id: int) -> dict[str, Any]:
     """
-    Get team statistics for ML ensemble prediction.
+    Get team statistics for ML ensemble prediction from database.
 
-    Uses default values. Team stats are fetched from database by the
-    ensemble predictor, not from local model_loader (to avoid OOM on 512MB).
+    Fetches real team stats (ELO, form, attack/defense) from the teams table.
+    Falls back to defaults if team not found.
     """
-    # Default values - actual stats come from database via ensemble_advanced.py
+    from sqlalchemy import text
+    from src.db import async_session_factory
+
+    # Default values
     default_elo = 1500.0
     default_attack = 1.3
     default_defense = 1.3
     default_form = 50.0
 
-    # Use match_id as team_id proxy
-    home_team_id = hash(home_team) % 1000000
-    away_team_id = hash(away_team) % 1000000
-
-    return {
-        "home_team_id": home_team_id,
-        "away_team_id": away_team_id,
+    result = {
+        "home_team_id": 0,
+        "away_team_id": 0,
         "home_elo": default_elo,
         "away_elo": default_elo,
         "home_attack": default_attack,
@@ -470,6 +496,51 @@ def _get_team_stats_for_ml(home_team: str, away_team: str, match_id: int) -> dic
         "home_form": default_form,
         "away_form": default_form,
     }
+
+    try:
+        async with async_session_factory() as session:
+            # Fetch home team stats
+            home_result = await session.execute(
+                text("""
+                    SELECT id, elo_rating, avg_goals_scored_home, avg_goals_conceded_home,
+                           form_score, form
+                    FROM teams WHERE name ILIKE :name LIMIT 1
+                """),
+                {"name": f"%{home_team}%"}
+            )
+            home_row = home_result.fetchone()
+
+            if home_row:
+                result["home_team_id"] = home_row.id
+                result["home_elo"] = float(home_row.elo_rating) if home_row.elo_rating else default_elo
+                result["home_attack"] = float(home_row.avg_goals_scored_home) if home_row.avg_goals_scored_home else default_attack
+                result["home_defense"] = float(home_row.avg_goals_conceded_home) if home_row.avg_goals_conceded_home else default_defense
+                result["home_form"] = float(home_row.form_score or 0.5) * 100 if home_row.form_score else default_form
+                logger.debug(f"Home team {home_team}: ELO={result['home_elo']}, form={home_row.form}")
+
+            # Fetch away team stats
+            away_result = await session.execute(
+                text("""
+                    SELECT id, elo_rating, avg_goals_scored_away, avg_goals_conceded_away,
+                           form_score, form
+                    FROM teams WHERE name ILIKE :name LIMIT 1
+                """),
+                {"name": f"%{away_team}%"}
+            )
+            away_row = away_result.fetchone()
+
+            if away_row:
+                result["away_team_id"] = away_row.id
+                result["away_elo"] = float(away_row.elo_rating) if away_row.elo_rating else default_elo
+                result["away_attack"] = float(away_row.avg_goals_scored_away) if away_row.avg_goals_scored_away else default_attack
+                result["away_defense"] = float(away_row.avg_goals_conceded_away) if away_row.avg_goals_conceded_away else default_defense
+                result["away_form"] = float(away_row.form_score or 0.5) * 100 if away_row.form_score else default_form
+                logger.debug(f"Away team {away_team}: ELO={result['away_elo']}, form={away_row.form}")
+
+    except Exception as e:
+        logger.warning(f"Failed to fetch team stats from DB: {e}, using defaults")
+
+    return result
 
 
 async def _generate_prediction_from_api_match(
@@ -498,8 +569,8 @@ async def _generate_prediction_from_api_match(
         except Exception as e:
             logger.warning(f"RAG enrichment failed: {e}")
 
-    # Get team stats for ML models
-    team_stats = _get_team_stats_for_ml(home_team, away_team, api_match.id)
+    # Get team stats for ML models from database
+    team_stats = await _get_team_stats_for_ml(home_team, away_team, api_match.id)
 
     # Fetch fatigue data from API
     fatigue_data: MatchFatigueData | None = None
@@ -673,39 +744,84 @@ async def _generate_prediction_from_api_match(
             model_contributions = None
 
     # LLM adjustments (from RAG context if available)
+    # ALWAYS calculate adjustments and apply to probabilities
+    # Only RETURN them in response when include_model_details=True
+    llm_adjustments_data = None
+    if rag_context:
+        # Extract real adjustments from RAG context
+        home_ctx = rag_context.get("home_context", {})
+        away_ctx = rag_context.get("away_context", {})
+
+        # Calculate injury impact (more injuries = negative impact)
+        home_injuries = len(home_ctx.get("injuries", []))
+        away_injuries = len(away_ctx.get("injuries", []))
+        injury_impact_home = round(min(0.0, -home_injuries * 0.05), 3)
+        injury_impact_away = round(min(0.0, -away_injuries * 0.05), 3)
+
+        # Calculate sentiment from RAG
+        home_sentiment_raw = home_ctx.get("sentiment", "neutral")
+        away_sentiment_raw = away_ctx.get("sentiment", "neutral")
+        sentiment_map = {"positive": 0.05, "neutral": 0.0, "negative": -0.05}
+        sentiment_home = sentiment_map.get(str(home_sentiment_raw).lower(), 0.0)
+        sentiment_away = sentiment_map.get(str(away_sentiment_raw).lower(), 0.0)
+
+        # Calculate total and clamp to [-0.5, 0.5] bounds
+        raw_total = injury_impact_home + injury_impact_away + sentiment_home + sentiment_away
+        clamped_total = max(-0.5, min(0.5, raw_total))
+
+        llm_adjustments_data = {
+            "injury_impact_home": injury_impact_home,
+            "injury_impact_away": injury_impact_away,
+            "sentiment_home": round(sentiment_home, 3),
+            "sentiment_away": round(sentiment_away, 3),
+            "tactical_edge": 0.0,
+            "total_adjustment": round(clamped_total, 3),
+            "reasoning": "Analyse basée sur le contexte RAG (news, blessures, sentiment).",
+        }
+
+        # ALWAYS apply LLM adjustments to probabilities via log-odds transformation
+        if abs(clamped_total) > 0.001:
+            import math
+
+            # Apply adjustments: positive = favors home, negative = favors away
+            # Use log-odds transformation for smooth adjustment
+            def apply_log_odds_adjustment(prob: float, adj: float) -> float:
+                """Apply adjustment via log-odds transformation."""
+                # Clamp probability to avoid log(0) or log(inf)
+                prob = max(0.001, min(0.999, prob))
+                log_odds = math.log(prob / (1 - prob))
+                adjusted_log_odds = log_odds + adj
+                return 1 / (1 + math.exp(-adjusted_log_odds))
+
+            # Distribute adjustment: positive total helps home, negative helps away
+            # Home gets positive portion, away gets negative portion
+            home_adj = max(0, clamped_total)  # Positive adjustment helps home
+            away_adj = -min(0, clamped_total)  # Negative adjustment helps away
+
+            # Apply adjustments
+            new_home = apply_log_odds_adjustment(home_prob, home_adj * 2)
+            new_away = apply_log_odds_adjustment(away_prob, away_adj * 2)
+            new_draw = max(0.05, 1.0 - new_home - new_away)  # Draw is residual
+
+            # Normalize to ensure sum = 1
+            total_new = new_home + new_draw + new_away
+            home_prob = round(new_home / total_new, 4)
+            draw_prob = round(new_draw / total_new, 4)
+            away_prob = round(new_away / total_new, 4)
+
+            # Update recommended bet if probabilities changed significantly
+            recommended_bet = _get_recommended_bet(home_prob, draw_prob, away_prob)
+
+            logger.info(
+                f"Applied LLM adjustments for {home_team} vs {away_team}: "
+                f"total_adj={clamped_total:+.3f}, new probs: H={home_prob:.2%} D={draw_prob:.2%} A={away_prob:.2%}"
+            )
+
+    # Only include in response when model details requested
     llm_adjustments = None
     if include_model_details:
-        if rag_context:
-            # Extract real adjustments from RAG context
-            home_ctx = rag_context.get("home_context", {})
-            away_ctx = rag_context.get("away_context", {})
-
-            # Calculate injury impact (more injuries = negative impact)
-            home_injuries = len(home_ctx.get("injuries", []))
-            away_injuries = len(away_ctx.get("injuries", []))
-            injury_impact_home = round(min(0.0, -home_injuries * 0.05), 3)
-            injury_impact_away = round(min(0.0, -away_injuries * 0.05), 3)
-
-            # Calculate sentiment from RAG
-            home_sentiment_raw = home_ctx.get("sentiment", "neutral")
-            away_sentiment_raw = away_ctx.get("sentiment", "neutral")
-            sentiment_map = {"positive": 0.05, "neutral": 0.0, "negative": -0.05}
-            sentiment_home = sentiment_map.get(str(home_sentiment_raw).lower(), 0.0)
-            sentiment_away = sentiment_map.get(str(away_sentiment_raw).lower(), 0.0)
-
-            # Calculate total and clamp to [-0.5, 0.5] bounds
-            raw_total = injury_impact_home + injury_impact_away + sentiment_home + sentiment_away
-            clamped_total = max(-0.5, min(0.5, raw_total))
-
-            llm_adjustments = LLMAdjustments(
-                injury_impact_home=injury_impact_home,
-                injury_impact_away=injury_impact_away,
-                sentiment_home=round(sentiment_home, 3),
-                sentiment_away=round(sentiment_away, 3),
-                tactical_edge=0.0,
-                total_adjustment=round(clamped_total, 3),
-                reasoning="Analyse basée sur le contexte RAG (news, blessures, sentiment).",
-            )
+        if llm_adjustments_data:
+            llm_adjustments = LLMAdjustments(**llm_adjustments_data)
         else:
             # Minimal adjustments without RAG
             llm_adjustments = LLMAdjustments(
@@ -1440,13 +1556,22 @@ async def get_prediction(
 ) -> PredictionResponse:
     """Get detailed prediction for a specific match.
 
-    First checks database cache, only generates new prediction if not cached.
+    Cache strategy: Redis (30min) -> DB (permanent) -> Generate -> Save both
     """
-    # First, check if we have a cached prediction in DB
+    # 1. First, check Redis cache (fastest)
+    try:
+        redis_cached = await _get_prediction_from_redis(match_id)
+        if redis_cached:
+            logger.info(f"Redis cache HIT for match {match_id}")
+            return PredictionResponse(**redis_cached)
+    except Exception as e:
+        logger.debug(f"Redis cache check failed: {e}")
+
+    # 2. Check DB cache
     try:
         cached = await PredictionService.get_prediction(match_id)
         if cached:
-            logger.info(f"Using cached prediction for match {match_id}")
+            logger.info(f"DB cache HIT for match {match_id}")
             # Get match info from DB for team names
             async with get_uow() as uow:
                 match_obj = await uow.matches.get_by_id(match_id)
@@ -1473,8 +1598,7 @@ async def get_prediction(
                 cached.get("predicted_outcome", "draw"), "draw"
             )
 
-            # Convert cached prediction to response format
-            return PredictionResponse(
+            response = PredictionResponse(
                 match_id=match_id,
                 home_team=home_team,
                 away_team=away_team,
@@ -1487,24 +1611,61 @@ async def get_prediction(
                 ),
                 confidence=float(cached.get("confidence", 0.5)),
                 recommended_bet=recommended,
-                value_score=0.10,  # Default value for cached predictions
+                value_score=float(cached.get("value_score", 0.10)),
                 explanation=cached.get("explanation", "Prédiction mise en cache"),
                 key_factors=["Données en cache", "Analyse statistique", "Modèles ML"],
                 risk_factors=["Données potentiellement non actualisées"],
                 created_at=datetime.now(),
                 data_source=DataSourceInfo(source="database"),
             )
-    except Exception as e:
-        logger.warning(f"Cache lookup failed for match {match_id}: {e}")
 
-    # No cache, generate new prediction
+            # Also cache in Redis for faster future access
+            try:
+                await _cache_prediction_to_redis(match_id, response.model_dump(mode="json"))
+            except Exception:
+                pass
+
+            return response
+    except Exception as e:
+        logger.warning(f"DB cache lookup failed for match {match_id}: {e}")
+
+    # 3. No cache, generate new prediction
     try:
         # Fetch real match from API
         client = get_football_data_client()
         api_match = await client.get_match(match_id)
-        return await _generate_prediction_from_api_match(
+        prediction = await _generate_prediction_from_api_match(
             api_match, include_model_details=include_model_details
         )
+
+        # 4. Save to DB for permanent storage
+        try:
+            await PredictionService.save_prediction_from_api({
+                "match_id": prediction.match_id,
+                "match_external_id": f"{api_match.competition.code}_{api_match.id}",
+                "home_team": prediction.home_team,
+                "away_team": prediction.away_team,
+                "competition_code": api_match.competition.code,
+                "match_date": api_match.utcDate,
+                "home_win_prob": prediction.probabilities.home_win,
+                "draw_prob": prediction.probabilities.draw,
+                "away_win_prob": prediction.probabilities.away_win,
+                "confidence": prediction.confidence,
+                "recommendation": prediction.recommended_bet,
+                "explanation": prediction.explanation,
+                "value_score": prediction.value_score,
+            })
+            logger.info(f"Saved prediction to DB for match {match_id}")
+        except Exception as db_err:
+            logger.warning(f"Failed to save prediction to DB: {db_err}")
+
+        # 5. Cache in Redis
+        try:
+            await _cache_prediction_to_redis(match_id, prediction.model_dump(mode="json"))
+        except Exception:
+            pass
+
+        return prediction
 
     except RateLimitError as e:
         # On rate limit, try fallback instead of failing

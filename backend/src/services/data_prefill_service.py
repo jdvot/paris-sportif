@@ -392,12 +392,16 @@ class DataPrefillService:
             predictions = result.fetchall()
 
             for pred in predictions:
+                # Handle datetime fields that might already be strings
+                match_date_str = pred.match_date.isoformat() if hasattr(pred.match_date, 'isoformat') else str(pred.match_date)
+                created_at_str = pred.created_at.isoformat() if hasattr(pred.created_at, 'isoformat') else str(pred.created_at)
+
                 cache_data = {
                     "match_id": pred.match_id,
                     "home_team": pred.home_team,
                     "away_team": pred.away_team,
                     "competition": pred.competition_code,
-                    "match_date": pred.match_date.isoformat(),
+                    "match_date": match_date_str,
                     "probabilities": {
                         "home_win": float(pred.home_prob),
                         "draw": float(pred.draw_prob),
@@ -407,7 +411,7 @@ class DataPrefillService:
                     "confidence": float(pred.confidence),
                     "value_score": float(pred.value_score) if pred.value_score else 0.1,
                     "explanation": pred.explanation,
-                    "created_at": pred.created_at.isoformat(),
+                    "created_at": created_at_str,
                 }
 
                 try:

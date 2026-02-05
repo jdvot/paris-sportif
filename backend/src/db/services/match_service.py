@@ -41,10 +41,22 @@ class MatchService:
                 competition = match_data.get("competition", {})
                 score = match_data.get("score", {}) or {}
                 full_time = score.get("fullTime", {}) or {}
+                half_time = score.get("halfTime", {}) or {}
+                odds = match_data.get("odds", {}) or {}
 
                 external_id = f"{competition.get('code')}_{match_data.get('id')}"
 
-                # Ensure teams exist
+                # Extract country from team.area or competition.area
+                home_country = (
+                    home_team.get("area", {}).get("name")
+                    or competition.get("area", {}).get("name")
+                )
+                away_country = (
+                    away_team.get("area", {}).get("name")
+                    or competition.get("area", {}).get("name")
+                )
+
+                # Ensure teams exist - include country field
                 home_team_obj = await uow.teams.get_by_external_id(str(home_team.get("id")))
                 if not home_team_obj:
                     home_team_obj = await uow.teams.create(
@@ -53,7 +65,11 @@ class MatchService:
                         short_name=home_team.get("tla") or home_team.get("shortName"),
                         tla=home_team.get("tla"),
                         logo_url=home_team.get("crest"),
+                        country=home_country,
                     )
+                elif not home_team_obj.country and home_country:
+                    # Update existing team with country if missing
+                    await uow.teams.update(home_team_obj.id, country=home_country)
 
                 away_team_obj = await uow.teams.get_by_external_id(str(away_team.get("id")))
                 if not away_team_obj:
@@ -63,7 +79,11 @@ class MatchService:
                         short_name=away_team.get("tla") or away_team.get("shortName"),
                         tla=away_team.get("tla"),
                         logo_url=away_team.get("crest"),
+                        country=away_country,
                     )
+                elif not away_team_obj.country and away_country:
+                    # Update existing team with country if missing
+                    await uow.teams.update(away_team_obj.id, country=away_country)
 
                 # Parse date
                 match_date_str = match_data.get("utcDate")
@@ -73,18 +93,37 @@ class MatchService:
                     else datetime.now()
                 )
 
-                # Upsert match
+                # Build match data with all available fields
+                match_fields = {
+                    "home_team_id": home_team_obj.id,
+                    "away_team_id": away_team_obj.id,
+                    "competition_code": competition.get("code", "UNKNOWN"),
+                    "match_date": match_date,
+                    "matchday": match_data.get("matchday"),
+                    "status": match_data.get("status", "scheduled"),
+                    "home_score": full_time.get("home"),
+                    "away_score": full_time.get("away"),
+                }
+
+                # Add half-time scores if available
+                if half_time.get("home") is not None:
+                    match_fields["home_score_ht"] = half_time.get("home")
+                if half_time.get("away") is not None:
+                    match_fields["away_score_ht"] = half_time.get("away")
+
+                # Add odds if available (from API or external source)
+                if odds.get("homeWin"):
+                    match_fields["odds_home"] = odds.get("homeWin")
+                if odds.get("draw"):
+                    match_fields["odds_draw"] = odds.get("draw")
+                if odds.get("awayWin"):
+                    match_fields["odds_away"] = odds.get("awayWin")
+
+                # Upsert match with all fields
                 await uow.matches.upsert(
                     "external_id",
                     external_id,
-                    home_team_id=home_team_obj.id,
-                    away_team_id=away_team_obj.id,
-                    competition_code=match_data.get("competition", {}).get("code", "UNKNOWN"),
-                    match_date=match_date,
-                    matchday=match_data.get("matchday"),
-                    status=match_data.get("status", "scheduled"),
-                    home_score=full_time.get("home"),
-                    away_score=full_time.get("away"),
+                    **match_fields,
                 )
 
                 await uow.commit()
@@ -147,13 +186,23 @@ class MatchService:
                 {
                     "id": m.id,
                     "external_id": m.external_id,
+                    "competition_code": m.competition_code,
+                    "matchday": m.matchday,
                     "home_team": {
                         "id": m.home_team_id,
                         "name": m.home_team.name if m.home_team else None,
+                        "short_name": m.home_team.short_name or m.home_team.tla if m.home_team else None,
+                        "logo_url": m.home_team.logo_url if m.home_team else None,
+                        "elo_rating": float(m.home_team.elo_rating) if m.home_team and m.home_team.elo_rating else 1500.0,
+                        "form": m.home_team.form if m.home_team else None,
                     },
                     "away_team": {
                         "id": m.away_team_id,
                         "name": m.away_team.name if m.away_team else None,
+                        "short_name": m.away_team.short_name or m.away_team.tla if m.away_team else None,
+                        "logo_url": m.away_team.logo_url if m.away_team else None,
+                        "elo_rating": float(m.away_team.elo_rating) if m.away_team and m.away_team.elo_rating else 1500.0,
+                        "form": m.away_team.form if m.away_team else None,
                     },
                     "match_date": m.match_date.isoformat() if m.match_date else None,
                     "status": m.status,
