@@ -139,24 +139,33 @@ export function useAuth() {
         }
 
         if (user) {
-          // Set user IMMEDIATELY so isAuthenticated is true
+          // Get role from app_metadata IMMEDIATELY (no fetch needed)
+          const appMetadataRole = (user.app_metadata?.role as UserRole) || null;
+          const userMetadataRole = (user.user_metadata?.role as UserRole) || null;
+          const immediateRole = appMetadataRole || userMetadataRole || "free";
+
+          console.log('[useAuth] Immediate role from metadata:', { appMetadataRole, userMetadataRole, immediateRole });
+
+          // Set user IMMEDIATELY with role from app_metadata
           setState({
             user,
             profile: null,
-            role: "free",
+            role: immediateRole,
             loading: false,
             error: null,
           });
 
-          // Then fetch profile in background (non-blocking)
+          // Then fetch profile in background for additional data (non-blocking)
           fetchProfile(user.id).then((profile) => {
             if (!isMounted) return;
             console.log('[useAuth] fetchProfile result:', { userId: user.id, profile, role: profile?.role });
             if (profile) {
+              // Use profile role if available, otherwise keep metadata role
+              const finalRole = profile.role || immediateRole;
               setState((prev) => ({
                 ...prev,
                 profile,
-                role: profile.role || prev.role,
+                role: finalRole,
               }));
             } else {
               console.warn('[useAuth] No profile found for user:', user.id);
@@ -191,13 +200,17 @@ export function useAuth() {
       if (!isMounted) return;
 
       if (event === "SIGNED_IN" && session?.user) {
+        // Get role from app_metadata immediately
+        const appMetadataRole = (session.user.app_metadata?.role as UserRole) || null;
+        const immediateRole = appMetadataRole || "free";
+
         // Fetch profile for the new user
         const profile = await fetchProfile(session.user.id);
         if (!isMounted) return;
         setState({
           user: session.user,
           profile,
-          role: profile?.role || "free",
+          role: profile?.role || immediateRole,
           loading: false,
           error: null,
         });
