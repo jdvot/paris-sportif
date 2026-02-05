@@ -214,9 +214,10 @@ class QdrantStore:
                         )
                 qdrant_filter = models.Filter(must=must_conditions)
 
-            results = self.client.search(
+            # qdrant-client 1.7+ uses query_points instead of search
+            results = self.client.query_points(
                 collection_name=self.collection_name,
-                query_vector=query_embedding,
+                query=query_embedding,
                 limit=limit,
                 score_threshold=score_threshold,
                 query_filter=qdrant_filter,
@@ -228,7 +229,7 @@ class QdrantStore:
                     score=r.score,
                     payload=r.payload or {},
                 )
-                for r in results
+                for r in results.points
             ]
         except Exception as e:
             logger.error(f"Search failed: {e}")
