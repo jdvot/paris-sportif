@@ -17,6 +17,7 @@ class CompetitionInfo(TypedDict):
 
 # Main competitions supported by the application
 # This is the single source of truth for competition data
+# Note: EL (Europa League) and ECL (Conference League) require paid tier on football-data.org
 COMPETITIONS: list[CompetitionInfo] = [
     {"code": "PL", "name": "Premier League", "country": "England", "flag": "gb-eng"},
     {"code": "PD", "name": "La Liga", "country": "Spain", "flag": "es"},
@@ -24,7 +25,6 @@ COMPETITIONS: list[CompetitionInfo] = [
     {"code": "SA", "name": "Serie A", "country": "Italy", "flag": "it"},
     {"code": "FL1", "name": "Ligue 1", "country": "France", "flag": "fr"},
     {"code": "CL", "name": "Champions League", "country": "Europe", "flag": "eu"},
-    {"code": "EL", "name": "Europa League", "country": "Europe", "flag": "eu"},
 ]
 
 # Code to name mapping for quick lookup
