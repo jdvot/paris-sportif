@@ -177,10 +177,11 @@ function ModelComparisonChart({ prediction }: PredictionChartsProps) {
   };
 
   const chartData = models.map(([modelName, contribution]) => {
-    const contrib = contribution as ModelContribution;
-    const homeProb = contrib?.homeProb || contrib?.homeWin || 0;
-    const drawProb = contrib?.drawProb || contrib?.draw || 0;
-    const awayProb = contrib?.awayProb || contrib?.awayWin || 0;
+    const contrib = contribution as Record<string, number>;
+    // Support both camelCase and snake_case keys from backend
+    const homeProb = contrib?.homeProb ?? contrib?.homeWin ?? contrib?.home_win ?? contrib?.home ?? 0;
+    const drawProb = contrib?.drawProb ?? contrib?.draw ?? 0;
+    const awayProb = contrib?.awayProb ?? contrib?.awayWin ?? contrib?.away_win ?? contrib?.away ?? 0;
 
     return {
       name: modelDisplayNames[modelName] || modelName,
