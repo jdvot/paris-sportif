@@ -23,5 +23,5 @@ async def readiness_check() -> dict[str, str | bool]:
         "database": True,
         "redis": redis_ok,
         "football_api": bool(settings.football_data_api_key),
-        "llm_api": bool(settings.anthropic_api_key),
+        "llm_api": bool(settings.groq_api_key),
     }
