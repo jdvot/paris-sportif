@@ -64,16 +64,18 @@ async def auto_sync_and_verify():
     try:
         client = get_football_data_client()
         today = date.today()
-        date_from = today - timedelta(days=7)  # Look back 7 days
+        past_date = today - timedelta(days=7)  # Look back 7 days
+        future_date = today + timedelta(days=7)  # Look ahead 7 days
 
         total_synced = 0
+        upcoming_synced = 0
 
-        # Sync finished matches for each competition
+        # Sync finished matches for each competition (past 7 days)
         for comp_code in COMPETITIONS.keys():
             try:
                 matches = await client.get_matches(
                     competition=comp_code,
-                    date_from=date_from,
+                    date_from=past_date,
                     date_to=today,
                     status="FINISHED",
                 )
@@ -85,8 +87,27 @@ async def auto_sync_and_verify():
                 await asyncio.sleep(2)
 
             except Exception as e:
-                logger.warning(f"[Scheduler] Error syncing {comp_code}: {e}")
+                logger.warning(f"[Scheduler] Error syncing finished {comp_code}: {e}")
                 await asyncio.sleep(10)  # Wait longer on error
+
+        # Sync upcoming/scheduled matches (next 7 days)
+        for comp_code in COMPETITIONS.keys():
+            try:
+                matches = await client.get_matches(
+                    competition=comp_code,
+                    date_from=today,
+                    date_to=future_date,
+                    status="SCHEDULED",
+                )
+                matches_dict = [m.model_dump() for m in matches]
+                synced = await MatchService.save_matches(matches_dict)
+                upcoming_synced += synced
+
+                await asyncio.sleep(2)
+
+            except Exception as e:
+                logger.warning(f"[Scheduler] Error syncing upcoming {comp_code}: {e}")
+                await asyncio.sleep(10)
 
         # Sync standings for league competitions (includes form data)
         standings_synced = 0
@@ -125,8 +146,8 @@ async def auto_sync_and_verify():
             logger.warning(f"[Scheduler] Error syncing form data: {e}")
 
         logger.info(
-            f"[Scheduler] Auto sync complete: {total_synced} matches, {standings_synced} standings, "
-            f"{verified_count} verified, {teams_updated} stats, {form_synced} forms"
+            f"[Scheduler] Auto sync complete: {total_synced} finished, {upcoming_synced} upcoming, "
+            f"{standings_synced} standings, {verified_count} verified, {teams_updated} stats, {form_synced} forms"
         )
 
     except Exception as e:
