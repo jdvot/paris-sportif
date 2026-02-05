@@ -444,55 +444,31 @@ def _get_team_stats_for_ml(home_team: str, away_team: str, match_id: int) -> dic
     """
     Get team statistics for ML ensemble prediction.
 
-    Uses model_loader's feature engineer state if available,
-    otherwise returns default values based on match_id for consistency.
+    Uses default values. Team stats are fetched from database by the
+    ensemble predictor, not from local model_loader (to avoid OOM on 512MB).
     """
-    from src.ml.model_loader import model_loader
-
-    # Default ELO ratings (1500 is baseline)
+    # Default values - actual stats come from database via ensemble_advanced.py
     default_elo = 1500.0
     default_attack = 1.3
     default_defense = 1.3
     default_form = 50.0
 
-    # Try to get stats from model_loader
-    home_stats = None
-    away_stats = None
-
-    # Use match_id as team_id proxy (in real system, we'd have actual team IDs)
-    # This is a deterministic mapping based on team names
+    # Use match_id as team_id proxy
     home_team_id = hash(home_team) % 1000000
     away_team_id = hash(away_team) % 1000000
 
-    if model_loader.feature_state:
-        home_stats = model_loader.get_team_stats(home_team_id)
-        away_stats = model_loader.get_team_stats(away_team_id)
-
-    # Use historical data if available, otherwise use defaults
-    result = {
+    return {
         "home_team_id": home_team_id,
         "away_team_id": away_team_id,
         "home_elo": default_elo,
         "away_elo": default_elo,
-        "home_attack": home_stats["attack_strength"] if home_stats else default_attack,
-        "home_defense": home_stats["defense_strength"] if home_stats else default_defense,
-        "away_attack": away_stats["attack_strength"] if away_stats else default_attack,
-        "away_defense": away_stats["defense_strength"] if away_stats else default_defense,
-        "home_form": home_stats["form"] if home_stats else default_form,
-        "away_form": away_stats["form"] if away_stats else default_form,
+        "home_attack": default_attack,
+        "home_defense": default_defense,
+        "away_attack": default_attack,
+        "away_defense": default_defense,
+        "home_form": default_form,
+        "away_form": default_form,
     }
-
-    # Adjust ELO based on form if we have data
-    if home_stats:
-        # Better form = higher ELO adjustment
-        form_adj = (home_stats["form"] - 50) * 2  # -100 to +100
-        result["home_elo"] = default_elo + form_adj
-
-    if away_stats:
-        form_adj = (away_stats["form"] - 50) * 2
-        result["away_elo"] = default_elo + form_adj
-
-    return result
 
 
 async def _generate_prediction_from_api_match(

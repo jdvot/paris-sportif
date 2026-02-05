@@ -60,36 +60,39 @@ async def get_ml_status(user: AdminUser) -> MLStatusResponse:
     """
     Get current ML system status.
 
-    Returns information about:
-    - Whether models are trained and available
-    - Age of training data
-    - Feature engineering state
+    Checks HuggingFace ML service (remote) instead of local models
+    to avoid OOM on 512MB Render.
     """
+    import httpx
+
+    hf_url = os.getenv("HF_SPACE_URL", "https://jdevot244-paris-sportif.hf.space")
+
     try:
-        from src.ml.data_collector import HistoricalDataCollector
-        from src.ml.model_loader import model_loader
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(f"{hf_url}/models")
 
-        collector = HistoricalDataCollector()
-        data_age = collector.get_data_age_days()
+            if response.status_code == 200:
+                data = response.json()
+                return MLStatusResponse(
+                    models_trained=data.get("xgboost", {}).get("loaded", False),
+                    xgboost_available=data.get("xgboost", {}).get("loaded", False),
+                    random_forest_available=data.get("random_forest", {}).get("loaded", False),
+                    data_age_days=None,  # Not tracked on HuggingFace
+                    last_training=None,
+                    feature_state_loaded=True,  # HuggingFace handles features
+                )
 
-        return MLStatusResponse(
-            models_trained=model_loader.is_trained(),
-            xgboost_available=model_loader.xgb_model is not None,
-            random_forest_available=model_loader.rf_model is not None,
-            data_age_days=data_age,
-            last_training=None,  # TODO: Track this
-            feature_state_loaded=model_loader.feature_state is not None,
-        )
-    except ImportError as e:
-        logger.warning(f"ML module not available: {e}")
-        return MLStatusResponse(
-            models_trained=False,
-            xgboost_available=False,
-            random_forest_available=False,
-            data_age_days=None,
-            last_training=None,
-            feature_state_loaded=False,
-        )
+    except Exception as e:
+        logger.warning(f"HuggingFace ML status check failed: {e}")
+
+    return MLStatusResponse(
+        models_trained=False,
+        xgboost_available=False,
+        random_forest_available=False,
+        data_age_days=None,
+        last_training=None,
+        feature_state_loaded=False,
+    )
 
 
 @router.post("/collect", response_model=PipelineResponse, responses=ADMIN_RESPONSES)
@@ -131,84 +134,30 @@ async def collect_data(user: AdminUser, background_tasks: BackgroundTasks) -> Pi
 
 
 @router.post("/train", response_model=PipelineResponse, responses=ADMIN_RESPONSES)
-async def train_models(user: AdminUser, background_tasks: BackgroundTasks) -> PipelineResponse:
+async def train_models(user: AdminUser) -> PipelineResponse:
     """
-    Start model training in background.
+    Deprecated: Use /train-remote instead.
 
-    Trains XGBoost and Random Forest models on collected data.
-    Requires data to be collected first.
+    Local training is disabled to avoid OOM on 512MB Render.
+    Models are trained on HuggingFace Spaces (16GB RAM).
     """
-    if _pipeline_status["running"]:
-        raise HTTPException(status_code=409, detail="A pipeline task is already running")
-
-    def run_training() -> None:
-        global _pipeline_status
-        _pipeline_status["running"] = True
-        try:
-            from src.ml.model_loader import model_loader
-            from src.ml.trainer import MLTrainer
-
-            trainer = MLTrainer()
-            success = trainer.train_all()
-
-            if success:
-                model_loader.reload_models()
-                _pipeline_status["last_result"] = "success"
-            else:
-                _pipeline_status["last_result"] = "failed: training returned False"
-        except Exception as e:
-            logger.error(f"Model training failed: {e}")
-            _pipeline_status["last_result"] = f"failed: {e}"
-        finally:
-            _pipeline_status["running"] = False
-            _pipeline_status["last_run"] = datetime.now()
-
-    background_tasks.add_task(run_training)
-
     return PipelineResponse(
-        message="Model training started in background",
-        status="running",
+        message="Local training disabled (OOM risk). Use POST /api/v1/ml/train-remote to train on HuggingFace.",
+        status="disabled",
     )
 
 
 @router.post("/run-full", response_model=PipelineResponse, responses=ADMIN_RESPONSES)
-async def run_full_pipeline(user: AdminUser, background_tasks: BackgroundTasks) -> PipelineResponse:
+async def run_full_pipeline(user: AdminUser) -> PipelineResponse:
     """
-    Run full ML pipeline in background.
+    Deprecated: Use /train-remote instead.
 
-    Executes:
-    1. Data collection from API
-    2. Model training on collected data
-    3. Model reloading for inference
-
-    This is a long-running task (5-15 minutes depending on API rate limits).
+    Local ML pipeline is disabled to avoid OOM on 512MB Render.
+    Models are trained on HuggingFace Spaces (16GB RAM).
     """
-    if _pipeline_status["running"]:
-        raise HTTPException(status_code=409, detail="A pipeline task is already running")
-
-    def run_full_sync() -> None:
-        global _pipeline_status
-        _pipeline_status["running"] = True
-        try:
-            from src.ml.pipeline import run_pipeline_now
-
-            async def _run() -> bool:
-                return await run_pipeline_now()
-
-            success = asyncio.run(_run())
-            _pipeline_status["last_result"] = "success" if success else "failed"
-        except Exception as e:
-            logger.error(f"Full pipeline failed: {e}")
-            _pipeline_status["last_result"] = f"failed: {e}"
-        finally:
-            _pipeline_status["running"] = False
-            _pipeline_status["last_run"] = datetime.now()
-
-    background_tasks.add_task(run_full_sync)
-
     return PipelineResponse(
-        message="Full ML pipeline started in background. This may take 5-15 minutes.",
-        status="running",
+        message="Local pipeline disabled (OOM risk). Use POST /api/v1/ml/train-remote to train on HuggingFace.",
+        status="disabled",
     )
 
 
