@@ -284,7 +284,7 @@ export function useAuth() {
 
     // Force page reload to clear all state
     if (typeof window !== 'undefined') {
-      window.location.href = '/';
+      window.location.href = '/auth/login';
     }
   };
 

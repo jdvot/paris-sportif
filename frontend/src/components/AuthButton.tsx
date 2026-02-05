@@ -36,8 +36,7 @@ export function AuthButton() {
   const handleSignOut = async () => {
     await signOut();
     setIsOpen(false);
-    router.push("/");
-    router.refresh();
+    // signOut() handles redirect to /auth/login
   };
 
   // Loading state
