@@ -28,11 +28,33 @@ services:
         sync: false
       - key: SUPABASE_URL
         sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Redis Cache (Upstash)
+      - key: REDIS_URL
+        sync: false  # rediss://default:xxx@splendid-muskrat-38783.upstash.io:6379
+      # Qdrant Vector DB (Cloud)
+      - key: QDRANT_URL
+        sync: false  # https://xxx.europe-west3-0.gcp.cloud.qdrant.io:6333
+      - key: QDRANT_API_KEY
+        sync: false
       # HuggingFace ML Service Integration
       - key: HF_ML_SERVICE_URL
         value: https://jdevot244-paris-sportif.hf.space
       - key: HF_TRAINING_API_KEY
         sync: false  # Shared secret with HuggingFace for training data access
+      # Stripe Payments
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_PREMIUM
+        sync: false
+      - key: STRIPE_PRICE_ELITE
+        sync: false
+      # Odds API (optional)
+      - key: ODDS_API_KEY
+        sync: false
       - key: APP_ENV
         value: production
       - key: DEBUG
