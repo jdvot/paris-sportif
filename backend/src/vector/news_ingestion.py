@@ -23,10 +23,45 @@ class NewsIngestionService:
 
     # RSS Feed sources by language/region (only verified working feeds)
     RSS_SOURCES = {
-        # English sources (verified working)
+        # English sources - Major media
         "bbc_football": "https://feeds.bbci.co.uk/sport/football/rss.xml",
+        "bbc_premier_league": "https://feeds.bbci.co.uk/sport/football/premier-league/rss.xml",
+        "bbc_champions_league": "https://feeds.bbci.co.uk/sport/football/champions-league/rss.xml",
         "guardian_football": "https://www.theguardian.com/football/rss",
         "skysports": "https://www.skysports.com/rss/12040",
+        "espn_football": "https://www.espn.com/espn/rss/soccer/news",
+        "mirror_football": "https://www.mirror.co.uk/sport/football/rss.xml",
+        "telegraph_football": "https://www.telegraph.co.uk/football/rss.xml",
+        "independent_football": "https://www.independent.co.uk/sport/football/rss",
+        # French sources - Major media
+        "lequipe_football": "https://dwh.lequipe.fr/api/edito/rss?path=/Football/",
+        "lequipe_transfers": "https://dwh.lequipe.fr/api/edito/rss?path=/Football/Transferts-football/",
+        "rmcsport_football": "https://rmcsport.bfmtv.com/rss/football/",
+        "footmercato": "https://www.footmercato.net/flux-rss",
+        "sofoot": "https://www.sofoot.com/rss",
+        # French sources - Maxifoot
+        "maxifoot_general": "http://rss.maxifoot.com/football-general.xml",
+        "maxifoot_transfer": "http://rss.maxifoot.com/football-transfert.xml",
+        "maxifoot_ligue1": "http://rss.maxifoot.com/football-ligue1.xml",
+        "maxifoot_champions": "http://rss.maxifoot.com/football-ligue-champion.xml",
+        # League-specific from Maxifoot (for international coverage in French)
+        "maxifoot_angleterre": "http://rss.maxifoot.com/football-angleterre.xml",
+        "maxifoot_espagne": "http://rss.maxifoot.com/football-espagne.xml",
+        "maxifoot_italie": "http://rss.maxifoot.com/football-italie.xml",
+        "maxifoot_allemagne": "http://rss.maxifoot.com/football-allemagne.xml",
+        # Club-specific from Maxifoot (French clubs)
+        "maxifoot_psg": "http://rss.maxifoot.com/football-psg.xml",
+        "maxifoot_om": "http://rss.maxifoot.com/football-om.xml",
+        "maxifoot_ol": "http://rss.maxifoot.com/football-ol.xml",
+    }
+
+    # Sources that are in French (for language detection)
+    FRENCH_SOURCES = {
+        "lequipe_football", "lequipe_transfers", "rmcsport_football",
+        "footmercato", "sofoot", "maxifoot_general", "maxifoot_transfer",
+        "maxifoot_ligue1", "maxifoot_champions", "maxifoot_angleterre",
+        "maxifoot_espagne", "maxifoot_italie", "maxifoot_allemagne",
+        "maxifoot_psg", "maxifoot_om", "maxifoot_ol",
     }
 
     # Google News RSS template for team-specific searches
@@ -262,6 +297,15 @@ class NewsIngestionService:
                         # Detect article type from content
                         article_type = self._detect_article_type(title, content or "")
 
+                        # Detect language based on source
+                        language = "en"  # default
+                        if source in self.FRENCH_SOURCES:
+                            language = "fr"
+                        elif source.startswith("maxifoot") or source.startswith("lequipe") or source.startswith("rmcsport") or source.startswith("footmercato") or source.startswith("sofoot"):
+                            language = "fr"
+                        elif "(FR)" in source.upper():
+                            language = "fr"
+
                         articles.append(
                             NewsArticle(
                                 title=title,
@@ -272,6 +316,7 @@ class NewsIngestionService:
                                 team_name=team_name,
                                 team_id=self.TEAM_IDS.get(team_name) if team_name else None,
                                 article_type=article_type,
+                                language=language,
                             )
                         )
 
