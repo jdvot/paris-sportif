@@ -26,6 +26,7 @@ from src.core.rate_limit import RATE_LIMITS, limiter
 from src.data.data_enrichment import get_data_enrichment
 from src.data.fatigue_service import MatchFatigueData, get_fatigue_service
 from src.data.sources.football_data import MatchData, get_football_data_client
+from src.db.repositories import get_uow
 from src.db.services.match_service import MatchService
 from src.db.services.prediction_service import PredictionService
 from src.llm.prompts_advanced import get_prediction_analysis_prompt
@@ -1364,7 +1365,66 @@ async def get_prediction(
     user: AuthenticatedUser,
     include_model_details: bool = Query(False, description="Include model details"),
 ) -> PredictionResponse:
-    """Get detailed prediction for a specific match."""
+    """Get detailed prediction for a specific match.
+
+    First checks database cache, only generates new prediction if not cached.
+    """
+    # First, check if we have a cached prediction in DB
+    try:
+        cached = await PredictionService.get_prediction(match_id)
+        if cached:
+            logger.info(f"Using cached prediction for match {match_id}")
+            # Get match info from DB for team names
+            async with get_uow() as uow:
+                match_obj = await uow.matches.get_by_id(match_id)
+                if match_obj:
+                    home_team_obj = await uow.teams.get_by_id(match_obj.home_team_id) if match_obj.home_team_id else None
+                    away_team_obj = await uow.teams.get_by_id(match_obj.away_team_id) if match_obj.away_team_id else None
+                    home_team = home_team_obj.name if home_team_obj else "Unknown"
+                    away_team = away_team_obj.name if away_team_obj else "Unknown"
+                    comp_code = match_obj.competition_code or "UNKNOWN"
+                    match_date_val = match_obj.match_date if match_obj.match_date else datetime.now()
+                else:
+                    home_team = "Unknown"
+                    away_team = "Unknown"
+                    comp_code = "UNKNOWN"
+                    match_date_val = datetime.now()
+
+            # Map predicted_outcome to bet format
+            outcome_map: dict[str, Literal["home_win", "draw", "away_win"]] = {
+                "home": "home_win",
+                "draw": "draw",
+                "away": "away_win",
+            }
+            recommended: Literal["home_win", "draw", "away_win"] = outcome_map.get(
+                cached.get("predicted_outcome", "draw"), "draw"
+            )
+
+            # Convert cached prediction to response format
+            return PredictionResponse(
+                match_id=match_id,
+                home_team=home_team,
+                away_team=away_team,
+                competition=COMPETITION_NAMES.get(comp_code, comp_code),
+                match_date=match_date_val,
+                probabilities=PredictionProbabilities(
+                    home_win=float(cached.get("home_win_prob", 0.33)),
+                    draw=float(cached.get("draw_prob", 0.34)),
+                    away_win=float(cached.get("away_win_prob", 0.33)),
+                ),
+                confidence=float(cached.get("confidence", 0.5)),
+                recommended_bet=recommended,
+                value_score=0.10,  # Default value for cached predictions
+                explanation=cached.get("explanation", "Prédiction mise en cache"),
+                key_factors=["Données en cache", "Analyse statistique", "Modèles ML"],
+                risk_factors=["Données potentiellement non actualisées"],
+                created_at=datetime.now(),
+                data_source=DataSourceInfo(source="database"),
+            )
+    except Exception as e:
+        logger.warning(f"Cache lookup failed for match {match_id}: {e}")
+
+    # No cache, generate new prediction
     try:
         # Fetch real match from API
         client = get_football_data_client()
