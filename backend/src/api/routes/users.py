@@ -450,7 +450,15 @@ async def get_team_summary(
             summary_parts.append(f"Actuellement {position}{'er' if position == 1 else 'e'} au classement")
 
         if injuries:
-            summary_parts.append(f"Blessures signalées: {', '.join(injuries[:3])}")
+            # Extract player names from injury dicts
+            injury_names = []
+            for inj in injuries[:3]:
+                if isinstance(inj, dict):
+                    injury_names.append(inj.get("player", inj.get("player_name", str(inj))))
+                else:
+                    injury_names.append(str(inj))
+            if injury_names:
+                summary_parts.append(f"Blessures signalées: {', '.join(injury_names)}")
 
         if sentiment == "positive":
             summary_parts.append("Dynamique positive dans les médias")
