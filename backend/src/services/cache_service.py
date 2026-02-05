@@ -226,19 +226,18 @@ async def calculate_teams() -> dict[str, Any]:
 
 
 async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
-    """Pre-calculate predictions for all upcoming matches using ML + LLM.
+    """Pre-calculate predictions for upcoming matches.
 
-    This runs the full prediction pipeline:
-    1. Fetch upcoming matches (next 7 days)
-    2. Run ML ensemble models (Poisson, ELO, XGBoost, etc.)
-    3. Run LLM analysis for context adjustments (Groq)
-    4. Store complete predictions in database
+    NOTE: Limited to 5 matches per run to avoid OOM on 512MB Render plan.
+    Predictions are generated on-demand for remaining matches.
     """
     import asyncio
+    import gc
 
-    logger.info("Pre-calculating predictions for upcoming matches...")
+    logger.info("Pre-calculating predictions for upcoming matches (limited batch)...")
 
     # Get upcoming matches that don't have predictions yet
+    # LIMIT 5 to avoid OOM on 512MB Render starter plan
 
     async with get_uow() as uow:
         # Get scheduled matches
@@ -251,12 +250,12 @@ async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
             .outerjoin(Prediction, Match.id == Prediction.match_id)
             .where(
                 Match.match_date >= datetime.now(UTC),
-                Match.match_date <= datetime.now(UTC) + timedelta(days=7),
+                Match.match_date <= datetime.now(UTC) + timedelta(days=2),  # Next 2 days only
                 Match.status.in_(["scheduled", "SCHEDULED", "TIMED"]),
                 Prediction.id.is_(None),
             )
             .order_by(Match.match_date)
-            .limit(50)
+            .limit(5)  # Reduced from 50 to avoid OOM
         )
         result = await uow._session.execute(stmt)
         matches = result.scalars().all()
@@ -323,10 +322,14 @@ async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
             # Rate limit protection (Groq: 30 req/min, football-data: 10 req/min)
             await asyncio.sleep(6)
 
+            # Force garbage collection to free memory (512MB limit)
+            gc.collect()
+
         except Exception as e:
             failed += 1
             logger.error(f"Failed to predict match {match_id}: {e}")
             await asyncio.sleep(2)
+            gc.collect()
 
     logger.info(f"Prediction calculation complete: {predicted} success, {failed} failed")
 
