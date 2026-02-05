@@ -53,39 +53,12 @@ export function PerformanceHistory() {
   // Extract stats from Orval response (status 200 returns data)
   const stats = response?.status === 200 ? response.data : null;
 
-  // Memoize historical data to prevent re-generation on each render
-  // All useMemo hooks must be called before any conditional returns
+  // NOTE: Historical daily data requires backend API endpoint to track predictions per day
+  // Removed simulated data - see PAR-172 for implementation with real daily stats
   const historyData = useMemo((): HistoryDataPoint[] => {
-    if (!stats) return [];
-    const data: HistoryDataPoint[] = [];
-    const today = new Date();
-    const totalPredictions = stats.total_predictions || 1;
-    const correctPredictions = stats.correct_predictions || 0;
-    const dateLocale = locale === "fr" ? "fr-FR" : "en-US";
-
-    // Create 30 data points (one per day, going backward)
-    // Use seeded values based on stats to keep data stable
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-
-      // Simulate progressive accuracy curve with stable seed
-      const progressRatio = (29 - i) / 29;
-      const seed = ((stats.accuracy || 50) * (i + 1)) % 1;
-      const dailyPredictions = Math.floor(totalPredictions / 30) + seed * 3;
-      const dailyCorrect = Math.floor(
-        dailyPredictions * (0.45 + progressRatio * 0.15 + seed * 0.1)
-      );
-
-      data.push({
-        date: date.toLocaleDateString(dateLocale, { month: "short", day: "numeric" }),
-        accuracy: Math.min(100, (dailyCorrect / dailyPredictions) * 100),
-        predictions: Math.floor(dailyPredictions),
-        cumulative: correctPredictions,
-      });
-    }
-    return data;
-  }, [stats, locale]);
+    // Return empty array until backend provides real daily breakdown
+    return [];
+  }, []);
 
   // Memoize competition chart data with proper types
   const competitionData = useMemo((): CompetitionChartData[] => {
@@ -174,51 +147,53 @@ export function PerformanceHistory() {
         ))}
       </div>
 
-      {/* Accuracy Over Time Chart */}
-      <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
-        <h3 className="text-base sm:text-lg font-semibold text-white mb-4">
-          {t("accuracyOverTime")}
-        </h3>
-        <div className="w-full h-64 sm:h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={historyData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis
-                dataKey="date"
-                stroke="#94a3b8"
-                style={{ fontSize: "0.75rem" }}
-                tick={{ fill: "#94a3b8" }}
-              />
-              <YAxis
-                stroke="#94a3b8"
-                style={{ fontSize: "0.75rem" }}
-                tick={{ fill: "#94a3b8" }}
-                label={{ value: `${t("precision")} (%)`, angle: -90, position: "insideLeft" }}
-                domain={[0, 100]}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#1e293b",
-                  border: "1px solid #334155",
-                  borderRadius: "8px",
-                }}
-                labelStyle={{ color: "#e2e8f0" }}
-                formatter={(value: number) => {
-                  return `${value.toFixed(1)}%`;
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="accuracy"
-                stroke="#4ade80"
-                strokeWidth={3}
-                dot={false}
-                isAnimationActive={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+      {/* Accuracy Over Time Chart - Requires real daily data from backend */}
+      {historyData.length > 0 ? (
+        <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-white mb-4">
+            {t("accuracyOverTime")}
+          </h3>
+          <div className="w-full h-64 sm:h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={historyData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis
+                  dataKey="date"
+                  stroke="#94a3b8"
+                  style={{ fontSize: "0.75rem" }}
+                  tick={{ fill: "#94a3b8" }}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  style={{ fontSize: "0.75rem" }}
+                  tick={{ fill: "#94a3b8" }}
+                  label={{ value: `${t("precision")} (%)`, angle: -90, position: "insideLeft" }}
+                  domain={[0, 100]}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1e293b",
+                    border: "1px solid #334155",
+                    borderRadius: "8px",
+                  }}
+                  labelStyle={{ color: "#e2e8f0" }}
+                  formatter={(value: number) => {
+                    return `${value.toFixed(1)}%`;
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="accuracy"
+                  stroke="#4ade80"
+                  strokeWidth={3}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Predictions per Competition Chart */}
       <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
