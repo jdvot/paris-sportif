@@ -1,4 +1,5 @@
 import { OnboardingModal } from "@/components/OnboardingModal";
+import { FavoriteTeamModal } from "@/components/FavoriteTeamModal";
 
 export default function ProtectedLayout({
   children,
@@ -9,6 +10,7 @@ export default function ProtectedLayout({
   return (
     <>
       <OnboardingModal />
+      <FavoriteTeamModal />
       {children}
     </>
   );

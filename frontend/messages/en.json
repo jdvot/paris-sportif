@@ -43,6 +43,8 @@
   "nav": {
     "home": "Home",
     "picks": "Daily Picks",
+    "bets": "My Bets",
+    "calibration": "Calibration",
     "matches": "Matches",
     "history": "History",
     "favorites": "Favorites",
@@ -1103,5 +1105,156 @@
       "form": "Form",
       "previews": "Preview"
     }
+  },
+  "bets": {
+    "title": "My Bets",
+    "subtitle": "Manage your bankroll and track your bets",
+    "empty": "No bets recorded",
+    "emptyHint": "Record your bets to track your performance and calculate your ROI.",
+    "tabs": {
+      "bets": "Bets",
+      "bankroll": "Bankroll",
+      "stats": "Statistics"
+    },
+    "bankroll": {
+      "title": "Bankroll Management",
+      "initial": "Initial bankroll",
+      "current": "Current bankroll",
+      "profitLoss": "Profit/Loss",
+      "roi": "ROI",
+      "alertThreshold": "Alert threshold (%)",
+      "alertThresholdHint": "You'll be alerted if your bankroll drops below this percentage",
+      "defaultStake": "Default stake (%)",
+      "defaultStakeHint": "Percentage of bankroll to stake by default",
+      "belowThreshold": "Warning: Bankroll below alert threshold!",
+      "save": "Save settings"
+    },
+    "stats": {
+      "totalBets": "Total bets",
+      "won": "Won",
+      "lost": "Lost",
+      "pending": "Pending",
+      "winRate": "Win rate",
+      "totalStaked": "Total staked",
+      "totalReturned": "Total returned",
+      "avgOdds": "Average odds"
+    },
+    "bet": {
+      "add": "Add a bet",
+      "match": "Match",
+      "prediction": "Prediction",
+      "odds": "Odds",
+      "amount": "Stake",
+      "confidence": "Confidence",
+      "potentialReturn": "Potential return",
+      "actualReturn": "Actual return",
+      "status": "Status",
+      "createdAt": "Date",
+      "won": "Won",
+      "lost": "Lost",
+      "pending": "Pending",
+      "void": "Void",
+      "delete": "Delete",
+      "markWon": "Mark won",
+      "markLost": "Mark lost"
+    },
+    "form": {
+      "selectMatch": "Select a match",
+      "selectPrediction": "Bet type",
+      "homeWin": "Home win",
+      "draw": "Draw",
+      "awayWin": "Away win",
+      "enterOdds": "Enter odds",
+      "enterAmount": "Enter stake",
+      "submit": "Record bet"
+    },
+    "kelly": {
+      "title": "Kelly Suggestion",
+      "optimalStake": "Optimal stake",
+      "edge": "Edge",
+      "fraction": "Kelly fraction",
+      "calculate": "Calculate"
+    },
+    "filter": {
+      "all": "All",
+      "pending": "Pending",
+      "won": "Won",
+      "lost": "Lost"
+    },
+    "infoBanner": "This tool helps you track your bets and calculate your ROI. Please bet responsibly."
+  },
+  "calibration": {
+    "title": "Prediction Calibration",
+    "subtitle": "Analyze how our predictions compare to actual results",
+    "overallAccuracy": "Overall Accuracy",
+    "calibrationError": "Calibration Error",
+    "calibrationErrorHint": "Lower is better",
+    "totalVerified": "Verified Predictions",
+    "period": "Period",
+    "byBetType": "By Bet Type",
+    "byConfidence": "By Confidence Level",
+    "byCompetition": "By Competition",
+    "bucket": {
+      "confidenceRange": "Confidence",
+      "predicted": "Predicted",
+      "actual": "Actual",
+      "count": "Count",
+      "difference": "Diff"
+    },
+    "betTypes": {
+      "home_win": "Home Win",
+      "draw": "Draw",
+      "away_win": "Away Win"
+    },
+    "chart": {
+      "perfectCalibration": "Perfect Calibration",
+      "actualCalibration": "Actual Calibration",
+      "confidence": "Predicted Confidence",
+      "accuracy": "Actual Accuracy"
+    },
+    "filters": {
+      "last30Days": "Last 30 days",
+      "last90Days": "Last 90 days",
+      "last180Days": "Last 180 days",
+      "lastYear": "Last year"
+    },
+    "empty": "Not enough data",
+    "emptyHint": "Calibration stats will be available after prediction verification.",
+    "infoBanner": "Calibration measures if our predictions are realistic. Good calibration means when we predict 70% confidence, we win about 70% of the time."
+  },
+  "favoriteTeam": {
+    "title": "What's your favorite club?",
+    "description": "Choose your favorite team to personalize your experience with dedicated news and analysis.",
+    "searchPlaceholder": "Search for a team...",
+    "searchHint": "Type at least 2 characters to search",
+    "noResults": "No teams found",
+    "skip": "Skip",
+    "confirm": "Confirm",
+    "change": "Change"
+  },
+  "liveScores": {
+    "title": "Live Matches",
+    "noLiveMatches": "No live matches",
+    "noLiveMatchesHint": "Live scores will appear here during matches",
+    "noMatches": "No matches in progress",
+    "minute": "min",
+    "halftime": "HT",
+    "fulltime": "FT",
+    "live": "LIVE",
+    "viewMatch": "View match",
+    "viewAll": "View all",
+    "error": "Unable to load live scores",
+    "updatedAt": "Updated at {time}"
+  },
+  "myClub": {
+    "title": "My Club",
+    "summary": "Summary",
+    "news": "News",
+    "noNews": "No recent news",
+    "viewAllNews": "View all news",
+    "noClubSelected": "No favorite club selected",
+    "selectClub": "Choose my club",
+    "form": "Form",
+    "position": "Position"
   }
 }

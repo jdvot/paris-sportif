@@ -648,5 +648,10 @@ class UserPreferences(Base):
         Text, nullable=True
     )  # JSON array of team IDs
 
+    # Primary favorite team (for homepage personalization)
+    favorite_team_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("teams.id"), nullable=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())

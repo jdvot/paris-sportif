@@ -4,6 +4,8 @@ import { DailyPicks } from "@/components/DailyPicks";
 import { UpcomingMatches } from "@/components/UpcomingMatches";
 import { StatsOverview } from "@/components/StatsOverview";
 import { NewsFeed } from "@/components/NewsFeed";
+import { LiveScoresSection } from "@/components/LiveScoresSection";
+import { MyClubSection } from "@/components/MyClubSection";
 import { TrendingUp, Calendar, Trophy, Loader2, Newspaper } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
@@ -42,6 +44,16 @@ export default function Home() {
           </h2>
         </div>
         <NewsFeed limit={5} showTitle={false} />
+      </section>
+
+      {/* Live Scores Section */}
+      <section className="px-4 sm:px-0">
+        <LiveScoresSection maxMatches={4} />
+      </section>
+
+      {/* My Club Section - Favorite team news & summary */}
+      <section className="px-4 sm:px-0">
+        <MyClubSection />
       </section>
 
       {/* Hero Section */}

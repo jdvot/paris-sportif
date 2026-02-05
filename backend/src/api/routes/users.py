@@ -1,15 +1,22 @@
 """User profile endpoints.
 
-Provides endpoints for user profile management.
+Provides endpoints for user profile management, preferences, and team search.
 """
 
 import logging
+from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
-from src.auth.supabase_auth import update_user_metadata
+from src.auth.supabase_auth import (
+    get_user_role_from_profiles,
+    sync_role_to_app_metadata,
+    update_user_metadata,
+)
+from src.db.services.user_service import PreferencesService
+from src.db.repositories.unit_of_work import get_uow
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +74,20 @@ async def get_current_profile(user: AuthenticatedUser) -> UserProfileResponse:
         email = user.get("email")
         created_at = user.get("created_at")
 
-    # Get role from app_metadata first, then user_metadata, default to "free"
-    role = app_metadata.get("role") or user_metadata.get("role") or "free"
+    # Get role from app_metadata first, then user_metadata
+    role = app_metadata.get("role") or user_metadata.get("role")
+    role_from_db = False
+
+    # Fallback: check user_profiles table if role not in metadata
+    if not role:
+        role = await get_user_role_from_profiles(user_id)
+        if role:
+            role_from_db = True
+            # Sync role to app_metadata so future JWT tokens will have it
+            await sync_role_to_app_metadata(user_id, role)
+
+    # Default to "free" if no role found anywhere
+    role = role or "free"
 
     return UserProfileResponse(
         id=user_id,
@@ -110,7 +129,15 @@ async def update_profile(
             )
         logger.info(f"Profile updated for user {user_id}")
 
-    role = app_metadata.get("role") or user_metadata.get("role") or "free"
+    # Get role from app_metadata first, then user_metadata
+    role = app_metadata.get("role") or user_metadata.get("role")
+
+    # Fallback: check user_profiles table if role not in metadata
+    if not role:
+        role = await get_user_role_from_profiles(user_id)
+
+    # Default to "free" if no role found anywhere
+    role = role or "free"
 
     return UserProfileResponse(
         id=user_id,
@@ -135,3 +162,321 @@ async def get_user_stats(user: AuthenticatedUser) -> UserStatsResponse:
         favorite_competition=None,
         member_since_days=0,
     )
+
+
+# ============================================================================
+# User Preferences Endpoints
+# ============================================================================
+
+
+class FavoriteTeamInfo(BaseModel):
+    """Favorite team details."""
+
+    id: int
+    name: str
+    short_name: str
+    logo_url: str | None = None
+    country: str | None = None
+
+
+class UserPreferencesResponse(BaseModel):
+    """User preferences response."""
+
+    language: str
+    timezone: str
+    odds_format: str
+    dark_mode: bool
+    email_daily_picks: bool
+    email_match_results: bool
+    push_daily_picks: bool
+    push_match_start: bool
+    push_bet_results: bool
+    default_stake: float
+    risk_level: str
+    favorite_competitions: list[str]
+    favorite_team_id: int | None = None
+    favorite_team: FavoriteTeamInfo | None = None
+
+
+class UserPreferencesUpdate(BaseModel):
+    """User preferences update request."""
+
+    language: str | None = None
+    timezone: str | None = None
+    odds_format: str | None = None
+    dark_mode: bool | None = None
+    email_daily_picks: bool | None = None
+    email_match_results: bool | None = None
+    push_daily_picks: bool | None = None
+    push_match_start: bool | None = None
+    push_bet_results: bool | None = None
+    default_stake: float | None = None
+    risk_level: str | None = None
+    favorite_competitions: list[str] | None = None
+    favorite_team_id: int | None = None
+
+
+@router.get("/me/preferences", response_model=UserPreferencesResponse, responses=AUTH_RESPONSES)
+async def get_preferences(user: AuthenticatedUser) -> UserPreferencesResponse:
+    """
+    Get current user's preferences.
+
+    Returns display, notification, and betting preferences.
+    """
+    user_id = user.get("sub", "")
+    prefs = await PreferencesService.get_preferences(user_id)
+    return UserPreferencesResponse(**prefs)
+
+
+@router.put("/me/preferences", response_model=UserPreferencesResponse, responses=AUTH_RESPONSES)
+async def update_preferences(
+    user: AuthenticatedUser,
+    updates: UserPreferencesUpdate,
+) -> UserPreferencesResponse:
+    """
+    Update current user's preferences.
+
+    Supports partial updates - only provided fields will be changed.
+    """
+    user_id = user.get("sub", "")
+
+    # Convert to dict, excluding None values
+    update_data = {k: v for k, v in updates.model_dump().items() if v is not None}
+
+    if not update_data:
+        # No updates, just return current preferences
+        prefs = await PreferencesService.get_preferences(user_id)
+        return UserPreferencesResponse(**prefs)
+
+    # Validate favorite_team_id exists if provided
+    if "favorite_team_id" in update_data and update_data["favorite_team_id"] is not None:
+        async with get_uow() as uow:
+            team = await uow.teams.get_by_id(update_data["favorite_team_id"])
+            if not team:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Team with ID {update_data['favorite_team_id']} not found",
+                )
+
+    prefs = await PreferencesService.update_preferences(user_id, **update_data)
+    return UserPreferencesResponse(**prefs)
+
+
+# ============================================================================
+# Team Search Endpoints
+# ============================================================================
+
+
+class TeamSearchResult(BaseModel):
+    """Team search result."""
+
+    id: int
+    name: str
+    short_name: str | None = None
+    logo_url: str | None = None
+    country: str | None = None
+
+
+class TeamSearchResponse(BaseModel):
+    """Team search response."""
+
+    teams: list[TeamSearchResult]
+    total: int
+
+
+@router.get("/teams/search", response_model=TeamSearchResponse, responses=AUTH_RESPONSES)
+async def search_teams(
+    user: AuthenticatedUser,
+    q: str = Query(..., min_length=2, description="Search query (min 2 characters)"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum results to return"),
+) -> TeamSearchResponse:
+    """
+    Search for teams by name.
+
+    Returns teams matching the search query for use in autocomplete.
+    """
+    async with get_uow() as uow:
+        teams = await uow.teams.search_by_name(q, limit=limit)
+
+        results = [
+            TeamSearchResult(
+                id=team.id,
+                name=team.name,
+                short_name=team.short_name or team.tla,
+                logo_url=team.logo_url,
+                country=team.country,
+            )
+            for team in teams
+        ]
+
+        return TeamSearchResponse(teams=results, total=len(results))
+
+
+# ============================================================================
+# Favorite Team News & Summary Endpoints
+# ============================================================================
+
+
+class TeamNewsArticle(BaseModel):
+    """News article for a team."""
+
+    title: str
+    source: str
+    url: str | None = None
+    published_at: str | None = None
+
+
+class TeamNewsResponse(BaseModel):
+    """Team news response."""
+
+    team_id: int
+    team_name: str
+    news: list[TeamNewsArticle]
+    total: int
+
+
+class TeamSummaryResponse(BaseModel):
+    """Team summary with RAG-generated content."""
+
+    team_id: int
+    team_name: str
+    summary: str
+    form: list[str]  # ["W", "W", "D", "L", "W"]
+    position: int | None = None
+    competition: str | None = None
+    generated_at: str
+
+
+@router.get("/teams/{team_id}/news", response_model=TeamNewsResponse, responses=AUTH_RESPONSES)
+async def get_team_news(
+    user: AuthenticatedUser,
+    team_id: int,
+    limit: int = Query(5, ge=1, le=20),
+) -> TeamNewsResponse:
+    """
+    Get recent news for a specific team.
+
+    Used for the favorite team section on homepage.
+    """
+    async with get_uow() as uow:
+        team = await uow.teams.get_by_id(team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        team_name = team.name
+
+    try:
+        from src.vector.news_ingestion import get_ingestion_service
+
+        service = get_ingestion_service()
+        articles = await service.fetch_team_news_from_api(team_name, max_articles=limit)
+
+        news = [
+            TeamNewsArticle(
+                title=a.title,
+                source=a.source,
+                url=a.url,
+                published_at=a.published_at.isoformat() if a.published_at else None,
+            )
+            for a in articles
+        ]
+
+        return TeamNewsResponse(
+            team_id=team_id,
+            team_name=team_name,
+            news=news,
+            total=len(news),
+        )
+    except Exception as e:
+        logger.warning(f"Failed to fetch news for team {team_id}: {e}")
+        return TeamNewsResponse(
+            team_id=team_id,
+            team_name=team_name,
+            news=[],
+            total=0,
+        )
+
+
+@router.get("/teams/{team_id}/summary", response_model=TeamSummaryResponse, responses=AUTH_RESPONSES)
+async def get_team_summary(
+    user: AuthenticatedUser,
+    team_id: int,
+) -> TeamSummaryResponse:
+    """
+    Get RAG-generated summary for a team's current situation.
+
+    Includes form analysis, recent performance, and news synthesis.
+    """
+    from datetime import datetime
+
+    async with get_uow() as uow:
+        team = await uow.teams.get_by_id(team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        team_name = team.name
+        form_string = team.form or ""
+
+        # Get standing info if available
+        standing = await uow.standings.get_team_standing(team_id)
+        position = standing.position if standing else None
+        competition = standing.competition_code if standing else None
+
+    # Generate summary using LLM
+    try:
+        from src.prediction_engine.rag_enrichment import get_rag_enrichment
+
+        rag = get_rag_enrichment()
+
+        # Get team context for summary generation
+        context = await rag.get_team_context(team_name)
+
+        # Generate summary from context
+        recent_news = context.get("recent_news", [])
+        injuries = context.get("injuries", [])
+        sentiment = context.get("sentiment", "neutral")
+
+        # Build summary text
+        summary_parts = []
+
+        if form_string:
+            wins = form_string.count("W")
+            draws = form_string.count("D")
+            losses = form_string.count("L")
+            form_desc = f"{team_name} affiche {wins}V-{draws}N-{losses}D sur les 5 derniers matchs"
+            summary_parts.append(form_desc)
+
+        if position:
+            summary_parts.append(f"Actuellement {position}{'er' if position == 1 else 'e'} au classement")
+
+        if injuries:
+            summary_parts.append(f"Blessures signalées: {', '.join(injuries[:3])}")
+
+        if sentiment == "positive":
+            summary_parts.append("Dynamique positive dans les médias")
+        elif sentiment == "negative":
+            summary_parts.append("Quelques critiques dans la presse")
+
+        summary = ". ".join(summary_parts) + "." if summary_parts else f"Pas d'informations récentes disponibles pour {team_name}."
+
+        return TeamSummaryResponse(
+            team_id=team_id,
+            team_name=team_name,
+            summary=summary,
+            form=list(form_string) if form_string else [],
+            position=position,
+            competition=competition,
+            generated_at=datetime.utcnow().isoformat(),
+        )
+
+    except Exception as e:
+        logger.warning(f"Failed to generate summary for team {team_id}: {e}")
+        return TeamSummaryResponse(
+            team_id=team_id,
+            team_name=team_name,
+            summary=f"Informations sur {team_name} temporairement indisponibles.",
+            form=list(form_string) if form_string else [],
+            position=position,
+            competition=competition,
+            generated_at=datetime.utcnow().isoformat(),
+        )

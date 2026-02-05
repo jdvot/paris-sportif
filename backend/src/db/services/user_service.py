@@ -377,6 +377,8 @@ class PreferencesService:
                     "default_stake": 10.0,
                     "risk_level": "medium",
                     "favorite_competitions": [],
+                    "favorite_team_id": None,
+                    "favorite_team": None,
                 }
 
             fav_comps = []
@@ -385,6 +387,19 @@ class PreferencesService:
                     fav_comps = json.loads(prefs.favorite_competitions)
                 except Exception:
                     pass
+
+            # Get favorite team details if set
+            favorite_team = None
+            if prefs.favorite_team_id:
+                team = await uow.teams.get_by_id(prefs.favorite_team_id)
+                if team:
+                    favorite_team = {
+                        "id": team.id,
+                        "name": team.name,
+                        "short_name": team.short_name or team.tla or team.name[:3].upper(),
+                        "logo_url": team.logo_url,
+                        "country": team.country,
+                    }
 
             return {
                 "language": prefs.language or "fr",
@@ -399,6 +414,8 @@ class PreferencesService:
                 "default_stake": float(prefs.default_stake) if prefs.default_stake else 10.0,
                 "risk_level": prefs.risk_level or "medium",
                 "favorite_competitions": fav_comps,
+                "favorite_team_id": prefs.favorite_team_id,
+                "favorite_team": favorite_team,
             }
 
     @staticmethod

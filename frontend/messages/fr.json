@@ -43,6 +43,8 @@
   "nav": {
     "home": "Accueil",
     "picks": "Picks du jour",
+    "bets": "Mes Paris",
+    "calibration": "Calibration",
     "matches": "Matchs",
     "history": "Historique",
     "favorites": "Favoris",
@@ -1103,5 +1105,156 @@
       "form": "Forme",
       "previews": "Avant-match"
     }
+  },
+  "bets": {
+    "title": "Mes Paris",
+    "subtitle": "Gerez votre bankroll et suivez vos paris",
+    "empty": "Aucun pari enregistre",
+    "emptyHint": "Enregistrez vos paris pour suivre vos performances et calculer votre ROI.",
+    "tabs": {
+      "bets": "Paris",
+      "bankroll": "Bankroll",
+      "stats": "Statistiques"
+    },
+    "bankroll": {
+      "title": "Gestion du Bankroll",
+      "initial": "Bankroll initial",
+      "current": "Bankroll actuel",
+      "profitLoss": "Profit/Perte",
+      "roi": "ROI",
+      "alertThreshold": "Seuil d'alerte (%)",
+      "alertThresholdHint": "Vous serez alerte si votre bankroll descend sous ce pourcentage",
+      "defaultStake": "Mise par defaut (%)",
+      "defaultStakeHint": "Pourcentage du bankroll a miser par defaut",
+      "belowThreshold": "Attention: Bankroll sous le seuil d'alerte!",
+      "save": "Enregistrer les parametres"
+    },
+    "stats": {
+      "totalBets": "Total paris",
+      "won": "Gagnes",
+      "lost": "Perdus",
+      "pending": "En cours",
+      "winRate": "Taux de reussite",
+      "totalStaked": "Total mise",
+      "totalReturned": "Total retourne",
+      "avgOdds": "Cote moyenne"
+    },
+    "bet": {
+      "add": "Ajouter un pari",
+      "match": "Match",
+      "prediction": "Prediction",
+      "odds": "Cote",
+      "amount": "Mise",
+      "confidence": "Confiance",
+      "potentialReturn": "Gain potentiel",
+      "actualReturn": "Gain reel",
+      "status": "Statut",
+      "createdAt": "Date",
+      "won": "Gagne",
+      "lost": "Perdu",
+      "pending": "En attente",
+      "void": "Annule",
+      "delete": "Supprimer",
+      "markWon": "Marquer gagne",
+      "markLost": "Marquer perdu"
+    },
+    "form": {
+      "selectMatch": "Selectionner un match",
+      "selectPrediction": "Type de pari",
+      "homeWin": "Victoire domicile",
+      "draw": "Match nul",
+      "awayWin": "Victoire exterieur",
+      "enterOdds": "Entrer la cote",
+      "enterAmount": "Entrer la mise",
+      "submit": "Enregistrer le pari"
+    },
+    "kelly": {
+      "title": "Suggestion Kelly",
+      "optimalStake": "Mise optimale",
+      "edge": "Avantage",
+      "fraction": "Fraction Kelly",
+      "calculate": "Calculer"
+    },
+    "filter": {
+      "all": "Tous",
+      "pending": "En cours",
+      "won": "Gagnes",
+      "lost": "Perdus"
+    },
+    "infoBanner": "Cet outil vous aide a suivre vos paris et calculer votre ROI. Pariez de maniere responsable."
+  },
+  "calibration": {
+    "title": "Calibration des Predictions",
+    "subtitle": "Analysez la precision de nos predictions par rapport aux resultats reels",
+    "overallAccuracy": "Precision Globale",
+    "calibrationError": "Erreur de Calibration",
+    "calibrationErrorHint": "Plus cette valeur est basse, mieux c'est",
+    "totalVerified": "Predictions Verifiees",
+    "period": "Periode",
+    "byBetType": "Par Type de Pari",
+    "byConfidence": "Par Niveau de Confiance",
+    "byCompetition": "Par Competition",
+    "bucket": {
+      "confidenceRange": "Confiance",
+      "predicted": "Predite",
+      "actual": "Reelle",
+      "count": "Nb",
+      "difference": "Ecart"
+    },
+    "betTypes": {
+      "home_win": "Victoire Domicile",
+      "draw": "Match Nul",
+      "away_win": "Victoire Exterieur"
+    },
+    "chart": {
+      "perfectCalibration": "Calibration Parfaite",
+      "actualCalibration": "Calibration Reelle",
+      "confidence": "Confiance Predite",
+      "accuracy": "Precision Reelle"
+    },
+    "filters": {
+      "last30Days": "30 derniers jours",
+      "last90Days": "90 derniers jours",
+      "last180Days": "180 derniers jours",
+      "lastYear": "1 an"
+    },
+    "empty": "Pas assez de donnees",
+    "emptyHint": "Les statistiques de calibration seront disponibles apres la verification des predictions.",
+    "infoBanner": "La calibration mesure si nos predictions sont realistes. Une bonne calibration signifie que quand on predit 70% de confiance, on gagne environ 70% du temps."
+  },
+  "favoriteTeam": {
+    "title": "Quel est votre club de coeur ?",
+    "description": "Choisissez votre equipe favorite pour personnaliser votre experience avec des actualites et analyses dediees.",
+    "searchPlaceholder": "Rechercher une equipe...",
+    "searchHint": "Tapez au moins 2 caracteres pour rechercher",
+    "noResults": "Aucune equipe trouvee",
+    "skip": "Passer",
+    "confirm": "Confirmer",
+    "change": "Changer"
+  },
+  "liveScores": {
+    "title": "Matchs en Direct",
+    "noLiveMatches": "Aucun match en cours",
+    "noLiveMatchesHint": "Les scores en direct apparaitront ici pendant les matchs",
+    "noMatches": "Aucun match en cours",
+    "minute": "min",
+    "halftime": "MT",
+    "fulltime": "FT",
+    "live": "EN DIRECT",
+    "viewMatch": "Voir le match",
+    "viewAll": "Voir tout",
+    "error": "Impossible de charger les scores",
+    "updatedAt": "Mis a jour a {time}"
+  },
+  "myClub": {
+    "title": "Mon Club",
+    "summary": "Resume",
+    "news": "Actualites",
+    "noNews": "Pas d'actualites recentes",
+    "viewAllNews": "Voir toutes les actus",
+    "noClubSelected": "Aucun club favori selectionne",
+    "selectClub": "Choisir mon club",
+    "form": "Forme",
+    "position": "Position"
   }
 }

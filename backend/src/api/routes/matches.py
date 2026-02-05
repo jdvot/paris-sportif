@@ -5,7 +5,7 @@ Returns HTTP errors (429, 503) when data is unavailable rather than mock data.
 """
 
 import logging
-from datetime import UTC, date, datetime, timedelta
+from datetime import timezone,  date, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -54,7 +54,8 @@ class TeamInfo(BaseModel):
     name: str
     short_name: str
     logo_url: str | None = None
-    elo_rating: float = 1500.0
+    elo_rating: float | None = None  # Real ELO from DB, None if not found
+    form: str | None = None  # Recent form (e.g., "WLDDW")
 
 
 class MatchResponse(BaseModel):
@@ -177,6 +178,103 @@ class CompetitionsListResponse(BaseModel):
 
     competitions: list[CompetitionResponse]
     total: int
+
+
+# Cache for team data to avoid repeated DB calls
+_team_cache: dict[str, dict] = {}
+
+
+async def _get_team_from_db(team_name: str) -> dict | None:
+    """Fetch real team data from database by name."""
+    # Check cache first
+    if team_name in _team_cache:
+        return _team_cache[team_name]
+
+    try:
+        from src.db.repositories import get_uow
+        async with get_uow() as uow:
+            # Try exact match first
+            team = await uow.teams.get_by_name(team_name)
+            if not team:
+                # Try partial match
+                team = await uow.teams.get_by_name_fuzzy(team_name)
+
+            if team:
+                data = {
+                    "elo_rating": float(team.elo_rating) if team.elo_rating else None,
+                    "form": team.form,
+                }
+                _team_cache[team_name] = data
+                return data
+    except Exception as e:
+        logger.debug(f"Could not fetch team {team_name} from DB: {e}")
+
+    return None
+
+
+async def _convert_api_match_with_db(api_match: MatchData) -> MatchResponse:
+    """Convert football-data.org match to our response format with real DB data."""
+    # Map API status to our status
+    status_map: dict[str, MatchStatus] = {
+        "SCHEDULED": "scheduled",
+        "TIMED": "scheduled",
+        "LIVE": "live",
+        "IN_PLAY": "live",
+        "PAUSED": "live",
+        "FINISHED": "finished",
+        "POSTPONED": "postponed",
+        "CANCELLED": "postponed",
+        "SUSPENDED": "postponed",
+    }
+
+    status: MatchStatus = status_map.get(api_match.status, "scheduled")
+
+    # Extract scores
+    home_score = None
+    away_score = None
+    if api_match.score and api_match.score.fullTime:
+        home_score = api_match.score.fullTime.home
+        away_score = api_match.score.fullTime.away
+
+    # Fetch real team data from DB
+    home_db = await _get_team_from_db(api_match.homeTeam.name)
+    away_db = await _get_team_from_db(api_match.awayTeam.name)
+
+    return MatchResponse(
+        id=api_match.id,
+        external_id=f"{api_match.competition.code}_{api_match.id}",
+        home_team=TeamInfo(
+            id=api_match.homeTeam.id,
+            name=api_match.homeTeam.name,
+            short_name=(
+                api_match.homeTeam.tla
+                or api_match.homeTeam.shortName
+                or api_match.homeTeam.name[:3].upper()
+            ),
+            logo_url=api_match.homeTeam.crest,
+            elo_rating=home_db.get("elo_rating") if home_db else None,
+            form=home_db.get("form") if home_db else None,
+        ),
+        away_team=TeamInfo(
+            id=api_match.awayTeam.id,
+            name=api_match.awayTeam.name,
+            short_name=(
+                api_match.awayTeam.tla
+                or api_match.awayTeam.shortName
+                or api_match.awayTeam.name[:3].upper()
+            ),
+            logo_url=api_match.awayTeam.crest,
+            elo_rating=away_db.get("elo_rating") if away_db else None,
+            form=away_db.get("form") if away_db else None,
+        ),
+        competition=api_match.competition.name,
+        competition_code=api_match.competition.code,
+        match_date=datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00")),
+        status=status,
+        home_score=home_score,
+        away_score=away_score,
+        matchday=api_match.matchday,
+    )
 
 
 def _convert_api_match(api_match: MatchData) -> MatchResponse:
@@ -346,7 +444,7 @@ async def get_matches(
                         competition_code=m.get("competition_code") or competition or "UNK",
                         match_date=datetime.fromisoformat(m["match_date"])
                         if m.get("match_date")
-                        else datetime.now(UTC),
+                        else datetime.now(timezone.utc),
                         status=m.get("status", "scheduled"),
                         home_score=m.get("home_score"),
                         away_score=m.get("away_score"),
@@ -424,7 +522,7 @@ async def get_matches(
                         competition_code=m.get("competition_code") or competition or "UNK",
                         match_date=datetime.fromisoformat(m["match_date"])
                         if m.get("match_date")
-                        else datetime.now(UTC),
+                        else datetime.now(timezone.utc),
                         status=m.get("status", "scheduled"),
                         home_score=m.get("home_score"),
                         away_score=m.get("away_score"),
@@ -474,7 +572,7 @@ async def get_upcoming_matches(
     days: int = Query(2, ge=1, le=7, description="Number of days ahead"),
     competition: str | None = Query(None),
 ) -> MatchListResponse:
-    """Get upcoming matches for the next N days."""
+    """Get upcoming matches for the next N days with real team data from DB."""
     try:
         client = get_football_data_client()
         api_matches = await client.get_upcoming_matches(
@@ -482,7 +580,9 @@ async def get_upcoming_matches(
             competition=competition,
         )
 
-        matches = [_convert_api_match(m) for m in api_matches]
+        # Use async function to enrich with real DB data (ELO, form)
+        import asyncio
+        matches = await asyncio.gather(*[_convert_api_match_with_db(m) for m in api_matches])
         matches = sorted(matches, key=lambda m: m.match_date)
 
         return MatchListResponse(
@@ -516,6 +616,232 @@ async def get_upcoming_matches(
                 "details": f"API externe indisponible: {str(e)[:100]}",
             },
         )
+
+
+# ============================================================================
+# Live Scores Endpoint
+# ============================================================================
+
+
+class LiveMatchEvent(BaseModel):
+    """Event in a live match (goal, card, etc.)."""
+
+    type: str  # goal, yellow_card, red_card, substitution
+    minute: int
+    team: str  # home, away
+    player: str | None = None
+
+
+class LiveMatchInfo(BaseModel):
+    """Live match with score and events."""
+
+    id: int
+    external_id: str
+    home_team: TeamInfo
+    away_team: TeamInfo
+    home_score: int
+    away_score: int
+    minute: int | None = None
+    status: str  # 1H, HT, 2H, FT, ET, PEN
+    competition: str
+    competition_code: str
+    events: list[LiveMatchEvent] = []
+
+
+class LiveScoresResponse(BaseModel):
+    """Live scores response."""
+
+    matches: list[LiveMatchInfo]
+    total: int
+    updated_at: datetime
+    data_source: DataSourceInfo | None = None
+
+
+@router.get(
+    "/live",
+    response_model=LiveScoresResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getLiveScores",
+)
+@limiter.limit(RATE_LIMITS["matches"])
+async def get_live_scores(
+    request: Request,
+    user: AuthenticatedUser,
+    competition: str | None = Query(None, description="Filter by competition code"),
+) -> LiveScoresResponse:
+    """
+    Get live match scores with real-time updates.
+
+    Returns all currently playing matches with scores, minute, and status.
+    Results are cached for 30 seconds to reduce API calls.
+    """
+    import json
+    from src.core.config import settings
+
+    cache_key = f"live_scores:{competition or 'all'}"
+
+    # Try Redis cache first
+    try:
+        import redis.asyncio as redis
+
+        redis_client = redis.from_url(settings.redis_url)
+        cached = await redis_client.get(cache_key)
+        if cached:
+            data = json.loads(cached)
+            return LiveScoresResponse(
+                matches=[LiveMatchInfo(**m) for m in data["matches"]],
+                total=data["total"],
+                updated_at=datetime.fromisoformat(data["updated_at"]),
+                data_source=DataSourceInfo(
+                    source="cache",
+                    is_fallback=False,
+                    details="Cached for 30 seconds",
+                ),
+            )
+    except Exception as e:
+        logger.debug(f"Redis cache miss or error: {e}")
+
+    # Fetch from football-data.org API
+    try:
+        client = get_football_data_client()
+
+        # Get matches with LIVE status
+        api_matches = await client.get_matches(
+            competition=competition,
+            status="LIVE",
+            date_from=date.today(),
+            date_to=date.today(),
+        )
+
+        live_matches: list[LiveMatchInfo] = []
+
+        for api_match in api_matches:
+            # Map status to display format
+            status_display_map = {
+                "IN_PLAY": "2H",
+                "LIVE": "LIVE",
+                "PAUSED": "HT",
+                "HALFTIME": "HT",
+            }
+            display_status = status_display_map.get(api_match.status, api_match.status)
+
+            # Extract scores
+            home_score = 0
+            away_score = 0
+            if api_match.score and api_match.score.fullTime:
+                home_score = api_match.score.fullTime.home or 0
+                away_score = api_match.score.fullTime.away or 0
+
+            # Get minute if available (API may provide this)
+            minute = getattr(api_match, 'minute', None)
+
+            live_matches.append(
+                LiveMatchInfo(
+                    id=api_match.id,
+                    external_id=f"{api_match.competition.code}_{api_match.id}",
+                    home_team=TeamInfo(
+                        id=api_match.homeTeam.id,
+                        name=api_match.homeTeam.name,
+                        short_name=(
+                            api_match.homeTeam.tla
+                            or api_match.homeTeam.shortName
+                            or api_match.homeTeam.name[:3].upper()
+                        ),
+                        logo_url=api_match.homeTeam.crest,
+                    ),
+                    away_team=TeamInfo(
+                        id=api_match.awayTeam.id,
+                        name=api_match.awayTeam.name,
+                        short_name=(
+                            api_match.awayTeam.tla
+                            or api_match.awayTeam.shortName
+                            or api_match.awayTeam.name[:3].upper()
+                        ),
+                        logo_url=api_match.awayTeam.crest,
+                    ),
+                    home_score=home_score,
+                    away_score=away_score,
+                    minute=minute,
+                    status=display_status,
+                    competition=api_match.competition.name,
+                    competition_code=api_match.competition.code,
+                    events=[],  # Events would require additional API calls
+                )
+            )
+
+        now = datetime.utcnow()
+
+        # Cache result for 30 seconds
+        try:
+            cache_data = {
+                "matches": [m.model_dump() for m in live_matches],
+                "total": len(live_matches),
+                "updated_at": now.isoformat(),
+            }
+            await redis_client.setex(cache_key, 30, json.dumps(cache_data, default=str))
+        except Exception as e:
+            logger.debug(f"Failed to cache live scores: {e}")
+
+        return LiveScoresResponse(
+            matches=live_matches,
+            total=len(live_matches),
+            updated_at=now,
+            data_source=DataSourceInfo(source="live_api"),
+        )
+
+    except RateLimitError as e:
+        logger.warning(f"External API rate limit for live scores: {e}")
+        retry_after = e.details.get("retry_after", 60) if e.details else 60
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": "Limite API externe atteinte",
+                "error_code": "EXTERNAL_API_RATE_LIMIT",
+                "details": "Scores en direct temporairement indisponibles.",
+                "retry_after_seconds": retry_after,
+            },
+        )
+
+    except (FootballDataAPIError, Exception) as e:
+        logger.warning(f"API error for live scores: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Scores en direct indisponibles",
+                "error_code": "SERVICE_UNAVAILABLE",
+                "details": f"API externe indisponible: {str(e)[:80]}",
+            },
+        )
+
+
+@router.get(
+    "/competitions",
+    response_model=CompetitionsListResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getCompetitions",
+)
+async def get_competitions(
+    request: Request,
+    user: AuthenticatedUser,
+) -> CompetitionsListResponse:
+    """
+    Get list of all supported competitions.
+
+    Returns competition codes, names, countries, and flag codes for UI display.
+    This is the single source of truth for competition data.
+    """
+    return CompetitionsListResponse(
+        competitions=[
+            CompetitionResponse(
+                code=comp["code"],
+                name=comp["name"],
+                country=comp["country"],
+                flag=comp["flag"],
+            )
+            for comp in COMPETITIONS
+        ],
+        total=len(COMPETITIONS),
+    )
 
 
 @router.get(
@@ -992,31 +1318,3 @@ async def get_standings(
     )
 
 
-@router.get(
-    "/competitions",
-    response_model=CompetitionsListResponse,
-    responses=AUTH_RESPONSES,
-    operation_id="getCompetitions",
-)
-async def get_competitions(
-    request: Request,
-    user: AuthenticatedUser,
-) -> CompetitionsListResponse:
-    """
-    Get list of all supported competitions.
-
-    Returns competition codes, names, countries, and flag codes for UI display.
-    This is the single source of truth for competition data.
-    """
-    return CompetitionsListResponse(
-        competitions=[
-            CompetitionResponse(
-                code=comp["code"],
-                name=comp["name"],
-                country=comp["country"],
-                flag=comp["flag"],
-            )
-            for comp in COMPETITIONS
-        ],
-        total=len(COMPETITIONS),
-    )

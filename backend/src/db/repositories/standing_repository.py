@@ -32,14 +32,15 @@ class StandingRepository(BaseRepository[Standing]):
 
     async def get_team_standing(
         self,
-        competition_code: str,
         team_id: int,
+        competition_code: str | None = None,
     ) -> Standing | None:
-        """Get standing for a specific team in a competition."""
-        stmt = select(Standing).where(
-            Standing.competition_code == competition_code,
-            Standing.team_id == team_id,
-        )
+        """Get standing for a specific team, optionally filtered by competition."""
+        stmt = select(Standing).where(Standing.team_id == team_id)
+        if competition_code:
+            stmt = stmt.where(Standing.competition_code == competition_code)
+        # Order by most recent sync
+        stmt = stmt.order_by(Standing.synced_at.desc()).limit(1)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
