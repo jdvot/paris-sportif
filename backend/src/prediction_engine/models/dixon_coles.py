@@ -16,7 +16,18 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-from scipy.stats import poisson
+
+# Lazy import scipy to reduce memory at startup (512MB limit on Render)
+_poisson = None
+
+
+def _get_poisson():
+    """Lazy load scipy.stats.poisson to reduce memory usage."""
+    global _poisson
+    if _poisson is None:
+        from scipy.stats import poisson as scipy_poisson
+        _poisson = scipy_poisson
+    return _poisson
 
 
 @dataclass
@@ -205,6 +216,9 @@ class DixonColesModel:
         Returns:
             DixonColesPrediction with probabilities
         """
+        # Lazy load scipy to reduce memory at startup
+        poisson = _get_poisson()
+
         # Calculate expected goals
         lambda_home, lambda_away = self.calculate_expected_goals(
             home_attack, home_defense, away_attack, away_defense, time_weight

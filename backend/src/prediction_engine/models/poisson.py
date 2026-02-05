@@ -9,7 +9,18 @@ Reference: https://dashee87.github.io/data%20science/football/r/predicting-footb
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.stats import poisson
+
+# Lazy import scipy to reduce memory at startup (512MB limit on Render)
+_poisson = None
+
+
+def _get_poisson():
+    """Lazy load scipy.stats.poisson to reduce memory usage."""
+    global _poisson
+    if _poisson is None:
+        from scipy.stats import poisson as scipy_poisson
+        _poisson = scipy_poisson
+    return _poisson
 
 
 @dataclass
@@ -143,6 +154,9 @@ class PoissonModel:
         Returns:
             PoissonPrediction with probabilities and expected scores
         """
+        # Lazy load scipy to reduce memory at startup
+        poisson = _get_poisson()
+
         # Calculate expected goals
         exp_home, exp_away = self.calculate_expected_goals(
             home_attack, home_defense, away_attack, away_defense
@@ -229,6 +243,7 @@ class PoissonModel:
         Returns:
             Tuple of (over_prob, under_prob)
         """
+        poisson = _get_poisson()
         over_prob = 0.0
 
         for home_goals in range(self.MAX_GOALS + 1):
@@ -256,6 +271,7 @@ class PoissonModel:
         Returns:
             Probability that both teams score
         """
+        poisson = _get_poisson()
         # P(home >= 1) × P(away >= 1)
         home_scores = 1 - poisson.pmf(0, expected_home)
         away_scores = 1 - poisson.pmf(0, expected_away)
