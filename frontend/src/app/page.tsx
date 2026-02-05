@@ -40,17 +40,14 @@ export default function Home() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      {/* News Section - Personalized with favorite team if set */}
-      <section>
-        <div className="flex items-center gap-2 mb-4 px-4 sm:px-0">
-          <Newspaper className="w-5 h-5 text-primary-500" />
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-            {favoriteTeamName
-              ? `${t("sections.news")} - ${favoriteTeamName}`
-              : t("sections.news") || "Actualités"}
-          </h2>
-        </div>
-        <NewsFeed team={favoriteTeamName} limit={5} showTitle={false} />
+      {/* Hero Section - Title at top */}
+      <section className="text-center py-6 sm:py-8">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
+          {t("hero.headline")}
+        </h1>
+        <p className="text-gray-600 dark:text-dark-300 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto px-4">
+          {t("hero.subheadline")}
+        </p>
       </section>
 
       {/* Live Scores Section */}
@@ -63,14 +60,17 @@ export default function Home() {
         <MyClubSection />
       </section>
 
-      {/* Hero Section */}
-      <section className="text-center py-6 sm:py-8">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
-          {t("hero.headline")}
-        </h1>
-        <p className="text-gray-600 dark:text-dark-300 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto px-4">
-          {t("hero.subheadline")}
-        </p>
+      {/* News Section - Personalized with favorite team if set */}
+      <section>
+        <div className="flex items-center gap-2 mb-4 px-4 sm:px-0">
+          <Newspaper className="w-5 h-5 text-primary-500" />
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+            {favoriteTeamName
+              ? `${t("sections.news")} - ${favoriteTeamName}`
+              : t("sections.news") || "Actualités"}
+          </h2>
+        </div>
+        <NewsFeed team={favoriteTeamName} limit={5} showTitle={false} />
       </section>
 
       {/* Quick Stats - Only show if data is available */}
