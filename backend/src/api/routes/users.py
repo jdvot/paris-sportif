@@ -403,9 +403,9 @@ async def get_team_summary(
     team_id: int,
 ) -> TeamSummaryResponse:
     """
-    Get RAG-generated summary for a team's current situation.
+    Get LLM-generated summary for a team's current situation.
 
-    Includes form analysis, recent performance, and news synthesis.
+    Uses RAG to fetch recent news/articles and generates analysis via LLM.
     """
     from datetime import datetime
 
@@ -422,50 +422,89 @@ async def get_team_summary(
         position = standing.position if standing else None
         competition = standing.competition_code if standing else None
 
-    # Generate summary using LLM
+    # Generate summary using RAG + LLM
     try:
         from src.prediction_engine.rag_enrichment import get_rag_enrichment
+        from src.llm.client import get_llm_client
 
         rag = get_rag_enrichment()
+        llm = get_llm_client()
 
-        # Get team context for summary generation
+        # Get team context from RAG (news articles, injuries, form)
         context = await rag.get_team_context(team_name)
 
-        # Generate summary from context
-        recent_news = context.get("recent_news", [])
+        # Extract data from RAG context
+        news_articles = context.get("news", [])
         injuries = context.get("injuries", [])
+        key_info = context.get("key_info", [])
         sentiment = context.get("sentiment", "neutral")
+        recent_form = context.get("recent_form", [])
 
-        # Build summary text
-        summary_parts = []
+        # Build news context for LLM
+        news_context = ""
+        if news_articles:
+            news_items = []
+            for article in news_articles[:5]:
+                title = article.get("title", "")
+                if title:
+                    news_items.append(f"- {title}")
+            if news_items:
+                news_context = "Articles récents:\n" + "\n".join(news_items)
 
+        # Build injuries context
+        injuries_context = ""
+        if injuries:
+            inj_items = []
+            for inj in injuries[:3]:
+                if isinstance(inj, dict):
+                    player = inj.get("player", inj.get("player_name", ""))
+                    inj_type = inj.get("type", inj.get("injury_type", "blessure"))
+                    if player:
+                        inj_items.append(f"- {player}: {inj_type}")
+            if inj_items:
+                injuries_context = "Blessures/Absences:\n" + "\n".join(inj_items)
+
+        # Build form context
+        form_context = ""
         if form_string:
             wins = form_string.count("W")
             draws = form_string.count("D")
             losses = form_string.count("L")
-            form_desc = f"{team_name} affiche {wins}V-{draws}N-{losses}D sur les 5 derniers matchs"
-            summary_parts.append(form_desc)
+            form_context = f"Forme récente: {wins}V-{draws}N-{losses}D sur les 5 derniers matchs"
+            if position:
+                form_context += f", {position}{'er' if position == 1 else 'e'} au classement"
 
-        if position:
-            summary_parts.append(f"Actuellement {position}{'er' if position == 1 else 'e'} au classement")
+        # Build LLM prompt
+        prompt = f"""Tu es un analyste football expert. Génère une analyse concise de la situation actuelle de {team_name}.
 
-        if injuries:
-            # Extract player names from injury dicts
-            injury_names = []
-            for inj in injuries[:3]:
-                if isinstance(inj, dict):
-                    injury_names.append(inj.get("player", inj.get("player_name", str(inj))))
-                else:
-                    injury_names.append(str(inj))
-            if injury_names:
-                summary_parts.append(f"Blessures signalées: {', '.join(injury_names)}")
+DONNÉES DISPONIBLES:
+{form_context if form_context else "Forme: Non disponible"}
 
-        if sentiment == "positive":
-            summary_parts.append("Dynamique positive dans les médias")
-        elif sentiment == "negative":
-            summary_parts.append("Quelques critiques dans la presse")
+{news_context if news_context else "Actualités: Aucune actualité récente"}
 
-        summary = ". ".join(summary_parts) + "." if summary_parts else f"Pas d'informations récentes disponibles pour {team_name}."
+{injuries_context if injuries_context else "Blessures: Aucune blessure signalée"}
+
+Sentiment médiatique: {sentiment}
+
+INSTRUCTIONS:
+- Écris 2-3 phrases d'analyse synthétique
+- Mentionne la forme actuelle si disponible
+- Signale les blessures importantes
+- Donne une impression générale de la dynamique de l'équipe
+- Sois factuel et concis (max 100 mots)
+- Réponds uniquement avec l'analyse, sans titre ni formatage"""
+
+        # Call LLM for analysis
+        summary = await llm.complete(
+            prompt=prompt,
+            max_tokens=200,
+            temperature=0.3,
+        )
+
+        # Clean up response
+        summary = summary.strip()
+        if not summary:
+            summary = f"Analyse de {team_name} temporairement indisponible."
 
         return TeamSummaryResponse(
             team_id=team_id,
@@ -478,11 +517,23 @@ async def get_team_summary(
         )
 
     except Exception as e:
-        logger.warning(f"Failed to generate summary for team {team_id}: {e}")
+        logger.warning(f"Failed to generate LLM summary for team {team_id}: {e}")
+        # Fallback to basic template if LLM fails
+        fallback_parts = []
+        if form_string:
+            wins = form_string.count("W")
+            draws = form_string.count("D")
+            losses = form_string.count("L")
+            fallback_parts.append(f"{team_name}: {wins}V-{draws}N-{losses}D récemment")
+        if position:
+            fallback_parts.append(f"{position}{'er' if position == 1 else 'e'} au classement")
+
+        fallback = ". ".join(fallback_parts) if fallback_parts else f"Informations sur {team_name} temporairement indisponibles."
+
         return TeamSummaryResponse(
             team_id=team_id,
             team_name=team_name,
-            summary=f"Informations sur {team_name} temporairement indisponibles.",
+            summary=fallback,
             form=list(form_string) if form_string else [],
             position=position,
             competition=competition,
