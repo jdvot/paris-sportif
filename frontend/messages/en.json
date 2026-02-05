@@ -698,6 +698,10 @@
       "noOddsHint": "Enter bookmaker odds in the Comparison tab to calculate ROI"
     },
     "kelly": {
+      "title": "Kelly Criterion",
+      "optimalStake": "Optimal Stake",
+      "edge": "Edge",
+      "fraction": "Kelly Fraction",
       "bankrollTotal": "Total Bankroll",
       "bankrollHint": "Your total available funds for betting",
       "formula": "Kelly Formula",

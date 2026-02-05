@@ -698,6 +698,10 @@
       "noOddsHint": "Entrez les cotes du bookmaker dans l'onglet Comparaison pour calculer le ROI"
     },
     "kelly": {
+      "title": "Critère de Kelly",
+      "optimalStake": "Mise optimale",
+      "edge": "Avantage",
+      "fraction": "Fraction Kelly",
       "bankrollTotal": "Bankroll Total",
       "bankrollHint": "Votre fond total disponible pour les paris",
       "formula": "Formule de Kelly",
