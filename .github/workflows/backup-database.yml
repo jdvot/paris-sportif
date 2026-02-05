@@ -1,0 +1,125 @@
+name: Database Backup
+
+on:
+  schedule:
+    # Run daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      upload_to:
+        description: 'Upload destination (local, s3, gcs)'
+        required: false
+        default: 'local'
+        type: choice
+        options:
+          - local
+          - s3
+          - gcs
+
+jobs:
+  backup:
+    name: Backup PostgreSQL Database
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Configure AWS credentials
+        if: inputs.upload_to == 's3' || github.event_name == 'schedule'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Run backup script
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_GCS_BUCKET: ${{ secrets.BACKUP_GCS_BUCKET }}
+        run: |
+          chmod +x ./scripts/backup-database.sh
+
+          # Determine upload target
+          UPLOAD_FLAG=""
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            UPLOAD_FLAG="--s3"  # Default to S3 for scheduled backups
+          elif [[ "${{ inputs.upload_to }}" == "s3" ]]; then
+            UPLOAD_FLAG="--s3"
+          elif [[ "${{ inputs.upload_to }}" == "gcs" ]]; then
+            UPLOAD_FLAG="--gcs"
+          fi
+
+          ./scripts/backup-database.sh $UPLOAD_FLAG --retention 30
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-backup-${{ github.run_id }}
+          path: backups/*.sql.gz
+          retention-days: 7
+
+      - name: Notify on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Database backup failed!",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Database Backup Failed*\n\nRepository: ${{ github.repository }}\nWorkflow: ${{ github.workflow }}\nRun: ${{ github.run_id }}\n\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        continue-on-error: true  # Don't fail the job if Slack notification fails
+
+  verify:
+    name: Verify Backup Integrity
+    runs-on: ubuntu-latest
+    needs: backup
+    if: success()
+
+    steps:
+      - name: Download backup artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: database-backup-${{ github.run_id }}
+          path: ./backups
+
+      - name: Verify backup file
+        run: |
+          BACKUP_FILE=$(ls -t backups/*.sql.gz | head -1)
+          echo "Verifying: $BACKUP_FILE"
+
+          # Check file exists and has content
+          if [[ ! -s "$BACKUP_FILE" ]]; then
+            echo "Error: Backup file is empty or missing"
+            exit 1
+          fi
+
+          # Verify gzip integrity
+          if gzip -t "$BACKUP_FILE"; then
+            echo "Gzip integrity check: PASSED"
+          else
+            echo "Gzip integrity check: FAILED"
+            exit 1
+          fi
+
+          # Show backup info
+          echo "Backup size: $(du -h $BACKUP_FILE | cut -f1)"
+          echo "Tables: $(gzip -dc $BACKUP_FILE | grep -c '^CREATE TABLE' || echo 0)"
