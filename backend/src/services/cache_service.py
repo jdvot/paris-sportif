@@ -301,6 +301,28 @@ async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
                 )
 
                 if prediction:
+                    # Save prediction to database
+                    try:
+                        await PredictionService.save_prediction_from_api(
+                            {
+                                "match_id": prediction.match_id,
+                                "match_external_id": external_id,
+                                "home_team": prediction.home_team,
+                                "away_team": prediction.away_team,
+                                "competition_code": api_match.competition.code,
+                                "match_date": api_match.utcDate,
+                                "home_win_prob": prediction.probabilities.home_win,
+                                "draw_prob": prediction.probabilities.draw,
+                                "away_win_prob": prediction.probabilities.away_win,
+                                "confidence": prediction.confidence,
+                                "recommendation": prediction.recommended_bet,
+                                "explanation": prediction.explanation,
+                            }
+                        )
+                        logger.info(f"Prediction saved to DB for match {match_id}")
+                    except Exception as save_err:
+                        logger.warning(f"Failed to save prediction to DB: {save_err}")
+
                     predicted += 1
                     predicted_matches.append(
                         {
@@ -311,7 +333,7 @@ async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
                             "recommended": prediction.recommended_bet,
                         }
                     )
-                    logger.info(f"Prediction saved for match {match_id}")
+                    logger.info(f"Prediction generated for match {match_id}")
                 else:
                     failed += 1
                     logger.warning(f"No prediction generated for match {match_id}")
