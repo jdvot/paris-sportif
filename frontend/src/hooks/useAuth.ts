@@ -139,14 +139,25 @@ export function useAuth() {
         }
 
         if (user) {
-          const profile = await fetchProfile(user.id);
-          if (!isMounted) return;
+          // Set user IMMEDIATELY so isAuthenticated is true
           setState({
             user,
-            profile,
-            role: profile?.role || "free",
+            profile: null,
+            role: "free",
             loading: false,
             error: null,
+          });
+
+          // Then fetch profile in background (non-blocking)
+          fetchProfile(user.id).then((profile) => {
+            if (!isMounted) return;
+            if (profile) {
+              setState((prev) => ({
+                ...prev,
+                profile,
+                role: profile.role || prev.role,
+              }));
+            }
           });
         } else {
           setState({
