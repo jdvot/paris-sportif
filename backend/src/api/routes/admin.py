@@ -375,3 +375,71 @@ async def get_cache_status(user: AdminUser) -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Error getting cache status: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get cache status: {str(e)}")
+
+
+# ============================================================================
+# Data prefill endpoints
+# ============================================================================
+
+
+class PrefillResponse(BaseModel):
+    """Data prefill response."""
+
+    status: str
+    team_data: dict[str, int]
+    elo_ratings: int
+    predictions: int
+    redis_cache: int
+    duration_seconds: float
+    timestamp: str
+
+
+@router.post("/prefill", response_model=PrefillResponse, responses=ADMIN_RESPONSES)
+async def run_data_prefill(user: AdminUser) -> PrefillResponse:
+    """
+    Run complete data prefill pipeline.
+
+    This pre-calculates and caches all data for optimal performance:
+    - Team stats (country, form, rest_days, avg_goals, ELO)
+    - Predictions for upcoming matches
+    - Redis cache warm-up
+
+    Admin role required.
+    """
+    from src.services.data_prefill_service import DataPrefillService
+
+    try:
+        result = await DataPrefillService.run_full_prefill()
+
+        return PrefillResponse(
+            status="success",
+            team_data=result["team_data"],
+            elo_ratings=result["elo_ratings"],
+            predictions=result["predictions"],
+            redis_cache=result["redis_cache"],
+            duration_seconds=result["duration_seconds"],
+            timestamp=datetime.now().isoformat(),
+        )
+    except Exception as e:
+        logger.error(f"Error running prefill: {e}")
+        raise HTTPException(status_code=500, detail=f"Prefill failed: {str(e)}")
+
+
+@router.get("/data-status", responses=ADMIN_RESPONSES)
+async def get_data_status(user: AdminUser) -> dict[str, Any]:
+    """
+    Get detailed status of all data tables.
+
+    Shows fill rates for all important columns.
+    Admin role required.
+    """
+    try:
+        stats = await StatsService.get_detailed_data_status()
+        return {
+            "status": "success",
+            "data": stats,
+            "timestamp": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Error getting data status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get data status: {str(e)}")

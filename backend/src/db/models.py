@@ -48,6 +48,13 @@ class Team(Base):
     avg_xg_for: Mapped[Decimal | None] = mapped_column(Numeric(4, 2), nullable=True)
     avg_xg_against: Mapped[Decimal | None] = mapped_column(Numeric(4, 2), nullable=True)
 
+    # Form and schedule data (updated from standings)
+    form: Mapped[str | None] = mapped_column(String(10), nullable=True)  # e.g., "WWDLW"
+    form_score: Mapped[Decimal | None] = mapped_column(Numeric(4, 3), nullable=True)  # 0-1 normalized
+    last_match_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    rest_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Days since last match
+    fixture_congestion: Mapped[Decimal | None] = mapped_column(Numeric(4, 3), nullable=True)  # 0-1 ratio
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
 

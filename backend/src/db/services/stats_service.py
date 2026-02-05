@@ -71,6 +71,162 @@ class StatsService:
                 for item in items
             ]
 
+    @staticmethod
+    async def get_detailed_data_status() -> dict[str, Any]:
+        """Get detailed fill rates for all important data columns."""
+        from sqlalchemy import text
+
+        async with get_uow() as uow:
+            session = uow._session
+
+            # Teams table analysis
+            teams_result = await session.execute(text("""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(country) as country,
+                    COUNT(form) as form,
+                    COUNT(elo_rating) as elo_rating,
+                    COUNT(rest_days) as rest_days,
+                    COUNT(fixture_congestion) as fixture_congestion,
+                    COUNT(avg_goals_scored_home) as avg_goals_home,
+                    COUNT(avg_goals_scored_away) as avg_goals_away,
+                    COUNT(avg_xg_for) as xg_for,
+                    COUNT(avg_xg_against) as xg_against
+                FROM teams
+            """))
+            teams_row = teams_result.fetchone()
+
+            # Matches table analysis
+            matches_result = await session.execute(text("""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE status = 'FINISHED') as finished,
+                    COUNT(*) FILTER (WHERE status IN ('SCHEDULED', 'TIMED')) as upcoming,
+                    COUNT(matchday) as matchday,
+                    COUNT(home_score_ht) as ht_scores,
+                    COUNT(home_xg) as xg,
+                    COUNT(home_odds) as odds
+                FROM matches
+            """))
+            matches_row = matches_result.fetchone()
+
+            # Predictions table analysis
+            predictions_result = await session.execute(text("""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE is_daily_pick = true) as daily_picks,
+                    COUNT(*) FILTER (WHERE llm_analysis IS NOT NULL) as with_llm,
+                    COUNT(*) FILTER (WHERE explanation IS NOT NULL) as with_explanation
+                FROM predictions
+            """))
+            predictions_row = predictions_result.fetchone()
+
+            # News items table analysis
+            news_result = await session.execute(text("""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE is_injury_news = true) as injury_news,
+                    COUNT(*) FILTER (WHERE llm_analysis IS NOT NULL) as analyzed,
+                    COUNT(*) FILTER (WHERE published_at > NOW() - INTERVAL '7 days') as recent
+                FROM news_items
+            """))
+            news_row = news_result.fetchone()
+
+            # Sync log analysis
+            sync_result = await session.execute(text("""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE status = 'success') as success,
+                    COUNT(*) FILTER (WHERE status = 'failed') as failed,
+                    MAX(completed_at) as last_sync
+                FROM sync_log
+            """))
+            sync_row = sync_result.fetchone()
+
+            # ML models analysis
+            ml_result = await session.execute(text("""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE is_active = true) as active,
+                    COUNT(*) FILTER (WHERE model_binary IS NOT NULL) as with_binary,
+                    MAX(trained_at) as last_trained
+                FROM ml_models
+            """))
+            ml_row = ml_result.fetchone()
+
+            # Standings table analysis
+            standings_result = await session.execute(text("""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(DISTINCT competition_code) as competitions,
+                    COUNT(form) as with_form,
+                    MAX(synced_at) as last_sync
+                FROM standings
+            """))
+            standings_row = standings_result.fetchone()
+
+            return {
+                "teams": {
+                    "total": teams_row.total if teams_row else 0,
+                    "fill_rates": {
+                        "country": f"{(teams_row.country / teams_row.total * 100):.1f}%" if teams_row and teams_row.total > 0 else "0%",
+                        "form": f"{(teams_row.form / teams_row.total * 100):.1f}%" if teams_row and teams_row.total > 0 else "0%",
+                        "elo_rating": f"{(teams_row.elo_rating / teams_row.total * 100):.1f}%" if teams_row and teams_row.total > 0 else "0%",
+                        "rest_days": f"{(teams_row.rest_days / teams_row.total * 100):.1f}%" if teams_row and teams_row.total > 0 else "0%",
+                        "avg_goals": f"{(teams_row.avg_goals_home / teams_row.total * 100):.1f}%" if teams_row and teams_row.total > 0 else "0%",
+                        "xg": f"{(teams_row.xg_for / teams_row.total * 100):.1f}%" if teams_row and teams_row.total > 0 else "0%",
+                    },
+                    "raw_counts": {
+                        "country": teams_row.country if teams_row else 0,
+                        "form": teams_row.form if teams_row else 0,
+                        "elo_rating": teams_row.elo_rating if teams_row else 0,
+                        "rest_days": teams_row.rest_days if teams_row else 0,
+                        "xg": teams_row.xg_for if teams_row else 0,
+                    }
+                },
+                "matches": {
+                    "total": matches_row.total if matches_row else 0,
+                    "finished": matches_row.finished if matches_row else 0,
+                    "upcoming": matches_row.upcoming if matches_row else 0,
+                    "fill_rates": {
+                        "matchday": f"{(matches_row.matchday / matches_row.total * 100):.1f}%" if matches_row and matches_row.total > 0 else "0%",
+                        "ht_scores": f"{(matches_row.ht_scores / matches_row.finished * 100):.1f}%" if matches_row and matches_row.finished > 0 else "0%",
+                        "xg": f"{(matches_row.xg / matches_row.finished * 100):.1f}%" if matches_row and matches_row.finished > 0 else "0%",
+                        "odds": f"{(matches_row.odds / matches_row.total * 100):.1f}%" if matches_row and matches_row.total > 0 else "0%",
+                    }
+                },
+                "predictions": {
+                    "total": predictions_row.total if predictions_row else 0,
+                    "daily_picks": predictions_row.daily_picks if predictions_row else 0,
+                    "with_llm": predictions_row.with_llm if predictions_row else 0,
+                    "with_explanation": predictions_row.with_explanation if predictions_row else 0,
+                },
+                "news_items": {
+                    "total": news_row.total if news_row else 0,
+                    "injury_news": news_row.injury_news if news_row else 0,
+                    "analyzed": news_row.analyzed if news_row else 0,
+                    "recent_7d": news_row.recent if news_row else 0,
+                },
+                "sync_log": {
+                    "total": sync_row.total if sync_row else 0,
+                    "success": sync_row.success if sync_row else 0,
+                    "failed": sync_row.failed if sync_row else 0,
+                    "last_sync": sync_row.last_sync.isoformat() if sync_row and sync_row.last_sync else None,
+                },
+                "ml_models": {
+                    "total": ml_row.total if ml_row else 0,
+                    "active": ml_row.active if ml_row else 0,
+                    "with_binary": ml_row.with_binary if ml_row else 0,
+                    "last_trained": ml_row.last_trained.isoformat() if ml_row and ml_row.last_trained else None,
+                },
+                "standings": {
+                    "total": standings_row.total if standings_row else 0,
+                    "competitions": standings_row.competitions if standings_row else 0,
+                    "with_form": standings_row.with_form if standings_row else 0,
+                    "last_sync": standings_row.last_sync.isoformat() if standings_row and standings_row.last_sync else None,
+                },
+            }
+
 
 class SyncServiceAsync:
     """Async service for sync operations."""

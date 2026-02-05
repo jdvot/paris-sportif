@@ -145,9 +145,43 @@ async def auto_sync_and_verify():
         except Exception as e:
             logger.warning(f"[Scheduler] Error syncing form data: {e}")
 
+        # Update missing team countries
+        countries_updated = 0
+        try:
+            from src.api.routes.sync import _update_missing_team_countries
+            countries_updated = await _update_missing_team_countries()
+        except Exception as e:
+            logger.warning(f"[Scheduler] Error updating team countries: {e}")
+
+        # Calculate proper ELO ratings
+        elo_updated = 0
+        try:
+            from src.api.routes.sync import _calculate_proper_elo_ratings, _update_team_elo_ratings
+            elo_ratings = await _calculate_proper_elo_ratings()
+            elo_updated = await _update_team_elo_ratings(elo_ratings)
+        except Exception as e:
+            logger.warning(f"[Scheduler] Error calculating ELO: {e}")
+
+        # Pre-generate predictions for upcoming matches
+        predictions_generated = 0
+        try:
+            from src.services.data_prefill_service import DataPrefillService
+            predictions_generated = await DataPrefillService.prefill_predictions_for_upcoming()
+        except Exception as e:
+            logger.warning(f"[Scheduler] Error pre-generating predictions: {e}")
+
+        # Warm Redis cache
+        cache_warmed = 0
+        try:
+            from src.services.data_prefill_service import DataPrefillService
+            cache_warmed = await DataPrefillService.warm_redis_cache()
+        except Exception as e:
+            logger.warning(f"[Scheduler] Error warming cache: {e}")
+
         logger.info(
             f"[Scheduler] Auto sync complete: {total_synced} finished, {upcoming_synced} upcoming, "
-            f"{standings_synced} standings, {verified_count} verified, {teams_updated} stats, {form_synced} forms"
+            f"{standings_synced} standings, {verified_count} verified, {teams_updated} stats, {form_synced} forms, "
+            f"{countries_updated} countries, {elo_updated} ELO, {predictions_generated} predictions, {cache_warmed} cached"
         )
 
     except Exception as e:
@@ -238,11 +272,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     scheduler.start()
     print("[Scheduler] Started - auto sync every 6 hours, cache refresh at 6am UTC")
 
-    # Run initial sync after 30 seconds (let app fully start first)
-    asyncio.create_task(_delayed_initial_sync())
-
-    # Run initial cache calculation after 60 seconds
-    asyncio.create_task(_delayed_initial_cache())
+    # Run startup prefill in background (starts immediately)
+    asyncio.create_task(_startup_full_prefill())
 
     yield
 
@@ -253,8 +284,48 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     print("Shutting down...")
 
 
+async def _startup_full_prefill():
+    """Run complete prefill pipeline at startup. No delay - starts immediately."""
+    logger.info("[Startup] Starting full prefill pipeline...")
+
+    try:
+        from sqlalchemy import text
+        from src.db import get_db_context
+        from src.services.data_prefill_service import DataPrefillService, log_sync_operation
+
+        # Check match count to decide if historical sync needed
+        with get_db_context() as db:
+            result = db.execute(text("SELECT COUNT(*) FROM matches WHERE status = 'FINISHED'"))
+            match_count = result.scalar() or 0
+
+        if match_count < 200:
+            logger.info(f"[Startup] Only {match_count} matches in DB, fetching historical season data...")
+            await log_sync_operation("historical_sync", "running", 0, triggered_by="startup")
+            await _fetch_historical_season()
+        else:
+            logger.info(f"[Startup] {match_count} matches in DB, running normal sync...")
+            await log_sync_operation("auto_sync", "running", 0, triggered_by="startup")
+            await auto_sync_and_verify()
+
+        # Now run full data prefill (team data, ELO, predictions, cache, news)
+        logger.info("[Startup] Running data prefill...")
+        prefill_result = await DataPrefillService.run_full_prefill(triggered_by="startup")
+        logger.info(f"[Startup] Prefill complete: {prefill_result}")
+
+        # Run cache calculation
+        logger.info("[Startup] Running cache calculation...")
+        await _run_daily_cache()
+
+        logger.info("[Startup] Full startup pipeline complete!")
+
+    except Exception as e:
+        logger.error(f"[Startup] Error in startup prefill: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 async def _delayed_initial_sync():
-    """Run initial sync after app startup. Fetches historical data if needed."""
+    """DEPRECATED: Kept for backwards compatibility. Use _startup_full_prefill instead."""
     await asyncio.sleep(30)  # Wait 30 seconds for app to fully start
 
     # Check if we need historical data (less than 200 matches = fetch full season)

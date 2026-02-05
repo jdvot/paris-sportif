@@ -2,19 +2,22 @@
 # Deploy with: render.com/deploy
 #
 # Architecture:
-#   Render (512MB) - API, Auth, DB
-#   HuggingFace Spaces (16GB) - ML Training & Inference
+#   Render (1GB+ RAM, 1 CPU) - API, Auth, DB, ML inference
+#   HuggingFace Spaces (16GB) - ML Training only
 #
-# ML models run on HuggingFace to avoid memory issues on Render starter plan.
+# Optimized for performance with:
+#   - 2 Gunicorn workers (1 CPU = 2*CPU+1 workers optimal)
+#   - Pre-calculated predictions cached in DB + Redis
+#   - Team stats computed during sync, not on request
 
 services:
   # FastAPI Backend
   - type: web
     name: paris-sportif-api
     runtime: python
-    plan: starter  # 512MB RAM - ML offloaded to HuggingFace
-    buildCommand: pip install -e .
-    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --limit-max-requests 100 --timeout-keep-alive 5
+    plan: standard  # 1GB+ RAM, 1 CPU - Full ML inference capability
+    buildCommand: pip install -e . && pip install gunicorn
+    startCommand: gunicorn src.api.main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120 --keep-alive 5 --max-requests 500 --max-requests-jitter 50
     envVars:
       - key: DATABASE_URL
         fromDatabase:
