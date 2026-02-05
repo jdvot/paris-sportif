@@ -517,25 +517,8 @@ INSTRUCTIONS:
         )
 
     except Exception as e:
-        logger.warning(f"Failed to generate LLM summary for team {team_id}: {e}")
-        # Fallback to basic template if LLM fails
-        fallback_parts = []
-        if form_string:
-            wins = form_string.count("W")
-            draws = form_string.count("D")
-            losses = form_string.count("L")
-            fallback_parts.append(f"{team_name}: {wins}V-{draws}N-{losses}D récemment")
-        if position:
-            fallback_parts.append(f"{position}{'er' if position == 1 else 'e'} au classement")
-
-        fallback = ". ".join(fallback_parts) if fallback_parts else f"Informations sur {team_name} temporairement indisponibles."
-
-        return TeamSummaryResponse(
-            team_id=team_id,
-            team_name=team_name,
-            summary=fallback,
-            form=list(form_string) if form_string else [],
-            position=position,
-            competition=competition,
-            generated_at=datetime.utcnow().isoformat(),
+        logger.error(f"Failed to generate LLM summary for team {team_id}: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Impossible de générer l'analyse pour {team_name}. Service temporairement indisponible."
         )
