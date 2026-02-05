@@ -226,6 +226,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         replace_existing=True,
     )
 
+    # Add weekly ML training job (Sunday 3am UTC)
+    scheduler.add_job(
+        _run_weekly_ml_training,
+        trigger=CronTrigger(day_of_week="sun", hour=3, minute=0),
+        id="weekly_ml_training",
+        name="Train ML models on HuggingFace weekly",
+        replace_existing=True,
+    )
+
     scheduler.start()
     print("[Scheduler] Started - auto sync every 6 hours, cache refresh at 6am UTC")
 
@@ -352,6 +361,87 @@ async def _delayed_initial_cache():
     await asyncio.sleep(60)  # Wait 60 seconds for app and sync to complete
     logger.info("[Scheduler] Running initial cache calculation...")
     await _run_daily_cache()
+
+
+async def _run_weekly_ml_training():
+    """Run weekly ML model training on HuggingFace."""
+    import httpx
+    from sqlalchemy import text
+
+    from src.db import get_db_context
+
+    HF_SPACE_URL = os.getenv("HF_SPACE_URL", "https://jdevot244-paris-sportif.hf.space")
+
+    logger.info("[Scheduler] Running weekly ML training on HuggingFace...")
+
+    # Fetch training data
+    training_matches: list[dict] = []
+
+    try:
+        with get_db_context() as db:
+            query = text("""
+                SELECT
+                    m.home_score, m.away_score,
+                    COALESCE(ht.avg_goals_scored_home, 1.0) as home_attack,
+                    COALESCE(ht.avg_goals_conceded_home, 1.0) as home_defense,
+                    COALESCE(ht.elo_rating, 1500) as home_elo,
+                    COALESCE(at.avg_goals_scored_away, 1.0) as away_attack,
+                    COALESCE(at.avg_goals_conceded_away, 1.0) as away_defense,
+                    COALESCE(at.elo_rating, 1500) as away_elo
+                FROM matches m
+                LEFT JOIN teams ht ON m.home_team_id = ht.id
+                LEFT JOIN teams at ON m.away_team_id = at.id
+                WHERE m.status = 'FINISHED'
+                    AND m.home_score IS NOT NULL
+                ORDER BY m.match_date DESC
+                LIMIT 2000
+            """)
+
+            result = db.execute(query)
+            for row in result.fetchall():
+                training_matches.append({
+                    "home_attack": float(row.home_attack or 1.0),
+                    "home_defense": float(row.home_defense or 1.0),
+                    "away_attack": float(row.away_attack or 1.0),
+                    "away_defense": float(row.away_defense or 1.0),
+                    "home_elo": float(row.home_elo or 1500.0),
+                    "away_elo": float(row.away_elo or 1500.0),
+                    "home_form": 0.5,
+                    "away_form": 0.5,
+                    "home_rest_days": 7.0,
+                    "away_rest_days": 7.0,
+                    "home_fixture_congestion": 0.0,
+                    "away_fixture_congestion": 0.0,
+                    "home_score": row.home_score,
+                    "away_score": row.away_score,
+                })
+
+        logger.info(f"[Scheduler] Fetched {len(training_matches)} matches for training")
+
+        if len(training_matches) < 100:
+            logger.warning("[Scheduler] Not enough matches for training")
+            return
+
+        # Send to HuggingFace
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.post(
+                f"{HF_SPACE_URL}/train",
+                json={"matches": training_matches},
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                logger.info(
+                    f"[Scheduler] ML Training complete: "
+                    f"XGB={data.get('accuracy_xgboost'):.3f}, "
+                    f"RF={data.get('accuracy_random_forest'):.3f}, "
+                    f"samples={data.get('training_samples')}"
+                )
+            else:
+                logger.error(f"[Scheduler] ML Training failed: {response.status_code}")
+
+    except Exception as e:
+        logger.error(f"[Scheduler] ML Training error: {e}")
 
 
 app = FastAPI(

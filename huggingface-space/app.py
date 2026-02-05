@@ -206,19 +206,215 @@ async def predict(request: PredictRequest):
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
 
-@app.post("/train")
-async def trigger_training():
-    """
-    Trigger model training (placeholder).
+class TrainingData(BaseModel):
+    """Training data for ML models."""
+    matches: list[dict[str, Any]] = Field(..., description="List of match data with features and outcomes")
 
-    In production, this would fetch training data from backend
-    and retrain models.
+
+class TrainingResponse(BaseModel):
+    """Training result response."""
+    status: str
+    models_trained: list[str]
+    training_samples: int
+    accuracy_xgboost: float
+    accuracy_random_forest: float
+    feature_importance: dict[str, Any]  # Contains 'features' (list[str]) and model importances (list[float])
+    trained_at: str
+
+
+@app.post("/train", response_model=TrainingResponse)
+async def train_models(data: TrainingData):
     """
-    return {
-        "status": "training_not_implemented",
-        "message": "Model training endpoint is a placeholder. Implement training logic here.",
-        "backend_url": BACKEND_API_URL,
-    }
+    Train XGBoost and Random Forest models with match data.
+
+    Expects match data with:
+    - home_attack, home_defense, away_attack, away_defense
+    - home_elo, away_elo
+    - home_form, away_form
+    - home_rest_days, away_rest_days
+    - home_fixture_congestion, away_fixture_congestion
+    - outcome: 0=home_win, 1=draw, 2=away_win
+    """
+    global xgboost_model, random_forest_model, models_loaded_at
+
+    try:
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.model_selection import train_test_split
+        from xgboost import XGBClassifier
+    except ImportError as e:
+        logger.error(f"Failed to import ML libraries: {e}")
+        raise HTTPException(status_code=500, detail=f"Import error: {str(e)}")
+
+    logger.info(f"Training models with {len(data.matches)} matches...")
+
+    if len(data.matches) < 50:
+        raise HTTPException(status_code=400, detail="Need at least 50 matches for training")
+
+    # Prepare features and labels
+    feature_names = [
+        "home_attack", "home_defense", "away_attack", "away_defense",
+        "home_elo", "away_elo", "home_form", "away_form",
+        "home_rest_days", "away_rest_days",
+        "home_fixture_congestion", "away_fixture_congestion"
+    ]
+
+    X = []
+    y = []
+
+    for match in data.matches:
+        try:
+            features = [
+                float(match.get("home_attack", 1.0)),
+                float(match.get("home_defense", 1.0)),
+                float(match.get("away_attack", 1.0)),
+                float(match.get("away_defense", 1.0)),
+                float(match.get("home_elo", 1500)),
+                float(match.get("away_elo", 1500)),
+                float(match.get("home_form", 0.5)),
+                float(match.get("away_form", 0.5)),
+                float(match.get("home_rest_days", 7)),
+                float(match.get("away_rest_days", 7)),
+                float(match.get("home_fixture_congestion", 0)),
+                float(match.get("away_fixture_congestion", 0)),
+            ]
+
+            # Determine outcome from score
+            home_score = match.get("home_score", 0)
+            away_score = match.get("away_score", 0)
+
+            if home_score > away_score:
+                outcome = 0  # Home win
+            elif home_score < away_score:
+                outcome = 2  # Away win
+            else:
+                outcome = 1  # Draw
+
+            X.append(features)
+            y.append(outcome)
+
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Skipping match due to invalid data: {e}")
+            continue
+
+    if len(X) < 50:
+        raise HTTPException(status_code=400, detail=f"Only {len(X)} valid matches after filtering")
+
+    X = np.array(X)
+    y = np.array(y)
+
+    logger.info(f"Training with {len(X)} samples")
+    logger.info(f"Class distribution: home={np.sum(y==0)}, draw={np.sum(y==1)}, away={np.sum(y==2)}")
+
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+
+    # Train XGBoost
+    logger.info("Training XGBoost...")
+    xgb = XGBClassifier(
+        n_estimators=100,
+        max_depth=6,
+        learning_rate=0.1,
+        objective="multi:softprob",
+        random_state=42,
+        eval_metric="mlogloss",
+    )
+    xgb.fit(X_train, y_train)
+    xgb_accuracy = xgb.score(X_test, y_test)
+    logger.info(f"XGBoost accuracy: {xgb_accuracy:.3f}")
+
+    # Train Random Forest
+    logger.info("Training Random Forest...")
+    rf = RandomForestClassifier(
+        n_estimators=100,
+        max_depth=10,
+        min_samples_split=5,
+        random_state=42,
+        n_jobs=-1,
+    )
+    rf.fit(X_train, y_train)
+    rf_accuracy = rf.score(X_test, y_test)
+    logger.info(f"Random Forest accuracy: {rf_accuracy:.3f}")
+
+    # Save models
+    import os
+    os.makedirs("models", exist_ok=True)
+
+    joblib.dump(xgb, "models/xgboost_model.pkl")
+    joblib.dump(rf, "models/random_forest_model.pkl")
+    logger.info("Models saved to models/")
+
+    # Update global models
+    xgboost_model = xgb
+    random_forest_model = rf
+    models_loaded_at = datetime.utcnow().isoformat()
+
+    # Get feature importance
+    xgb_importance = xgb.feature_importances_.tolist()
+    rf_importance = rf.feature_importances_.tolist()
+
+    logger.info("Training complete!")
+
+    try:
+        return TrainingResponse(
+            status="success",
+            models_trained=["xgboost", "random_forest"],
+            training_samples=len(X),
+            accuracy_xgboost=round(xgb_accuracy, 4),
+            accuracy_random_forest=round(rf_accuracy, 4),
+            feature_importance={
+                "features": feature_names,
+                "xgboost": [round(x, 4) for x in xgb_importance],
+                "random_forest": [round(x, 4) for x in rf_importance],
+            },
+            trained_at=datetime.utcnow().isoformat(),
+        )
+    except Exception as e:
+        logger.error(f"Error creating response: {e}")
+        raise HTTPException(status_code=500, detail=f"Response error: {str(e)}")
+
+
+@app.post("/train/fetch")
+async def train_from_backend(api_key: str = ""):
+    """
+    Fetch training data from backend and train models.
+
+    This endpoint is called by the Render backend to trigger training
+    with the latest match data.
+    """
+    import httpx
+
+    # Verify API key
+    if api_key != HF_TRAINING_API_KEY and HF_TRAINING_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    logger.info(f"Fetching training data from {BACKEND_API_URL}...")
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # Fetch training data from backend
+            response = await client.get(
+                f"{BACKEND_API_URL}/api/v1/ml/training-data",
+                params={"limit": 2000},
+            )
+            response.raise_for_status()
+
+            data = response.json()
+            matches = data.get("matches", [])
+
+            if not matches:
+                raise HTTPException(status_code=400, detail="No training data received")
+
+            logger.info(f"Received {len(matches)} matches from backend")
+
+            # Train with the data
+            training_data = TrainingData(matches=matches)
+            return await train_models(training_data)
+
+    except httpx.HTTPError as e:
+        logger.error(f"Failed to fetch training data: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to fetch training data: {str(e)}")
 
 
 if __name__ == "__main__":

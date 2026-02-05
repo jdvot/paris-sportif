@@ -356,3 +356,140 @@ async def get_training_data(
         pass
 
     return TrainingDataResponse(matches=matches, count=len(matches))
+
+
+# HuggingFace Space URL
+HF_SPACE_URL = os.getenv("HF_SPACE_URL", "https://jdevot244-paris-sportif.hf.space")
+
+
+class HFTrainingResponse(BaseModel):
+    """Response from HuggingFace training endpoint."""
+
+    status: str
+    models_trained: list[str] | None = None
+    training_samples: int | None = None
+    accuracy_xgboost: float | None = None
+    accuracy_random_forest: float | None = None
+    message: str | None = None
+    error: str | None = None
+
+
+@router.post("/train-remote", response_model=HFTrainingResponse, responses=ADMIN_RESPONSES)
+async def train_on_huggingface(user: AdminUser) -> HFTrainingResponse:
+    """
+    Trigger model training on HuggingFace Spaces.
+
+    This endpoint:
+    1. Fetches training data from database (finished matches with stats)
+    2. Sends data to HuggingFace /train endpoint
+    3. Returns training results (accuracy, feature importance)
+
+    Requires admin authentication.
+    """
+    import httpx
+    from sqlalchemy import text
+
+    logger.info("Triggering training on HuggingFace Spaces...")
+
+    # Step 1: Fetch training data from database
+    training_matches: list[dict] = []
+
+    try:
+        with get_db_context() as db:
+            query = text("""
+                SELECT
+                    m.id,
+                    m.home_score,
+                    m.away_score,
+                    COALESCE(ht.avg_goals_scored_home, 1.0) as home_attack,
+                    COALESCE(ht.avg_goals_conceded_home, 1.0) as home_defense,
+                    COALESCE(ht.elo_rating, 1500) as home_elo,
+                    COALESCE(at.avg_goals_scored_away, 1.0) as away_attack,
+                    COALESCE(at.avg_goals_conceded_away, 1.0) as away_defense,
+                    COALESCE(at.elo_rating, 1500) as away_elo
+                FROM matches m
+                LEFT JOIN teams ht ON m.home_team_id = ht.id
+                LEFT JOIN teams at ON m.away_team_id = at.id
+                WHERE m.status = 'FINISHED'
+                    AND m.home_score IS NOT NULL
+                    AND m.away_score IS NOT NULL
+                ORDER BY m.match_date DESC
+                LIMIT 2000
+            """)
+
+            result = db.execute(query)
+            rows = result.fetchall()
+
+            for row in rows:
+                training_matches.append({
+                    "home_attack": float(row.home_attack) if row.home_attack else 1.0,
+                    "home_defense": float(row.home_defense) if row.home_defense else 1.0,
+                    "away_attack": float(row.away_attack) if row.away_attack else 1.0,
+                    "away_defense": float(row.away_defense) if row.away_defense else 1.0,
+                    "home_elo": float(row.home_elo) if row.home_elo else 1500.0,
+                    "away_elo": float(row.away_elo) if row.away_elo else 1500.0,
+                    "home_form": 0.5,
+                    "away_form": 0.5,
+                    "home_rest_days": 7.0,
+                    "away_rest_days": 7.0,
+                    "home_fixture_congestion": 0.0,
+                    "away_fixture_congestion": 0.0,
+                    "home_score": row.home_score,
+                    "away_score": row.away_score,
+                })
+
+        logger.info(f"Fetched {len(training_matches)} matches for training")
+
+    except Exception as e:
+        logger.error(f"Failed to fetch training data: {e}")
+        return HFTrainingResponse(
+            status="error",
+            error=f"Failed to fetch training data: {str(e)}",
+        )
+
+    if len(training_matches) < 50:
+        return HFTrainingResponse(
+            status="error",
+            error=f"Not enough training data: {len(training_matches)} matches (need 50+)",
+        )
+
+    # Step 2: Send to HuggingFace for training
+    try:
+        async with httpx.AsyncClient(timeout=300.0) as client:  # 5 min timeout for training
+            response = await client.post(
+                f"{HF_SPACE_URL}/train",
+                json={"matches": training_matches},
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                logger.info(f"Training complete: XGB={data.get('accuracy_xgboost')}, RF={data.get('accuracy_random_forest')}")
+
+                return HFTrainingResponse(
+                    status="success",
+                    models_trained=data.get("models_trained"),
+                    training_samples=data.get("training_samples"),
+                    accuracy_xgboost=data.get("accuracy_xgboost"),
+                    accuracy_random_forest=data.get("accuracy_random_forest"),
+                    message=f"Models trained with {data.get('training_samples')} matches",
+                )
+            else:
+                error_detail = response.text
+                logger.error(f"HuggingFace training failed: {response.status_code} - {error_detail}")
+                return HFTrainingResponse(
+                    status="error",
+                    error=f"HuggingFace returned {response.status_code}: {error_detail}",
+                )
+
+    except httpx.TimeoutException:
+        logger.error("HuggingFace training timed out")
+        return HFTrainingResponse(
+            status="error",
+            error="Training timed out (>5 minutes)",
+        )
+    except Exception as e:
+        logger.error(f"Failed to call HuggingFace: {e}")
+        return HFTrainingResponse(
+            status="error",
+            error=f"Failed to call HuggingFace: {str(e)}",
+        )
