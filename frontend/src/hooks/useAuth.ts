@@ -25,18 +25,37 @@ export function useAuth() {
   const supabase = createClient();
 
   const fetchProfile = useCallback(
-    async (userId: string) => {
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
+    async (userId: string): Promise<UserProfile | null> => {
+      try {
+        // Add timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-      if (error) {
-        console.error("Error fetching profile:", error);
+        const { data, error } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("id", userId)
+          .single()
+          .abortSignal(controller.signal);
+
+        clearTimeout(timeoutId);
+
+        if (error) {
+          // Don't log AbortError as it's expected on timeout
+          if (error.message && !error.message.includes('AbortError')) {
+            console.error("Error fetching profile:", error);
+          }
+          return null;
+        }
+        return data as UserProfile;
+      } catch (err) {
+        // Silently handle AbortError
+        const error = err as { name?: string };
+        if (error?.name !== 'AbortError') {
+          console.error("Error fetching profile:", err);
+        }
         return null;
       }
-      return data as UserProfile;
     },
     [supabase]
   );
