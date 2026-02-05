@@ -71,20 +71,38 @@ async def load_models():
         models_loaded_at = datetime.utcnow().isoformat()
         logger.info("✅ Models loaded successfully")
     except FileNotFoundError:
-        logger.warning("⚠️ No trained models found. Using dummy models.")
-        # Create dummy models that return uniform probabilities
+        logger.warning("⚠️ No trained models found. Using dummy models with 12 features.")
+        # Create dummy models that return reasonable probabilities
         from sklearn.ensemble import RandomForestClassifier
-        xgboost_model = RandomForestClassifier(n_estimators=10, random_state=42)
-        random_forest_model = RandomForestClassifier(n_estimators=10, random_state=42)
+        xgboost_model = RandomForestClassifier(n_estimators=50, random_state=42, max_depth=5)
+        random_forest_model = RandomForestClassifier(n_estimators=50, random_state=42, max_depth=5)
 
-        # Train on dummy data (3 outcomes: home, draw, away)
-        X_dummy = np.array([[1.5, 1.2, 1.3, 1.4] for _ in range(100)])
-        y_dummy = np.array([0, 1, 2] * 33 + [0])
+        # Train on dummy data with 12 features matching PredictRequest
+        # Features: home_attack, home_defense, away_attack, away_defense,
+        #           home_elo, away_elo, home_form, away_form,
+        #           home_rest_days, away_rest_days, home_fixture_congestion, away_fixture_congestion
+        np.random.seed(42)
+        n_samples = 500
+        X_dummy = np.random.randn(n_samples, 12)
+        # Normalize features to realistic ranges
+        X_dummy[:, 0:4] = np.abs(X_dummy[:, 0:4]) * 0.5 + 1.0  # Attack/defense: 1.0-1.5
+        X_dummy[:, 4:6] = X_dummy[:, 4:6] * 100 + 1500  # ELO: 1400-1600
+        X_dummy[:, 6:8] = np.clip(X_dummy[:, 6:8] * 0.2 + 0.5, 0, 1)  # Form: 0-1
+        X_dummy[:, 8:10] = np.abs(X_dummy[:, 8:10]) * 3 + 3  # Rest days: 3-10
+        X_dummy[:, 10:12] = np.clip(np.abs(X_dummy[:, 10:12]) * 0.3, 0, 1)  # Congestion: 0-0.5
+
+        # Generate outcomes biased by features (home advantage + attack/defense)
+        home_strength = X_dummy[:, 0] - X_dummy[:, 3] + (X_dummy[:, 4] - X_dummy[:, 5]) / 200
+        y_dummy = np.zeros(n_samples, dtype=int)
+        y_dummy[home_strength > 0.3] = 0  # Home win
+        y_dummy[(home_strength >= -0.1) & (home_strength <= 0.3)] = 1  # Draw
+        y_dummy[home_strength < -0.1] = 2  # Away win
+
         xgboost_model.fit(X_dummy, y_dummy)
         random_forest_model.fit(X_dummy, y_dummy)
 
         models_loaded_at = datetime.utcnow().isoformat()
-        logger.info("✅ Dummy models initialized")
+        logger.info("✅ Dummy models initialized with 12 features")
 
 
 @app.get("/")
