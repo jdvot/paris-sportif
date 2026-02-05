@@ -9,6 +9,7 @@ import { MyClubSection } from "@/components/MyClubSection";
 import { TrendingUp, Calendar, Trophy, Loader2, Newspaper } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
+import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
 
 export default function Home() {
   const t = useTranslations("home");
@@ -18,6 +19,10 @@ export default function Home() {
     { days: 30 },
     { query: { staleTime: 5 * 60 * 1000 } }
   );
+
+  // Get user's favorite team for personalized news
+  const { data: preferences } = useUserPreferences({ enabled: true });
+  const favoriteTeamName = preferences?.favorite_team?.name;
 
   // Extract stats data from response - API returns { data: {...}, status: number }
   const stats = statsResponse?.data as { total_predictions?: number; accuracy?: number; by_competition?: Record<string, unknown> } | undefined;
@@ -35,15 +40,17 @@ export default function Home() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      {/* News Section - Top of page */}
+      {/* News Section - Personalized with favorite team if set */}
       <section>
         <div className="flex items-center gap-2 mb-4 px-4 sm:px-0">
           <Newspaper className="w-5 h-5 text-primary-500" />
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-            {t("sections.news") || "Actualités"}
+            {favoriteTeamName
+              ? `${t("sections.news")} - ${favoriteTeamName}`
+              : t("sections.news") || "Actualités"}
           </h2>
         </div>
-        <NewsFeed limit={5} showTitle={false} />
+        <NewsFeed team={favoriteTeamName} limit={5} showTitle={false} />
       </section>
 
       {/* Live Scores Section */}
