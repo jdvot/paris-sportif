@@ -69,6 +69,7 @@
       "leaguesCovered": "Leagues covered"
     },
     "sections": {
+      "news": "Latest News",
       "dailyPicks": "5 Daily Picks",
       "upcomingMatches": "Upcoming Matches",
       "performance": "Prediction Performance",
@@ -566,8 +567,10 @@
     "loadError": "Unable to load today's picks",
     "checkBackend": "Check that the backend is running",
     "redirecting": "Redirecting...",
-    "empty": "No picks available for today",
+    "empty": "No picks available this week",
     "emptyHint": "Picks will be available when matches are scheduled",
+    "searchingPreviousDays": "Searching for recent picks...",
+    "showingPicksFrom": "Showing picks from",
     "homeWin": "{team} Win",
     "awayWin": "{team} Win",
     "draw": "Draw",

@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertCircle, CheckCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { AlertCircle, CheckCircle, CalendarDays } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { cn, isAuthError } from "@/lib/utils";
@@ -10,15 +11,55 @@ import type { DailyPick } from "@/lib/api/models";
 import { ValueBetIndicator } from "@/components/ValueBetBadge";
 import { getConfidenceTier, formatConfidence, isValueBet, formatValue } from "@/lib/constants";
 
+// Helper to format date as YYYY-MM-DD
+function formatDate(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
+// Get dates for fallback (today, yesterday, 2 days ago, etc.)
+function getFallbackDates(): string[] {
+  const dates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    dates.push(formatDate(d));
+  }
+  return dates;
+}
+
 export function DailyPicks() {
   const t = useTranslations("dailyPicks");
+  const [fallbackDateIndex, setFallbackDateIndex] = useState(0);
+  const [displayDate, setDisplayDate] = useState<string | null>(null);
+
+  const fallbackDates = getFallbackDates();
+  const currentDate = fallbackDates[fallbackDateIndex];
+
+  // Only pass date param if we're looking at a past date
+  const dateParam = fallbackDateIndex > 0 ? currentDate : undefined;
+
   const { data: response, isLoading, error } = useGetDailyPicks(
-    undefined,
+    dateParam ? { date: dateParam } : undefined,
     { query: { staleTime: 5 * 60 * 1000 } }
   );
 
   // Extract picks from response - API returns { data: { picks: [...] }, status: number }
-  const picks = (response?.data as { picks?: DailyPick[] } | undefined)?.picks || [];
+  const picks = (response?.data as { picks?: DailyPick[]; date?: string } | undefined)?.picks || [];
+  const responseDate = (response?.data as { date?: string } | undefined)?.date;
+
+  // If no picks for today, try previous days
+  useEffect(() => {
+    if (!isLoading && picks.length === 0 && fallbackDateIndex < 6) {
+      // No picks, try previous day
+      const timer = setTimeout(() => {
+        setFallbackDateIndex(prev => prev + 1);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+    if (picks.length > 0) {
+      setDisplayDate(responseDate || currentDate);
+    }
+  }, [isLoading, picks.length, fallbackDateIndex, responseDate, currentDate]);
 
   if (isLoading) {
     return (
@@ -52,7 +93,17 @@ export function DailyPicks() {
     );
   }
 
+  // Still searching for picks in previous days
   if (!picks || picks.length === 0) {
+    if (fallbackDateIndex < 6) {
+      return (
+        <LoadingState
+          variant="picks"
+          count={3}
+          message={t("searchingPreviousDays") || "Recherche des picks récents..."}
+        />
+      );
+    }
     return (
       <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-8 text-center">
         <p className="text-gray-600 dark:text-dark-400">{t("empty")}</p>
@@ -61,11 +112,33 @@ export function DailyPicks() {
     );
   }
 
+  // Show banner if showing past picks
+  const isShowingPastPicks = fallbackDateIndex > 0;
+
   return (
-    <div className="grid gap-4">
-      {picks.map((pick) => (
-        <PickCard key={pick.rank} pick={pick} />
-      ))}
+    <div className="space-y-4">
+      {/* Banner for past picks */}
+      {isShowingPastPicks && displayDate && (
+        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg">
+          <CalendarDays className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+          <p className="text-sm text-amber-700 dark:text-amber-300">
+            {t("showingPicksFrom") || "Affichage des picks du"}{" "}
+            <span className="font-semibold">
+              {new Date(displayDate).toLocaleDateString("fr-FR", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+              })}
+            </span>
+          </p>
+        </div>
+      )}
+
+      <div className="grid gap-4">
+        {picks.map((pick) => (
+          <PickCard key={pick.rank} pick={pick} />
+        ))}
+      </div>
     </div>
   );
 }

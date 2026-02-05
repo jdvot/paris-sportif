@@ -3,7 +3,8 @@
 import { DailyPicks } from "@/components/DailyPicks";
 import { UpcomingMatches } from "@/components/UpcomingMatches";
 import { StatsOverview } from "@/components/StatsOverview";
-import { TrendingUp, Calendar, Trophy, Loader2 } from "lucide-react";
+import { NewsFeed } from "@/components/NewsFeed";
+import { TrendingUp, Calendar, Trophy, Loader2, Newspaper } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
 
@@ -32,6 +33,17 @@ export default function Home() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
+      {/* News Section - Top of page */}
+      <section>
+        <div className="flex items-center gap-2 mb-4 px-4 sm:px-0">
+          <Newspaper className="w-5 h-5 text-primary-500" />
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+            {t("sections.news") || "Actualités"}
+          </h2>
+        </div>
+        <NewsFeed limit={5} showTitle={false} />
+      </section>
+
       {/* Hero Section */}
       <section className="text-center py-6 sm:py-8">
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">

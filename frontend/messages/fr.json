@@ -69,6 +69,7 @@
       "leaguesCovered": "Championnats couverts"
     },
     "sections": {
+      "news": "Actualites",
       "dailyPicks": "5 Picks du Jour",
       "upcomingMatches": "Matchs a Venir",
       "performance": "Performance des Predictions",
@@ -566,8 +567,10 @@
     "loadError": "Impossible de charger les picks du jour",
     "checkBackend": "Verifiez que le backend est en cours d'execution",
     "redirecting": "Redirection en cours...",
-    "empty": "Aucun pick disponible pour aujourd'hui",
+    "empty": "Aucun pick disponible cette semaine",
     "emptyHint": "Les picks seront disponibles quand des matchs sont programmes",
+    "searchingPreviousDays": "Recherche des picks recents...",
+    "showingPicksFrom": "Affichage des picks du",
     "homeWin": "Victoire {team}",
     "awayWin": "Victoire {team}",
     "draw": "Match nul",
