@@ -239,6 +239,83 @@ class MatchService:
                 for m in matches
             ]
 
+    @staticmethod
+    async def get_match_by_api_id(api_match_id: int) -> dict[str, Any] | None:
+        """Get a single match by football-data.org API match ID.
+
+        Args:
+            api_match_id: The match ID from football-data.org API
+
+        Returns:
+            Match data dictionary or None if not found
+        """
+        async with get_uow() as uow:
+            match = await uow.matches.get_by_api_match_id(api_match_id)
+            if not match:
+                return None
+
+            return {
+                "id": match.id,
+                "external_id": match.external_id,
+                "competition_code": match.competition_code,
+                "matchday": match.matchday,
+                "home_team": {
+                    "id": match.home_team_id,
+                    "name": match.home_team.name if match.home_team else "Unknown",
+                    "short_name": match.home_team.short_name or match.home_team.tla if match.home_team else "UNK",
+                    "logo_url": match.home_team.logo_url if match.home_team else None,
+                    "elo_rating": float(match.home_team.elo_rating) if match.home_team and match.home_team.elo_rating else 1500.0,
+                    "form": match.home_team.form if match.home_team else None,
+                },
+                "away_team": {
+                    "id": match.away_team_id,
+                    "name": match.away_team.name if match.away_team else "Unknown",
+                    "short_name": match.away_team.short_name or match.away_team.tla if match.away_team else "UNK",
+                    "logo_url": match.away_team.logo_url if match.away_team else None,
+                    "elo_rating": float(match.away_team.elo_rating) if match.away_team and match.away_team.elo_rating else 1500.0,
+                    "form": match.away_team.form if match.away_team else None,
+                },
+                "match_date": match.match_date.isoformat() if match.match_date else None,
+                "status": match.status,
+                "home_score": match.home_score,
+                "away_score": match.away_score,
+                "home_score_ht": match.home_score_ht,
+                "away_score_ht": match.away_score_ht,
+                "odds_home": float(match.odds_home) if match.odds_home else None,
+                "odds_draw": float(match.odds_draw) if match.odds_draw else None,
+                "odds_away": float(match.odds_away) if match.odds_away else None,
+            }
+
+    @staticmethod
+    async def get_head_to_head_from_db(
+        home_team_id: int,
+        away_team_id: int,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        """Get head-to-head matches from database.
+
+        Args:
+            home_team_id: Internal DB ID of home team
+            away_team_id: Internal DB ID of away team
+            limit: Max number of matches to return
+
+        Returns:
+            List of head-to-head match data
+        """
+        async with get_uow() as uow:
+            matches = await uow.matches.get_head_to_head(home_team_id, away_team_id, limit=limit)
+            return [
+                {
+                    "date": m.match_date.isoformat() if m.match_date else None,
+                    "home_team": m.home_team.name if m.home_team else "Unknown",
+                    "away_team": m.away_team.name if m.away_team else "Unknown",
+                    "home_score": m.home_score,
+                    "away_score": m.away_score,
+                    "competition": m.competition_code,
+                }
+                for m in matches
+            ]
+
 
 class StandingService:
     """Service for standing-related operations."""

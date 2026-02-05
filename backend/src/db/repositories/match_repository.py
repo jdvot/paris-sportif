@@ -21,6 +21,20 @@ class MatchRepository(BaseRepository[Match]):
         """Get match by external API ID."""
         return await self.get_by_field("external_id", external_id)
 
+    async def get_by_api_match_id(self, api_match_id: int) -> Match | None:
+        """Get match by football-data.org API match ID.
+
+        The external_id format is '{competition_code}_{api_match_id}'.
+        This searches for matches where external_id ends with '_{api_match_id}'.
+        """
+        stmt = (
+            select(Match)
+            .options(joinedload(Match.home_team), joinedload(Match.away_team))
+            .where(Match.external_id.like(f"%_{api_match_id}"))
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_with_teams(self, match_id: int) -> Match | None:
         """Get match with home and away teams loaded."""
         stmt = (

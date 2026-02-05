@@ -852,37 +852,47 @@ async def get_competitions(
 )
 @limiter.limit(RATE_LIMITS["matches"])
 async def get_match(request: Request, match_id: int, user: AuthenticatedUser) -> MatchResponse:
-    """Get details for a specific match (requires authentication)."""
-    try:
-        client = get_football_data_client()
-        api_match = await client.get_match(match_id)
-        return _convert_api_match(api_match)
+    """Get details for a specific match from database (requires authentication)."""
+    # Use database directly - no external API call
+    match_data = await MatchService.get_match_by_api_id(match_id)
 
-    except RateLimitError as e:
-        logger.warning(f"Rate limit for match {match_id}: {e}")
-        retry_after = e.details.get("retry_after", 60) if e.details else 60
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "message": "Limite API externe atteinte",
-                "error_code": "EXTERNAL_API_RATE_LIMIT",
-                "details": "Reessayez dans quelques instants.",
-                "retry_after_seconds": retry_after,
-            },
-        )
+    if not match_data:
+        raise HTTPException(status_code=404, detail=f"Match {match_id} non trouvé")
 
-    except FootballDataAPIError as e:
-        if "not found" in str(e).lower():
-            raise HTTPException(status_code=404, detail=f"Match {match_id} non trouve")
-        logger.warning(f"API error for match {match_id}: {e}")
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "message": "Service temporairement indisponible",
-                "error_code": "SERVICE_UNAVAILABLE",
-                "details": f"API externe indisponible: {str(e)[:100]}",
-            },
-        )
+    # Convert DB data to MatchResponse format
+    home_team = match_data["home_team"]
+    away_team = match_data["away_team"]
+
+    return MatchResponse(
+        id=match_id,  # Use the API match_id for consistency
+        home_team=TeamInfo(
+            id=home_team["id"],
+            name=home_team["name"],
+            short_name=home_team["short_name"] or home_team["name"][:3].upper(),
+            logo_url=home_team.get("logo_url"),
+            elo_rating=home_team.get("elo_rating"),
+            form=home_team.get("form"),
+        ),
+        away_team=TeamInfo(
+            id=away_team["id"],
+            name=away_team["name"],
+            short_name=away_team["short_name"] or away_team["name"][:3].upper(),
+            logo_url=away_team.get("logo_url"),
+            elo_rating=away_team.get("elo_rating"),
+            form=away_team.get("form"),
+        ),
+        match_date=datetime.fromisoformat(match_data["match_date"]) if match_data["match_date"] else datetime.now(),
+        status=match_data["status"] or "scheduled",
+        competition=match_data["competition_code"],
+        matchday=match_data.get("matchday"),
+        home_score=match_data.get("home_score"),
+        away_score=match_data.get("away_score"),
+        odds=OddsInfo(
+            home=match_data.get("odds_home"),
+            draw=match_data.get("odds_draw"),
+            away=match_data.get("odds_away"),
+        ) if any([match_data.get("odds_home"), match_data.get("odds_draw"), match_data.get("odds_away")]) else None,
+    )
 
 
 @router.get(
@@ -898,81 +908,62 @@ async def get_head_to_head(
     user: AuthenticatedUser,
     limit: int = Query(10, ge=1, le=20),
 ) -> HeadToHeadResponse:
-    """Get head-to-head history for teams in a match."""
-    try:
-        client = get_football_data_client()
-        api_matches = await client.get_head_to_head(match_id, limit=limit)
+    """Get head-to-head history for teams in a match from database."""
+    # First get the match to find team IDs
+    match_data = await MatchService.get_match_by_api_id(match_id)
+    if not match_data:
+        raise HTTPException(status_code=404, detail=f"Match {match_id} non trouvé")
 
-        matches = []
-        home_wins = 0
-        draws = 0
-        away_wins = 0
-        total_goals = 0
+    home_team_id = match_data["home_team"]["id"]
+    away_team_id = match_data["away_team"]["id"]
 
-        for api_match in api_matches:
-            home_score = 0
-            away_score = 0
+    # Get head-to-head from database
+    h2h_matches = await MatchService.get_head_to_head_from_db(
+        home_team_id, away_team_id, limit=limit
+    )
 
-            if api_match.score and api_match.score.fullTime:
-                home_score = api_match.score.fullTime.home or 0
-                away_score = api_match.score.fullTime.away or 0
+    matches = []
+    home_wins = 0
+    draws = 0
+    away_wins = 0
+    total_goals = 0
 
-            total_goals += home_score + away_score
+    for m in h2h_matches:
+        home_score = m.get("home_score") or 0
+        away_score = m.get("away_score") or 0
 
-            if home_score > away_score:
-                home_wins += 1
-            elif away_score > home_score:
-                away_wins += 1
-            else:
-                draws += 1
+        total_goals += home_score + away_score
 
-            matches.append(
-                HeadToHeadMatch(
-                    date=datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00")),
-                    home_team=api_match.homeTeam.name,
-                    away_team=api_match.awayTeam.name,
-                    home_score=home_score,
-                    away_score=away_score,
-                    competition=api_match.competition.name,
-                )
+        if home_score > away_score:
+            home_wins += 1
+        elif away_score > home_score:
+            away_wins += 1
+        else:
+            draws += 1
+
+        matches.append(
+            HeadToHeadMatch(
+                date=datetime.fromisoformat(m["date"]) if m["date"] else datetime.now(),
+                home_team=m["home_team"],
+                away_team=m["away_team"],
+                home_score=home_score,
+                away_score=away_score,
+                competition=COMPETITION_NAMES.get(m.get("competition"), m.get("competition", "")),
             )
-
-        total_matches = len(matches)
-        avg_goals = total_goals / total_matches if total_matches > 0 else 0.0
-
-        return HeadToHeadResponse(
-            matches=matches,
-            home_wins=home_wins,
-            draws=draws,
-            away_wins=away_wins,
-            avg_goals=round(avg_goals, 2),
-            total_matches=total_matches,
-            data_source=DataSourceInfo(source="live_api"),
         )
 
-    except RateLimitError as e:
-        logger.warning(f"External API rate limit for H2H: {e}")
-        retry_after = e.details.get("retry_after", 60) if e.details else 60
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "message": "Limite API externe atteinte",
-                "error_code": "EXTERNAL_API_RATE_LIMIT",
-                "details": "Historique H2H indisponible. Reessayez dans quelques instants.",
-                "retry_after_seconds": retry_after,
-            },
-        )
+    total_matches = len(matches)
+    avg_goals = total_goals / total_matches if total_matches > 0 else 0.0
 
-    except (FootballDataAPIError, Exception) as e:
-        logger.warning(f"API error for head-to-head: {e}")
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "message": "Historique H2H indisponible",
-                "error_code": "SERVICE_UNAVAILABLE",
-                "details": f"API externe indisponible: {str(e)[:80]}",
-            },
-        )
+    return HeadToHeadResponse(
+        matches=matches,
+        home_wins=home_wins,
+        draws=draws,
+        away_wins=away_wins,
+        avg_goals=round(avg_goals, 2),
+        total_matches=total_matches,
+        data_source=DataSourceInfo(source="database"),
+    )
 
 
 @router.get(
