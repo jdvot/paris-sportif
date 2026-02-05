@@ -46,17 +46,26 @@ export function useAuth() {
 
     const initAuth = async () => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        // Use getSession first (faster, reads from cookies)
+        // Then validate with getUser in background
+        const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) => {
+          setTimeout(() => resolve({ data: { session: null } }), 2000);
+        });
+
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          timeoutPromise,
+        ]);
 
         if (!isMounted) return;
 
-        if (user) {
-          const profile = await fetchProfile(user.id);
+        const session = sessionResult.data.session;
+
+        if (session?.user) {
+          const profile = await fetchProfile(session.user.id);
           if (!isMounted) return;
           setState({
-            user,
+            user: session.user,
             profile,
             role: profile?.role || "free",
             loading: false,
@@ -233,6 +242,17 @@ export function useAuth() {
     return { error: null };
   };
 
+  const refreshProfile = useCallback(async () => {
+    if (!state.user?.id) return;
+
+    const profile = await fetchProfile(state.user.id);
+    setState((prev) => ({
+      ...prev,
+      profile,
+      role: profile?.role || prev.role,
+    }));
+  }, [state.user?.id, fetchProfile]);
+
   return {
     ...state,
     signIn,
@@ -242,6 +262,7 @@ export function useAuth() {
     signInWithGithub,
     resetPassword,
     deleteAccount,
+    refreshProfile,
     isAuthenticated: !!state.user,
     isPremium: state.role === "premium" || state.role === "admin",
     isAdmin: state.role === "admin",

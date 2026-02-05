@@ -87,8 +87,32 @@ class QdrantStore:
                     ),
                 )
                 logger.info(f"Collection created: {self.collection_name}")
+
+            # Ensure payload indexes exist for filterable fields
+            self._ensure_payload_indexes()
         except Exception as e:
             logger.error(f"Failed to ensure collection {self.collection_name}: {e}")
+
+    def _ensure_payload_indexes(self) -> None:
+        """Create payload indexes for filterable fields."""
+        # Fields that need keyword indexes for filtering
+        keyword_fields = ["team_name", "competition", "source", "category", "match_id"]
+
+        for field in keyword_fields:
+            try:
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name=field,
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                )
+                logger.info(f"Created payload index for '{field}' in {self.collection_name}")
+            except Exception as e:
+                error_str = str(e).lower()
+                # Index already exists - this is fine
+                if "already exists" in error_str or "already indexed" in error_str:
+                    logger.debug(f"Index for '{field}' already exists in {self.collection_name}")
+                else:
+                    logger.warning(f"Failed to create index for '{field}' in {self.collection_name}: {e}")
 
     def upsert(
         self,

@@ -46,19 +46,36 @@ async def get_current_profile(user: AuthenticatedUser) -> UserProfileResponse:
     Get current user's profile.
 
     Returns the authenticated user's profile information.
+    Fetches fresh data from Supabase to reflect recent updates.
     """
-    user_metadata = user.get("user_metadata", {})
-    app_metadata = user.get("app_metadata", {})
+    from src.auth.supabase_auth import get_user_from_supabase
+
+    user_id = user.get("sub", "")
+
+    # Try to get fresh user data from Supabase
+    fresh_user = await get_user_from_supabase(user_id)
+
+    if fresh_user:
+        user_metadata = fresh_user.get("user_metadata", {})
+        app_metadata = fresh_user.get("app_metadata", {})
+        email = fresh_user.get("email")
+        created_at = fresh_user.get("created_at")
+    else:
+        # Fallback to JWT data if Supabase fetch fails
+        user_metadata = user.get("user_metadata", {})
+        app_metadata = user.get("app_metadata", {})
+        email = user.get("email")
+        created_at = user.get("created_at")
 
     # Get role from app_metadata first, then user_metadata, default to "free"
     role = app_metadata.get("role") or user_metadata.get("role") or "free"
 
     return UserProfileResponse(
-        id=user.get("sub", ""),
-        email=user.get("email"),
+        id=user_id,
+        email=email,
         full_name=user_metadata.get("full_name"),
         role=role,
-        created_at=user.get("created_at"),
+        created_at=created_at,
     )
 
 

@@ -263,11 +263,49 @@ def require_admin(user: dict[str, Any] = Depends(get_current_user)) -> dict[str,
     return user
 
 
+async def get_user_from_supabase(user_id: str) -> dict[str, Any] | None:
+    """
+    Fetch fresh user data from Supabase Admin API.
+
+    Args:
+        user_id: The user's UUID (from JWT 'sub' claim)
+
+    Returns:
+        User data dict or None if fetch failed
+    """
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        logger.warning("Supabase admin credentials not configured - cannot fetch user")
+        return None
+
+    base_url = SUPABASE_URL.rstrip("/")
+    url = f"{base_url}/auth/v1/admin/users/{user_id}"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                },
+            )
+            response.raise_for_status()
+            result: dict[str, Any] = response.json()
+            return result
+    except httpx.HTTPStatusError as e:
+        logger.warning(f"Failed to fetch user from Supabase: {e.response.status_code}")
+        return None
+    except Exception as e:
+        logger.warning(f"Error fetching user from Supabase: {e}")
+        return None
+
+
 async def update_user_metadata(
     user_id: str, user_metadata: dict[str, Any]
 ) -> dict[str, Any] | None:
     """
     Update user metadata in Supabase using the Admin API.
+    Also updates the user_profiles table if it exists.
 
     Args:
         user_id: The user's UUID (from JWT 'sub' claim)
@@ -281,12 +319,13 @@ async def update_user_metadata(
         return None
 
     base_url = SUPABASE_URL.rstrip("/")
-    url = f"{base_url}/auth/v1/admin/users/{user_id}"
+    auth_url = f"{base_url}/auth/v1/admin/users/{user_id}"
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
+            # Update user_metadata in Supabase Auth
             response = await client.put(
-                url,
+                auth_url,
                 headers={
                     "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
                     "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -297,6 +336,11 @@ async def update_user_metadata(
             response.raise_for_status()
             result: dict[str, Any] = response.json()
             logger.info(f"Updated user metadata for {user_id}")
+
+            # Also update user_profiles table if full_name is being updated
+            if "full_name" in user_metadata:
+                await _update_user_profiles_table(client, base_url, user_id, user_metadata)
+
             return result
     except httpx.HTTPStatusError as e:
         logger.error(
@@ -306,3 +350,38 @@ async def update_user_metadata(
     except Exception as e:
         logger.error(f"Error updating user metadata: {e}")
         return None
+
+
+async def _update_user_profiles_table(
+    client: httpx.AsyncClient,
+    base_url: str,
+    user_id: str,
+    user_metadata: dict[str, Any],
+) -> None:
+    """Update the user_profiles table with the new metadata."""
+    try:
+        profiles_url = f"{base_url}/rest/v1/user_profiles?id=eq.{user_id}"
+
+        # Build update payload - only include fields that exist in user_profiles
+        update_payload: dict[str, Any] = {}
+        if "full_name" in user_metadata:
+            update_payload["full_name"] = user_metadata["full_name"]
+
+        if not update_payload:
+            return
+
+        response = await client.patch(
+            profiles_url,
+            headers={
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+            },
+            json=update_payload,
+        )
+        response.raise_for_status()
+        logger.info(f"Updated user_profiles table for {user_id}")
+    except Exception as e:
+        # Log but don't fail - user_profiles update is secondary
+        logger.warning(f"Failed to update user_profiles table: {e}")

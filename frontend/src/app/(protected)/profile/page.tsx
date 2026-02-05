@@ -46,7 +46,7 @@ import { Achievements } from "@/components/Achievements";
 import { StreakTracker } from "@/components/StreakTracker";
 
 export default function ProfilePage() {
-  const { user, profile, loading, isAuthenticated, isPremium, isAdmin, resetPassword } =
+  const { user, profile, loading, isAuthenticated, isPremium, isAdmin, resetPassword, refreshProfile } =
     useAuth();
   const queryClient = useQueryClient();
   const t = useTranslations("profile");
@@ -66,8 +66,10 @@ export default function ProfilePage() {
   // Update profile mutation
   const updateProfileMutation = useUpdateProfileApiV1UsersMePatch({
     mutation: {
-      onSuccess: () => {
+      onSuccess: async () => {
         queryClient.invalidateQueries({ queryKey: getGetCurrentProfileApiV1UsersMeGetQueryKey() });
+        // Refresh auth profile state to get updated data from user_profiles table
+        await refreshProfile();
         setIsEditing(false);
         setShowEditSection(false);
       },
