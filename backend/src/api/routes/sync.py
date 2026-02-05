@@ -27,6 +27,119 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+async def _calculate_proper_elo_ratings() -> dict[int, float]:
+    """
+    Calculate proper ELO ratings from match history using the real ELO formula.
+
+    This processes ALL finished matches in chronological order and applies:
+    - Rating difference consideration (expected score)
+    - Goal difference multiplier
+    - K-factor of 20 with home advantage of 100 points
+
+    Returns dict of team_id -> elo_rating
+    """
+    from src.prediction_engine.models.elo import ELOSystem
+
+    elo_system = ELOSystem(k_factor=20.0, home_advantage=100.0)
+    team_ratings: dict[int, float] = {}  # team_id -> current rating
+
+    try:
+        with get_db_context() as db:
+            # Get all finished matches ordered by date
+            query = text("""
+                SELECT
+                    m.id,
+                    m.home_team_id,
+                    m.away_team_id,
+                    m.home_score,
+                    m.away_score,
+                    m.match_date
+                FROM matches m
+                WHERE m.status = 'FINISHED'
+                    AND m.home_score IS NOT NULL
+                    AND m.away_score IS NOT NULL
+                    AND m.home_team_id IS NOT NULL
+                    AND m.away_team_id IS NOT NULL
+                ORDER BY m.match_date ASC
+            """)
+            result = db.execute(query)
+            matches = result.fetchall()
+
+            logger.info(f"Processing {len(matches)} finished matches for ELO calculation")
+
+            for match in matches:
+                home_id = match.home_team_id
+                away_id = match.away_team_id
+                home_score = match.home_score
+                away_score = match.away_score
+
+                # Initialize teams at 1500 if not seen before
+                if home_id not in team_ratings:
+                    team_ratings[home_id] = 1500.0
+                if away_id not in team_ratings:
+                    team_ratings[away_id] = 1500.0
+
+                # Get current ratings
+                home_rating = team_ratings[home_id]
+                away_rating = team_ratings[away_id]
+
+                # Calculate new ratings using proper ELO formula
+                new_home, new_away = elo_system.update_ratings(
+                    home_rating=home_rating,
+                    away_rating=away_rating,
+                    home_goals=home_score,
+                    away_goals=away_score,
+                )
+
+                # Update ratings
+                team_ratings[home_id] = new_home
+                team_ratings[away_id] = new_away
+
+            logger.info(f"Calculated ELO for {len(team_ratings)} teams")
+
+            # Log some sample ratings for verification
+            if team_ratings:
+                sorted_ratings = sorted(team_ratings.items(), key=lambda x: x[1], reverse=True)
+                top_5 = sorted_ratings[:5]
+                bottom_5 = sorted_ratings[-5:]
+                logger.info(f"Top 5 ELO: {top_5}")
+                logger.info(f"Bottom 5 ELO: {bottom_5}")
+
+    except Exception as e:
+        logger.error(f"Failed to calculate ELO ratings: {e}")
+
+    return team_ratings
+
+
+async def _update_team_elo_ratings(ratings: dict[int, float]) -> int:
+    """Update team ELO ratings in database."""
+    if not ratings:
+        return 0
+
+    try:
+        with get_db_context() as db:
+            updated = 0
+            for team_id, elo in ratings.items():
+                # Clamp ELO between 1000 and 2500 for sanity
+                clamped_elo = max(1000.0, min(2500.0, elo))
+                query = text("""
+                    UPDATE teams
+                    SET elo_rating = :elo, updated_at = NOW()
+                    WHERE id = :team_id
+                """)
+                result = db.execute(query, {"team_id": team_id, "elo": clamped_elo})
+                if result.rowcount > 0:
+                    updated += 1
+
+            db.commit()
+            logger.info(f"Updated ELO ratings for {updated} teams")
+            return updated
+
+    except Exception as e:
+        logger.error(f"Failed to update team ELO ratings: {e}")
+        return 0
+
+
 async def _sync_form_from_standings() -> int:
     """
     Copy form data from standings to teams table.
@@ -120,33 +233,9 @@ async def _recalculate_all_team_stats() -> int:
                     ) recent
                     GROUP BY team_id
                 ),
-                elo_calc AS (
-                    -- Simple ELO: start at 1500, +/- based on results
-                    -- Win vs higher = +20, Win vs lower = +10, Loss = opposite
-                    SELECT
-                        team_id,
-                        1500 + SUM(elo_change) as new_elo
-                    FROM (
-                        SELECT
-                            home_team_id as team_id,
-                            CASE
-                                WHEN home_score > away_score THEN 15  -- Win
-                                WHEN home_score = away_score THEN 0   -- Draw
-                                ELSE -15                               -- Loss
-                            END as elo_change
-                        FROM matches WHERE status = 'FINISHED' AND home_score IS NOT NULL
-                        UNION ALL
-                        SELECT
-                            away_team_id as team_id,
-                            CASE
-                                WHEN away_score > home_score THEN 15  -- Win
-                                WHEN away_score = home_score THEN 0   -- Draw
-                                ELSE -15                               -- Loss
-                            END as elo_change
-                        FROM matches WHERE status = 'FINISHED' AND away_score IS NOT NULL
-                    ) results
-                    GROUP BY team_id
-                )
+                -- NOTE: ELO is calculated separately using _calculate_proper_elo_ratings()
+                -- which uses the real ELO formula with rating difference and goal multiplier
+                placeholder AS (SELECT 1)
                 UPDATE teams t
                 SET
                     avg_goals_scored_home = COALESCE(h.avg_scored, 1.0),
@@ -156,13 +245,11 @@ async def _recalculate_all_team_stats() -> int:
                     last_match_date = lm.last_date,
                     rest_days = COALESCE(EXTRACT(DAY FROM NOW() - lm.last_date)::INTEGER, 7),
                     fixture_congestion = LEAST(1.0, COALESCE(c.matches_14d, 0) / 4.0),
-                    elo_rating = COALESCE(e.new_elo, 1500),
                     updated_at = NOW()
                 FROM home_stats h
                 FULL OUTER JOIN away_stats a ON h.team_id = a.team_id
                 LEFT JOIN last_match lm ON COALESCE(h.team_id, a.team_id) = lm.team_id
                 LEFT JOIN congestion c ON COALESCE(h.team_id, a.team_id) = c.team_id
-                LEFT JOIN elo_calc e ON COALESCE(h.team_id, a.team_id) = e.team_id
                 WHERE t.id = COALESCE(h.team_id, a.team_id)
             """)
 
@@ -336,6 +423,15 @@ async def sync_weekly_data(
             logger.info(f"Recalculated stats for {teams_updated} teams")
         except Exception as e:
             logger.warning(f"Failed to recalculate team stats: {e}")
+
+        # Calculate proper ELO ratings from match history
+        elo_updated = 0
+        try:
+            elo_ratings = await _calculate_proper_elo_ratings()
+            elo_updated = await _update_team_elo_ratings(elo_ratings)
+            logger.info(f"Updated ELO ratings for {elo_updated} teams")
+        except Exception as e:
+            logger.warning(f"Failed to calculate ELO ratings: {e}")
 
         # Sync form data from standings to teams
         form_synced = 0
@@ -526,6 +622,15 @@ async def sync_historical_season(
         teams_updated = await _recalculate_all_team_stats()
     except Exception as e:
         errors.append(f"Stats calculation failed: {e}")
+
+    # Calculate proper ELO ratings
+    elo_updated = 0
+    try:
+        elo_ratings = await _calculate_proper_elo_ratings()
+        elo_updated = await _update_team_elo_ratings(elo_ratings)
+        logger.info(f"Updated ELO ratings for {elo_updated} teams")
+    except Exception as e:
+        errors.append(f"ELO calculation failed: {e}")
 
     # Sync form data
     form_synced = 0
