@@ -26,11 +26,15 @@ import type {
 
 import type {
   DailyPicksResponse,
+  DailyStatsResponse,
   GetDailyPicksParams,
+  GetDailyStatsParams,
+  GetPredictionDebugParams,
   GetPredictionParams,
   GetPredictionStatsParams,
   HTTPErrorResponse,
   HTTPValidationError,
+  PredictionDebugResponse,
   PredictionResponse,
   PredictionStatsResponse,
   RefreshPrediction200,
@@ -183,6 +187,136 @@ export function useGetDailyPicks<TData = Awaited<ReturnType<typeof getDailyPicks
 
 
 /**
+ * Debug endpoint to check prediction data state.
+ * @summary Get Prediction Debug
+ */
+export type getPredictionDebugResponse200 = {
+  data: PredictionDebugResponse
+  status: 200
+}
+
+export type getPredictionDebugResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getPredictionDebugResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getPredictionDebugResponseSuccess = (getPredictionDebugResponse200) & {
+  headers: Headers;
+};
+export type getPredictionDebugResponseError = (getPredictionDebugResponse401 | getPredictionDebugResponse422) & {
+  headers: Headers;
+};
+
+export type getPredictionDebugResponse = (getPredictionDebugResponseSuccess | getPredictionDebugResponseError)
+
+export const getGetPredictionDebugUrl = (params?: GetPredictionDebugParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/predictions/debug?${stringifiedParams}` : `/api/v1/predictions/debug`
+}
+
+export const getPredictionDebug = async (params?: GetPredictionDebugParams, options?: RequestInit): Promise<getPredictionDebugResponse> => {
+  
+  return customInstance<getPredictionDebugResponse>(getGetPredictionDebugUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getGetPredictionDebugQueryKey = (params?: GetPredictionDebugParams,) => {
+    return [
+    `/api/v1/predictions/debug`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+    
+export const getGetPredictionDebugQueryOptions = <TData = Awaited<ReturnType<typeof getPredictionDebug>>, TError = HTTPErrorResponse | HTTPValidationError>(params?: GetPredictionDebugParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionDebug>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPredictionDebugQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPredictionDebug>>> = ({ signal }) => getPredictionDebug(params, { signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPredictionDebug>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetPredictionDebugQueryResult = NonNullable<Awaited<ReturnType<typeof getPredictionDebug>>>
+export type GetPredictionDebugQueryError = HTTPErrorResponse | HTTPValidationError
+
+
+export function useGetPredictionDebug<TData = Awaited<ReturnType<typeof getPredictionDebug>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: undefined |  GetPredictionDebugParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionDebug>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPredictionDebug>>,
+          TError,
+          Awaited<ReturnType<typeof getPredictionDebug>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPredictionDebug<TData = Awaited<ReturnType<typeof getPredictionDebug>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetPredictionDebugParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionDebug>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPredictionDebug>>,
+          TError,
+          Awaited<ReturnType<typeof getPredictionDebug>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPredictionDebug<TData = Awaited<ReturnType<typeof getPredictionDebug>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetPredictionDebugParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionDebug>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Prediction Debug
+ */
+
+export function useGetPredictionDebug<TData = Awaited<ReturnType<typeof getPredictionDebug>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetPredictionDebugParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPredictionDebug>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPredictionDebugQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
  * Get historical prediction performance statistics.
 
 Stats are pre-calculated daily at 6am and cached.
@@ -316,7 +450,142 @@ export function useGetPredictionStats<TData = Awaited<ReturnType<typeof getPredi
 
 
 /**
+ * Get daily breakdown of prediction statistics.
+
+Returns stats grouped by day for charting accuracy over time.
+Each day includes: date, predictions count, correct count, accuracy.
+ * @summary Get Daily Stats
+ */
+export type getDailyStatsResponse200 = {
+  data: DailyStatsResponse
+  status: 200
+}
+
+export type getDailyStatsResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getDailyStatsResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getDailyStatsResponseSuccess = (getDailyStatsResponse200) & {
+  headers: Headers;
+};
+export type getDailyStatsResponseError = (getDailyStatsResponse401 | getDailyStatsResponse422) & {
+  headers: Headers;
+};
+
+export type getDailyStatsResponse = (getDailyStatsResponseSuccess | getDailyStatsResponseError)
+
+export const getGetDailyStatsUrl = (params?: GetDailyStatsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/predictions/stats/daily?${stringifiedParams}` : `/api/v1/predictions/stats/daily`
+}
+
+export const getDailyStats = async (params?: GetDailyStatsParams, options?: RequestInit): Promise<getDailyStatsResponse> => {
+  
+  return customInstance<getDailyStatsResponse>(getGetDailyStatsUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getGetDailyStatsQueryKey = (params?: GetDailyStatsParams,) => {
+    return [
+    `/api/v1/predictions/stats/daily`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+    
+export const getGetDailyStatsQueryOptions = <TData = Awaited<ReturnType<typeof getDailyStats>>, TError = HTTPErrorResponse | HTTPValidationError>(params?: GetDailyStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyStats>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDailyStatsQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDailyStats>>> = ({ signal }) => getDailyStats(params, { signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDailyStats>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetDailyStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getDailyStats>>>
+export type GetDailyStatsQueryError = HTTPErrorResponse | HTTPValidationError
+
+
+export function useGetDailyStats<TData = Awaited<ReturnType<typeof getDailyStats>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: undefined |  GetDailyStatsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyStats>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDailyStats>>,
+          TError,
+          Awaited<ReturnType<typeof getDailyStats>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetDailyStats<TData = Awaited<ReturnType<typeof getDailyStats>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetDailyStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyStats>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDailyStats>>,
+          TError,
+          Awaited<ReturnType<typeof getDailyStats>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetDailyStats<TData = Awaited<ReturnType<typeof getDailyStats>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetDailyStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyStats>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Daily Stats
+ */
+
+export function useGetDailyStats<TData = Awaited<ReturnType<typeof getDailyStats>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetDailyStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyStats>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetDailyStatsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
  * Get detailed prediction for a specific match.
+
+Cache strategy: Redis (30min) -> DB (permanent) -> Generate -> Save both
  * @summary Get Prediction
  */
 export type getPredictionResponse200 = {

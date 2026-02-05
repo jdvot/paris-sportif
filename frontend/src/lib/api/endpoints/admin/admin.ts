@@ -31,10 +31,12 @@ import type {
   CacheRefreshResponse,
   DataQualityResponse,
   GetCacheStatusApiV1AdminCacheStatusGet200,
+  GetDataStatusApiV1AdminDataStatusGet200,
   HTTPErrorResponse,
   HTTPValidationError,
   ListUsersApiV1AdminUsersGetParams,
   NotificationRequest,
+  PrefillResponse,
   SendDailyPicksNotificationApiV1AdminNotificationsDailyPicksPost200,
   TriggerDataQualityAlertApiV1AdminDataQualityAlertPost200,
   TriggerDataQualityAlertApiV1AdminDataQualityAlertPostParams,
@@ -1185,6 +1187,233 @@ export function useGetCacheStatusApiV1AdminCacheStatusGet<TData = Awaited<Return
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetCacheStatusApiV1AdminCacheStatusGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
+ * Run complete data prefill pipeline.
+
+This pre-calculates and caches all data for optimal performance:
+- Team stats (country, form, rest_days, avg_goals, ELO)
+- Predictions for upcoming matches
+- Redis cache warm-up
+
+Admin role required.
+ * @summary Run Data Prefill
+ */
+export type runDataPrefillApiV1AdminPrefillPostResponse200 = {
+  data: PrefillResponse
+  status: 200
+}
+
+export type runDataPrefillApiV1AdminPrefillPostResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type runDataPrefillApiV1AdminPrefillPostResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
+    
+export type runDataPrefillApiV1AdminPrefillPostResponseSuccess = (runDataPrefillApiV1AdminPrefillPostResponse200) & {
+  headers: Headers;
+};
+export type runDataPrefillApiV1AdminPrefillPostResponseError = (runDataPrefillApiV1AdminPrefillPostResponse401 | runDataPrefillApiV1AdminPrefillPostResponse403) & {
+  headers: Headers;
+};
+
+export type runDataPrefillApiV1AdminPrefillPostResponse = (runDataPrefillApiV1AdminPrefillPostResponseSuccess | runDataPrefillApiV1AdminPrefillPostResponseError)
+
+export const getRunDataPrefillApiV1AdminPrefillPostUrl = () => {
+
+
+  
+
+  return `/api/v1/admin/prefill`
+}
+
+export const runDataPrefillApiV1AdminPrefillPost = async ( options?: RequestInit): Promise<runDataPrefillApiV1AdminPrefillPostResponse> => {
+  
+  return customInstance<runDataPrefillApiV1AdminPrefillPostResponse>(getRunDataPrefillApiV1AdminPrefillPostUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+);}
+
+
+
+
+export const getRunDataPrefillApiV1AdminPrefillPostMutationOptions = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runDataPrefillApiV1AdminPrefillPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof runDataPrefillApiV1AdminPrefillPost>>, TError,void, TContext> => {
+
+const mutationKey = ['runDataPrefillApiV1AdminPrefillPost'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runDataPrefillApiV1AdminPrefillPost>>, void> = () => {
+          
+
+          return  runDataPrefillApiV1AdminPrefillPost(requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunDataPrefillApiV1AdminPrefillPostMutationResult = NonNullable<Awaited<ReturnType<typeof runDataPrefillApiV1AdminPrefillPost>>>
+    
+    export type RunDataPrefillApiV1AdminPrefillPostMutationError = HTTPErrorResponse
+
+    /**
+ * @summary Run Data Prefill
+ */
+export const useRunDataPrefillApiV1AdminPrefillPost = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runDataPrefillApiV1AdminPrefillPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof runDataPrefillApiV1AdminPrefillPost>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRunDataPrefillApiV1AdminPrefillPostMutationOptions(options), queryClient);
+    }
+    /**
+ * Get detailed status of all data tables.
+
+Shows fill rates for all important columns.
+Admin role required.
+ * @summary Get Data Status
+ */
+export type getDataStatusApiV1AdminDataStatusGetResponse200 = {
+  data: GetDataStatusApiV1AdminDataStatusGet200
+  status: 200
+}
+
+export type getDataStatusApiV1AdminDataStatusGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getDataStatusApiV1AdminDataStatusGetResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
+    
+export type getDataStatusApiV1AdminDataStatusGetResponseSuccess = (getDataStatusApiV1AdminDataStatusGetResponse200) & {
+  headers: Headers;
+};
+export type getDataStatusApiV1AdminDataStatusGetResponseError = (getDataStatusApiV1AdminDataStatusGetResponse401 | getDataStatusApiV1AdminDataStatusGetResponse403) & {
+  headers: Headers;
+};
+
+export type getDataStatusApiV1AdminDataStatusGetResponse = (getDataStatusApiV1AdminDataStatusGetResponseSuccess | getDataStatusApiV1AdminDataStatusGetResponseError)
+
+export const getGetDataStatusApiV1AdminDataStatusGetUrl = () => {
+
+
+  
+
+  return `/api/v1/admin/data-status`
+}
+
+export const getDataStatusApiV1AdminDataStatusGet = async ( options?: RequestInit): Promise<getDataStatusApiV1AdminDataStatusGetResponse> => {
+  
+  return customInstance<getDataStatusApiV1AdminDataStatusGetResponse>(getGetDataStatusApiV1AdminDataStatusGetUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getGetDataStatusApiV1AdminDataStatusGetQueryKey = () => {
+    return [
+    `/api/v1/admin/data-status`
+    ] as const;
+    }
+
+    
+export const getGetDataStatusApiV1AdminDataStatusGetQueryOptions = <TData = Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>, TError = HTTPErrorResponse>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDataStatusApiV1AdminDataStatusGetQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>> = ({ signal }) => getDataStatusApiV1AdminDataStatusGet({ signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetDataStatusApiV1AdminDataStatusGetQueryResult = NonNullable<Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>>
+export type GetDataStatusApiV1AdminDataStatusGetQueryError = HTTPErrorResponse
+
+
+export function useGetDataStatusApiV1AdminDataStatusGet<TData = Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>, TError = HTTPErrorResponse>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>,
+          TError,
+          Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetDataStatusApiV1AdminDataStatusGet<TData = Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>,
+          TError,
+          Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetDataStatusApiV1AdminDataStatusGet<TData = Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Data Status
+ */
+
+export function useGetDataStatusApiV1AdminDataStatusGet<TData = Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDataStatusApiV1AdminDataStatusGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetDataStatusApiV1AdminDataStatusGetQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

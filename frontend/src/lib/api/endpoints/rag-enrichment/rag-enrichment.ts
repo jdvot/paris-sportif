@@ -28,9 +28,12 @@ import type {
   AnalyzeMatchContextApiV1RagAnalyzePost200,
   AnalyzeMatchContextApiV1RagAnalyzePostParams,
   EnrichMatchApiV1RagEnrichGetParams,
+  GetFootballNewsApiV1RagNewsGetParams,
+  GetInjuryNewsApiV1RagNewsInjuriesGetParams,
   HTTPErrorResponse,
   HTTPValidationError,
   MatchContext,
+  NewsResponse,
   RAGStatusResponse
 } from '../../models';
 
@@ -38,6 +41,261 @@ import { customInstance } from '../../custom-instance';
 
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+
+
+/**
+ * Get latest football news from real RSS feeds.
+
+This endpoint is PUBLIC - no authentication required.
+Used by frontend to display news feed.
+ * @summary Get Football News
+ */
+export type getFootballNewsApiV1RagNewsGetResponse200 = {
+  data: NewsResponse
+  status: 200
+}
+
+export type getFootballNewsApiV1RagNewsGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getFootballNewsApiV1RagNewsGetResponseSuccess = (getFootballNewsApiV1RagNewsGetResponse200) & {
+  headers: Headers;
+};
+export type getFootballNewsApiV1RagNewsGetResponseError = (getFootballNewsApiV1RagNewsGetResponse422) & {
+  headers: Headers;
+};
+
+export type getFootballNewsApiV1RagNewsGetResponse = (getFootballNewsApiV1RagNewsGetResponseSuccess | getFootballNewsApiV1RagNewsGetResponseError)
+
+export const getGetFootballNewsApiV1RagNewsGetUrl = (params?: GetFootballNewsApiV1RagNewsGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/rag/news?${stringifiedParams}` : `/api/v1/rag/news`
+}
+
+export const getFootballNewsApiV1RagNewsGet = async (params?: GetFootballNewsApiV1RagNewsGetParams, options?: RequestInit): Promise<getFootballNewsApiV1RagNewsGetResponse> => {
+  
+  return customInstance<getFootballNewsApiV1RagNewsGetResponse>(getGetFootballNewsApiV1RagNewsGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getGetFootballNewsApiV1RagNewsGetQueryKey = (params?: GetFootballNewsApiV1RagNewsGetParams,) => {
+    return [
+    `/api/v1/rag/news`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+    
+export const getGetFootballNewsApiV1RagNewsGetQueryOptions = <TData = Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>, TError = HTTPValidationError>(params?: GetFootballNewsApiV1RagNewsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFootballNewsApiV1RagNewsGetQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>> = ({ signal }) => getFootballNewsApiV1RagNewsGet(params, { signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetFootballNewsApiV1RagNewsGetQueryResult = NonNullable<Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>>
+export type GetFootballNewsApiV1RagNewsGetQueryError = HTTPValidationError
+
+
+export function useGetFootballNewsApiV1RagNewsGet<TData = Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>, TError = HTTPValidationError>(
+ params: undefined |  GetFootballNewsApiV1RagNewsGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetFootballNewsApiV1RagNewsGet<TData = Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>, TError = HTTPValidationError>(
+ params?: GetFootballNewsApiV1RagNewsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetFootballNewsApiV1RagNewsGet<TData = Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>, TError = HTTPValidationError>(
+ params?: GetFootballNewsApiV1RagNewsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Football News
+ */
+
+export function useGetFootballNewsApiV1RagNewsGet<TData = Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>, TError = HTTPValidationError>(
+ params?: GetFootballNewsApiV1RagNewsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFootballNewsApiV1RagNewsGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetFootballNewsApiV1RagNewsGetQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
+ * Get injury-specific news for a team.
+
+PUBLIC endpoint for frontend injury alerts.
+ * @summary Get Injury News
+ */
+export type getInjuryNewsApiV1RagNewsInjuriesGetResponse200 = {
+  data: NewsResponse
+  status: 200
+}
+
+export type getInjuryNewsApiV1RagNewsInjuriesGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getInjuryNewsApiV1RagNewsInjuriesGetResponseSuccess = (getInjuryNewsApiV1RagNewsInjuriesGetResponse200) & {
+  headers: Headers;
+};
+export type getInjuryNewsApiV1RagNewsInjuriesGetResponseError = (getInjuryNewsApiV1RagNewsInjuriesGetResponse422) & {
+  headers: Headers;
+};
+
+export type getInjuryNewsApiV1RagNewsInjuriesGetResponse = (getInjuryNewsApiV1RagNewsInjuriesGetResponseSuccess | getInjuryNewsApiV1RagNewsInjuriesGetResponseError)
+
+export const getGetInjuryNewsApiV1RagNewsInjuriesGetUrl = (params: GetInjuryNewsApiV1RagNewsInjuriesGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/rag/news/injuries?${stringifiedParams}` : `/api/v1/rag/news/injuries`
+}
+
+export const getInjuryNewsApiV1RagNewsInjuriesGet = async (params: GetInjuryNewsApiV1RagNewsInjuriesGetParams, options?: RequestInit): Promise<getInjuryNewsApiV1RagNewsInjuriesGetResponse> => {
+  
+  return customInstance<getInjuryNewsApiV1RagNewsInjuriesGetResponse>(getGetInjuryNewsApiV1RagNewsInjuriesGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getGetInjuryNewsApiV1RagNewsInjuriesGetQueryKey = (params?: GetInjuryNewsApiV1RagNewsInjuriesGetParams,) => {
+    return [
+    `/api/v1/rag/news/injuries`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+    
+export const getGetInjuryNewsApiV1RagNewsInjuriesGetQueryOptions = <TData = Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>, TError = HTTPValidationError>(params: GetInjuryNewsApiV1RagNewsInjuriesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetInjuryNewsApiV1RagNewsInjuriesGetQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>> = ({ signal }) => getInjuryNewsApiV1RagNewsInjuriesGet(params, { signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetInjuryNewsApiV1RagNewsInjuriesGetQueryResult = NonNullable<Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>>
+export type GetInjuryNewsApiV1RagNewsInjuriesGetQueryError = HTTPValidationError
+
+
+export function useGetInjuryNewsApiV1RagNewsInjuriesGet<TData = Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>, TError = HTTPValidationError>(
+ params: GetInjuryNewsApiV1RagNewsInjuriesGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetInjuryNewsApiV1RagNewsInjuriesGet<TData = Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>, TError = HTTPValidationError>(
+ params: GetInjuryNewsApiV1RagNewsInjuriesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetInjuryNewsApiV1RagNewsInjuriesGet<TData = Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>, TError = HTTPValidationError>(
+ params: GetInjuryNewsApiV1RagNewsInjuriesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Injury News
+ */
+
+export function useGetInjuryNewsApiV1RagNewsInjuriesGet<TData = Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>, TError = HTTPValidationError>(
+ params: GetInjuryNewsApiV1RagNewsInjuriesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getInjuryNewsApiV1RagNewsInjuriesGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetInjuryNewsApiV1RagNewsInjuriesGetQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
 
 
 

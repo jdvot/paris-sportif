@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DailyPickResponse } from './dailyPickResponse';
-import type { SrcApiRoutesPredictionsDataSourceInfo } from './srcApiRoutesPredictionsDataSourceInfo';
+import type { DataSourceInfo } from './dataSourceInfo';
 
 /**
  * Response for daily picks endpoint.
@@ -15,5 +15,5 @@ export interface DailyPicksResponse {
   date: string;
   picks: DailyPickResponse[];
   total_matches_analyzed: number;
-  data_source?: SrcApiRoutesPredictionsDataSourceInfo | null;
+  data_source?: DataSourceInfo | null;
 }

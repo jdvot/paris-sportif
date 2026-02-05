@@ -5,13 +5,13 @@
  * API de predictions de paris sportifs sur le football europeen
  * OpenAPI spec version: 0.1.0
  */
+import type { DataSourceInfo } from './dataSourceInfo';
 import type { FatigueInfo } from './fatigueInfo';
 import type { LLMAdjustments } from './lLMAdjustments';
 import type { ModelContributions } from './modelContributions';
 import type { MultiMarketsResponse } from './multiMarketsResponse';
 import type { PredictionProbabilities } from './predictionProbabilities';
 import type { PredictionResponseRecommendedBet } from './predictionResponseRecommendedBet';
-import type { SrcApiRoutesPredictionsDataSourceInfo } from './srcApiRoutesPredictionsDataSourceInfo';
 
 /**
  * Full prediction response for a match.
@@ -40,5 +40,11 @@ export interface PredictionResponse {
   multi_markets?: MultiMarketsResponse | null;
   created_at: string;
   is_daily_pick?: boolean;
-  data_source?: SrcApiRoutesPredictionsDataSourceInfo | null;
+  /** Whether the match result has been verified */
+  is_verified?: boolean;
+  /** Whether prediction was correct (null if not verified) */
+  is_correct?: boolean | null;
+  /** Actual match score (e.g., '2-1') */
+  actual_score?: string | null;
+  data_source?: DataSourceInfo | null;
 }

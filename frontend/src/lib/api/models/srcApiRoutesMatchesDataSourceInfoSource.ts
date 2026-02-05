@@ -13,5 +13,4 @@ export const SrcApiRoutesMatchesDataSourceInfoSource = {
   live_api: 'live_api',
   cache: 'cache',
   database: 'database',
-  mock: 'mock',
 } as const;

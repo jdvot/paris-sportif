@@ -5,8 +5,8 @@
  * API de predictions de paris sportifs sur le football europeen
  * OpenAPI spec version: 0.1.0
  */
-import type { DataSourceInfo } from './dataSourceInfo';
 import type { MatchResponse } from './matchResponse';
+import type { SrcApiRoutesMatchesDataSourceInfo } from './srcApiRoutesMatchesDataSourceInfo';
 
 /**
  * List of matches response.
@@ -16,5 +16,5 @@ export interface MatchListResponse {
   total: number;
   page: number;
   per_page: number;
-  data_source?: DataSourceInfo | null;
+  data_source?: SrcApiRoutesMatchesDataSourceInfo | null;
 }

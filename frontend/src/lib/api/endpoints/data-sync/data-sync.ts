@@ -31,6 +31,7 @@ import type {
   HTTPErrorResponse,
   HTTPValidationError,
   SyncAndVerifyPredictionsApiV1SyncVerifyPredictionsPostParams,
+  SyncHistoricalSeasonApiV1SyncHistoricalPostParams,
   SyncMatchesOnlyApiV1SyncMatchesPostParams,
   SyncResponse,
   SyncWeeklyDataApiV1SyncWeeklyPostParams
@@ -613,6 +614,117 @@ export function useGetLastSyncInfoApiV1SyncLastGet<TData = Awaited<ReturnType<ty
 
 
 /**
+ * Sync all matches from the start of the season.
+
+Fetches FINISHED matches from season_start to today.
+Use this to populate historical data for ML training.
+
+WARNING: This may take several minutes due to API rate limits.
+ * @summary Sync Historical Season
+ */
+export type syncHistoricalSeasonApiV1SyncHistoricalPostResponse200 = {
+  data: SyncResponse
+  status: 200
+}
+
+export type syncHistoricalSeasonApiV1SyncHistoricalPostResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type syncHistoricalSeasonApiV1SyncHistoricalPostResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
+
+export type syncHistoricalSeasonApiV1SyncHistoricalPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type syncHistoricalSeasonApiV1SyncHistoricalPostResponseSuccess = (syncHistoricalSeasonApiV1SyncHistoricalPostResponse200) & {
+  headers: Headers;
+};
+export type syncHistoricalSeasonApiV1SyncHistoricalPostResponseError = (syncHistoricalSeasonApiV1SyncHistoricalPostResponse401 | syncHistoricalSeasonApiV1SyncHistoricalPostResponse403 | syncHistoricalSeasonApiV1SyncHistoricalPostResponse422) & {
+  headers: Headers;
+};
+
+export type syncHistoricalSeasonApiV1SyncHistoricalPostResponse = (syncHistoricalSeasonApiV1SyncHistoricalPostResponseSuccess | syncHistoricalSeasonApiV1SyncHistoricalPostResponseError)
+
+export const getSyncHistoricalSeasonApiV1SyncHistoricalPostUrl = (params?: SyncHistoricalSeasonApiV1SyncHistoricalPostParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/sync/historical?${stringifiedParams}` : `/api/v1/sync/historical`
+}
+
+export const syncHistoricalSeasonApiV1SyncHistoricalPost = async (params?: SyncHistoricalSeasonApiV1SyncHistoricalPostParams, options?: RequestInit): Promise<syncHistoricalSeasonApiV1SyncHistoricalPostResponse> => {
+  
+  return customInstance<syncHistoricalSeasonApiV1SyncHistoricalPostResponse>(getSyncHistoricalSeasonApiV1SyncHistoricalPostUrl(params),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+);}
+
+
+
+
+export const getSyncHistoricalSeasonApiV1SyncHistoricalPostMutationOptions = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncHistoricalSeasonApiV1SyncHistoricalPost>>, TError,{params?: SyncHistoricalSeasonApiV1SyncHistoricalPostParams}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncHistoricalSeasonApiV1SyncHistoricalPost>>, TError,{params?: SyncHistoricalSeasonApiV1SyncHistoricalPostParams}, TContext> => {
+
+const mutationKey = ['syncHistoricalSeasonApiV1SyncHistoricalPost'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncHistoricalSeasonApiV1SyncHistoricalPost>>, {params?: SyncHistoricalSeasonApiV1SyncHistoricalPostParams}> = (props) => {
+          const {params} = props ?? {};
+
+          return  syncHistoricalSeasonApiV1SyncHistoricalPost(params,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncHistoricalSeasonApiV1SyncHistoricalPostMutationResult = NonNullable<Awaited<ReturnType<typeof syncHistoricalSeasonApiV1SyncHistoricalPost>>>
+    
+    export type SyncHistoricalSeasonApiV1SyncHistoricalPostMutationError = HTTPErrorResponse | HTTPValidationError
+
+    /**
+ * @summary Sync Historical Season
+ */
+export const useSyncHistoricalSeasonApiV1SyncHistoricalPost = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncHistoricalSeasonApiV1SyncHistoricalPost>>, TError,{params?: SyncHistoricalSeasonApiV1SyncHistoricalPostParams}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof syncHistoricalSeasonApiV1SyncHistoricalPost>>,
+        TError,
+        {params?: SyncHistoricalSeasonApiV1SyncHistoricalPostParams},
+        TContext
+      > => {
+      return useMutation(getSyncHistoricalSeasonApiV1SyncHistoricalPostMutationOptions(options), queryClient);
+    }
+    /**
  * Sync recent finished matches and verify predictions against actual results.
 
 This endpoint:

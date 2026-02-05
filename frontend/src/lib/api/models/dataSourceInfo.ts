@@ -9,10 +9,6 @@ import type { DataSourceInfoSource } from './dataSourceInfoSource';
 
 /**
  * Information about data source and any warnings (Beta feature).
-
-Distinguishes between:
-- external_api_limited: football-data.org rate limit (10 req/min free tier)
-- app_rate_limited: our API rate limit for user protection
  */
 export interface DataSourceInfo {
   source?: DataSourceInfoSource;

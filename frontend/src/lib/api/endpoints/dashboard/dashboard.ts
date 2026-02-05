@@ -21,10 +21,10 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  ExportUserDataApiV1DashboardExportGet200,
+  DashboardStats,
   ExportUserDataApiV1DashboardExportGetParams,
-  GetUserStatsApiV1DashboardStatsGet200,
   GetUserStatsApiV1DashboardStatsGetParams,
+  HTTPErrorResponse,
   HTTPValidationError
 } from '../../models';
 
@@ -36,12 +36,23 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 /**
- * Get user prediction statistics and ROI.
+ * Get user betting statistics and ROI.
+
+Returns comprehensive statistics including:
+- Win/loss record
+- ROI and profit/loss
+- Bankroll tracking
+- Streak information
  * @summary Get User Stats
  */
 export type getUserStatsApiV1DashboardStatsGetResponse200 = {
-  data: GetUserStatsApiV1DashboardStatsGet200
+  data: DashboardStats
   status: 200
+}
+
+export type getUserStatsApiV1DashboardStatsGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
 }
 
 export type getUserStatsApiV1DashboardStatsGetResponse422 = {
@@ -52,7 +63,7 @@ export type getUserStatsApiV1DashboardStatsGetResponse422 = {
 export type getUserStatsApiV1DashboardStatsGetResponseSuccess = (getUserStatsApiV1DashboardStatsGetResponse200) & {
   headers: Headers;
 };
-export type getUserStatsApiV1DashboardStatsGetResponseError = (getUserStatsApiV1DashboardStatsGetResponse422) & {
+export type getUserStatsApiV1DashboardStatsGetResponseError = (getUserStatsApiV1DashboardStatsGetResponse401 | getUserStatsApiV1DashboardStatsGetResponse422) & {
   headers: Headers;
 };
 
@@ -95,7 +106,7 @@ export const getGetUserStatsApiV1DashboardStatsGetQueryKey = (params?: GetUserSt
     }
 
     
-export const getGetUserStatsApiV1DashboardStatsGetQueryOptions = <TData = Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError = HTTPValidationError>(params?: GetUserStatsApiV1DashboardStatsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getGetUserStatsApiV1DashboardStatsGetQueryOptions = <TData = Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError = HTTPErrorResponse | HTTPValidationError>(params?: GetUserStatsApiV1DashboardStatsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -114,10 +125,10 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetUserStatsApiV1DashboardStatsGetQueryResult = NonNullable<Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>>
-export type GetUserStatsApiV1DashboardStatsGetQueryError = HTTPValidationError
+export type GetUserStatsApiV1DashboardStatsGetQueryError = HTTPErrorResponse | HTTPValidationError
 
 
-export function useGetUserStatsApiV1DashboardStatsGet<TData = Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError = HTTPValidationError>(
+export function useGetUserStatsApiV1DashboardStatsGet<TData = Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params: undefined |  GetUserStatsApiV1DashboardStatsGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>,
@@ -127,7 +138,7 @@ export function useGetUserStatsApiV1DashboardStatsGet<TData = Awaited<ReturnType
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetUserStatsApiV1DashboardStatsGet<TData = Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError = HTTPValidationError>(
+export function useGetUserStatsApiV1DashboardStatsGet<TData = Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: GetUserStatsApiV1DashboardStatsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>,
@@ -137,7 +148,7 @@ export function useGetUserStatsApiV1DashboardStatsGet<TData = Awaited<ReturnType
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetUserStatsApiV1DashboardStatsGet<TData = Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError = HTTPValidationError>(
+export function useGetUserStatsApiV1DashboardStatsGet<TData = Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: GetUserStatsApiV1DashboardStatsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
@@ -145,7 +156,7 @@ export function useGetUserStatsApiV1DashboardStatsGet<TData = Awaited<ReturnType
  * @summary Get User Stats
  */
 
-export function useGetUserStatsApiV1DashboardStatsGet<TData = Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError = HTTPValidationError>(
+export function useGetUserStatsApiV1DashboardStatsGet<TData = Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: GetUserStatsApiV1DashboardStatsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserStatsApiV1DashboardStatsGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
@@ -161,12 +172,19 @@ export function useGetUserStatsApiV1DashboardStatsGet<TData = Awaited<ReturnType
 
 
 /**
- * Export user prediction data.
+ * Export user betting data.
+
+Supports CSV and JSON formats.
  * @summary Export User Data
  */
 export type exportUserDataApiV1DashboardExportGetResponse200 = {
-  data: ExportUserDataApiV1DashboardExportGet200
+  data: unknown
   status: 200
+}
+
+export type exportUserDataApiV1DashboardExportGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
 }
 
 export type exportUserDataApiV1DashboardExportGetResponse422 = {
@@ -177,7 +195,7 @@ export type exportUserDataApiV1DashboardExportGetResponse422 = {
 export type exportUserDataApiV1DashboardExportGetResponseSuccess = (exportUserDataApiV1DashboardExportGetResponse200) & {
   headers: Headers;
 };
-export type exportUserDataApiV1DashboardExportGetResponseError = (exportUserDataApiV1DashboardExportGetResponse422) & {
+export type exportUserDataApiV1DashboardExportGetResponseError = (exportUserDataApiV1DashboardExportGetResponse401 | exportUserDataApiV1DashboardExportGetResponse422) & {
   headers: Headers;
 };
 
@@ -220,7 +238,7 @@ export const getExportUserDataApiV1DashboardExportGetQueryKey = (params?: Export
     }
 
     
-export const getExportUserDataApiV1DashboardExportGetQueryOptions = <TData = Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError = HTTPValidationError>(params?: ExportUserDataApiV1DashboardExportGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getExportUserDataApiV1DashboardExportGetQueryOptions = <TData = Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError = HTTPErrorResponse | HTTPValidationError>(params?: ExportUserDataApiV1DashboardExportGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -239,10 +257,10 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ExportUserDataApiV1DashboardExportGetQueryResult = NonNullable<Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>>
-export type ExportUserDataApiV1DashboardExportGetQueryError = HTTPValidationError
+export type ExportUserDataApiV1DashboardExportGetQueryError = HTTPErrorResponse | HTTPValidationError
 
 
-export function useExportUserDataApiV1DashboardExportGet<TData = Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError = HTTPValidationError>(
+export function useExportUserDataApiV1DashboardExportGet<TData = Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params: undefined |  ExportUserDataApiV1DashboardExportGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>,
@@ -252,7 +270,7 @@ export function useExportUserDataApiV1DashboardExportGet<TData = Awaited<ReturnT
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useExportUserDataApiV1DashboardExportGet<TData = Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError = HTTPValidationError>(
+export function useExportUserDataApiV1DashboardExportGet<TData = Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: ExportUserDataApiV1DashboardExportGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>,
@@ -262,7 +280,7 @@ export function useExportUserDataApiV1DashboardExportGet<TData = Awaited<ReturnT
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useExportUserDataApiV1DashboardExportGet<TData = Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError = HTTPValidationError>(
+export function useExportUserDataApiV1DashboardExportGet<TData = Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: ExportUserDataApiV1DashboardExportGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
@@ -270,7 +288,7 @@ export function useExportUserDataApiV1DashboardExportGet<TData = Awaited<ReturnT
  * @summary Export User Data
  */
 
-export function useExportUserDataApiV1DashboardExportGet<TData = Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError = HTTPValidationError>(
+export function useExportUserDataApiV1DashboardExportGet<TData = Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
  params?: ExportUserDataApiV1DashboardExportGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportUserDataApiV1DashboardExportGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {

@@ -43,6 +43,7 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
  * Get current user's profile.
 
 Returns the authenticated user's profile information.
+Fetches fresh data from Supabase to reflect recent updates.
  * @summary Get Current Profile
  */
 export type getCurrentProfileApiV1UsersMeGetResponse200 = {

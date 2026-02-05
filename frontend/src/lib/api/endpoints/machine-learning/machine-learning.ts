@@ -25,9 +25,13 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  GetTrainingDataApiV1MlTrainingDataGetParams,
+  HFTrainingResponse,
   HTTPErrorResponse,
+  HTTPValidationError,
   MLStatusResponse,
-  PipelineResponse
+  PipelineResponse,
+  TrainingDataResponse
 } from '../../models';
 
 import { customInstance } from '../../custom-instance';
@@ -40,10 +44,8 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 /**
  * Get current ML system status.
 
-Returns information about:
-- Whether models are trained and available
-- Age of training data
-- Feature engineering state
+Checks HuggingFace ML service (remote) instead of local models
+to avoid OOM on 512MB Render.
  * @summary Get Ml Status
  */
 export type getMlStatusApiV1MlStatusGetResponse200 = {
@@ -263,10 +265,10 @@ export const useCollectDataApiV1MlCollectPost = <TError = HTTPErrorResponse,
       return useMutation(getCollectDataApiV1MlCollectPostMutationOptions(options), queryClient);
     }
     /**
- * Start model training in background.
+ * Deprecated: Use /train-remote instead.
 
-Trains XGBoost and Random Forest models on collected data.
-Requires data to be collected first.
+Local training is disabled to avoid OOM on 512MB Render.
+Models are trained on HuggingFace Spaces (16GB RAM).
  * @summary Train Models
  */
 export type trainModelsApiV1MlTrainPostResponse200 = {
@@ -360,14 +362,10 @@ export const useTrainModelsApiV1MlTrainPost = <TError = HTTPErrorResponse,
       return useMutation(getTrainModelsApiV1MlTrainPostMutationOptions(options), queryClient);
     }
     /**
- * Run full ML pipeline in background.
+ * Deprecated: Use /train-remote instead.
 
-Executes:
-1. Data collection from API
-2. Model training on collected data
-3. Model reloading for inference
-
-This is a long-running task (5-15 minutes depending on API rate limits).
+Local ML pipeline is disabled to avoid OOM on 512MB Render.
+Models are trained on HuggingFace Spaces (16GB RAM).
  * @summary Run Full Pipeline
  */
 export type runFullPipelineApiV1MlRunFullPostResponse200 = {
@@ -585,3 +583,238 @@ export function useGetPipelineStatusApiV1MlPipelineStatusGet<TData = Awaited<Ret
 
 
 
+/**
+ * Get finished matches for ML training (API key protected).
+
+This endpoint is called by HuggingFace Spaces to fetch training data.
+Requires X-API-Key header matching HF_TRAINING_API_KEY env var.
+
+Returns matches with:
+- Team stats (attack, defense, ELO)
+- Form and fatigue metrics
+- Result (0=home_win, 1=draw, 2=away_win)
+ * @summary Get Training Data
+ */
+export type getTrainingDataApiV1MlTrainingDataGetResponse200 = {
+  data: TrainingDataResponse
+  status: 200
+}
+
+export type getTrainingDataApiV1MlTrainingDataGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getTrainingDataApiV1MlTrainingDataGetResponseSuccess = (getTrainingDataApiV1MlTrainingDataGetResponse200) & {
+  headers: Headers;
+};
+export type getTrainingDataApiV1MlTrainingDataGetResponseError = (getTrainingDataApiV1MlTrainingDataGetResponse422) & {
+  headers: Headers;
+};
+
+export type getTrainingDataApiV1MlTrainingDataGetResponse = (getTrainingDataApiV1MlTrainingDataGetResponseSuccess | getTrainingDataApiV1MlTrainingDataGetResponseError)
+
+export const getGetTrainingDataApiV1MlTrainingDataGetUrl = (params?: GetTrainingDataApiV1MlTrainingDataGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/ml/training-data?${stringifiedParams}` : `/api/v1/ml/training-data`
+}
+
+export const getTrainingDataApiV1MlTrainingDataGet = async (params?: GetTrainingDataApiV1MlTrainingDataGetParams, options?: RequestInit): Promise<getTrainingDataApiV1MlTrainingDataGetResponse> => {
+  
+  return customInstance<getTrainingDataApiV1MlTrainingDataGetResponse>(getGetTrainingDataApiV1MlTrainingDataGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getGetTrainingDataApiV1MlTrainingDataGetQueryKey = (params?: GetTrainingDataApiV1MlTrainingDataGetParams,) => {
+    return [
+    `/api/v1/ml/training-data`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+    
+export const getGetTrainingDataApiV1MlTrainingDataGetQueryOptions = <TData = Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>, TError = HTTPValidationError>(params?: GetTrainingDataApiV1MlTrainingDataGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTrainingDataApiV1MlTrainingDataGetQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>> = ({ signal }) => getTrainingDataApiV1MlTrainingDataGet(params, { signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetTrainingDataApiV1MlTrainingDataGetQueryResult = NonNullable<Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>>
+export type GetTrainingDataApiV1MlTrainingDataGetQueryError = HTTPValidationError
+
+
+export function useGetTrainingDataApiV1MlTrainingDataGet<TData = Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>, TError = HTTPValidationError>(
+ params: undefined |  GetTrainingDataApiV1MlTrainingDataGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>,
+          TError,
+          Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTrainingDataApiV1MlTrainingDataGet<TData = Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>, TError = HTTPValidationError>(
+ params?: GetTrainingDataApiV1MlTrainingDataGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>,
+          TError,
+          Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTrainingDataApiV1MlTrainingDataGet<TData = Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>, TError = HTTPValidationError>(
+ params?: GetTrainingDataApiV1MlTrainingDataGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Training Data
+ */
+
+export function useGetTrainingDataApiV1MlTrainingDataGet<TData = Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>, TError = HTTPValidationError>(
+ params?: GetTrainingDataApiV1MlTrainingDataGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingDataApiV1MlTrainingDataGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetTrainingDataApiV1MlTrainingDataGetQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
+ * Trigger model training on HuggingFace Spaces.
+
+This endpoint:
+1. Fetches training data from database (finished matches with stats)
+2. Sends data to HuggingFace /train endpoint
+3. Returns training results (accuracy, feature importance)
+
+Requires admin authentication.
+ * @summary Train On Huggingface
+ */
+export type trainOnHuggingfaceApiV1MlTrainRemotePostResponse200 = {
+  data: HFTrainingResponse
+  status: 200
+}
+
+export type trainOnHuggingfaceApiV1MlTrainRemotePostResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type trainOnHuggingfaceApiV1MlTrainRemotePostResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
+    
+export type trainOnHuggingfaceApiV1MlTrainRemotePostResponseSuccess = (trainOnHuggingfaceApiV1MlTrainRemotePostResponse200) & {
+  headers: Headers;
+};
+export type trainOnHuggingfaceApiV1MlTrainRemotePostResponseError = (trainOnHuggingfaceApiV1MlTrainRemotePostResponse401 | trainOnHuggingfaceApiV1MlTrainRemotePostResponse403) & {
+  headers: Headers;
+};
+
+export type trainOnHuggingfaceApiV1MlTrainRemotePostResponse = (trainOnHuggingfaceApiV1MlTrainRemotePostResponseSuccess | trainOnHuggingfaceApiV1MlTrainRemotePostResponseError)
+
+export const getTrainOnHuggingfaceApiV1MlTrainRemotePostUrl = () => {
+
+
+  
+
+  return `/api/v1/ml/train-remote`
+}
+
+export const trainOnHuggingfaceApiV1MlTrainRemotePost = async ( options?: RequestInit): Promise<trainOnHuggingfaceApiV1MlTrainRemotePostResponse> => {
+  
+  return customInstance<trainOnHuggingfaceApiV1MlTrainRemotePostResponse>(getTrainOnHuggingfaceApiV1MlTrainRemotePostUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+);}
+
+
+
+
+export const getTrainOnHuggingfaceApiV1MlTrainRemotePostMutationOptions = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof trainOnHuggingfaceApiV1MlTrainRemotePost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof trainOnHuggingfaceApiV1MlTrainRemotePost>>, TError,void, TContext> => {
+
+const mutationKey = ['trainOnHuggingfaceApiV1MlTrainRemotePost'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof trainOnHuggingfaceApiV1MlTrainRemotePost>>, void> = () => {
+          
+
+          return  trainOnHuggingfaceApiV1MlTrainRemotePost(requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TrainOnHuggingfaceApiV1MlTrainRemotePostMutationResult = NonNullable<Awaited<ReturnType<typeof trainOnHuggingfaceApiV1MlTrainRemotePost>>>
+    
+    export type TrainOnHuggingfaceApiV1MlTrainRemotePostMutationError = HTTPErrorResponse
+
+    /**
+ * @summary Train On Huggingface
+ */
+export const useTrainOnHuggingfaceApiV1MlTrainRemotePost = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof trainOnHuggingfaceApiV1MlTrainRemotePost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof trainOnHuggingfaceApiV1MlTrainRemotePost>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getTrainOnHuggingfaceApiV1MlTrainRemotePostMutationOptions(options), queryClient);
+    }
+    
