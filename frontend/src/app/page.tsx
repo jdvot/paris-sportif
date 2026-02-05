@@ -2,41 +2,20 @@
 
 import { DailyPicks } from "@/components/DailyPicks";
 import { UpcomingMatches } from "@/components/UpcomingMatches";
-import { StatsOverview } from "@/components/StatsOverview";
 import { NewsFeed } from "@/components/NewsFeed";
 import { LiveScoresSection } from "@/components/LiveScoresSection";
 import { MyClubSection } from "@/components/MyClubSection";
-import { TrendingUp, Calendar, Trophy, Loader2, Newspaper } from "lucide-react";
+import { Newspaper } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
-import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
 import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
 
 export default function Home() {
   const t = useTranslations("home");
-  const tStats = useTranslations("stats");
   const locale = useLocale();
-  const { data: statsResponse, isLoading: statsLoading } = useGetPredictionStats(
-    { days: 30 },
-    { query: { staleTime: 5 * 60 * 1000 } }
-  );
 
   // Get user's favorite team for personalized news
   const { data: preferences } = useUserPreferences({ enabled: true });
   const favoriteTeamName = preferences?.favorite_team?.name;
-
-  // Extract stats data from response - API returns { data: {...}, status: number }
-  const stats = statsResponse?.data as { total_predictions?: number; accuracy?: number; by_competition?: Record<string, unknown> } | undefined;
-
-  // Check if stats have actual data (total_predictions > 0 indicates real data)
-  const totalPreds = stats?.total_predictions ?? 0;
-  const hasData = totalPreds > 0;
-  const successRate = hasData ? (stats?.accuracy || 0).toFixed(1) : null;
-  const totalPredictions = hasData ? totalPreds : null;
-
-  // Count competitions with data
-  const competitionsWithData = hasData && stats?.by_competition
-    ? Object.keys(stats.by_competition).length
-    : null;
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -73,47 +52,6 @@ export default function Home() {
         <NewsFeed team={favoriteTeamName} limit={5} showTitle={false} />
       </section>
 
-      {/* Quick Stats - Only show if data is available */}
-      {hasData && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4">
-            <div className="p-2 sm:p-3 bg-primary-500/20 rounded-lg flex-shrink-0">
-              <TrendingUp className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400" />
-            </div>
-            <div className="text-center sm:text-left">
-              <p className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">{tStats("successRate")}</p>
-              {statsLoading ? (
-                <Loader2 className="w-5 sm:w-6 h-5 sm:h-6 text-primary-400 animate-spin mt-1 mx-auto sm:mx-0" />
-              ) : (
-                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{successRate}%</p>
-              )}
-            </div>
-          </div>
-          <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4">
-            <div className="p-2 sm:p-3 bg-accent-500/20 rounded-lg flex-shrink-0">
-              <Calendar className="w-5 sm:w-6 h-5 sm:h-6 text-accent-400" />
-            </div>
-            <div className="text-center sm:text-left">
-              <p className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">{t("stats.predictionsAnalyzed")}</p>
-              {statsLoading ? (
-                <Loader2 className="w-5 sm:w-6 h-5 sm:h-6 text-accent-400 animate-spin mt-1 mx-auto sm:mx-0" />
-              ) : (
-                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{totalPredictions}</p>
-              )}
-            </div>
-          </div>
-          <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4 sm:col-span-2 lg:col-span-1">
-            <div className="p-2 sm:p-3 bg-yellow-500/20 rounded-lg flex-shrink-0">
-              <Trophy className="w-5 sm:w-6 h-5 sm:h-6 text-yellow-400" />
-            </div>
-            <div className="text-center sm:text-left">
-              <p className="text-gray-500 dark:text-dark-400 text-xs sm:text-sm">{t("stats.leaguesCovered")}</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{competitionsWithData}</p>
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* Daily Picks */}
       <section>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-0 px-4 sm:px-0">
@@ -133,14 +71,6 @@ export default function Home() {
           {t("sections.upcomingMatches")}
         </h2>
         <UpcomingMatches />
-      </section>
-
-      {/* Stats Overview */}
-      <section>
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 px-4 sm:px-0">
-          {t("sections.performance")}
-        </h2>
-        <StatsOverview />
       </section>
     </div>
   );
