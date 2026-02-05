@@ -1072,6 +1072,79 @@ async def get_daily_picks(
         )
 
 
+class PredictionDebugResponse(BaseModel):
+    """Debug info about predictions data."""
+
+    total_predictions: int
+    verified_predictions: int
+    finished_matches_with_predictions: int
+    pending_verification: int
+    message: str
+
+
+@router.get(
+    "/debug",
+    response_model=PredictionDebugResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getPredictionDebug",
+)
+async def get_prediction_debug(
+    user: AuthenticatedUser,
+    days: int = Query(7, ge=1, le=30),
+) -> PredictionDebugResponse:
+    """Debug endpoint to check prediction data state."""
+    try:
+        async with get_uow() as uow:
+            from datetime import date, timedelta
+            from sqlalchemy import func, select
+            from src.db.models import Match, Prediction, PredictionResult
+
+            cutoff = datetime.now() - timedelta(days=days)
+
+            # Count predictions
+            pred_count = await uow.session.scalar(
+                select(func.count(Prediction.id)).where(Prediction.created_at >= cutoff)
+            )
+
+            # Count verified (have PredictionResult)
+            verified_count = await uow.session.scalar(
+                select(func.count(PredictionResult.id))
+                .join(Prediction)
+                .where(PredictionResult.created_at >= cutoff)
+            )
+
+            # Count finished matches with predictions
+            finished_with_pred = await uow.session.scalar(
+                select(func.count(Match.id))
+                .join(Prediction, Prediction.match_id == Match.id)
+                .where(
+                    Match.status.in_(["FINISHED", "finished"]),
+                    Match.home_score.isnot(None),
+                    Match.match_date >= cutoff,
+                )
+            )
+
+            # Run verification
+            verify_count = await PredictionService.verify_all_finished()
+
+            return PredictionDebugResponse(
+                total_predictions=pred_count or 0,
+                verified_predictions=verified_count or 0,
+                finished_matches_with_predictions=finished_with_pred or 0,
+                pending_verification=verify_count,
+                message=f"Last {days} days: {pred_count} predictions, {verified_count} verified, {finished_with_pred} finished matches with predictions, {verify_count} newly verified",
+            )
+    except Exception as e:
+        logger.error(f"Debug endpoint error: {e}")
+        return PredictionDebugResponse(
+            total_predictions=0,
+            verified_predictions=0,
+            finished_matches_with_predictions=0,
+            pending_verification=0,
+            message=f"Error: {str(e)}",
+        )
+
+
 @router.get(
     "/stats",
     response_model=PredictionStatsResponse,
