@@ -1,7 +1,7 @@
 """Stats service for database statistics and cache operations."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import func, select
@@ -59,14 +59,18 @@ class StatsService:
             result = await uow._session.execute(stmt)
             items = result.scalars().all()
 
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             return [
                 {
                     "key": item.cache_key,
                     "type": item.cache_type,
                     "expires_at": item.expires_at.isoformat() if item.expires_at else None,
                     "created_at": item.created_at.isoformat() if item.created_at else None,
-                    "is_expired": now > item.expires_at if item.expires_at else True,
+                    "is_expired": (
+                        now > item.expires_at.replace(tzinfo=timezone.utc)
+                        if item.expires_at and item.expires_at.tzinfo is None
+                        else now > item.expires_at if item.expires_at else True
+                    ),
                 }
                 for item in items
             ]
@@ -105,7 +109,7 @@ class StatsService:
                     COUNT(matchday) as matchday,
                     COUNT(home_score_ht) as ht_scores,
                     COUNT(home_xg) as xg,
-                    COUNT(home_odds) as odds
+                    COUNT(odds_home) as odds
                 FROM matches
             """))
             matches_row = matches_result.fetchone()
@@ -115,7 +119,7 @@ class StatsService:
                 SELECT
                     COUNT(*) as total,
                     COUNT(*) FILTER (WHERE is_daily_pick = true) as daily_picks,
-                    COUNT(*) FILTER (WHERE llm_analysis IS NOT NULL) as with_llm,
+                    COUNT(*) FILTER (WHERE llm_adjustments IS NOT NULL) as with_llm,
                     COUNT(*) FILTER (WHERE explanation IS NOT NULL) as with_explanation
                 FROM predictions
             """))
@@ -211,19 +215,28 @@ class StatsService:
                     "total": sync_row.total if sync_row else 0,
                     "success": sync_row.success if sync_row else 0,
                     "failed": sync_row.failed if sync_row else 0,
-                    "last_sync": sync_row.last_sync.isoformat() if sync_row and sync_row.last_sync else None,
+                    "last_sync": (
+                        sync_row.last_sync.isoformat() if sync_row and sync_row.last_sync and hasattr(sync_row.last_sync, 'isoformat')
+                        else str(sync_row.last_sync) if sync_row and sync_row.last_sync else None
+                    ),
                 },
                 "ml_models": {
                     "total": ml_row.total if ml_row else 0,
                     "active": ml_row.active if ml_row else 0,
                     "with_binary": ml_row.with_binary if ml_row else 0,
-                    "last_trained": ml_row.last_trained.isoformat() if ml_row and ml_row.last_trained else None,
+                    "last_trained": (
+                        ml_row.last_trained.isoformat() if ml_row and ml_row.last_trained and hasattr(ml_row.last_trained, 'isoformat')
+                        else str(ml_row.last_trained) if ml_row and ml_row.last_trained else None
+                    ),
                 },
                 "standings": {
                     "total": standings_row.total if standings_row else 0,
                     "competitions": standings_row.competitions if standings_row else 0,
                     "with_form": standings_row.with_form if standings_row else 0,
-                    "last_sync": standings_row.last_sync.isoformat() if standings_row and standings_row.last_sync else None,
+                    "last_sync": (
+                        standings_row.last_sync.isoformat() if standings_row and standings_row.last_sync and hasattr(standings_row.last_sync, 'isoformat')
+                        else str(standings_row.last_sync) if standings_row and standings_row.last_sync else None
+                    ),
                 },
             }
 

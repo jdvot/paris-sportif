@@ -1,7 +1,7 @@
 """Tests for data quality monitoring system."""
 
 import pytest
-from datetime import UTC, datetime, timedelta
+from datetime import timezone,  datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.data.quality_monitor import (
@@ -90,7 +90,7 @@ class TestCheckFreshness:
     @patch("src.data.quality_monitor.get_uow")
     async def test_fresh_data(self, mock_get_uow):
         """Test when data is fresh."""
-        now = datetime.now(UTC).replace(tzinfo=None)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         recent = now - timedelta(hours=1)
 
         # Setup mock UoW

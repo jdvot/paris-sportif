@@ -25,7 +25,18 @@ from src.prediction_engine.models.poisson import PoissonModel
 
 logger = logging.getLogger(__name__)
 
-# Try to import HuggingFace ML client (remote inference)
+# Try to import local ML model loader (faster, no network dependency)
+try:
+    from src.ml.model_loader import get_ml_prediction, model_loader
+
+    LOCAL_ML_AVAILABLE = model_loader.is_trained()
+    if LOCAL_ML_AVAILABLE:
+        logger.info("Local ML models loaded successfully (XGBoost + Random Forest)")
+except ImportError:
+    LOCAL_ML_AVAILABLE = False
+    logger.warning("Local ML model loader not available")
+
+# Try to import HuggingFace ML client (remote inference - fallback)
 try:
     from src.ml.huggingface_client import get_hf_ml_client
 
@@ -580,10 +591,55 @@ class AdvancedEnsemblePredictor:
             )
         )
 
-        # 5. ML Models (XGBoost & Random Forest) - via HuggingFace service
-        if ml_available and hf_client is not None:
+        # 5. ML Models (XGBoost & Random Forest) - Local first, then HuggingFace fallback
+        ml_added = False
+
+        # Try local ML models first (faster, no network dependency)
+        if LOCAL_ML_AVAILABLE and not ml_added:
             try:
-                # Call HuggingFace ML service
+                local_ml_result = get_ml_prediction(
+                    home_team_id=home_team_id,
+                    away_team_id=away_team_id,
+                    home_attack=home_attack,
+                    home_defense=home_defense,
+                    away_attack=away_attack,
+                    away_defense=away_defense,
+                    home_form=home_form_score,
+                    away_form=away_form_score,
+                    home_rest_days=home_rest_days,
+                    home_congestion=home_congestion,
+                    away_rest_days=away_rest_days,
+                    away_congestion=away_congestion,
+                )
+
+                if local_ml_result:
+                    predictions.append(
+                        (
+                            local_ml_result["home_win"],
+                            local_ml_result["draw"],
+                            local_ml_result["away_win"],
+                        )
+                    )
+                    ml_weight = self.WEIGHT_XGBOOST + self.WEIGHT_RANDOM_FOREST
+                    weights_list.append(ml_weight)
+                    contributions.append(
+                        ModelContribution(
+                            name=f"ML Local ({local_ml_result.get('model_used', 'ensemble')})",
+                            home_prob=local_ml_result["home_win"],
+                            draw_prob=local_ml_result["draw"],
+                            away_prob=local_ml_result["away_win"],
+                            weight=ml_weight,
+                            confidence=local_ml_result.get("confidence", 0.7),
+                        )
+                    )
+                    ml_added = True
+                    logger.info(f"ML prediction added from LOCAL models (features: {local_ml_result.get('feature_count', 7)})")
+            except Exception as e:
+                logger.warning(f"Local ML prediction failed: {e}")
+
+        # Fallback to HuggingFace ML service if local not available
+        if ml_available and hf_client is not None and not ml_added:
+            try:
                 ml_result = hf_client.predict_sync(
                     home_attack=home_attack,
                     home_defense=home_defense,
@@ -591,9 +647,9 @@ class AdvancedEnsemblePredictor:
                     away_defense=away_defense,
                     home_elo=home_elo,
                     away_elo=away_elo,
-                    home_form=home_form_score / 100.0,  # Convert 0-100 to 0-1
+                    home_form=home_form_score / 100.0,
                     away_form=away_form_score / 100.0,
-                    home_rest_days=home_rest_days * 7.0,  # Convert to days
+                    home_rest_days=home_rest_days * 7.0,
                     away_rest_days=away_rest_days * 7.0,
                     home_fixture_congestion=home_congestion,
                     away_fixture_congestion=away_congestion,
@@ -601,7 +657,6 @@ class AdvancedEnsemblePredictor:
 
                 if ml_result and "ensemble" in ml_result:
                     ensemble = ml_result["ensemble"]
-                    # ML ensemble prediction
                     predictions.append(
                         (
                             ensemble["home_win"],
@@ -621,7 +676,8 @@ class AdvancedEnsemblePredictor:
                             confidence=ml_result.get("confidence", 0.7),
                         )
                     )
-                    logger.info("ML prediction added from HuggingFace service")
+                    ml_added = True
+                    logger.info("ML prediction added from HuggingFace service (fallback)")
             except Exception as e:
                 logger.warning(f"HuggingFace ML prediction failed: {e}")
 

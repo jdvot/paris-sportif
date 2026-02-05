@@ -2,11 +2,11 @@
 
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { DailyPick } from "@/lib/api/models";
+import type { DailyPickResponse } from "@/lib/api/models";
 import { getConfidenceTier, getValueTier } from "@/lib/constants";
 
 interface ExportCSVProps {
-  picks: DailyPick[];
+  picks: DailyPickResponse[];
   filename?: string;
   className?: string;
   variant?: "button" | "icon";

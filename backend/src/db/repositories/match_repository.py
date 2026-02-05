@@ -89,6 +89,11 @@ class MatchRepository(BaseRepository[Match]):
 
     async def get_finished_unverified(self) -> Sequence[Match]:
         """Get finished matches that have predictions but not verified yet."""
+        from src.db.models import PredictionResult
+
+        # Subquery to find predictions that already have results
+        verified_pred_ids = select(PredictionResult.prediction_id)
+
         stmt = (
             select(Match)
             .join(Prediction, Prediction.match_id == Match.id)
@@ -97,6 +102,8 @@ class MatchRepository(BaseRepository[Match]):
                     Match.status.in_(["FINISHED", "finished"]),
                     Match.home_score.isnot(None),
                     Match.away_score.isnot(None),
+                    # Exclude predictions that already have a result
+                    Prediction.id.notin_(verified_pred_ids),
                 )
             )
             .options(joinedload(Match.prediction))

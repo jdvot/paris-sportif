@@ -18,14 +18,7 @@ import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
 import { ROUNDED_TOP } from "@/lib/recharts-types";
-
-const COMPETITION_NAMES: Record<string, string> = {
-  PL: "Premier League",
-  PD: "La Liga",
-  BL1: "Bundesliga",
-  SA: "Serie A",
-  FL1: "Ligue 1",
-};
+import { getCompetitionName } from "@/lib/constants";
 
 const BET_TYPE_KEYS: Record<string, string> = {
   home_win: "homeWin",
@@ -74,7 +67,7 @@ export function PerformanceStats() {
     if (!stats) return [];
     return Object.entries(stats.by_competition || {})
       .map(([code, data]: [string, Record<string, unknown>]) => ({
-        name: COMPETITION_NAMES[code] || code,
+        name: getCompetitionName(code),
         value: (data.total as number) || (data.predictions as number) || 0,
         accuracy: (data.accuracy as number) || 0,
       }))

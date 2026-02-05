@@ -13,7 +13,7 @@ import { CompetitionFilter } from "@/components/CompetitionFilter";
 import { ExportCSV } from "@/components/ExportCSV";
 import { NewsFeed } from "@/components/NewsFeed";
 import { getErrorMessage } from "@/lib/errors";
-import type { DailyPick } from "@/lib/api/models";
+import type { DailyPickResponse } from "@/lib/api/models";
 import { COMPETITIONS as COMPETITIONS_DATA } from "@/lib/constants";
 
 // Map centralized competitions to the format used by CompetitionFilter
@@ -37,7 +37,7 @@ export default function PicksPage() {
   );
 
   // Extract picks from response - API returns { data: { picks: [...] }, status: number }
-  const picks = (response?.data as { picks?: DailyPick[] } | undefined)?.picks || [];
+  const picks = (response?.data as { picks?: DailyPickResponse[] } | undefined)?.picks || [];
 
   const filteredPicks = picks.filter((pick) => {
     if (selectedCompetitions.length === 0) return true;

@@ -16,7 +16,9 @@ import { useTranslations, useLocale } from "next-intl";
 import { useGetMatches } from "@/lib/api/endpoints/matches/matches";
 import type { MatchResponse, MatchListResponse } from "@/lib/api/models";
 import { isAuthError } from "@/lib/utils";
+import { getCompetitionName } from "@/lib/constants";
 
+// Competition colors for visual distinction
 const competitionColors: Record<string, string> = {
   PL: "bg-purple-500",
   PD: "bg-orange-500",
@@ -25,16 +27,6 @@ const competitionColors: Record<string, string> = {
   FL1: "bg-green-500",
   CL: "bg-indigo-500",
   EL: "bg-amber-500",
-};
-
-const competitionLabels: Record<string, string> = {
-  PL: "Premier League",
-  PD: "La Liga",
-  BL1: "Bundesliga",
-  SA: "Serie A",
-  FL1: "Ligue 1",
-  CL: "Ligue des Champions",
-  EL: "Ligue Europa",
 };
 
 type DateRange = "today" | "tomorrow" | "week" | "next7days" | "custom";
@@ -224,7 +216,7 @@ export default function MatchesPage() {
                     : "bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700 hover:bg-gray-200 dark:hover:bg-slate-700"
                 }`}
               >
-                {competitionLabels[code] || code}
+                {getCompetitionName(code)}
               </button>
             ))}
           </div>

@@ -11,7 +11,7 @@ Migrated to async repository pattern (PAR-142).
 
 import logging
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import timezone,  datetime
 from enum import Enum
 from typing import Any
 
@@ -133,11 +133,18 @@ async def check_freshness() -> DataQualityCheck:
         result = await uow.session.execute(stmt)
         last_prediction_update = result.scalar_one_or_none()
 
-    # Find the most recent update
+    # Find the most recent update (convert to naive UTC datetimes first)
+    def to_naive_utc(dt: datetime | None) -> datetime | None:
+        if dt is None:
+            return None
+        if dt.tzinfo is not None:
+            return dt.replace(tzinfo=None)
+        return dt
+
     updates = [
-        ("matches", last_match_update),
-        ("teams", last_team_update),
-        ("predictions", last_prediction_update),
+        ("matches", to_naive_utc(last_match_update)),
+        ("teams", to_naive_utc(last_team_update)),
+        ("predictions", to_naive_utc(last_prediction_update)),
     ]
     valid_updates = [(name, dt) for name, dt in updates if dt]
 
@@ -151,13 +158,9 @@ async def check_freshness() -> DataQualityCheck:
         )
 
     # Calculate hours since last update
-    now = datetime.now(UTC).replace(tzinfo=None)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     oldest_entity = min(valid_updates, key=lambda x: x[1])
     oldest_name, oldest_dt = oldest_entity
-
-    # Handle timezone-naive datetime
-    if oldest_dt.tzinfo is not None:
-        oldest_dt = oldest_dt.replace(tzinfo=None)
 
     hours_since_update = (now - oldest_dt).total_seconds() / 3600
 
@@ -596,7 +599,7 @@ async def run_quality_check() -> DataQualityReport:
         overall_status = AlertLevel.OK
 
     report = DataQualityReport(
-        timestamp=datetime.now(UTC).replace(tzinfo=None),
+        timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
         overall_status=overall_status,
         freshness=freshness,
         completeness=completeness,

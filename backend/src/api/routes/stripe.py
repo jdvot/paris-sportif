@@ -3,10 +3,16 @@
 import logging
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel
 
 from src.auth.dependencies import AuthenticatedUser
+from src.auth.supabase_auth import (
+    SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_URL,
+    sync_role_to_app_metadata,
+)
 from src.services.stripe_service import stripe_service
 
 logger = logging.getLogger(__name__)
@@ -251,6 +257,135 @@ async def stripe_webhook(
         )
 
 
+async def update_user_stripe_metadata(
+    user_id: str,
+    customer_id: str | None = None,
+    subscription_id: str | None = None,
+) -> bool:
+    """
+    Update user's Stripe-related metadata in Supabase Auth.
+
+    Args:
+        user_id: The Supabase user ID
+        customer_id: Stripe customer ID
+        subscription_id: Stripe subscription ID
+
+    Returns:
+        True if successful, False otherwise
+    """
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        logger.warning("Supabase admin credentials not configured")
+        return False
+
+    base_url = SUPABASE_URL.rstrip("/")
+    auth_url = f"{base_url}/auth/v1/admin/users/{user_id}"
+
+    # Build app_metadata update
+    app_metadata: dict[str, str] = {}
+    if customer_id:
+        app_metadata["stripe_customer_id"] = customer_id
+    if subscription_id:
+        app_metadata["stripe_subscription_id"] = subscription_id
+
+    if not app_metadata:
+        return True  # Nothing to update
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.put(
+                auth_url,
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Content-Type": "application/json",
+                },
+                json={"app_metadata": app_metadata},
+            )
+            response.raise_for_status()
+            logger.info(f"Updated Stripe metadata for user {user_id}")
+            return True
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Failed to update Stripe metadata: {e.response.status_code}")
+        return False
+    except Exception as e:
+        logger.error(f"Error updating Stripe metadata: {e}")
+        return False
+
+
+async def update_user_role_in_profiles(user_id: str, role: str) -> bool:
+    """
+    Update user's role in the user_profiles table.
+
+    Args:
+        user_id: The Supabase user ID
+        role: The new role (free, premium, elite, admin)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        logger.warning("Supabase admin credentials not configured")
+        return False
+
+    base_url = SUPABASE_URL.rstrip("/")
+    profiles_url = f"{base_url}/rest/v1/user_profiles?id=eq.{user_id}"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.patch(
+                profiles_url,
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal",
+                },
+                json={"role": role},
+            )
+            response.raise_for_status()
+            logger.info(f"Updated role to '{role}' in user_profiles for {user_id}")
+            return True
+    except Exception as e:
+        logger.warning(f"Failed to update user_profiles role: {e}")
+        return False
+
+
+async def get_user_id_from_customer(customer_id: str) -> str | None:
+    """
+    Get user_id from Stripe customer metadata or user_profiles table.
+
+    Args:
+        customer_id: Stripe customer ID
+
+    Returns:
+        User ID if found, None otherwise
+    """
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        return None
+
+    base_url = SUPABASE_URL.rstrip("/")
+    # Search user_profiles for stripe_customer_id
+    profiles_url = f"{base_url}/rest/v1/user_profiles?stripe_customer_id=eq.{customer_id}&select=id"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                profiles_url,
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            if data and len(data) > 0:
+                return data[0].get("id")
+    except Exception as e:
+        logger.debug(f"Failed to get user_id from customer: {e}")
+
+    return None
+
+
 async def handle_checkout_completed(data: dict):
     """Handle checkout.session.completed event."""
     user_id = data.get("client_reference_id")
@@ -263,10 +398,23 @@ async def handle_checkout_completed(data: dict):
         f"customer={customer_id}, subscription={subscription_id}, plan={plan}"
     )
 
-    # TODO: Update user in Supabase with:
-    # - stripe_customer_id
-    # - stripe_subscription_id
-    # - role = "premium" or "elite"
+    if not user_id:
+        logger.error("No user_id in checkout session client_reference_id")
+        return
+
+    # Determine role based on plan
+    role = "premium" if plan == "premium" else "premium"  # Both premium and elite get premium role
+
+    # Update user's Stripe metadata in Supabase Auth
+    await update_user_stripe_metadata(user_id, customer_id, subscription_id)
+
+    # Update user's role in app_metadata
+    await sync_role_to_app_metadata(user_id, role)
+
+    # Also update role in user_profiles table
+    await update_user_role_in_profiles(user_id, role)
+
+    logger.info(f"User {user_id} upgraded to {role}")
 
 
 async def handle_subscription_created(data: dict):
@@ -282,25 +430,64 @@ async def handle_subscription_created(data: dict):
 async def handle_subscription_updated(data: dict):
     """Handle customer.subscription.updated event."""
     subscription_id = data.get("id")
-    status = data.get("status")
+    sub_status = data.get("status")
     cancel_at_period_end = data.get("cancel_at_period_end")
+    customer_id = data.get("customer")
+    user_id = data.get("metadata", {}).get("user_id")
+    plan = data.get("metadata", {}).get("plan", "premium")
 
     logger.info(
         f"Subscription updated: {subscription_id}, "
-        f"status={status}, cancel_at_period_end={cancel_at_period_end}"
+        f"status={sub_status}, cancel_at_period_end={cancel_at_period_end}"
     )
 
-    # TODO: Update user role based on subscription status
+    # Try to get user_id from metadata or from customer lookup
+    if not user_id and customer_id:
+        user_id = await get_user_id_from_customer(customer_id)
+
+    if not user_id:
+        logger.warning(f"Cannot update user role: no user_id for subscription {subscription_id}")
+        return
+
+    # Determine role based on subscription status
+    if sub_status in ("active", "trialing"):
+        role = "premium"
+    elif sub_status == "past_due":
+        # Keep premium for past_due to give user time to fix payment
+        role = "premium"
+        logger.warning(f"Subscription {subscription_id} is past_due for user {user_id}")
+    else:
+        # For cancelled, incomplete, incomplete_expired, unpaid, etc.
+        role = "free"
+
+    # Update user's role
+    await sync_role_to_app_metadata(user_id, role)
+    await update_user_role_in_profiles(user_id, role)
+
+    logger.info(f"User {user_id} role updated to {role} (subscription status: {sub_status})")
 
 
 async def handle_subscription_deleted(data: dict):
     """Handle customer.subscription.deleted event."""
     subscription_id = data.get("id")
     user_id = data.get("metadata", {}).get("user_id")
+    customer_id = data.get("customer")
 
     logger.info(f"Subscription deleted: {subscription_id}, user={user_id}")
 
-    # TODO: Downgrade user to free plan in Supabase
+    # Try to get user_id from metadata or from customer lookup
+    if not user_id and customer_id:
+        user_id = await get_user_id_from_customer(customer_id)
+
+    if not user_id:
+        logger.warning(f"Cannot downgrade user: no user_id for subscription {subscription_id}")
+        return
+
+    # Downgrade user to free plan
+    await sync_role_to_app_metadata(user_id, "free")
+    await update_user_role_in_profiles(user_id, "free")
+
+    logger.info(f"User {user_id} downgraded to free (subscription deleted)")
 
 
 async def handle_invoice_paid(data: dict):
@@ -316,7 +503,34 @@ async def handle_payment_failed(data: dict):
     """Handle invoice.payment_failed event."""
     invoice_id = data.get("id")
     customer_id = data.get("customer")
+    customer_email = data.get("customer_email")
+    attempt_count = data.get("attempt_count", 1)
+    next_payment_attempt = data.get("next_payment_attempt")
 
-    logger.warning(f"Payment failed: {invoice_id}, customer={customer_id}")
+    logger.warning(
+        f"Payment failed: {invoice_id}, customer={customer_id}, "
+        f"email={customer_email}, attempt={attempt_count}"
+    )
 
-    # TODO: Send notification to user about failed payment
+    # Get user_id to log the failure
+    user_id = None
+    if customer_id:
+        user_id = await get_user_id_from_customer(customer_id)
+
+    if user_id:
+        logger.warning(
+            f"Payment failed for user {user_id}. "
+            f"Attempt {attempt_count}, next attempt: {next_payment_attempt}"
+        )
+
+    # Note: To send email notifications, integrate with an email service like:
+    # - Resend (resend.com)
+    # - SendGrid
+    # - AWS SES
+    # Example:
+    # if customer_email:
+    #     await email_service.send_payment_failed_notification(
+    #         email=customer_email,
+    #         attempt_count=attempt_count,
+    #         next_attempt=next_payment_attempt,
+    #     )

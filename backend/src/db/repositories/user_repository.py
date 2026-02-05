@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import Integer, case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.models import (
@@ -43,14 +43,14 @@ class UserBetRepository(BaseRepository[UserBet]):
         """Get aggregated betting statistics for a user."""
         stmt = select(
             func.count(UserBet.id).label("total"),
-            func.sum(func.cast(UserBet.status == "won", int)).label("won"),
-            func.sum(func.cast(UserBet.status == "lost", int)).label("lost"),
-            func.sum(func.cast(UserBet.status == "pending", int)).label("pending"),
+            func.sum(case((UserBet.status == "won", 1), else_=0)).label("won"),
+            func.sum(case((UserBet.status == "lost", 1), else_=0)).label("lost"),
+            func.sum(case((UserBet.status == "pending", 1), else_=0)).label("pending"),
             func.sum(
-                func.case((UserBet.status != "void", UserBet.stake), else_=Decimal("0"))
+                case((UserBet.status != "void", UserBet.stake), else_=Decimal("0"))
             ).label("total_staked"),
             func.sum(
-                func.case((UserBet.status == "won", UserBet.actual_return), else_=Decimal("0"))
+                case((UserBet.status == "won", UserBet.actual_return), else_=Decimal("0"))
             ).label("total_returned"),
         ).where(UserBet.user_id == user_id)
 

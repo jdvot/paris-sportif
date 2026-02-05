@@ -1,7 +1,7 @@
 """Pytest configuration and fixtures for API integration tests."""
 
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
+from datetime import timezone,  datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -20,8 +20,8 @@ MOCK_USER: dict[str, Any] = {
     "role": "authenticated",
     "app_metadata": {"role": "user"},
     "user_metadata": {},
-    "iat": int(datetime.now(UTC).timestamp()),
-    "exp": int(datetime.now(UTC).timestamp()) + 3600,
+    "iat": int(datetime.now(timezone.utc).timestamp()),
+    "exp": int(datetime.now(timezone.utc).timestamp()) + 3600,
 }
 
 MOCK_ADMIN_USER: dict[str, Any] = {
@@ -31,8 +31,8 @@ MOCK_ADMIN_USER: dict[str, Any] = {
     "role": "authenticated",
     "app_metadata": {"role": "admin"},
     "user_metadata": {},
-    "iat": int(datetime.now(UTC).timestamp()),
-    "exp": int(datetime.now(UTC).timestamp()) + 3600,
+    "iat": int(datetime.now(timezone.utc).timestamp()),
+    "exp": int(datetime.now(timezone.utc).timestamp()) + 3600,
 }
 
 MOCK_PREMIUM_USER: dict[str, Any] = {
@@ -42,8 +42,8 @@ MOCK_PREMIUM_USER: dict[str, Any] = {
     "role": "authenticated",
     "app_metadata": {"role": "premium"},
     "user_metadata": {},
-    "iat": int(datetime.now(UTC).timestamp()),
-    "exp": int(datetime.now(UTC).timestamp()) + 3600,
+    "iat": int(datetime.now(timezone.utc).timestamp()),
+    "exp": int(datetime.now(timezone.utc).timestamp()) + 3600,
 }
 
 

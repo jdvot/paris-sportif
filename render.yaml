@@ -1,0 +1,96 @@
+# Render Blueprint for Paris Sportif Infrastructure
+# Documentation: https://render.com/docs/blueprint-spec
+
+services:
+  # Backend API - FastAPI + Python 3.11
+  - type: web
+    name: paris-sportif-api
+    runtime: python
+    region: oregon  # US West - Change to 'frankfurt' for EU
+    plan: starter  # $7/mois avec backups (free = no backups)
+    buildCommand: "cd backend && pip install uv && uv sync"
+    startCommand: "cd backend && uv run uvicorn src.api.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health/ready
+    autoDeploy: true
+    
+    # Auto-scaling configuration (optionnel - économise 67% si activé)
+    # scaling:
+    #   minInstances: 0  # Auto-sleep après 15min inactivité
+    #   maxInstances: 1
+    
+    envVars:
+      # Application
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: false
+      - key: LOG_LEVEL
+        value: INFO
+      
+      # Database (auto-linked)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: paris-sportif-db
+          property: connectionString
+      
+      # Redis (Upstash - external)
+      - key: REDIS_URL
+        sync: false  # Set manually in Dashboard
+      
+      # Vector DB (Qdrant Cloud - external)
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      
+      # HuggingFace ML Service
+      - key: HF_ML_SERVICE_URL
+        value: https://jdevot244-paris-sportif.hf.space
+      - key: HF_TRAINING_API_KEY
+        sync: false
+      
+      # External APIs
+      - key: FOOTBALL_DATA_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ODDS_API_KEY
+        sync: false
+      
+      # Supabase Auth
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      
+      # Stripe Payments
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_PREMIUM
+        value: price_premium_monthly
+      - key: STRIPE_PRICE_ELITE
+        value: price_elite_monthly
+      
+      # Monitoring (optionnel)
+      - key: SENTRY_DSN
+        sync: false
+
+databases:
+  - name: paris-sportif-db
+    databaseName: paris_sportif
+    user: paris_sportif
+    plan: starter  # $7/mois - Includes automated backups
+    # For production, consider:
+    # plan: standard  # $50/mois - 4GB RAM, 10GB storage, 100 connections
+    # plan: pro  # $190/mois - 16GB RAM, 100GB storage, 400 connections
+    
+    # IP Whitelist (optionnel - pour sécurité supplémentaire)
+    # ipAllowList:
+    #   - source: 0.0.0.0/0  # Allow all (default)
+    #     description: Public access

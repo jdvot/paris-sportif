@@ -162,7 +162,7 @@ async def get_data_quality_status(user: AdminUser) -> DataQualityResponse:
     - Consistency: Duplicates and conflicts
     """
     try:
-        report = run_quality_check()
+        report = await run_quality_check()
         return DataQualityResponse(**report.to_dict())
     except Exception as e:
         logger.error(f"Error running data quality check: {e}")
@@ -184,7 +184,7 @@ async def trigger_data_quality_alert(
         Report summary and alert status
     """
     try:
-        report = run_quality_check()
+        report = await run_quality_check()
 
         # Send alert if critical or forced
         alert_sent = False
@@ -443,3 +443,54 @@ async def get_data_status(user: AdminUser) -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Error getting data status: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get data status: {str(e)}")
+
+
+class VerifyPredictionsResponse(BaseModel):
+    """Response for prediction verification."""
+
+    status: str
+    verified_count: int
+    already_verified: int
+    total_unverified: int
+    timestamp: str
+
+
+@router.post("/verify-predictions", response_model=VerifyPredictionsResponse, responses=ADMIN_RESPONSES)
+async def verify_all_predictions(user: AdminUser) -> VerifyPredictionsResponse:
+    """
+    Force verification of all unverified predictions.
+
+    Checks all finished matches with predictions and verifies
+    if the prediction was correct.
+    Admin role required.
+    """
+    from src.db.services.prediction_service import PredictionService
+    from src.db.repositories import get_uow
+
+    try:
+        # Get count of unverified before
+        async with get_uow() as uow:
+            unverified_matches = await uow.matches.get_finished_unverified()
+            total_unverified = len(unverified_matches)
+
+        # Run verification
+        verified_count = await PredictionService.verify_all_finished()
+
+        # Get count of already verified
+        async with get_uow() as uow:
+            from sqlalchemy import select, func
+            from src.db.models import PredictionResult
+            result = await uow.session.execute(select(func.count(PredictionResult.id)))
+            already_verified = result.scalar() or 0
+
+        return VerifyPredictionsResponse(
+            status="success",
+            verified_count=verified_count,
+            already_verified=already_verified,
+            total_unverified=total_unverified,
+            timestamp=datetime.now().isoformat(),
+        )
+
+    except Exception as e:
+        logger.error(f"Error verifying predictions: {e}")
+        raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")

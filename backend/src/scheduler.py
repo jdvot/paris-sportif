@@ -58,6 +58,21 @@ async def sync_weekly_task():
         logger.error(f"Weekly sync failed: {e}")
 
 
+async def generate_daily_picks_task():
+    """Daily task: generate predictions for today's matches at 09:00 UTC."""
+    from src.db.services.prediction_service import PredictionService
+
+    logger.info("Starting daily picks generation...")
+
+    try:
+        # Generate daily picks for today
+        picks = await PredictionService.generate_daily_picks()
+        logger.info(f"Daily picks generated: {len(picks)} picks for today")
+
+    except Exception as e:
+        logger.error(f"Daily picks generation failed: {e}")
+
+
 async def sync_daily_scores_task():
     """Daily task: sync finished match scores."""
     from src.api.routes.sync import _recalculate_all_team_stats
@@ -130,10 +145,20 @@ def init_scheduler():
         name='Daily score updates'
     )
 
+    # Daily picks generation: Every day at 09:00 UTC
+    scheduler.add_job(
+        generate_daily_picks_task,
+        CronTrigger(hour=9, minute=0),
+        id='daily_picks',
+        replace_existing=True,
+        name='Daily picks generation'
+    )
+
     scheduler.start()
     logger.info("Background scheduler started")
     logger.info("  - Weekly sync: Sundays 20:00 UTC")
     logger.info("  - Daily sync: Every day 06:00 UTC")
+    logger.info("  - Daily picks: Every day 09:00 UTC")
 
     return scheduler
 

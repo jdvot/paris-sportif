@@ -128,6 +128,43 @@ class PredictionRepository(BaseRepository[Prediction]):
             "roi_simulated": round(roi, 1),
         }
 
+    async def get_daily_breakdown(self, days: int = 30) -> list[dict]:
+        """Get daily breakdown of prediction statistics.
+
+        Returns stats grouped by day for charting purposes.
+        """
+        cutoff = datetime.now() - timedelta(days=days)
+
+        # Group by date and calculate stats per day
+        stmt = (
+            select(
+                func.date(PredictionResult.created_at).label("date"),
+                func.count(PredictionResult.id).label("predictions"),
+                func.sum(cast(PredictionResult.was_correct, Integer)).label("correct"),
+            )
+            .join(Prediction)
+            .where(PredictionResult.created_at >= cutoff)
+            .group_by(func.date(PredictionResult.created_at))
+            .order_by(func.date(PredictionResult.created_at))
+        )
+        result = await self.session.execute(stmt)
+        rows = result.all()
+
+        daily_stats = []
+        for row in rows:
+            predictions = row.predictions or 0
+            correct = row.correct or 0
+            accuracy = (correct / predictions) if predictions > 0 else 0.0
+
+            daily_stats.append({
+                "date": row.date.isoformat() if row.date else None,
+                "predictions": predictions,
+                "correct": correct,
+                "accuracy": round(accuracy, 4),
+            })
+
+        return daily_stats
+
     async def get_by_competition(
         self,
         competition_code: str,

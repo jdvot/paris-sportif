@@ -47,6 +47,7 @@ import { PredictionCharts } from "@/components/PredictionCharts";
 import { MultiMarkets } from "@/components/MultiMarkets";
 import { BookmakerOddsComparison, type BookmakerOdds } from "@/components/BookmakerOddsComparison";
 import { NewsFeed } from "@/components/NewsFeed";
+import { KellySuggestion } from "@/components/KellySuggestion";
 
 // Helper to get team name from TeamInfo | string
 const getTeamName = (team: MatchResponse["home_team"] | string): string => {
@@ -731,6 +732,15 @@ function PredictionSection({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Kelly Criterion Suggestion */}
+        {isValueBet && (
+          <KellySuggestion
+            odds={1 + valueScore + (1 / (isHomeRecommended ? homeProb : isAwayRecommended ? awayProb : drawProb))}
+            confidence={isHomeRecommended ? homeProb : isAwayRecommended ? awayProb : drawProb}
+            recommendedBet={recommendedBetStr}
+          />
         )}
 
         {prediction.explanation && (

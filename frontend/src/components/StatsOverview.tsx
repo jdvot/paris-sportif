@@ -22,14 +22,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
 import { ROUNDED_TOP } from "@/lib/recharts-types";
-
-const COMPETITION_NAMES: Record<string, string> = {
-  PL: "Premier League",
-  PD: "La Liga",
-  BL1: "Bundesliga",
-  SA: "Serie A",
-  FL1: "Ligue 1",
-};
+import { getCompetitionName, COMPETITIONS } from "@/lib/constants";
 
 export function StatsOverview() {
   const t = useTranslations("stats");
@@ -50,7 +43,7 @@ export function StatsOverview() {
     if (hasRealData) {
       return Object.entries(stats.by_competition)
         .map(([code, data]: [string, Record<string, unknown>]) => ({
-          name: COMPETITION_NAMES[code] || code,
+          name: getCompetitionName(code),
           code,
           predictions: (data.total as number) || 0,
           correct: (data.correct as number) || 0,
@@ -59,9 +52,9 @@ export function StatsOverview() {
         }))
         .sort((a, b) => b.predictions - a.predictions);
     }
-    return Object.entries(COMPETITION_NAMES).map(([code, name]) => ({
-      name,
-      code,
+    return COMPETITIONS.map((comp) => ({
+      name: comp.name,
+      code: comp.code,
       predictions: 0,
       correct: 0,
       accuracy: 0,

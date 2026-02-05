@@ -256,6 +256,11 @@ class PredictionResponse(BaseModel):
     created_at: datetime
     is_daily_pick: bool = False
 
+    # Verification status (filled after match completion)
+    is_verified: bool = Field(False, description="Whether the match result has been verified")
+    is_correct: bool | None = Field(None, description="Whether prediction was correct (null if not verified)")
+    actual_score: str | None = Field(None, description="Actual match score (e.g., '2-1')")
+
     # Beta: data source info for transparency
     data_source: DataSourceInfo | None = None
 
@@ -289,6 +294,22 @@ class PredictionStatsResponse(BaseModel):
     by_competition: dict[str, dict[str, Any]]
     by_bet_type: dict[str, dict[str, Any]]
     last_updated: datetime
+
+
+class DailyStatsItem(BaseModel):
+    """Single day's prediction statistics."""
+
+    date: str
+    predictions: int
+    correct: int
+    accuracy: float
+
+
+class DailyStatsResponse(BaseModel):
+    """Daily breakdown of prediction statistics for charting."""
+
+    data: list[DailyStatsItem]
+    total_days: int
 
 
 # Import centralized competition names
@@ -881,24 +902,41 @@ async def _generate_prediction_from_api_match(
         elif fatigue_data.fatigue_advantage < -0.15:
             key_factors.append(get_label("busy_schedule", lang))
 
-    # Model contributions from ensemble (real data)
+    # Model contributions from ensemble (real data) - ALWAYS calculate for DB storage
     model_contributions = None
-    if include_model_details:
-        try:
-            # Build real model contributions from ensemble
-            contributions = {}
-            has_contribs = hasattr(ensemble_result, "model_contributions")
-            if has_contribs and ensemble_result.model_contributions:
-                for contrib in ensemble_result.model_contributions:
-                    name_key = contrib.name.lower().replace(" ", "_").replace("-", "_")
-                    contributions[name_key] = {
-                        "home_win": round(contrib.home_prob, 4),
-                        "draw": round(contrib.draw_prob, 4),
-                        "away_win": round(contrib.away_prob, 4),
-                        "weight": round(contrib.weight, 4),
-                    }
+    model_details_data = None  # Dict for DB storage
+    try:
+        # Build real model contributions from ensemble
+        contributions = {}
+        has_contribs = hasattr(ensemble_result, "model_contributions")
+        if has_contribs and ensemble_result.model_contributions:
+            for contrib in ensemble_result.model_contributions:
+                name_key = contrib.name.lower().replace(" ", "_").replace("-", "_")
+                contributions[name_key] = {
+                    "home_win": round(contrib.home_prob, 4),
+                    "draw": round(contrib.draw_prob, 4),
+                    "away_win": round(contrib.away_prob, 4),
+                    "weight": round(contrib.weight, 4),
+                }
 
-            # Map to API model contributions format
+        # Store raw contributions for DB
+        model_details_data = {
+            "contributions": contributions,
+            "model_agreement": model_agreement,
+            "team_stats": {
+                "home_elo": team_stats["home_elo"],
+                "away_elo": team_stats["away_elo"],
+                "home_attack": team_stats["home_attack"],
+                "home_defense": team_stats["home_defense"],
+                "away_attack": team_stats["away_attack"],
+                "away_defense": team_stats["away_defense"],
+                "home_form": team_stats["home_form"],
+                "away_form": team_stats["away_form"],
+            },
+        }
+
+        # Map to API model contributions format (for response only)
+        if include_model_details:
             model_contributions = ModelContributions(
                 poisson=PredictionProbabilities(
                     home_win=contributions.get("poisson", {}).get("home_win", home_prob),
@@ -927,9 +965,10 @@ async def _generate_prediction_from_api_match(
                     or contributions.get("basic_elo", {}).get("away_win", away_prob),
                 ),
             )
-        except Exception as e:
-            logger.warning(f"Failed to build model contributions: {e}")
-            model_contributions = None
+    except Exception as e:
+        logger.warning(f"Failed to build model contributions: {e}")
+        model_contributions = None
+        model_details_data = None
 
     # LLM adjustments (from RAG context if available)
     # ALWAYS calculate adjustments and apply to probabilities
@@ -957,6 +996,37 @@ async def _generate_prediction_from_api_match(
         raw_total = injury_impact_home + injury_impact_away + sentiment_home + sentiment_away
         clamped_total = max(-0.5, min(0.5, raw_total))
 
+        # Build detailed reasoning from RAG context
+        reasoning_parts = []
+        home_key_info = home_ctx.get("key_info", [])
+        away_key_info = away_ctx.get("key_info", [])
+
+        # Add injury info to reasoning
+        if home_injuries > 0:
+            reasoning_parts.append(f"⚠️ {home_team}: {home_injuries} blessure(s) signalée(s)")
+        if away_injuries > 0:
+            reasoning_parts.append(f"⚠️ {away_team}: {away_injuries} blessure(s) signalée(s)")
+
+        # Add sentiment info
+        if home_sentiment_raw != "neutral":
+            emoji = "✅" if home_sentiment_raw == "positive" else "❌"
+            reasoning_parts.append(f"{emoji} {home_team}: sentiment {home_sentiment_raw} dans les news")
+        if away_sentiment_raw != "neutral":
+            emoji = "✅" if away_sentiment_raw == "positive" else "❌"
+            reasoning_parts.append(f"{emoji} {away_team}: sentiment {away_sentiment_raw} dans les news")
+
+        # Add key info highlights
+        if home_key_info:
+            reasoning_parts.append(f"📰 {home_team}: {home_key_info[0]}")
+        if away_key_info:
+            reasoning_parts.append(f"📰 {away_team}: {away_key_info[0]}")
+
+        # Build final reasoning
+        if reasoning_parts:
+            detailed_reasoning = " | ".join(reasoning_parts)
+        else:
+            detailed_reasoning = "Aucune information contextuelle significative trouvée dans les news récentes."
+
         llm_adjustments_data = {
             "injury_impact_home": injury_impact_home,
             "injury_impact_away": injury_impact_away,
@@ -964,7 +1034,7 @@ async def _generate_prediction_from_api_match(
             "sentiment_away": round(sentiment_away, 3),
             "tactical_edge": 0.0,
             "total_adjustment": round(clamped_total, 3),
-            "reasoning": "Analyse basée sur le contexte RAG (news, blessures, sentiment).",
+            "reasoning": detailed_reasoning,
         }
 
         # ALWAYS apply LLM adjustments to probabilities via log-odds transformation
@@ -1257,6 +1327,10 @@ async def get_daily_picks(
                     risk_factors=cached_risk_factors if cached_risk_factors else ["Données en cache"],
                     created_at=datetime.fromisoformat(cached["created_at"]),
                     is_daily_pick=True,
+                    # Verification fields from database
+                    is_verified=cached.get("is_verified", False),
+                    is_correct=cached.get("is_correct"),
+                    actual_score=cached.get("actual_score"),
                 )
                 pick_score = pred.confidence * pred.value_score
                 all_predictions.append((pred, pick_score))
@@ -1309,12 +1383,27 @@ async def get_daily_picks(
                 total_matches_analyzed=0,
             )
 
-        # Generate predictions for all matches
+        # Generate predictions for all matches with full model details for DB storage
         all_predictions = []
         for api_match in api_matches:
-            pred = await _generate_prediction_from_api_match(api_match, include_model_details=False, request=request)
+            # Generate with full model details so we can store everything in DB
+            pred = await _generate_prediction_from_api_match(api_match, include_model_details=True, request=request)
 
-            # Save prediction to database for caching (including LLM-generated factors)
+            # Extract model_details and llm_adjustments for DB storage
+            model_details_for_db = None
+            if pred.model_contributions:
+                model_details_for_db = {
+                    "poisson": pred.model_contributions.poisson.model_dump() if pred.model_contributions.poisson else None,
+                    "xgboost": pred.model_contributions.xgboost.model_dump() if pred.model_contributions.xgboost else None,
+                    "xg_model": pred.model_contributions.xg_model.model_dump() if pred.model_contributions.xg_model else None,
+                    "elo": pred.model_contributions.elo.model_dump() if pred.model_contributions.elo else None,
+                }
+
+            llm_adjustments_for_db = None
+            if pred.llm_adjustments:
+                llm_adjustments_for_db = pred.llm_adjustments.model_dump()
+
+            # Save prediction to database with ALL data (including ML model details and LLM adjustments)
             await PredictionService.save_prediction_from_api(
                 {
                     "match_id": pred.match_id,
@@ -1332,6 +1421,8 @@ async def get_daily_picks(
                     "key_factors": pred.key_factors,
                     "risk_factors": pred.risk_factors,
                     "value_score": pred.value_score,
+                    "model_details": model_details_for_db,
+                    "llm_adjustments": llm_adjustments_for_db,
                 }
             )
 
@@ -1529,6 +1620,36 @@ async def get_prediction_stats(
         by_bet_type=stats["by_bet_type"],
         last_updated=datetime.now(),
     )
+
+
+@router.get(
+    "/stats/daily",
+    response_model=DailyStatsResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getDailyStats",
+)
+@limiter.limit(RATE_LIMITS["predictions"])
+async def get_daily_stats(
+    request: Request,
+    user: AuthenticatedUser,
+    days: int = Query(30, ge=7, le=365, description="Number of days to analyze"),
+) -> DailyStatsResponse:
+    """Get daily breakdown of prediction statistics.
+
+    Returns stats grouped by day for charting accuracy over time.
+    Each day includes: date, predictions count, correct count, accuracy.
+    """
+    try:
+        async with get_uow() as uow:
+            daily_data = await uow.predictions.get_daily_breakdown(days=days)
+
+            return DailyStatsResponse(
+                data=[DailyStatsItem(**day) for day in daily_data],
+                total_days=len(daily_data),
+            )
+    except Exception as e:
+        logger.error(f"Error getting daily stats: {e}")
+        return DailyStatsResponse(data=[], total_days=0)
 
 
 async def _get_match_info_from_db(match_id: int) -> dict[str, Any] | None:
@@ -1823,6 +1944,30 @@ async def get_prediction(
             key_factors = cached_key_factors if cached_key_factors else ["Analyse statistique", "Modèles ML"]
             risk_factors = cached_risk_factors if cached_risk_factors else ["Données en cache"]
 
+            # Build model_contributions and llm_adjustments from cached data
+            model_contributions = None
+            llm_adjustments_obj = None
+            if include_model_details:
+                cached_model_details = cached.get("model_details")
+                cached_llm_adjustments = cached.get("llm_adjustments")
+
+                if cached_model_details:
+                    try:
+                        model_contributions = ModelContributions(
+                            poisson=PredictionProbabilities(**cached_model_details["poisson"]) if cached_model_details.get("poisson") else PredictionProbabilities(home_win=0.33, draw=0.34, away_win=0.33),
+                            xgboost=PredictionProbabilities(**cached_model_details["xgboost"]) if cached_model_details.get("xgboost") else PredictionProbabilities(home_win=0.33, draw=0.34, away_win=0.33),
+                            xg_model=PredictionProbabilities(**cached_model_details["xg_model"]) if cached_model_details.get("xg_model") else PredictionProbabilities(home_win=0.33, draw=0.34, away_win=0.33),
+                            elo=PredictionProbabilities(**cached_model_details["elo"]) if cached_model_details.get("elo") else PredictionProbabilities(home_win=0.33, draw=0.34, away_win=0.33),
+                        )
+                    except Exception as e:
+                        logger.debug(f"Failed to parse model_details from cache: {e}")
+
+                if cached_llm_adjustments:
+                    try:
+                        llm_adjustments_obj = LLMAdjustments(**cached_llm_adjustments)
+                    except Exception as e:
+                        logger.debug(f"Failed to parse llm_adjustments from cache: {e}")
+
             response = PredictionResponse(
                 match_id=match_id,
                 home_team=home_team,
@@ -1840,6 +1985,8 @@ async def get_prediction(
                 explanation=cached.get("explanation", "Prédiction mise en cache"),
                 key_factors=key_factors,
                 risk_factors=risk_factors,
+                model_contributions=model_contributions,
+                llm_adjustments=llm_adjustments_obj,
                 created_at=datetime.now(),
                 data_source=DataSourceInfo(source="database"),
             )
@@ -1859,11 +2006,26 @@ async def get_prediction(
         # Fetch real match from API
         client = get_football_data_client()
         api_match = await client.get_match(match_id)
+        # Always generate with full model details for DB storage
         prediction = await _generate_prediction_from_api_match(
-            api_match, include_model_details=include_model_details, request=request
+            api_match, include_model_details=True, request=request
         )
 
-        # 4. Save to DB for permanent storage (including LLM-generated factors)
+        # Extract model_details and llm_adjustments for DB storage
+        model_details_for_db = None
+        if prediction.model_contributions:
+            model_details_for_db = {
+                "poisson": prediction.model_contributions.poisson.model_dump() if prediction.model_contributions.poisson else None,
+                "xgboost": prediction.model_contributions.xgboost.model_dump() if prediction.model_contributions.xgboost else None,
+                "xg_model": prediction.model_contributions.xg_model.model_dump() if prediction.model_contributions.xg_model else None,
+                "elo": prediction.model_contributions.elo.model_dump() if prediction.model_contributions.elo else None,
+            }
+
+        llm_adjustments_for_db = None
+        if prediction.llm_adjustments:
+            llm_adjustments_for_db = prediction.llm_adjustments.model_dump()
+
+        # 4. Save to DB for permanent storage with ALL data
         try:
             await PredictionService.save_prediction_from_api({
                 "match_id": prediction.match_id,
@@ -1881,10 +2043,18 @@ async def get_prediction(
                 "key_factors": prediction.key_factors,
                 "risk_factors": prediction.risk_factors,
                 "value_score": prediction.value_score,
+                "model_details": model_details_for_db,
+                "llm_adjustments": llm_adjustments_for_db,
             })
             logger.info(f"Saved prediction to DB for match {match_id}")
         except Exception as db_err:
             logger.warning(f"Failed to save prediction to DB: {db_err}")
+
+        # If user didn't request model details, strip them from response
+        if not include_model_details:
+            prediction.model_contributions = None
+            prediction.llm_adjustments = None
+            prediction.multi_markets = None
 
         # 5. Cache in Redis
         try:
@@ -2046,3 +2216,219 @@ async def refresh_prediction(
                 else f"[BETA] Erreur API: {str(e)}"
             ),
         )
+
+
+# ============================================================================
+# Calibration Endpoint
+# ============================================================================
+
+
+class CalibrationBucket(BaseModel):
+    """Single calibration bucket with predicted vs actual win rate."""
+
+    confidence_range: str = Field(..., description="Confidence range, e.g., '60-70%'")
+    predicted_confidence: float = Field(..., description="Average predicted confidence in bucket")
+    actual_win_rate: float = Field(..., description="Actual win rate in this bucket")
+    count: int = Field(..., description="Number of predictions in bucket")
+    overconfidence: float = Field(..., description="Difference: predicted - actual (positive = overconfident)")
+
+
+class CalibrationByBet(BaseModel):
+    """Calibration data for a specific bet type."""
+
+    bet_type: str = Field(..., description="home_win, draw, or away_win")
+    total_predictions: int
+    correct: int
+    accuracy: float
+    avg_confidence: float
+    buckets: list[CalibrationBucket]
+
+
+class CalibrationResponse(BaseModel):
+    """Complete calibration analysis."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    total_verified: int = Field(..., description="Total verified predictions")
+    overall_accuracy: float = Field(..., description="Overall accuracy rate")
+    overall_calibration_error: float = Field(..., description="Mean calibration error (lower is better)")
+    by_bet_type: list[CalibrationByBet] = Field(..., description="Calibration by bet type")
+    by_confidence: list[CalibrationBucket] = Field(..., description="Calibration by confidence bucket")
+    by_competition: dict[str, dict[str, Any]] = Field(..., description="Performance by competition")
+    period: str = Field(..., description="Analysis period")
+    generated_at: datetime
+
+
+@router.get(
+    "/calibration",
+    response_model=CalibrationResponse,
+    responses=AUTH_RESPONSES,
+    operation_id="getCalibration",
+)
+async def get_calibration(
+    user: AuthenticatedUser,
+    days: int = Query(90, ge=7, le=365, description="Number of days to analyze"),
+) -> CalibrationResponse:
+    """
+    Get calibration analysis for prediction accuracy.
+
+    Compares predicted confidence levels with actual outcomes to assess
+    how well-calibrated the predictions are. A well-calibrated model
+    should have 70% accuracy when it predicts 70% confidence.
+
+    Returns:
+        - Overall accuracy and calibration error
+        - Breakdown by bet type (home_win, draw, away_win)
+        - Breakdown by confidence buckets (50-60%, 60-70%, etc.)
+        - Performance by competition
+    """
+    from sqlalchemy import select, func, and_
+    from src.db.models import PredictionResult, Match
+
+    async with get_uow() as uow:
+        cutoff_date = datetime.now() - timedelta(days=days)
+
+        # Get all verified predictions with their results
+        query = (
+            select(PredictionResult, Match)
+            .join(Match, PredictionResult.match_id == Match.id)
+            .where(
+                and_(
+                    PredictionResult.created_at >= cutoff_date,
+                    Match.status == "FINISHED",
+                )
+            )
+        )
+
+        result = await uow.session.execute(query)
+        rows = result.all()
+
+        if not rows:
+            raise HTTPException(
+                status_code=404,
+                detail="No verified predictions found for this period",
+            )
+
+        # Process predictions
+        predictions_data = []
+        for pred, match in rows:
+            # Determine actual outcome
+            if match.home_score is not None and match.away_score is not None:
+                if match.home_score > match.away_score:
+                    actual_outcome = "home_win"
+                elif match.home_score < match.away_score:
+                    actual_outcome = "away_win"
+                else:
+                    actual_outcome = "draw"
+            else:
+                continue  # Skip if no score
+
+            predicted = pred.predicted_outcome
+            confidence = float(pred.confidence) if pred.confidence else 0.5
+            is_correct = predicted == actual_outcome
+
+            predictions_data.append({
+                "predicted": predicted,
+                "actual": actual_outcome,
+                "confidence": confidence,
+                "is_correct": is_correct,
+                "competition": match.competition_code,
+            })
+
+        total_verified = len(predictions_data)
+        total_correct = sum(1 for p in predictions_data if p["is_correct"])
+        overall_accuracy = total_correct / total_verified if total_verified > 0 else 0
+
+        # Calculate by bet type
+        bet_types = ["home_win", "draw", "away_win"]
+        by_bet_type = []
+        for bet in bet_types:
+            bt_preds = [p for p in predictions_data if p["predicted"] == bet]
+            bt_correct = sum(1 for p in bt_preds if p["is_correct"])
+            bt_count = len(bt_preds)
+            bt_accuracy = bt_correct / bt_count if bt_count > 0 else 0
+            bt_avg_conf = sum(p["confidence"] for p in bt_preds) / bt_count if bt_count > 0 else 0
+
+            # Buckets for this bet type
+            buckets = _calculate_buckets(bt_preds)
+
+            by_bet_type.append(CalibrationByBet(
+                bet_type=bet,
+                total_predictions=bt_count,
+                correct=bt_correct,
+                accuracy=bt_accuracy,
+                avg_confidence=bt_avg_conf,
+                buckets=buckets,
+            ))
+
+        # Calculate overall confidence buckets
+        overall_buckets = _calculate_buckets(predictions_data)
+
+        # Calculate mean calibration error
+        calibration_errors = []
+        for bucket in overall_buckets:
+            if bucket.count > 0:
+                calibration_errors.append(abs(bucket.overconfidence))
+        mean_calibration_error = sum(calibration_errors) / len(calibration_errors) if calibration_errors else 0
+
+        # Calculate by competition
+        by_competition: dict[str, dict[str, Any]] = {}
+        competitions = set(p["competition"] for p in predictions_data if p["competition"])
+        for comp in competitions:
+            comp_preds = [p for p in predictions_data if p["competition"] == comp]
+            comp_correct = sum(1 for p in comp_preds if p["is_correct"])
+            comp_count = len(comp_preds)
+            by_competition[comp] = {
+                "total": comp_count,
+                "correct": comp_correct,
+                "accuracy": comp_correct / comp_count if comp_count > 0 else 0,
+                "avg_confidence": sum(p["confidence"] for p in comp_preds) / comp_count if comp_count > 0 else 0,
+            }
+
+        return CalibrationResponse(
+            total_verified=total_verified,
+            overall_accuracy=overall_accuracy,
+            overall_calibration_error=mean_calibration_error,
+            by_bet_type=by_bet_type,
+            by_confidence=overall_buckets,
+            by_competition=by_competition,
+            period=f"Last {days} days",
+            generated_at=datetime.now(),
+        )
+
+
+def _calculate_buckets(predictions: list[dict]) -> list[CalibrationBucket]:
+    """Calculate calibration buckets for a set of predictions."""
+    bucket_ranges = [
+        (0.50, 0.55, "50-55%"),
+        (0.55, 0.60, "55-60%"),
+        (0.60, 0.65, "60-65%"),
+        (0.65, 0.70, "65-70%"),
+        (0.70, 0.75, "70-75%"),
+        (0.75, 0.80, "75-80%"),
+        (0.80, 0.85, "80-85%"),
+        (0.85, 1.00, "85-100%"),
+    ]
+
+    buckets = []
+    for low, high, label in bucket_ranges:
+        bucket_preds = [p for p in predictions if low <= p["confidence"] < high]
+        count = len(bucket_preds)
+        if count > 0:
+            avg_conf = sum(p["confidence"] for p in bucket_preds) / count
+            actual_rate = sum(1 for p in bucket_preds if p["is_correct"]) / count
+            overconfidence = avg_conf - actual_rate
+        else:
+            avg_conf = (low + high) / 2
+            actual_rate = 0
+            overconfidence = 0
+
+        buckets.append(CalibrationBucket(
+            confidence_range=label,
+            predicted_confidence=avg_conf,
+            actual_win_rate=actual_rate,
+            count=count,
+            overconfidence=overconfidence,
+        ))
+
+    return buckets

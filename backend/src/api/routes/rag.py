@@ -246,7 +246,7 @@ async def get_rag_status(user: PremiumUser) -> RAGStatusResponse:
         rag = get_rag_enrichment()
         return RAGStatusResponse(
             enabled=True,
-            groq_configured=rag.groq_client is not None,
+            groq_configured=rag.llm_client is not None,
             last_enrichment=None,  # TODO: track this
             total_enrichments=0,
         )

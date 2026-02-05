@@ -37,6 +37,40 @@ class TeamRepository(BaseRepository[Team]):
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
+    async def get_by_name_fuzzy(self, name: str) -> Team | None:
+        """Get team by fuzzy name match (handles variations like FC, 1., etc.)."""
+        # Try exact match first
+        team = await self.get_by_name(name)
+        if team:
+            return team
+
+        # Try without common prefixes/suffixes
+        clean_name = name
+        for prefix in ["FC ", "1. FC ", "1. ", "AC ", "AS ", "SS ", "SC ", "SV ", "VfB ", "VfL ", "TSG ", "RB "]:
+            if clean_name.startswith(prefix):
+                clean_name = clean_name[len(prefix):]
+                break
+
+        if clean_name != name:
+            team = await self.get_by_name(clean_name)
+            if team:
+                return team
+
+        # Try partial match (contains)
+        teams = await self.search_by_name(name, limit=1)
+        if teams:
+            return teams[0]
+
+        # Try with core name (first significant word)
+        words = name.split()
+        for word in words:
+            if len(word) > 3 and word.lower() not in ["the", "club", "football"]:
+                teams = await self.search_by_name(word, limit=1)
+                if teams:
+                    return teams[0]
+
+        return None
+
     async def get_by_country(self, country: str) -> Sequence[Team]:
         """Get all teams from a country."""
         return await self.get_many_by_field("country", country)

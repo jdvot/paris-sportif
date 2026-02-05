@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useGetDailyPicks } from "@/lib/api/endpoints/predictions/predictions";
-import type { DailyPick } from "@/lib/api/models";
+import type { DailyPickResponse } from "@/lib/api/models";
 import { StreakTracker } from "@/components/StreakTracker";
 import { ExportCSV } from "@/components/ExportCSV";
 import { getConfidenceTier } from "@/lib/constants";
@@ -32,20 +32,29 @@ export default function HistoryPage() {
     { query: { staleTime: 5 * 60 * 1000 } }
   );
 
-  const picks = (response?.data as { picks?: DailyPick[] } | undefined)?.picks || [];
+  const picks = (response?.data as { picks?: DailyPickResponse[] } | undefined)?.picks || [];
 
-  // NOTE: Result tracking requires PAR-168 (user bet tracking feature)
-  // For now, all picks show as pending - no simulated data
-  const historicalPicks = picks.map((pick) => ({
-    ...pick,
-    result: "pending" as "pending" | "won" | "lost",
-    actualScore: null as string | null,
-  }));
+  // Map API response to historical picks with real verification data
+  const historicalPicks = picks.map((pick) => {
+    const prediction = pick.prediction;
+    // Determine result from API verification data
+    let result: "pending" | "won" | "lost" = "pending";
+    if (prediction.is_verified) {
+      result = prediction.is_correct ? "won" : "lost";
+    }
+    return {
+      ...pick,
+      result,
+      actualScore: prediction.actual_score || null,
+    };
+  });
 
-  const wonCount = 0;
-  const lostCount = 0;
-  const pendingCount = historicalPicks.length;
-  const winRate = 0;
+  // Calculate stats from real verification data
+  const wonCount = historicalPicks.filter(p => p.result === "won").length;
+  const lostCount = historicalPicks.filter(p => p.result === "lost").length;
+  const pendingCount = historicalPicks.filter(p => p.result === "pending").length;
+  const verifiedCount = wonCount + lostCount;
+  const winRate = verifiedCount > 0 ? (wonCount / verifiedCount) * 100 : 0;
 
   return (
     <div className="space-y-6">

@@ -16,17 +16,10 @@ import {
 } from "recharts";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
+import { useGetPredictionStats, useGetDailyStats } from "@/lib/api/endpoints/predictions/predictions";
 import { cn } from "@/lib/utils";
 import { ROUNDED_TOP } from "@/lib/recharts-types";
-
-const COMPETITION_NAMES: Record<string, string> = {
-  PL: "Premier League",
-  PD: "La Liga",
-  BL1: "Bundesliga",
-  SA: "Serie A",
-  FL1: "Ligue 1",
-};
+import { getCompetitionName } from "@/lib/constants";
 
 interface HistoryDataPoint {
   date: string;
@@ -50,22 +43,42 @@ export function PerformanceHistory() {
     { query: { staleTime: 5 * 60 * 1000 } } // 5 minutes
   );
 
+  // Fetch daily breakdown for the accuracy over time chart
+  const { data: dailyResponse } = useGetDailyStats(
+    { days: 30 },
+    { query: { staleTime: 5 * 60 * 1000 } }
+  );
+
   // Extract stats from Orval response (status 200 returns data)
   const stats = response?.status === 200 ? response.data : null;
 
-  // NOTE: Historical daily data requires backend API endpoint to track predictions per day
-  // Removed simulated data - see PAR-172 for implementation with real daily stats
+  // Extract daily stats from API response
+  const dailyStats = dailyResponse?.status === 200 ? dailyResponse.data : null;
+
+  // Build history data for accuracy over time chart from real API data
   const historyData = useMemo((): HistoryDataPoint[] => {
-    // Return empty array until backend provides real daily breakdown
-    return [];
-  }, []);
+    if (!dailyStats?.data || dailyStats.data.length === 0) {
+      return [];
+    }
+
+    let cumulative = 0;
+    return dailyStats.data.map((day) => {
+      cumulative += day.correct;
+      return {
+        date: new Date(day.date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }),
+        accuracy: day.accuracy * 100, // Convert to percentage
+        predictions: day.predictions,
+        cumulative,
+      };
+    });
+  }, [dailyStats]);
 
   // Memoize competition chart data with proper types
   const competitionData = useMemo((): CompetitionChartData[] => {
     if (!stats) return [];
     return Object.entries(stats.by_competition || {})
       .map(([code, data]: [string, Record<string, unknown>]) => ({
-        name: COMPETITION_NAMES[code] || code,
+        name: getCompetitionName(code),
         predictions: (data.total as number) || (data.predictions as number) || 0,
         correct: (data.correct as number) || 0,
         accuracy: (data.accuracy as number) || 0,

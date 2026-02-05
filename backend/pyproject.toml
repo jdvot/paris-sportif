@@ -51,6 +51,7 @@ dependencies = [
     "defusedxml>=0.7.1",
     "stripe>=14.3.0",
     "understat>=0.1.4",
+    "pyjwt>=2.11.0",
 ]
 
 [project.optional-dependencies]
