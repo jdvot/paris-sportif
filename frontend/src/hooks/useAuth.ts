@@ -151,12 +151,15 @@ export function useAuth() {
           // Then fetch profile in background (non-blocking)
           fetchProfile(user.id).then((profile) => {
             if (!isMounted) return;
+            console.log('[useAuth] fetchProfile result:', { userId: user.id, profile, role: profile?.role });
             if (profile) {
               setState((prev) => ({
                 ...prev,
                 profile,
                 role: profile.role || prev.role,
               }));
+            } else {
+              console.warn('[useAuth] No profile found for user:', user.id);
             }
           });
         } else {
