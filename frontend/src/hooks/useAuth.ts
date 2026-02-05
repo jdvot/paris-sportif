@@ -44,28 +44,86 @@ export function useAuth() {
   useEffect(() => {
     let isMounted = true;
 
+    // Parse session from cookies (fallback when getSession hangs)
+    const parseSessionFromCookies = (): { user: User } | null => {
+      if (typeof document === 'undefined') return null;
+
+      try {
+        const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+          const [name, value] = cookie.trim().split('=');
+          if (name) acc[name] = value;
+          return acc;
+        }, {} as Record<string, string>);
+
+        // Find Supabase auth token chunks
+        const authTokenChunks: { index: number; value: string }[] = [];
+
+        for (const [name, value] of Object.entries(cookies)) {
+          const chunkMatch = name.match(/^sb-[^-]+-auth-token\.(\d+)$/);
+          const singleMatch = name.match(/^sb-[^-]+-auth-token$/);
+
+          if (chunkMatch) {
+            authTokenChunks.push({ index: parseInt(chunkMatch[1], 10), value });
+          } else if (singleMatch && !authTokenChunks.length) {
+            authTokenChunks.push({ index: 0, value });
+          }
+        }
+
+        if (authTokenChunks.length === 0) return null;
+
+        authTokenChunks.sort((a, b) => a.index - b.index);
+        const encodedSession = authTokenChunks.map(c => c.value).join('');
+
+        let sessionJson: string;
+        if (encodedSession.startsWith('base64-')) {
+          const base64 = encodedSession.slice(7);
+          const base64Standard = base64.replace(/-/g, '+').replace(/_/g, '/');
+          sessionJson = atob(base64Standard);
+        } else {
+          sessionJson = decodeURIComponent(encodedSession);
+        }
+
+        const session = JSON.parse(sessionJson);
+        if (!session.user) return null;
+
+        console.log('[useAuth] Cookie fallback successful:', session.user?.email);
+        return { user: session.user as User };
+      } catch (err) {
+        console.error('[useAuth] Cookie parse failed:', err);
+        return null;
+      }
+    };
+
     const initAuth = async () => {
       try {
         // Use getSession first (faster, reads from cookies)
-        // Then validate with getUser in background
-        const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) => {
-          setTimeout(() => resolve({ data: { session: null } }), 2000);
+        const timeoutPromise = new Promise<{ data: { session: null }; timedOut: true }>((resolve) => {
+          setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 2000);
         });
 
         const sessionResult = await Promise.race([
-          supabase.auth.getSession(),
+          supabase.auth.getSession().then((r: { data: { session: Session | null } }) => ({ ...r, timedOut: false })),
           timeoutPromise,
-        ]);
+        ]) as { data: { session: Session | null }; timedOut: boolean };
 
         if (!isMounted) return;
 
-        const session = sessionResult.data.session;
+        let user: User | null = sessionResult.data.session?.user || null;
 
-        if (session?.user) {
-          const profile = await fetchProfile(session.user.id);
+        // If getSession timed out or no session, try cookie fallback
+        if (!user && sessionResult.timedOut) {
+          console.log('[useAuth] getSession timed out, trying cookie fallback...');
+          const cookieSession = parseSessionFromCookies();
+          if (cookieSession) {
+            user = cookieSession.user;
+          }
+        }
+
+        if (user) {
+          const profile = await fetchProfile(user.id);
           if (!isMounted) return;
           setState({
-            user: session.user,
+            user,
             profile,
             role: profile?.role || "free",
             loading: false,
