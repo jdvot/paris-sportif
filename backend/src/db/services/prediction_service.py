@@ -103,7 +103,11 @@ class PredictionService:
                 "explanation": pred.explanation,
                 "is_daily_pick": pred.is_daily_pick,
                 "pick_rank": pred.pick_rank,
-                "created_at": pred.created_at.isoformat() if pred.created_at else None,
+                "created_at": (
+                    pred.created_at.isoformat()
+                    if pred.created_at and hasattr(pred.created_at, 'isoformat')
+                    else str(pred.created_at) if pred.created_at else None
+                ),
             }
 
     @staticmethod
@@ -279,7 +283,11 @@ class PredictionService:
                             "id": p.match.id,
                             "home_team": (p.match.home_team.name if p.match.home_team else None),
                             "away_team": (p.match.away_team.name if p.match.away_team else None),
-                            "match_date": p.match.match_date.isoformat(),
+                            "match_date": (
+                                p.match.match_date.isoformat()
+                                if hasattr(p.match.match_date, 'isoformat')
+                                else str(p.match.match_date)
+                            ) if p.match.match_date else None,
                         }
                         if p.match
                         else None
@@ -343,8 +351,8 @@ class PredictionService:
                     ),
                     "match_date": (
                         p.match.match_date.isoformat()
-                        if p.match and p.match.match_date
-                        else None
+                        if p.match and p.match.match_date and hasattr(p.match.match_date, 'isoformat')
+                        else str(p.match.match_date) if p.match and p.match.match_date else None
                     ),
                     "home_win_prob": float(p.home_prob),
                     "draw_prob": float(p.draw_prob),
@@ -354,7 +362,11 @@ class PredictionService:
                     "explanation": p.explanation,
                     "is_daily_pick": p.is_daily_pick,
                     "pick_rank": p.pick_rank,
-                    "created_at": p.created_at.isoformat() if p.created_at else None,
+                    "created_at": (
+                        p.created_at.isoformat()
+                        if p.created_at and hasattr(p.created_at, 'isoformat')
+                        else str(p.created_at) if p.created_at else None
+                    ),
                 }
                 for p in predictions
             ]
