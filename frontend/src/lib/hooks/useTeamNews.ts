@@ -21,7 +21,7 @@ export interface TeamNewsResponse {
 
 export interface TeamSummary {
   summary: string;
-  form: string; // WWLDW format
+  form: string[]; // ["W", "W", "D", "L", "W"] format
   position: number | null;
   competition: string | null;
   points: number | null;

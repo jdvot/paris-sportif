@@ -29,12 +29,12 @@ const FORM_COLORS: Record<string, string> = {
   L: "bg-red-500 text-white",
 };
 
-function FormBadges({ form }: { form: string }) {
-  if (!form) return null;
+function FormBadges({ form }: { form: string[] }) {
+  if (!form || form.length === 0) return null;
 
   return (
     <div className="flex gap-1">
-      {form.split("").map((result, idx) => (
+      {form.map((result, idx) => (
         <span
           key={idx}
           className={cn(
