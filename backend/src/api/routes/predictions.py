@@ -1968,6 +1968,15 @@ async def get_prediction(
                     except Exception as e:
                         logger.debug(f"Failed to parse llm_adjustments from cache: {e}")
 
+            # Safe float conversion (handles None values)
+            def safe_float(val: Any, default: float) -> float:
+                if val is None:
+                    return default
+                try:
+                    return float(val)
+                except (TypeError, ValueError):
+                    return default
+
             response = PredictionResponse(
                 match_id=match_id,
                 home_team=home_team,
@@ -1975,13 +1984,13 @@ async def get_prediction(
                 competition=COMPETITION_NAMES.get(comp_code, comp_code),
                 match_date=match_date_val,
                 probabilities=PredictionProbabilities(
-                    home_win=float(cached.get("home_win_prob", 0.33)),
-                    draw=float(cached.get("draw_prob", 0.34)),
-                    away_win=float(cached.get("away_win_prob", 0.33)),
+                    home_win=safe_float(cached.get("home_win_prob"), 0.33),
+                    draw=safe_float(cached.get("draw_prob"), 0.34),
+                    away_win=safe_float(cached.get("away_win_prob"), 0.33),
                 ),
-                confidence=float(cached.get("confidence", 0.5)),
+                confidence=safe_float(cached.get("confidence"), 0.5),
                 recommended_bet=recommended,
-                value_score=float(cached.get("value_score", 0.10)),
+                value_score=safe_float(cached.get("value_score"), 0.10),
                 explanation=cached.get("explanation", "Prédiction mise en cache"),
                 key_factors=key_factors,
                 risk_factors=risk_factors,
