@@ -36,7 +36,7 @@ export function Header() {
     <header className="sticky top-0 z-50 bg-white/80 dark:bg-dark-900/80 backdrop-blur-lg border-b border-gray-200 dark:border-dark-700">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          {/* Logo - Show favorite team logo if set, otherwise site logo */}
+          {/* Logo - Show favorite team logo + site name, or default logo */}
           <Link href="/" className="flex items-center gap-2 flex-shrink-0">
             {favoriteTeam?.logo_url ? (
               <div className="flex items-center gap-2">
@@ -46,7 +46,7 @@ export function Header() {
                   className="w-8 h-8 object-contain"
                 />
                 <span className="font-bold text-xl text-gray-900 dark:text-white hidden sm:inline">
-                  {favoriteTeam.short_name || favoriteTeam.name}
+                  WinRate AI
                 </span>
               </div>
             ) : (
