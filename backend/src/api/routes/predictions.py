@@ -152,6 +152,19 @@ class TeamFatigueInfo(BaseModel):
     combined_score: float = Field(0.5, ge=0.0, le=1.0, description="Combined fatigue score")
 
 
+class WeatherInfo(BaseModel):
+    """Weather information for match day."""
+
+    available: bool = False
+    temperature: float | None = Field(None, description="Temperature in Celsius")
+    feels_like: float | None = Field(None, description="Feels like temperature")
+    humidity: int | None = Field(None, description="Humidity percentage")
+    description: str | None = Field(None, description="Weather description (e.g., 'Cloudy')")
+    wind_speed: float | None = Field(None, description="Wind speed in m/s")
+    rain_probability: float | None = Field(None, description="Rain probability 0-100")
+    impact: str | None = Field(None, description="Impact on match: low, moderate, high")
+
+
 class FatigueInfo(BaseModel):
     """Fatigue information for both teams in a match."""
 
@@ -248,6 +261,9 @@ class PredictionResponse(BaseModel):
 
     # Fatigue analysis (optional)
     fatigue_info: FatigueInfo | None = None
+
+    # Weather info (optional)
+    weather: WeatherInfo | None = None
 
     # Multi-markets predictions (optional)
     multi_markets: MultiMarketsResponse | None = None
@@ -802,6 +818,21 @@ async def _generate_prediction_from_api_match(
     except Exception as e:
         logger.warning(f"Failed to fetch fatigue data: {e}")
 
+    # Fetch weather data for match day
+    weather_data: dict[str, Any] | None = None
+    try:
+        enrichment = get_data_enrichment()
+        weather_data = await enrichment.weather_client.get_match_weather(home_team, match_date)
+        if weather_data and weather_data.get("available"):
+            logger.info(
+                f"Weather for {home_team} vs {away_team}: "
+                f"{weather_data.get('temperature')}°C, "
+                f"{weather_data.get('description')}, "
+                f"impact={weather_data.get('impact')}"
+            )
+    except Exception as e:
+        logger.warning(f"Failed to fetch weather data: {e}")
+
     # Use the advanced ensemble predictor with all models (ML + statistical)
     try:
         # Prepare fatigue parameters (defaults if not available)
@@ -1227,6 +1258,20 @@ async def _generate_prediction_from_api_match(
             fatigue_advantage=round(fatigue_data.fatigue_advantage, 3),
         )
 
+    # Build weather info response
+    weather_info: WeatherInfo | None = None
+    if weather_data and weather_data.get("available"):
+        weather_info = WeatherInfo(
+            available=True,
+            temperature=weather_data.get("temperature"),
+            feels_like=weather_data.get("feels_like"),
+            humidity=weather_data.get("humidity"),
+            description=weather_data.get("description"),
+            wind_speed=weather_data.get("wind_speed"),
+            rain_probability=weather_data.get("rain_probability"),
+            impact=weather_data.get("impact"),
+        )
+
     return PredictionResponse(
         match_id=api_match.id,
         home_team=home_team,
@@ -1247,6 +1292,7 @@ async def _generate_prediction_from_api_match(
         model_contributions=model_contributions,
         llm_adjustments=llm_adjustments,
         fatigue_info=fatigue_info,
+        weather=weather_info,
         multi_markets=multi_markets,
         created_at=datetime.now(),
         is_daily_pick=False,
