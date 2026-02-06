@@ -109,26 +109,29 @@ export default function MatchDetailPage() {
   // Track if match is live to enable auto-refresh
   const [isLive, setIsLive] = useState(false);
 
+  // Safe matchId with fallback (hooks are disabled when 0)
+  const safeMatchId = matchId ?? 0;
+
   // Using Orval hooks - refetch every 30s if match is live
   const { data: matchResponse, isLoading: matchLoading, error: matchError } = useGetMatch(
-    matchId!,
+    safeMatchId,
     { query: {
-      enabled: !!matchId && matchId > 0,
+      enabled: safeMatchId > 0,
       staleTime: isLive ? 15 * 1000 : 5 * 60 * 1000,
       refetchInterval: isLive ? 30 * 1000 : false,
     } }
   );
 
   const { data: predictionResponse, isLoading: predictionLoading, error: predictionError } = useGetPrediction(
-    matchId!,
+    safeMatchId,
     { include_model_details: true },
-    { query: { enabled: !!matchId && matchId > 0, retry: 1, staleTime: 5 * 60 * 1000 } }
+    { query: { enabled: safeMatchId > 0, retry: 1, staleTime: 5 * 60 * 1000 } }
   );
 
   const { data: h2hResponse } = useGetHeadToHead(
-    matchId!,
+    safeMatchId,
     { limit: 10 },
-    { query: { enabled: !!matchId && matchId > 0, staleTime: 10 * 60 * 1000 } }
+    { query: { enabled: safeMatchId > 0, staleTime: 10 * 60 * 1000 } }
   );
 
   // Extract data from responses - API returns { data: {...}, status: number }

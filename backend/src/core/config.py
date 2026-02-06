@@ -1,9 +1,13 @@
 """Application configuration using Pydantic Settings."""
 
+import logging
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_config_logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -69,6 +73,26 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @model_validator(mode="after")
+    def _validate_production_env(self) -> "Settings":
+        """Validate that critical env vars are set in production."""
+        if self.app_env != "production":
+            return self
+        missing: list[str] = []
+        if not self.database_url:
+            missing.append("DATABASE_URL")
+        if not self.football_data_api_key:
+            missing.append("FOOTBALL_DATA_API_KEY")
+        if not self.groq_api_key:
+            missing.append("GROQ_API_KEY")
+        if missing:
+            raise ValueError(f"Missing required env vars for production: {', '.join(missing)}")
+        if not self.stripe_api_key:
+            _config_logger.warning("STRIPE_API_KEY not set - payment features disabled")
+        if not self.qdrant_api_key:
+            _config_logger.warning("QDRANT_API_KEY not set - RAG features may fail")
+        return self
 
 
 @lru_cache

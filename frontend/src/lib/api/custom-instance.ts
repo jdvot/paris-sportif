@@ -68,15 +68,15 @@ export const customInstance = async <T>(
       throw error;
     }
     // Network error
-    throw new ApiError("Erreur réseau. Vérifiez votre connexion.", 0);
+    throw new ApiError("Network error. Check your connection.", 0);
   }
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new ApiError("Authentification requise. Veuillez vous connecter.", 401);
+      throw new ApiError("Authentication required.", 401);
     }
     if (response.status === 403) {
-      throw new ApiError("Accès refusé. Abonnement premium requis.", 403);
+      throw new ApiError("Access denied. Premium subscription required.", 403);
     }
 
     let errorMessage = `API Error: ${response.status}`;

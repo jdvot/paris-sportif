@@ -83,12 +83,13 @@ export function DailyPicks() {
         allPicks.sort((a, b) => (b.pick_score || 0) - (a.pick_score || 0));
         const bestPicks = allPicks.slice(0, 5);
 
-        // Re-rank from 1 to 5
-        bestPicks.forEach((pick, idx) => {
-          pick.rank = idx + 1;
-        });
+        // Re-rank from 1 to 5 (create new objects to avoid mutating API data)
+        const rankedPicks = bestPicks.map((pick, idx) => ({
+          ...pick,
+          rank: idx + 1,
+        }));
 
-        setUpcomingPicks(bestPicks);
+        setUpcomingPicks(rankedPicks);
         setShowingUpcoming(bestPicks.length > 0);
       } catch (err) {
         logger.error("Error fetching upcoming picks:", err);

@@ -526,6 +526,70 @@ async def verify_all_predictions(user: AdminUser) -> VerifyPredictionsResponse:
 # ============================================================================
 
 
+class TestimonialCreateRequest(BaseModel):
+    """Request to create a testimonial."""
+
+    author_name: str
+    author_role: str | None = None
+    content: str
+    rating: int = 5
+    avatar_url: str | None = None
+
+
+class TestimonialCreateResponse(BaseModel):
+    """Response after creating a testimonial."""
+
+    id: int
+    author_name: str
+    content: str
+    is_approved: bool
+    created_at: str
+
+
+@router.post(
+    "/testimonials",
+    response_model=TestimonialCreateResponse,
+    responses=ADMIN_RESPONSES,
+)
+async def create_testimonial(
+    user: AdminUser,
+    payload: TestimonialCreateRequest,
+) -> TestimonialCreateResponse:
+    """
+    Create a new testimonial (admin only).
+
+    The testimonial is auto-approved when created by an admin.
+    """
+    from src.db.database import get_session
+    from src.db.models import Testimonial
+
+    async with get_session() as session:
+        testimonial = Testimonial(
+            author_name=payload.author_name,
+            author_role=payload.author_role,
+            content=payload.content,
+            rating=payload.rating,
+            avatar_url=payload.avatar_url,
+            is_approved=True,
+        )
+        session.add(testimonial)
+        await session.flush()
+        await session.refresh(testimonial)
+
+        return TestimonialCreateResponse(
+            id=testimonial.id,
+            author_name=testimonial.author_name,
+            content=testimonial.content,
+            is_approved=testimonial.is_approved,
+            created_at=testimonial.created_at.isoformat(),
+        )
+
+
+# ============================================================================
+# Multi-season historical data sync
+# ============================================================================
+
+
 class HistoricalSyncSeasonResult(BaseModel):
     """Result for a single season sync."""
 

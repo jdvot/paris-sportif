@@ -274,7 +274,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await init_db()
         logger.info("[Database] Tables initialized")
     except Exception as e:
-        logger.warning(f"[Database] Could not initialize tables: {e}")
+        logger.error(f"[Database] Could not initialize tables: {e}")
+        if settings.is_production:
+            raise
 
     # Check API key availability (no values logged)
     groq_key = settings.groq_api_key
