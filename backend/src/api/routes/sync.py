@@ -16,7 +16,7 @@ from sqlalchemy import text
 from src.auth import ADMIN_RESPONSES, AdminUser
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 from src.data.sources.football_data import COMPETITIONS, get_football_data_client
-from src.db import get_db_context
+from src.db import get_db_context, get_uow
 from src.db.services.match_service import MatchService, StandingService
 from src.db.services.prediction_service import PredictionService
 from src.db.services.stats_service import StatsService, SyncServiceAsync
@@ -255,15 +255,65 @@ async def _update_match_xg_from_understat() -> int:
 
 async def _fill_missing_odds_data() -> int:
     """
-    Attempt to fill missing odds data.
+    Fill missing odds data for scheduled matches using The Odds API.
 
-    For now, this is a placeholder. In future:
-    - Could integrate with The Odds API
-    - Could scrape from oddsportal
-    - Could use historical averages as fallback
+    Fetches real bookmaker odds (1X2) for upcoming matches that don't have
+    odds in the database yet. Results are cached per competition for 1 hour
+    to stay within the free tier limit (500 requests/month).
+
+    Returns number of matches updated with odds.
     """
-    # Placeholder - odds would need external API integration
-    return 0
+    from src.core.config import settings as app_settings
+    from src.data.odds_client import ODDS_API_SPORT_MAP, get_match_odds
+
+    if not app_settings.odds_api_key:
+        logger.info("ODDS_API_KEY not configured - skipping odds fill")
+        return 0
+
+    updated = 0
+    try:
+        async with get_uow() as uow:
+            # Get scheduled matches without odds across all supported competitions
+            for comp_code in ODDS_API_SPORT_MAP:
+                matches = await uow.matches.get_scheduled(
+                    date_from=date.today(),
+                    date_to=date.today() + timedelta(days=14),
+                    competition_code=comp_code,
+                )
+
+                for match in matches:
+                    # Skip matches that already have odds
+                    if match.odds_home is not None:
+                        continue
+
+                    home_name = match.home_team.name if match.home_team else None
+                    away_name = match.away_team.name if match.away_team else None
+                    if not home_name or not away_name:
+                        continue
+
+                    odds = await get_match_odds(home_name, away_name, comp_code)
+                    if odds:
+                        await uow.matches.update(
+                            match.id,
+                            odds_home=odds["home"],
+                            odds_draw=odds["draw"],
+                            odds_away=odds["away"],
+                        )
+                        updated += 1
+                        logger.debug(
+                            f"Updated odds for {home_name} vs {away_name}: "
+                            f"H={odds['home']:.2f} D={odds['draw']:.2f} "
+                            f"A={odds['away']:.2f} ({odds['bookmaker']})"
+                        )
+
+            if updated > 0:
+                await uow.commit()
+                logger.info(f"Filled odds for {updated} matches from The Odds API")
+
+    except Exception as e:
+        logger.error(f"Error filling odds data: {e}")
+
+    return updated
 
 
 async def _recalculate_all_team_stats() -> int:
@@ -552,6 +602,14 @@ async def sync_weekly_data(
             logger.info(f"Synced xG for {xg_synced} teams")
         except Exception as e:
             logger.warning(f"Failed to sync xG data: {e}")
+
+        # Fill missing odds from The Odds API
+        odds_filled = 0
+        try:
+            odds_filled = await _fill_missing_odds_data()
+            logger.info(f"Filled odds for {odds_filled} matches")
+        except Exception as e:
+            logger.warning(f"Failed to fill odds data: {e}")
 
         all_errors = match_errors + standings_errors
         status = "success" if not all_errors else "partial"

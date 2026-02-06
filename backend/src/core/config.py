@@ -35,6 +35,7 @@ class Settings(BaseSettings):
 
     # External APIs
     football_data_api_key: str = ""
+    odds_api_key: str = ""  # The Odds API - https://the-odds-api.com (500 req/month free)
     groq_api_key: str = ""  # Free LLM - https://console.groq.com/
     anthropic_api_key: str = ""  # Optional paid alternative
 

@@ -370,6 +370,7 @@ class FootballDataClient:
         date_to: date | None = None,
         status: Literal["SCHEDULED", "LIVE", "FINISHED"] | None = None,
         matchday: int | None = None,
+        season: int | None = None,
     ) -> list[MatchData]:
         """
         Get matches with optional filters. USES CACHE.
@@ -380,6 +381,7 @@ class FootballDataClient:
             date_to: End date
             status: Match status filter
             matchday: Matchday number
+            season: Season start year (e.g. 2023 for the 2023-2024 season)
         """
         params: dict[str, Any] = {}
 
@@ -394,6 +396,8 @@ class FootballDataClient:
             params["status"] = status
         if matchday:
             params["matchday"] = matchday
+        if season is not None:
+            params["season"] = season
 
         if competition:
             endpoint = f"/competitions/{competition}/matches"

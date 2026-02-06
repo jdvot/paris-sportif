@@ -8,7 +8,6 @@ Sources:
 """
 
 import logging
-import os
 from datetime import datetime
 from typing import Any
 
@@ -33,7 +32,9 @@ class OddsAPIClient:
     }
 
     def __init__(self, api_key: str | None = None):
-        self.api_key = api_key or os.getenv("ODDS_API_KEY", "")
+        from src.core.config import settings
+
+        self.api_key = api_key or settings.odds_api_key
         if not self.api_key:
             logger.warning("ODDS_API_KEY not configured - odds features disabled")
 
