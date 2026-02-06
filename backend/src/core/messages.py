@@ -382,6 +382,28 @@ def api_msg(key: str, lang: Language = "fr", **kwargs: str | int) -> str:
     return template
 
 
+def detect_language_from_header(accept_language: str) -> Language:
+    """Detect preferred language from Accept-Language header.
+
+    Parses the header and returns the best matching supported language.
+    Defaults to "fr" if no match found.
+
+    Args:
+        accept_language: Value of the Accept-Language HTTP header.
+
+    Returns:
+        Language code: "fr", "en", or "nl".
+    """
+    if not accept_language:
+        return "fr"
+    # Parse language tags (e.g., "en-US,en;q=0.9,fr;q=0.8")
+    header_lower = accept_language.lower()
+    for lang_code in ("en", "nl", "fr"):
+        if lang_code in header_lower:
+            return lang_code  # type: ignore[return-value]
+    return "fr"
+
+
 def ordinal_suffix(position: int, lang: Language = "fr") -> str:
     """Get ordinal suffix for a ranking position."""
     if lang == "en":
