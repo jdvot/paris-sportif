@@ -47,12 +47,13 @@ _engine_kwargs: dict[str, Any] = {
 }
 
 if not _is_sqlite:
-    # PostgreSQL-specific pool settings
+    # PostgreSQL-specific pool settings (optimized for 1 CPU, 2GB RAM)
     _engine_kwargs.update(
         {
             "pool_pre_ping": True,  # Verify connections before use
-            "pool_size": 5 if _pool_class is None else 0,
-            "max_overflow": 10 if _pool_class is None else 0,
+            "pool_size": 3 if _pool_class is None else 0,
+            "max_overflow": 5 if _pool_class is None else 0,
+            "pool_recycle": 3600,  # Recycle connections after 1 hour
         }
     )
 
@@ -132,8 +133,9 @@ _sync_engine = create_engine(
     _sync_database_url,
     echo=settings.debug,
     pool_pre_ping=True,
-    pool_size=3,
-    max_overflow=5,
+    pool_size=2,
+    max_overflow=3,
+    pool_recycle=3600,
 )
 
 # Sync session factory

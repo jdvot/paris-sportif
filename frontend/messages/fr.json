@@ -578,7 +578,9 @@
     "all": "Tous",
     "loadError": "Impossible de charger les actualites",
     "recent": "Recent",
-    "updatedAt": "Mis a jour"
+    "updatedAt": "Mis a jour",
+    "subtitle": "Restez informe des dernieres actualites du football",
+    "filterByCompetition": "Filtrer par competition"
   },
   "dailyPicks": {
     "loading": "Analyse des matchs en cours...",
@@ -664,7 +666,16 @@
     "awayWin": "Victoire exterieur",
     "accuracyOverTime": "Precision au fil du temps (30 derniers jours)",
     "predictionsByCompetition": "Predictions par competition",
-    "correctLabel": "Correctes"
+    "correctLabel": "Correctes",
+    "confidenceTable": {
+      "range": "Niveau de confiance",
+      "predictions": "Predictions",
+      "winRate": "Taux de reussite",
+      "calibration": "Calibration",
+      "wellCalibrated": "Bien calibre",
+      "overconfident": "Surconfiant",
+      "noData": "Aucune donnee de calibration disponible"
+    }
   },
   "streak": {
     "title": "Hit & Win",

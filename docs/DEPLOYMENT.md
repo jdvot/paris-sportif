@@ -1,14 +1,19 @@
-# Guide de Deploiement Gratuit
+# Guide de Deploiement
 
-## Architecture 100% Gratuite
+## Architecture Production
 
-| Service | Plateforme | Limite Gratuite |
-|---------|-----------|-----------------|
-| Frontend | Vercel | Illimite |
-| Backend | Render | 750h/mois |
-| Database | Render PostgreSQL | 256MB, 90 jours |
+| Service | Plateforme | Plan |
+|---------|-----------|------|
+| Frontend | Vercel | Hobby (gratuit) |
+| Backend | Render | Standard (1 CPU, 2GB RAM) |
+| Database | Render PostgreSQL | Starter ($7/mois, backups inclus) |
+| ML Service | HuggingFace Spaces | Inference API |
+| Vector DB | Qdrant Cloud | Free tier |
+| Cache | Upstash Redis | Free tier |
 | LLM | Groq | 14,400 req/jour |
 | Football API | football-data.org | 10 req/min |
+| Auth | Supabase | Free tier |
+| Monitoring | Sentry | Free tier |
 
 ## Etape 1: Creer les Comptes (Gratuit)
 

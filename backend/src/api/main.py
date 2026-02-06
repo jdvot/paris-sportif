@@ -255,7 +255,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("GROQ_API_KEY: NOT set or empty")
 
     # Start the scheduler for automatic sync
-    scheduler = AsyncIOScheduler()
+    scheduler = AsyncIOScheduler(
+        job_defaults={"max_instances": 1, "coalesce": True},
+    )
     scheduler.add_job(
         auto_sync_and_verify,
         trigger=IntervalTrigger(hours=6),
@@ -285,8 +287,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     scheduler.start()
     logger.info("[Scheduler] Started - auto sync every 6 hours, cache refresh at 6am UTC")
 
-    # Run startup prefill in background (starts immediately)
-    asyncio.create_task(_startup_full_prefill())
+    # Run startup prefill in background (delayed 30s to let server accept traffic first)
+    asyncio.create_task(_delayed_startup_prefill())
 
     yield
 
@@ -303,8 +305,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Shutting down...")
 
 
+async def _delayed_startup_prefill() -> None:
+    """Delay startup prefill to let the server accept health checks first."""
+    await asyncio.sleep(30)
+    await _startup_full_prefill()
+
+
 async def _startup_full_prefill() -> None:
-    """Run complete prefill pipeline at startup. No delay - starts immediately."""
+    """Run complete prefill pipeline at startup."""
     logger.info("[Startup] Starting full prefill pipeline...")
 
     try:

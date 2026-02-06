@@ -37,8 +37,8 @@ def get_http_client(timeout: float = 15.0) -> httpx.AsyncClient:
         _client = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout, connect=5.0),
             limits=httpx.Limits(
-                max_connections=50,
-                max_keepalive_connections=20,
+                max_connections=15,
+                max_keepalive_connections=5,
                 keepalive_expiry=30,
             ),
             follow_redirects=True,

@@ -172,7 +172,7 @@ export default function MatchDetailPage() {
   if (matchError || !match) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/30 rounded-xl">
+        <div role="alert" className="flex items-center gap-3 p-4 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/30 rounded-xl">
           <AlertTriangle className="w-5 h-5 text-red-500 dark:text-red-400" />
           <p className="text-red-700 dark:text-red-300">
             {t("errors.loadingFailed")}
@@ -201,7 +201,7 @@ export default function MatchDetailPage() {
           )}
 
           {!predictionLoading && predictionError && !isAuthError(predictionError) ? (
-            <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-500/5 dark:to-orange-500/5 border border-red-200/50 dark:border-red-500/20 rounded-xl p-4 sm:p-5">
+            <div role="alert" className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-500/5 dark:to-orange-500/5 border border-red-200/50 dark:border-red-500/20 rounded-xl p-4 sm:p-5">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 p-2 bg-red-100 dark:bg-red-500/20 rounded-lg">
                   <AlertTriangle className="w-4 h-4 text-red-500 dark:text-red-400" />
@@ -214,6 +214,7 @@ export default function MatchDetailPage() {
                 </div>
                 <button
                   onClick={() => window.location.reload()}
+                  aria-label={t("errors.retry")}
                   className="flex-shrink-0 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium transition-colors"
                 >
                   {t("errors.retry")}
@@ -223,7 +224,7 @@ export default function MatchDetailPage() {
           ) : null}
 
           {!predictionLoading && !predictionError && !prediction && (
-            <div className="bg-gradient-to-r from-gray-50 to-slate-50 dark:from-slate-800/30 dark:to-slate-700/30 border border-gray-200/50 dark:border-slate-700/50 rounded-xl p-4 sm:p-5">
+            <div role="alert" className="bg-gradient-to-r from-gray-50 to-slate-50 dark:from-slate-800/30 dark:to-slate-700/30 border border-gray-200/50 dark:border-slate-700/50 rounded-xl p-4 sm:p-5">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 p-2 bg-gray-100 dark:bg-slate-700 rounded-lg">
                   <Clock className="w-4 h-4 text-gray-500 dark:text-slate-400" />

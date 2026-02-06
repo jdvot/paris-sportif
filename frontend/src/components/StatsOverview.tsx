@@ -175,7 +175,7 @@ export function StatsOverview() {
       {/* Key Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Total Predictions */}
-        <div className="bg-gradient-to-br from-primary-100 dark:from-primary-500/20 to-primary-200 dark:to-primary-600/20 border border-primary-300 dark:border-primary-500/30 rounded-xl p-4 sm:p-6">
+        <div aria-label={`${t("totalPredictions")}: ${stats.total_predictions}`} className="bg-gradient-to-br from-primary-100 dark:from-primary-500/20 to-primary-200 dark:to-primary-600/20 border border-primary-300 dark:border-primary-500/30 rounded-xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
             <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">{t("totalPredictions")}</p>
             <Target className="w-4 sm:w-5 h-4 sm:h-5 text-primary-600 dark:text-primary-400" />
@@ -189,7 +189,7 @@ export function StatsOverview() {
         </div>
 
         {/* Accuracy */}
-        <div className="bg-gradient-to-br from-cyan-100 dark:from-accent-500/20 to-cyan-200 dark:to-accent-600/20 border border-cyan-300 dark:border-accent-500/30 rounded-xl p-4 sm:p-6">
+        <div aria-label={`${t("successRate")}: ${(stats.accuracy || 0).toFixed(1)}%`} className="bg-gradient-to-br from-cyan-100 dark:from-accent-500/20 to-cyan-200 dark:to-accent-600/20 border border-cyan-300 dark:border-accent-500/30 rounded-xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
             <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">{t("successRate")}</p>
             <Award className="w-4 sm:w-5 h-4 sm:h-5 text-cyan-600 dark:text-accent-400" />
@@ -203,7 +203,7 @@ export function StatsOverview() {
         </div>
 
         {/* ROI Simulated */}
-        <div className="bg-gradient-to-br from-green-100 dark:from-green-500/20 to-green-200 dark:to-green-600/20 border border-green-300 dark:border-green-500/30 rounded-xl p-4 sm:p-6">
+        <div aria-label={`${t("roiSimulated")}: ${(stats.roi_simulated || 0) >= 0 ? "+" : ""}${(stats.roi_simulated || 0).toFixed(1)}%`} className="bg-gradient-to-br from-green-100 dark:from-green-500/20 to-green-200 dark:to-green-600/20 border border-green-300 dark:border-green-500/30 rounded-xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
             <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">{t("roiSimulated")}</p>
             <Zap className="w-4 sm:w-5 h-4 sm:h-5 text-green-600 dark:text-green-400" />
@@ -217,7 +217,7 @@ export function StatsOverview() {
         </div>
 
         {/* Competitions Tracked */}
-        <div className="bg-gradient-to-br from-yellow-100 dark:from-yellow-500/20 to-yellow-200 dark:to-yellow-600/20 border border-yellow-300 dark:border-yellow-500/30 rounded-xl p-4 sm:p-6">
+        <div aria-label={`${t("competitions")}: ${competitionStats.length}`} className="bg-gradient-to-br from-yellow-100 dark:from-yellow-500/20 to-yellow-200 dark:to-yellow-600/20 border border-yellow-300 dark:border-yellow-500/30 rounded-xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
             <p className="text-gray-600 dark:text-dark-400 text-xs sm:text-sm">{t("competitions")}</p>
             <div className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-600 dark:text-yellow-400">🏆</div>
@@ -255,7 +255,7 @@ export function StatsOverview() {
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">
             {t("rankingByCompetition")}
           </h3>
-          <div className="w-full h-72 sm:h-80">
+          <div aria-label={t("rankingByCompetition")} className="w-full h-72 sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={competitionStats}

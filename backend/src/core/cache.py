@@ -34,7 +34,7 @@ def get_redis_pool() -> ConnectionPool:
     if _pool is None:
         _pool = ConnectionPool.from_url(
             settings.redis_url,
-            max_connections=10,
+            max_connections=5,
             decode_responses=True,
         )
     return _pool

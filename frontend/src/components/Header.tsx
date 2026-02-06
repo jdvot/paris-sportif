@@ -67,6 +67,7 @@ export function Header() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={isActive ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm",
                     isActive
@@ -104,6 +105,7 @@ export function Header() {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex flex-col items-center gap-0.5 sm:gap-1 px-3 sm:px-4 py-1 flex-1",
                 isActive ? "text-primary-600 dark:text-primary-400" : "text-gray-500 dark:text-dark-400"

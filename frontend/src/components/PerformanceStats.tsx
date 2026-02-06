@@ -17,6 +17,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
+import { useGetCalibration } from "@/lib/hooks/useCalibration";
 import { ROUNDED_TOP } from "@/lib/recharts-types";
 import { getCompetitionName } from "@/lib/constants";
 
@@ -43,6 +44,10 @@ export function PerformanceStats() {
     { days: 30 },
     { query: { staleTime: 5 * 60 * 1000 } } // 5 minutes
   );
+
+  // Fetch calibration data for confidence level breakdown (90 days)
+  const { data: calibrationResponse } = useGetCalibration(90);
+  const calibrationBuckets = calibrationResponse?.data?.by_confidence ?? [];
 
   // Extract stats from Orval response (status 200 returns data)
   const stats = response?.status === 200 ? response.data : null;
@@ -74,9 +79,6 @@ export function PerformanceStats() {
       .filter((comp) => comp.value > 0);
   }, [stats]);
 
-  // NOTE: Confidence level breakdown removed - requires real data from API
-  // Stats by confidence level should come from backend, not be invented
-
   const COLORS = useMemo(() => ["#4ade80", "#60a5fa", "#fbbf24", "#f87171", "#a78bfa"], []);
 
   // Conditional returns AFTER all hooks are called
@@ -103,7 +105,7 @@ export function PerformanceStats() {
         <h3 className="text-base sm:text-lg font-semibold text-white mb-4">
           {t("byBetType")}
         </h3>
-        <div className="w-full h-80 sm:h-96">
+        <div aria-label={t("byBetType")} className="w-full h-80 sm:h-96">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={betTypeData} margin={{ top: 5, right: 10, left: -20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
@@ -175,7 +177,7 @@ export function PerformanceStats() {
           <h3 className="text-base sm:text-lg font-semibold text-white mb-4">
             {t("distribution")}
           </h3>
-          <div className="w-full h-80 flex items-center justify-center">
+          <div aria-label={t("distribution")} className="w-full h-80 flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -239,7 +241,76 @@ export function PerformanceStats() {
         </div>
       </div>
 
-      {/* NOTE: Confidence level breakdown section removed - requires real stats from API */}
+      {/* Breakdown by Confidence Level */}
+      {calibrationBuckets.length > 0 && (
+        <div className="bg-dark-800/50 border border-dark-700 rounded-xl p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-white mb-4">
+            {t("byConfidence")}
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-dark-700">
+                  <th className="text-left py-2 px-2 text-dark-400">
+                    {t("confidenceTable.range")}
+                  </th>
+                  <th className="text-center py-2 px-2 text-dark-400">
+                    {t("confidenceTable.predictions")}
+                  </th>
+                  <th className="text-center py-2 px-2 text-dark-400">
+                    {t("confidenceTable.winRate")}
+                  </th>
+                  <th className="text-center py-2 px-2 text-dark-400">
+                    {t("confidenceTable.calibration")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {calibrationBuckets.map((bucket) => {
+                  const isWellCalibrated = bucket.actual_win_rate >= bucket.predicted_confidence;
+                  return (
+                    <tr
+                      key={bucket.confidence_range}
+                      className="border-b border-dark-700/50"
+                    >
+                      <td className="py-2 px-2 font-medium text-white">
+                        {bucket.confidence_range}
+                      </td>
+                      <td className="py-2 px-2 text-center text-dark-300">
+                        {bucket.count}
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <span
+                          className={
+                            isWellCalibrated
+                              ? "text-green-400"
+                              : "text-red-400"
+                          }
+                        >
+                          {(bucket.actual_win_rate * 100).toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            isWellCalibrated
+                              ? "bg-green-500/20 text-green-400"
+                              : "bg-red-500/20 text-red-400"
+                          }`}
+                        >
+                          {isWellCalibrated
+                            ? t("confidenceTable.wellCalibrated")
+                            : t("confidenceTable.overconfident")}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

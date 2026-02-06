@@ -578,7 +578,9 @@
     "all": "All",
     "loadError": "Unable to load news",
     "recent": "Recent",
-    "updatedAt": "Updated"
+    "updatedAt": "Updated",
+    "subtitle": "Stay informed with the latest football news and updates",
+    "filterByCompetition": "Filter by competition"
   },
   "dailyPicks": {
     "loading": "Analyzing matches...",
@@ -664,7 +666,16 @@
     "awayWin": "Away win",
     "accuracyOverTime": "Accuracy over time (last 30 days)",
     "predictionsByCompetition": "Predictions by competition",
-    "correctLabel": "Correct"
+    "correctLabel": "Correct",
+    "confidenceTable": {
+      "range": "Confidence Range",
+      "predictions": "Predictions",
+      "winRate": "Win Rate",
+      "calibration": "Calibration",
+      "wellCalibrated": "Well calibrated",
+      "overconfident": "Overconfident",
+      "noData": "No calibration data available"
+    }
   },
   "streak": {
     "title": "Hit & Win",

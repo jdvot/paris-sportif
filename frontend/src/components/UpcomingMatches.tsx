@@ -95,6 +95,7 @@ export function UpcomingMatches() {
 
       <Link
         href="/matches"
+        aria-label={t("viewAll")}
         className="flex items-center justify-center gap-2 py-3 sm:py-4 text-sm sm:text-base text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors border-t border-gray-200 dark:border-slate-700"
       >
         <span>{t("viewAll")}</span>
@@ -114,6 +115,7 @@ const MatchRow = memo(function MatchRow({ match, dateLocale }: { match: MatchRes
   return (
     <Link
       href={`/match/${match.id}`}
+      aria-label={`${homeTeam} vs ${awayTeam}`}
       className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors gap-2 sm:gap-4"
     >
       <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 w-full sm:w-auto">
