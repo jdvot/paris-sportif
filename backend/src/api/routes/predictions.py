@@ -1916,15 +1916,165 @@ async def get_prediction(
     except Exception as e:
         logger.warning(f"DB cache lookup failed for match {match_id}: {e}")
 
-    # 3. No cache - prediction not yet generated
-    match_info = await _get_match_info_from_db(match_id)
-    if not match_info:
-        raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
+    # 3. No cache - generate prediction live from ensemble models
+    async with get_uow() as uow:
+        match_obj = await uow.matches.get_with_teams(match_id)
+        if not match_obj:
+            raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
 
-    raise HTTPException(
-        status_code=404,
-        detail="Prediction not yet available for this match. It will be generated automatically.",
+        home_team_obj = match_obj.home_team
+        away_team_obj = match_obj.away_team
+        if not home_team_obj or not away_team_obj:
+            raise HTTPException(status_code=404, detail=f"Match {match_id} missing team data")
+
+        home_name = home_team_obj.name
+        away_name = away_team_obj.name
+        comp_code = match_obj.competition_code or "UNKNOWN"
+        match_date_val = match_obj.match_date or datetime.now()
+
+    # Generate prediction using ensemble (no LLM, instant)
+    try:
+        from src.prediction_engine.ensemble_advanced import advanced_ensemble_predictor
+
+        pred = advanced_ensemble_predictor.predict(
+            home_attack=float(home_team_obj.avg_goals_scored_home or 1.3),
+            home_defense=float(home_team_obj.avg_goals_conceded_home or 1.3),
+            away_attack=float(away_team_obj.avg_goals_scored_away or 1.3),
+            away_defense=float(away_team_obj.avg_goals_conceded_away or 1.3),
+            home_elo=float(home_team_obj.elo_rating or 1500),
+            away_elo=float(away_team_obj.elo_rating or 1500),
+            home_team_id=home_team_obj.id,
+            away_team_id=away_team_obj.id,
+            home_form_score=float(home_team_obj.form_score or 0.5) * 100,
+            away_form_score=float(away_team_obj.form_score or 0.5) * 100,
+            home_rest_days=float(home_team_obj.rest_days or 3),
+            away_rest_days=float(away_team_obj.rest_days or 3),
+            home_congestion=float(home_team_obj.fixture_congestion or 0.5),
+            away_congestion=float(away_team_obj.fixture_congestion or 0.5),
+        )
+    except Exception as e:
+        logger.error(f"Ensemble prediction failed for match {match_id}: {e}")
+        raise HTTPException(status_code=500, detail="Prediction generation failed") from e
+
+    # Build explanation and factors from real stats
+    home_elo = float(home_team_obj.elo_rating or 1500)
+    away_elo = float(away_team_obj.elo_rating or 1500)
+    elo_diff = home_elo - away_elo
+    explanation_parts: list[str] = []
+    gen_key_factors: list[str] = []
+    gen_risk_factors: list[str] = []
+
+    if abs(elo_diff) > 50:
+        stronger = home_name if elo_diff > 0 else away_name
+        explanation_parts.append(
+            f"{stronger} has an ELO advantage ({home_elo:.0f} vs {away_elo:.0f})"
+        )
+        gen_key_factors.append(f"ELO: {home_name} {home_elo:.0f} vs {away_name} {away_elo:.0f}")
+    else:
+        gen_key_factors.append(f"Similar ELO ratings ({home_elo:.0f} vs {away_elo:.0f})")
+
+    gen_key_factors.append(f"Home advantage for {home_name}")
+
+    home_form = float(home_team_obj.form_score or 0.5)
+    away_form = float(away_team_obj.form_score or 0.5)
+    if home_form > 0.55:
+        gen_key_factors.append(f"{home_name} in good form ({home_form:.0%})")
+    elif home_form < 0.4:
+        gen_risk_factors.append(f"{home_name} in poor form ({home_form:.0%})")
+    if away_form > 0.55:
+        gen_key_factors.append(f"{away_name} in good form ({away_form:.0%})")
+    elif away_form < 0.4:
+        gen_risk_factors.append(f"{away_name} in poor form ({away_form:.0%})")
+
+    home_rest = float(home_team_obj.rest_days or 3)
+    away_rest = float(away_team_obj.rest_days or 3)
+    if home_rest <= 3 or away_rest <= 3:
+        tired = home_name if home_rest < away_rest else away_name
+        gen_risk_factors.append(f"{tired} limited rest ({min(home_rest, away_rest):.0f} days)")
+
+    max_prob = max(pred.home_win_prob, pred.draw_prob, pred.away_win_prob)
+    if pred.home_win_prob == max_prob:
+        explanation_parts.append(
+            f"Models favor {home_name} ({pred.home_win_prob:.0%} win probability)"
+        )
+    elif pred.away_win_prob == max_prob:
+        explanation_parts.append(
+            f"Models favor {away_name} ({pred.away_win_prob:.0%} win probability)"
+        )
+    else:
+        explanation_parts.append(
+            f"Closely contested match (draw probability: {pred.draw_prob:.0%})"
+        )
+
+    gen_explanation = ". ".join(explanation_parts) + "." if explanation_parts else ""
+
+    # Determine recommended bet
+    if pred.home_win_prob >= pred.draw_prob and pred.home_win_prob >= pred.away_win_prob:
+        gen_recommended: Literal["home_win", "draw", "away_win"] = "home_win"
+    elif pred.draw_prob >= pred.home_win_prob and pred.draw_prob >= pred.away_win_prob:
+        gen_recommended = "draw"
+    else:
+        gen_recommended = "away_win"
+
+    confidence_val = float(pred.confidence)
+    value_score = round(max_prob * 0.5 + confidence_val * 0.5 + confidence_val * 0.03, 4)
+
+    response = PredictionResponse(
+        match_id=match_id,
+        home_team=home_name,
+        away_team=away_name,
+        competition=COMPETITION_NAMES.get(comp_code, comp_code),
+        match_date=match_date_val,
+        probabilities=PredictionProbabilities(
+            home_win=round(pred.home_win_prob, 4),
+            draw=round(pred.draw_prob, 4),
+            away_win=round(pred.away_win_prob, 4),
+        ),
+        confidence=round(confidence_val, 4),
+        recommended_bet=gen_recommended,
+        value_score=value_score,
+        explanation=gen_explanation,
+        key_factors=gen_key_factors,
+        risk_factors=gen_risk_factors,
+        model_contributions=None,
+        llm_adjustments=None,
+        created_at=datetime.now(),
+        data_source=DataSourceInfo(source="live_api"),
     )
+
+    # Save to DB for future requests (fire-and-forget)
+    try:
+        outcome_map_save = {"home_win": "home", "draw": "draw", "away_win": "away"}
+        await PredictionService.save_prediction_from_api(
+            {
+                "match_id": match_id,
+                "match_external_id": match_obj.external_id,
+                "home_team": home_name,
+                "away_team": away_name,
+                "competition_code": comp_code,
+                "match_date": match_date_val.isoformat() if match_date_val else "",
+                "home_win_prob": pred.home_win_prob,
+                "draw_prob": pred.draw_prob,
+                "away_win_prob": pred.away_win_prob,
+                "confidence": pred.confidence,
+                "value_score": value_score,
+                "recommendation": outcome_map_save.get(gen_recommended, "home"),
+                "explanation": gen_explanation,
+                "key_factors": gen_key_factors,
+                "risk_factors": gen_risk_factors,
+            }
+        )
+    except Exception as e:
+        logger.warning(f"Failed to save generated prediction for match {match_id}: {e}")
+
+    # Cache in Redis
+    try:
+        await _cache_prediction_to_redis(match_id, response.model_dump(mode="json"))
+    except Exception as e:
+        logger.debug(f"Failed to cache prediction {match_id} in Redis: {e}")
+
+    logger.info(f"Generated live prediction for match {match_id}")
+    return response
 
 
 class VerifyPredictionRequest(BaseModel):
