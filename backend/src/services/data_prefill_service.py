@@ -338,6 +338,7 @@ class DataPrefillService:
                         p.id IS NULL
                         OR p.value_score IS NULL
                         OR p.key_factors IS NULL
+                        OR p.explanation LIKE 'Prédiction pré-calculée%'
                     )
                 ORDER BY m.match_date
             """
