@@ -43,6 +43,13 @@ from src.api.routes import (
     users,
     vector,
 )
+from src.api.routes.sync import (
+    _calculate_proper_elo_ratings,
+    _recalculate_all_team_stats,
+    _sync_form_from_standings,
+    _update_missing_team_countries,
+    _update_team_elo_ratings,
+)
 from src.core.config import settings
 from src.core.exceptions import ParisportifError
 from src.core.logging_config import generate_request_id, setup_logging
@@ -52,8 +59,9 @@ from src.data.sources.football_data import (  # type: ignore[attr-defined]
     COMPETITIONS,
     get_football_data_client,
 )
-from src.db.services.match_service import MatchService
+from src.db.services.match_service import MatchService, StandingService
 from src.db.services.prediction_service import PredictionService
+from src.services.data_prefill_service import DataPrefillService
 
 # Initialize Sentry for error monitoring
 init_sentry()
@@ -127,8 +135,6 @@ async def auto_sync_and_verify() -> None:
                 data = await client._request("GET", f"/competitions/{comp_code}/standings")
                 for standing_group in data.get("standings", []):
                     if standing_group.get("type") == "TOTAL":
-                        from src.db.services.match_service import StandingService
-
                         standings_list = standing_group.get("table", [])
                         synced = await StandingService.save_standings(comp_code, standings_list)
                         standings_synced += synced
@@ -143,8 +149,6 @@ async def auto_sync_and_verify() -> None:
         # Recalculate team stats from match history
         teams_updated = 0
         try:
-            from src.api.routes.sync import _recalculate_all_team_stats
-
             teams_updated = await _recalculate_all_team_stats()
         except Exception as e:
             logger.warning(f"[Scheduler] Error recalculating team stats: {e}")
@@ -152,8 +156,6 @@ async def auto_sync_and_verify() -> None:
         # Sync form data from standings to teams
         form_synced = 0
         try:
-            from src.api.routes.sync import _sync_form_from_standings
-
             form_synced = await _sync_form_from_standings()
         except Exception as e:
             logger.warning(f"[Scheduler] Error syncing form data: {e}")
@@ -161,8 +163,6 @@ async def auto_sync_and_verify() -> None:
         # Update missing team countries
         countries_updated = 0
         try:
-            from src.api.routes.sync import _update_missing_team_countries
-
             countries_updated = await _update_missing_team_countries()
         except Exception as e:
             logger.warning(f"[Scheduler] Error updating team countries: {e}")
@@ -170,8 +170,6 @@ async def auto_sync_and_verify() -> None:
         # Calculate proper ELO ratings
         elo_updated = 0
         try:
-            from src.api.routes.sync import _calculate_proper_elo_ratings, _update_team_elo_ratings
-
             elo_ratings = await _calculate_proper_elo_ratings()
             elo_updated = await _update_team_elo_ratings(elo_ratings)
         except Exception as e:
@@ -180,8 +178,6 @@ async def auto_sync_and_verify() -> None:
         # Pre-generate predictions for upcoming matches
         predictions_generated = 0
         try:
-            from src.services.data_prefill_service import DataPrefillService
-
             predictions_generated = await DataPrefillService.prefill_predictions_for_upcoming()
         except Exception as e:
             logger.warning(f"[Scheduler] Error pre-generating predictions: {e}")
@@ -189,8 +185,6 @@ async def auto_sync_and_verify() -> None:
         # Warm Redis cache
         cache_warmed = 0
         try:
-            from src.services.data_prefill_service import DataPrefillService
-
             cache_warmed = await DataPrefillService.warm_redis_cache()
         except Exception as e:
             logger.warning(f"[Scheduler] Error warming cache: {e}")

@@ -6,11 +6,12 @@ Provides access to tennis matches, players, and tournaments data.
 import logging
 from datetime import date, timedelta
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
+from src.core.rate_limit import RATE_LIMITS, limiter
 from src.db.database import get_session
 from src.db.models import TennisMatch, TennisPlayer, TennisTournament
 
@@ -166,7 +167,9 @@ def _match_to_response(match: TennisMatch) -> TennisMatchResponse:
 
 
 @router.get("/matches", response_model=TennisMatchListResponse)
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def get_tennis_matches(
+    request: Request,
     circuit: str | None = Query(None, description="Filter by circuit (ATP, WTA)"),
     surface: str | None = Query(None, description="Filter by surface (hard, clay, grass, indoor)"),
     tournament_id: int | None = Query(None, description="Filter by tournament ID"),
@@ -222,7 +225,8 @@ async def get_tennis_matches(
 
 
 @router.get("/matches/{match_id}", response_model=TennisMatchResponse)
-async def get_tennis_match(match_id: int) -> TennisMatchResponse:
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
+async def get_tennis_match(request: Request, match_id: int) -> TennisMatchResponse:
     """
     Get a single tennis match by ID.
 
@@ -253,7 +257,9 @@ async def get_tennis_match(match_id: int) -> TennisMatchResponse:
 
 
 @router.get("/players", response_model=TennisPlayerListResponse)
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def get_tennis_players(
+    request: Request,
     circuit: str | None = Query(None, description="Filter by circuit (ATP, WTA)"),
     limit: int = Query(100, ge=1, le=500, description="Number of results"),
 ) -> TennisPlayerListResponse:
@@ -283,7 +289,8 @@ async def get_tennis_players(
 
 
 @router.get("/players/{player_id}", response_model=TennisPlayerResponse)
-async def get_tennis_player(player_id: int) -> TennisPlayerResponse:
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
+async def get_tennis_player(request: Request, player_id: int) -> TennisPlayerResponse:
     """
     Get a single tennis player by ID.
 
@@ -306,7 +313,9 @@ async def get_tennis_player(player_id: int) -> TennisPlayerResponse:
 
 
 @router.get("/tournaments", response_model=TennisTournamentListResponse)
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def get_tennis_tournaments(
+    request: Request,
     circuit: str | None = Query(None, description="Filter by circuit (ATP, WTA)"),
     limit: int = Query(50, ge=1, le=200, description="Number of results"),
 ) -> TennisTournamentListResponse:

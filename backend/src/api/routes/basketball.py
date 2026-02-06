@@ -3,11 +3,12 @@
 import logging
 from datetime import date, timedelta
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
+from src.core.rate_limit import RATE_LIMITS, limiter
 from src.db.database import get_session
 from src.db.models import BasketballMatch, BasketballTeam
 
@@ -150,7 +151,9 @@ def _match_to_response(match: BasketballMatch) -> BasketballMatchResponse:
 
 
 @router.get("/matches", response_model=BasketballMatchListResponse)
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def list_basketball_matches(
+    request: Request,
     league: str | None = Query(None, description="Filter by league (NBA, EUROLEAGUE)"),
     status: str | None = Query(None, description="Filter by status (scheduled, live, finished)"),
     date_from: date | None = Query(None, description="Start date (YYYY-MM-DD)"),
@@ -196,7 +199,8 @@ async def list_basketball_matches(
 
 
 @router.get("/matches/{match_id}", response_model=BasketballMatchResponse)
-async def get_basketball_match(match_id: int) -> BasketballMatchResponse:
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
+async def get_basketball_match(request: Request, match_id: int) -> BasketballMatchResponse:
     """Get a single basketball match by ID."""
     async with get_session() as session:
         stmt = (
@@ -217,7 +221,9 @@ async def get_basketball_match(match_id: int) -> BasketballMatchResponse:
 
 
 @router.get("/teams", response_model=BasketballTeamListResponse)
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def list_basketball_teams(
+    request: Request,
     league: str | None = Query(None, description="Filter by league (NBA, EUROLEAGUE)"),
     conference: str | None = Query(None, description="Filter by conference (East, West)"),
 ) -> BasketballTeamListResponse:
@@ -240,7 +246,8 @@ async def list_basketball_teams(
 
 
 @router.get("/teams/{team_id}", response_model=BasketballTeamResponse)
-async def get_basketball_team(team_id: int) -> BasketballTeamResponse:
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
+async def get_basketball_team(request: Request, team_id: int) -> BasketballTeamResponse:
     """Get a single basketball team by ID."""
     async with get_session() as session:
         stmt = select(BasketballTeam).where(BasketballTeam.id == team_id)
@@ -254,7 +261,9 @@ async def get_basketball_team(team_id: int) -> BasketballTeamResponse:
 
 
 @router.get("/standings", response_model=BasketballStandingsResponse)
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def get_basketball_standings(
+    request: Request,
     league: str = Query("NBA", description="League (NBA, EUROLEAGUE)"),
     conference: str | None = Query(None, description="Conference filter (East, West)"),
 ) -> BasketballStandingsResponse:

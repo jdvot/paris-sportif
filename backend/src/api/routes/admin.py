@@ -136,6 +136,13 @@ async def update_user_role(
     if role not in ["free", "premium", "admin"]:
         raise HTTPException(status_code=400, detail="Invalid role")
 
+    logger.info(
+        "Role change: admin=%s target_user=%s new_role=%s",
+        user.id,
+        user_id,
+        role,
+    )
+
     result = await SupabaseAdminService.update_user_role(user_id, role)
 
     if result.get("status") == "error":
@@ -264,6 +271,12 @@ async def broadcast_notification(
     Args:
         notification: Notification content and settings
     """
+    logger.info(
+        "Broadcast notification triggered by admin %s: title=%s",
+        user.id,
+        notification.title,
+    )
+
     push_service = get_push_service()
 
     payload = PushPayload(
@@ -275,6 +288,13 @@ async def broadcast_notification(
     result = await push_service.broadcast_notification(
         payload=payload,
         preference=notification.preference_filter,
+    )
+
+    logger.info(
+        "Broadcast complete: sent=%d, failed=%d, admin=%s",
+        result["sent"],
+        result["failed"],
+        user.id,
     )
 
     return {
