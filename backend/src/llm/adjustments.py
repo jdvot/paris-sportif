@@ -225,7 +225,7 @@ class FormAnalysis(BaseModel):
 
     @field_validator("form_assessment", mode="before")
     @classmethod
-    def ensure_form_assessment(cls, v: Any) -> dict:
+    def ensure_form_assessment(cls, v: Any) -> dict[str, Any]:
         """Ensure form_assessment is a dict."""
         if v is None:
             return {}
@@ -366,7 +366,7 @@ class H2HAnalysis(BaseModel):
 
     @field_validator("h2h_dominance", mode="before")
     @classmethod
-    def ensure_h2h_dominance(cls, v: Any) -> dict:
+    def ensure_h2h_dominance(cls, v: Any) -> dict[str, Any]:
         """Ensure h2h_dominance is a dict."""
         if v is None:
             return {}
@@ -376,7 +376,7 @@ class H2HAnalysis(BaseModel):
 
     @field_validator("pattern_analysis", mode="before")
     @classmethod
-    def ensure_pattern_analysis(cls, v: Any) -> dict:
+    def ensure_pattern_analysis(cls, v: Any) -> dict[str, Any]:
         """Ensure pattern_analysis is a dict."""
         if v is None:
             return {}
@@ -385,7 +385,7 @@ class H2HAnalysis(BaseModel):
         return {}
 
 
-def validate_injury_analysis(raw_result: dict) -> InjuryAnalysis:
+def validate_injury_analysis(raw_result: dict[str, Any]) -> InjuryAnalysis:
     """Validate and parse raw LLM injury analysis result."""
     try:
         return InjuryAnalysis.model_validate(raw_result)
@@ -394,7 +394,7 @@ def validate_injury_analysis(raw_result: dict) -> InjuryAnalysis:
         return InjuryAnalysis(reasoning="Validation failed")
 
 
-def validate_sentiment_analysis(raw_result: dict) -> SentimentAnalysis:
+def validate_sentiment_analysis(raw_result: dict[str, Any]) -> SentimentAnalysis:
     """Validate and parse raw LLM sentiment analysis result."""
     try:
         return SentimentAnalysis.model_validate(raw_result)
@@ -403,7 +403,7 @@ def validate_sentiment_analysis(raw_result: dict) -> SentimentAnalysis:
         return SentimentAnalysis(reasoning="Validation failed")
 
 
-def validate_form_analysis(raw_result: dict) -> FormAnalysis:
+def validate_form_analysis(raw_result: dict[str, Any]) -> FormAnalysis:
     """Validate and parse raw LLM form analysis result."""
     try:
         return FormAnalysis.model_validate(raw_result)
@@ -412,7 +412,7 @@ def validate_form_analysis(raw_result: dict) -> FormAnalysis:
         return FormAnalysis(reasoning="Validation failed")
 
 
-def validate_h2h_analysis(raw_result: dict) -> H2HAnalysis:
+def validate_h2h_analysis(raw_result: dict[str, Any]) -> H2HAnalysis:
     """Validate and parse raw LLM H2H analysis result."""
     try:
         return H2HAnalysis.model_validate(raw_result)

@@ -107,7 +107,7 @@ def get_rate_limit_key(request: Request) -> str:
                 return f"user:{user_id}"
 
     # Fallback to IP-based limiting for unauthenticated requests
-    return get_remote_address(request)
+    return str(get_remote_address(request))
 
 
 # --- Rate limit tier definitions ---

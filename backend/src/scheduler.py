@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 scheduler: AsyncIOScheduler | None = None
 
 
-async def sync_weekly_task():
+async def sync_weekly_task() -> None:
     """Weekly sync: matches + standings + team stats."""
     from src.api.routes.sync import (
         _recalculate_all_team_stats,
@@ -61,7 +61,7 @@ async def sync_weekly_task():
         logger.error(f"Weekly sync failed: {e}")
 
 
-async def generate_daily_picks_task():
+async def generate_daily_picks_task() -> None:
     """Daily task: generate predictions for today's matches at 09:00 UTC."""
     from src.db.services.prediction_service import PredictionService
 
@@ -76,11 +76,12 @@ async def generate_daily_picks_task():
         logger.error(f"Daily picks generation failed: {e}")
 
 
-async def sync_daily_scores_task():
+async def sync_daily_scores_task() -> None:
     """Daily task: sync finished match scores."""
     from src.api.routes.sync import _recalculate_all_team_stats
+    from src.core.constants import COMPETITION_NAMES as COMPETITIONS
     from src.core.exceptions import FootballDataAPIError, RateLimitError
-    from src.data.sources.football_data import COMPETITIONS, get_football_data_client
+    from src.data.sources.football_data import get_football_data_client
     from src.db.services.match_service import MatchService
     from src.db.services.prediction_service import PredictionService
 
@@ -123,7 +124,7 @@ async def sync_daily_scores_task():
         logger.error(f"Daily sync failed: {e}")
 
 
-def init_scheduler():
+def init_scheduler() -> AsyncIOScheduler | None:
     """Initialize and start the background scheduler."""
     global scheduler
 
@@ -169,7 +170,7 @@ def init_scheduler():
     return scheduler
 
 
-def shutdown_scheduler():
+def shutdown_scheduler() -> None:
     """Shutdown the scheduler gracefully."""
     global scheduler
     if scheduler:
@@ -178,7 +179,7 @@ def shutdown_scheduler():
         logger.info("Scheduler shutdown complete")
 
 
-def get_scheduler_status() -> dict:
+def get_scheduler_status() -> dict[str, object]:
     """Get scheduler status and next run times."""
     if not scheduler:
         return {"running": False, "jobs": []}
