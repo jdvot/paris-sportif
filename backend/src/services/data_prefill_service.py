@@ -387,6 +387,62 @@ class DataPrefillService:
                         away_congestion=float(away.fixture_congestion or 0.5),
                     )
 
+                    # Build explanation from real stats
+                    home_elo = float(home.elo_rating or 1500)
+                    away_elo = float(away.elo_rating or 1500)
+                    elo_diff = home_elo - away_elo
+                    explanation_parts: list[str] = []
+                    key_factors: list[str] = []
+                    risk_factors: list[str] = []
+
+                    # ELO-based insight
+                    if abs(elo_diff) > 100:
+                        stronger = match.home_team if elo_diff > 0 else match.away_team
+                        explanation_parts.append(
+                            f"{stronger} has a significant ELO advantage "
+                            f"({home_elo:.0f} vs {away_elo:.0f})"
+                        )
+                        key_factors.append(f"ELO advantage: {abs(elo_diff):.0f} points")
+
+                    # Form insight
+                    home_form = float(home.form_score or 0.5)
+                    away_form = float(away.form_score or 0.5)
+                    if home_form > 0.65:
+                        key_factors.append(f"{match.home_team} in strong form ({home_form:.0%})")
+                    elif home_form < 0.35:
+                        risk_factors.append(f"{match.home_team} in poor form ({home_form:.0%})")
+                    if away_form > 0.65:
+                        key_factors.append(f"{match.away_team} in strong form ({away_form:.0%})")
+                    elif away_form < 0.35:
+                        risk_factors.append(f"{match.away_team} in poor form ({away_form:.0%})")
+
+                    # Rest days / congestion
+                    home_rest = float(home.rest_days or 3)
+                    away_rest = float(away.rest_days or 3)
+                    if home_rest <= 2 or away_rest <= 2:
+                        tired = match.home_team if home_rest < away_rest else match.away_team
+                        min_rest = min(home_rest, away_rest)
+                        risk_factors.append(f"{tired} has limited rest ({min_rest:.0f} days)")
+
+                    # Probability-based explanation
+                    max_prob = max(pred.home_win_prob, pred.draw_prob, pred.away_win_prob)
+                    if pred.home_win_prob == max_prob:
+                        explanation_parts.append(
+                            f"Models favor {match.home_team} "
+                            f"({pred.home_win_prob:.0%} win probability)"
+                        )
+                    elif pred.away_win_prob == max_prob:
+                        explanation_parts.append(
+                            f"Models favor {match.away_team} "
+                            f"({pred.away_win_prob:.0%} win probability)"
+                        )
+                    else:
+                        explanation_parts.append(
+                            f"Closely contested match " f"(draw probability: {pred.draw_prob:.0%})"
+                        )
+
+                    explanation = ". ".join(explanation_parts) + "." if explanation_parts else ""
+
                     # Save prediction
                     await PredictionService.save_prediction_from_api(
                         {
@@ -401,10 +457,9 @@ class DataPrefillService:
                             "away_win_prob": pred.away_win_prob,
                             "confidence": pred.confidence,
                             "recommendation": pred.recommended_bet,
-                            "explanation": (
-                                f"Prédiction pré-calculée pour "
-                                f"{match.home_team} vs {match.away_team}"
-                            ),
+                            "explanation": explanation,
+                            "key_factors": key_factors,
+                            "risk_factors": risk_factors,
                         }
                     )
                     generated += 1

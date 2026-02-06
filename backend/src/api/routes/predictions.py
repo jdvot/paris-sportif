@@ -11,18 +11,15 @@ See /src/prediction_engine/ensemble_advanced.py for details.
 
 import json
 import logging
-import random
 from datetime import datetime, timedelta
 from typing import Any, Literal, cast
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from groq import Groq
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.schemas import ErrorResponse
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.cache import cache_get, cache_set
-from src.core.config import settings
 from src.core.exceptions import FootballDataAPIError, RateLimitError
 from src.core.messages import api_msg, detect_language_from_header
 from src.core.rate_limit import RATE_LIMITS, limiter
@@ -32,13 +29,12 @@ from src.data.sources.football_data import MatchData, get_football_data_client
 from src.db.repositories import get_uow
 from src.db.services.match_service import MatchService
 from src.db.services.prediction_service import PredictionService
-from src.llm.prompts_advanced import get_prediction_analysis_prompt
 from src.prediction_engine.ensemble_advanced import advanced_ensemble_predictor
 from src.prediction_engine.multi_markets import get_multi_markets_prediction
 from src.prediction_engine.rag_enrichment import get_rag_enrichment
 
 # Data source type for beta feedback
-DataSourceType = Literal["live_api", "cache", "database", "fallback"]
+DataSourceType = Literal["live_api", "cache", "database"]
 
 logger = logging.getLogger(__name__)
 
@@ -66,14 +62,6 @@ class DataSourceInfo(BaseModel):
 
 # Redis cache TTL for predictions (30 minutes for quick access)
 PREDICTION_CACHE_TTL = 1800  # 30 minutes
-
-
-# Groq client initialization
-def get_groq_client() -> Groq:
-    """Get Groq API client with configured API key."""
-    if not settings.groq_api_key:
-        raise ValueError("GROQ_API_KEY not configured in environment")
-    return Groq(api_key=settings.groq_api_key)
 
 
 async def _get_prediction_from_redis(match_id: int) -> dict[str, Any] | None:
@@ -109,10 +97,10 @@ class PredictionProbabilities(BaseModel):
 class ModelContributions(BaseModel):
     """Individual model contributions to the prediction."""
 
-    poisson: PredictionProbabilities
-    xgboost: PredictionProbabilities
-    xg_model: PredictionProbabilities
-    elo: PredictionProbabilities
+    poisson: PredictionProbabilities | None = None
+    xgboost: PredictionProbabilities | None = None
+    xg_model: PredictionProbabilities | None = None
+    elo: PredictionProbabilities | None = None
 
 
 class LLMAdjustments(BaseModel):
@@ -327,15 +315,7 @@ class DailyStatsResponse(BaseModel):
 
 # Import centralized competition names
 from src.core.constants import COMPETITION_NAMES
-from src.core.messages import (
-    get_key_factors_templates,
-    get_label,
-    get_risk_factors_templates,
-)
-
-# Legacy aliases for backward compatibility (used in fallback generator)
-KEY_FACTORS_TEMPLATES = get_key_factors_templates("fr")
-RISK_FACTORS_TEMPLATES = get_risk_factors_templates("fr")
+from src.core.messages import get_label
 
 
 async def _generate_llm_explanation(
@@ -567,140 +547,11 @@ def _generate_fallback_explanation(
     else:
         # No real data available - be transparent
         if is_fr:
-            explanation = (
-                "Analyse LLM indisponible. "
-                "Prediction basee uniquement sur les modeles statistiques."
-            )
-            key_factors = ["Donnees detaillees non disponibles"]
-            risk_factors = ["Analyse qualitative indisponible"]
+            explanation = "Prediction basee uniquement sur les modeles statistiques."
         else:
-            explanation = "LLM analysis unavailable. Prediction based on statistical models only."
-            key_factors = ["Detailed data unavailable"]
-            risk_factors = ["Qualitative analysis unavailable"]
+            explanation = "Prediction based on statistical models only."
 
     return explanation, key_factors[:5], risk_factors[:3]
-
-
-def _get_groq_prediction(
-    home_team: str,
-    away_team: str,
-    competition: str,
-    home_current_form: str = "",
-    away_current_form: str = "",
-    home_injuries: str = "",
-    away_injuries: str = "",
-) -> dict[str, Any] | None:
-    """
-    Get match prediction from Groq API using advanced analysis prompt.
-
-    Returns a dict with probabilities, confidence, injury impacts, and reasoning.
-    Returns None if API fails.
-    """
-    try:
-        if not settings.groq_api_key:
-            logger.warning("GROQ_API_KEY not configured, will use fallback predictions")
-            return None
-
-        client = get_groq_client()
-
-        # Use advanced analysis prompt
-        prompt = get_prediction_analysis_prompt(
-            home_team=home_team,
-            away_team=away_team,
-            competition=competition,
-            home_current_form=home_current_form,
-            away_current_form=away_current_form,
-            home_injuries=home_injuries,
-            away_injuries=away_injuries,
-        )
-
-        message = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",  # Updated from deprecated mixtral-8x7b-32768
-            max_tokens=1000,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-        )
-
-        response_text = message.choices[0].message.content.strip()
-
-        # Try to extract JSON from the response
-        try:
-            # Find JSON in the response
-            start_idx = response_text.find("{")
-            end_idx = response_text.rfind("}") + 1
-
-            if start_idx >= 0 and end_idx > start_idx:
-                json_str = response_text[start_idx:end_idx]
-                prediction_data = json.loads(json_str)
-
-                # Support both old and new formats
-                home_win = prediction_data.get("home_win_probability") or prediction_data.get(
-                    "home_win", 0.33
-                )
-                draw = prediction_data.get("draw_probability") or prediction_data.get("draw", 0.34)
-                away_win = prediction_data.get("away_win_probability") or prediction_data.get(
-                    "away_win", 0.33
-                )
-
-                # Validate probabilities sum to approximately 1.0
-                total = home_win + draw + away_win
-                if abs(total - 1.0) < 0.01:  # Allow small floating point errors
-                    # Normalize if needed
-                    if total > 0:
-                        home_win /= total
-                        draw /= total
-                        away_win /= total
-
-                    result = {
-                        "home_win": round(home_win, 4),
-                        "draw": round(draw, 4),
-                        "away_win": round(away_win, 4),
-                        "reasoning": prediction_data.get("reasoning", ""),
-                        "confidence_level": prediction_data.get("confidence_level", "medium"),
-                        "injury_impact_home": prediction_data.get("injury_impact_home", 0.0),
-                        "injury_impact_away": prediction_data.get("injury_impact_away", 0.0),
-                    }
-                    return result
-        except (json.JSONDecodeError, ValueError, AttributeError, TypeError) as e:
-            logger.warning(f"Failed to parse Groq response: {e}, Text: {response_text[:100]}")
-            return None
-
-        return None
-
-    except Exception as e:
-        logger.error(f"Error calling Groq API: {e}")
-        return None
-
-
-def _generate_realistic_probabilities(
-    match_strength_ratio: float,
-) -> tuple[float, float, float]:
-    """Generate realistic probabilities based on expected strength ratio."""
-    # match_strength_ratio: 1.0 = balanced, > 1.0 = home stronger, < 1.0 = away stronger
-
-    if match_strength_ratio > 1.1:
-        # Home advantage strong
-        home = random.uniform(0.50, 0.68)
-        draw = random.uniform(0.20, 0.30)
-        away = 1.0 - home - draw
-    elif match_strength_ratio < 0.9:
-        # Away advantage
-        away = random.uniform(0.40, 0.55)
-        draw = random.uniform(0.22, 0.32)
-        home = 1.0 - away - draw
-    else:
-        # Balanced
-        home = random.uniform(0.35, 0.45)
-        away = random.uniform(0.35, 0.45)
-        draw = 1.0 - home - away
-
-    # Normalize to ensure exactly 1.0
-    total = home + draw + away
-    return round(home / total, 4), round(draw / total, 4), round(away / total, 4)
 
 
 def _get_recommended_bet(
@@ -964,29 +815,12 @@ async def _generate_prediction_from_api_match(
         )
 
     except Exception as e:
-        logger.warning(f"Ensemble prediction failed, using fallback: {e}")
-        # Fallback to Groq or random if ensemble fails
-        groq_prediction = _get_groq_prediction(home_team, away_team, competition)
+        logger.error(f"Ensemble prediction failed for match {api_match.id}: {e}")
+        raise
 
-        if groq_prediction:
-            home_prob = groq_prediction["home_win"]
-            draw_prob = groq_prediction["draw"]
-            away_prob = groq_prediction["away_win"]
-        else:
-            random.seed(api_match.id)
-            strength_ratio = random.uniform(0.75, 1.35)
-            home_prob, draw_prob, away_prob = _generate_realistic_probabilities(strength_ratio)
-            random.seed()
-
-        recommended_bet = _get_recommended_bet(home_prob, draw_prob, away_prob)
-        confidence = round(random.uniform(0.60, 0.75), 3)
-        model_agreement = 0.5
-
-    # Generate value score based on confidence and model agreement
-    # Higher agreement = higher value potential
-    random.seed(api_match.id)
+    # Generate value score deterministically from confidence and model agreement
     base_value = 0.05 + (model_agreement * 0.10)  # 5-15% based on agreement
-    value_score = round(base_value + random.uniform(0.0, 0.05), 3)
+    value_score = round(base_value + (confidence * 0.03), 3)
 
     # Generate REAL explanation and factors using LLM + RAG context
     explanation, key_factors, risk_factors = await _generate_llm_explanation(
@@ -1197,9 +1031,6 @@ async def _generate_prediction_from_api_match(
                 total_adjustment=0.0,
                 reasoning=api_msg("contextual_data_unavailable", lang),
             )
-
-    # Reset random seed
-    random.seed()
 
     # Calculate multi-markets predictions
     multi_markets = None
@@ -1928,191 +1759,6 @@ async def _get_match_info_from_db(match_id: int) -> dict[str, Any] | None:
     return None
 
 
-def _generate_fallback_prediction(
-    match_id: int,
-    include_model_details: bool = False,
-    fallback_reason: str = "External API unavailable",
-    is_rate_limit: bool = False,
-    retry_after: int | None = None,
-    home_team: str | None = None,
-    away_team: str | None = None,
-    competition: str | None = None,
-    match_date: datetime | None = None,
-    lang: str = "fr",
-) -> PredictionResponse:
-    """
-    Generate a basic prediction when external API fails.
-    Uses deterministic values based on match_id to ensure consistency.
-    """
-    logger.info(f"Generating fallback prediction for match {match_id} - Reason: {fallback_reason}")
-
-    random.seed(match_id)  # Deterministic randomness based on match_id
-
-    # Generate consistent probabilities
-    home_base = random.uniform(0.35, 0.50)
-    draw_base = random.uniform(0.22, 0.32)
-    away_base = 1.0 - home_base - draw_base
-
-    home_prob = round(home_base, 4)
-    draw_prob = round(draw_base, 4)
-    away_prob = round(away_base, 4)
-
-    # Get recommended bet
-    recommended_bet: Literal["home_win", "draw", "away_win"]
-    if home_prob >= away_prob and home_prob >= draw_prob:
-        recommended_bet = "home_win"
-    elif away_prob >= home_prob and away_prob >= draw_prob:
-        recommended_bet = "away_win"
-    else:
-        recommended_bet = "draw"
-
-    # Generate confidence (60-75% for fallback)
-    confidence = round(random.uniform(0.60, 0.75), 3)
-    value_score = round(random.uniform(0.05, 0.12), 3)
-
-    # Select key factors (language-aware)
-    kf_templates = get_key_factors_templates(lang)
-    rf_templates = get_risk_factors_templates(lang)
-    if recommended_bet == "home_win":
-        key_factors = random.sample(kf_templates["home_dominant"], 3)
-    elif recommended_bet == "away_win":
-        key_factors = random.sample(kf_templates["away_strong"], 3)
-    else:
-        key_factors = random.sample(kf_templates["balanced"], 3)
-
-    risk_factors = random.sample(rf_templates, 2)
-
-    if lang == "en":
-        explanation = (
-            "Analysis based on statistical data. Prediction generated in degraded mode "
-            "(external API temporarily unavailable)."
-        )
-    else:
-        explanation = (
-            "Analyse basée sur des données statistiques. Prédiction générée en mode "
-            "dégradé (API externe temporairement indisponible)."
-        )
-
-    # No model contributions or LLM adjustments for fallback predictions
-    # (returning fabricated data would mislead users)
-    model_contributions = None
-    llm_adjustments = None
-
-    # Multi-markets for fallback
-    multi_markets = None
-    if include_model_details:
-        try:
-            exp_home = 1.0 + (home_prob - 0.33) * 2.0
-            exp_away = 1.0 + (away_prob - 0.33) * 2.0
-            exp_home = max(0.5, min(3.5, exp_home))
-            exp_away = max(0.5, min(3.0, exp_away))
-
-            mm_prediction = get_multi_markets_prediction(
-                expected_home_goals=exp_home,
-                expected_away_goals=exp_away,
-                home_win_prob=home_prob,
-                draw_prob=draw_prob,
-                away_win_prob=away_prob,
-            )
-
-            multi_markets = MultiMarketsResponse(
-                over_under_15=OverUnderResponse(
-                    line=mm_prediction.over_under_15.line,
-                    over_prob=mm_prediction.over_under_15.over_prob,
-                    under_prob=mm_prediction.over_under_15.under_prob,
-                    over_odds=mm_prediction.over_under_15.over_odds,
-                    under_odds=mm_prediction.over_under_15.under_odds,
-                    over_value=mm_prediction.over_under_15.over_value,
-                    under_value=mm_prediction.over_under_15.under_value,
-                    recommended=mm_prediction.over_under_15.recommended,
-                ),
-                over_under_25=OverUnderResponse(
-                    line=mm_prediction.over_under_25.line,
-                    over_prob=mm_prediction.over_under_25.over_prob,
-                    under_prob=mm_prediction.over_under_25.under_prob,
-                    over_odds=mm_prediction.over_under_25.over_odds,
-                    under_odds=mm_prediction.over_under_25.under_odds,
-                    over_value=mm_prediction.over_under_25.over_value,
-                    under_value=mm_prediction.over_under_25.under_value,
-                    recommended=mm_prediction.over_under_25.recommended,
-                ),
-                over_under_35=OverUnderResponse(
-                    line=mm_prediction.over_under_35.line,
-                    over_prob=mm_prediction.over_under_35.over_prob,
-                    under_prob=mm_prediction.over_under_35.under_prob,
-                    over_odds=mm_prediction.over_under_35.over_odds,
-                    under_odds=mm_prediction.over_under_35.under_odds,
-                    over_value=mm_prediction.over_under_35.over_value,
-                    under_value=mm_prediction.over_under_35.under_value,
-                    recommended=mm_prediction.over_under_35.recommended,
-                ),
-                btts=BttsResponse(
-                    yes_prob=mm_prediction.btts.yes_prob,
-                    no_prob=mm_prediction.btts.no_prob,
-                    yes_odds=mm_prediction.btts.yes_odds,
-                    no_odds=mm_prediction.btts.no_odds,
-                    recommended=mm_prediction.btts.recommended,
-                ),
-                double_chance=DoubleChanceResponse(
-                    home_or_draw=mm_prediction.double_chance.home_or_draw_prob,
-                    away_or_draw=mm_prediction.double_chance.away_or_draw_prob,
-                    home_or_away=mm_prediction.double_chance.home_or_away_prob,
-                    home_or_draw_odds=mm_prediction.double_chance.home_or_draw_odds,
-                    away_or_draw_odds=mm_prediction.double_chance.away_or_draw_odds,
-                    home_or_away_odds=mm_prediction.double_chance.home_or_away_odds,
-                    recommended=mm_prediction.double_chance.recommended,
-                ),
-                correct_score=CorrectScoreResponse(
-                    scores=mm_prediction.correct_score.scores,
-                    most_likely=mm_prediction.correct_score.most_likely,
-                    most_likely_prob=mm_prediction.correct_score.most_likely_prob,
-                ),
-                expected_home_goals=mm_prediction.expected_home_goals,
-                expected_away_goals=mm_prediction.expected_away_goals,
-                expected_total_goals=mm_prediction.expected_total_goals,
-            )
-        except Exception as e:
-            logger.warning(f"Failed to calculate fallback multi-markets: {e}")
-            multi_markets = None
-
-    random.seed()  # Reset random seed
-
-    # Build data source info for beta feedback
-    data_source = DataSourceInfo(
-        source="fallback",
-        is_fallback=True,
-        warning=api_msg("estimated_prediction", lang, reason=fallback_reason),
-        warning_code="EXTERNAL_API_RATE_LIMIT" if is_rate_limit else "EXTERNAL_API_ERROR",
-        details=api_msg("fallback_data_warning", lang),
-        retry_after_seconds=retry_after,
-    )
-
-    return PredictionResponse(
-        match_id=match_id,
-        home_team=home_team or "Unknown Home Team",
-        away_team=away_team or "Unknown Away Team",
-        competition=competition or "Unknown",
-        match_date=match_date or (datetime.now() + timedelta(hours=2)),
-        probabilities=PredictionProbabilities(
-            home_win=home_prob,
-            draw=draw_prob,
-            away_win=away_prob,
-        ),
-        recommended_bet=recommended_bet,
-        confidence=confidence,
-        value_score=value_score,
-        explanation=explanation,
-        key_factors=key_factors,
-        risk_factors=risk_factors,
-        model_contributions=model_contributions,
-        llm_adjustments=llm_adjustments,
-        multi_markets=multi_markets,
-        created_at=datetime.now(),
-        is_daily_pick=False,
-        data_source=data_source,
-    )
-
-
 @router.get(
     "/{match_id}",
     response_model=PredictionResponse,
@@ -2184,13 +1830,9 @@ async def get_prediction(
                 cached.get("predicted_outcome", "draw"), "draw"
             )
 
-            # Use cached key_factors and risk_factors if available, fallback to defaults
-            cached_key_factors = cached.get("key_factors")
-            cached_risk_factors = cached.get("risk_factors")
-            key_factors = (
-                cached_key_factors if cached_key_factors else ["Statistical analysis", "ML models"]
-            )
-            risk_factors = cached_risk_factors if cached_risk_factors else ["Cached data"]
+            # Use cached key_factors and risk_factors if available
+            key_factors = cached.get("key_factors") or []
+            risk_factors = cached.get("risk_factors") or []
 
             # Build model_contributions and llm_adjustments from cached data
             model_contributions = None
@@ -2205,30 +1847,22 @@ async def get_prediction(
                             poisson=(
                                 PredictionProbabilities(**cached_model_details["poisson"])
                                 if cached_model_details.get("poisson")
-                                else PredictionProbabilities(
-                                    home_win=0.33, draw=0.34, away_win=0.33
-                                )
+                                else None
                             ),
                             xgboost=(
                                 PredictionProbabilities(**cached_model_details["xgboost"])
                                 if cached_model_details.get("xgboost")
-                                else PredictionProbabilities(
-                                    home_win=0.33, draw=0.34, away_win=0.33
-                                )
+                                else None
                             ),
                             xg_model=(
                                 PredictionProbabilities(**cached_model_details["xg_model"])
                                 if cached_model_details.get("xg_model")
-                                else PredictionProbabilities(
-                                    home_win=0.33, draw=0.34, away_win=0.33
-                                )
+                                else None
                             ),
                             elo=(
                                 PredictionProbabilities(**cached_model_details["elo"])
                                 if cached_model_details.get("elo")
-                                else PredictionProbabilities(
-                                    home_win=0.33, draw=0.34, away_win=0.33
-                                )
+                                else None
                             ),
                         )
                     except Exception as e:
@@ -2263,7 +1897,7 @@ async def get_prediction(
                 confidence=safe_float(cached.get("confidence"), 0.5),
                 recommended_bet=recommended,
                 value_score=safe_float(cached.get("value_score"), 0.10),
-                explanation=cached.get("explanation", "Cached prediction"),
+                explanation=cached.get("explanation") or "",
                 key_factors=key_factors,
                 risk_factors=risk_factors,
                 model_contributions=model_contributions,
@@ -2282,21 +1916,14 @@ async def get_prediction(
     except Exception as e:
         logger.warning(f"DB cache lookup failed for match {match_id}: {e}")
 
-    # 3. No cache - generate prediction from DB data (no external API call)
+    # 3. No cache - prediction not yet generated
     match_info = await _get_match_info_from_db(match_id)
     if not match_info:
         raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
 
-    lang = _detect_language(request)
-    return _generate_fallback_prediction(
-        match_id,
-        include_model_details,
-        fallback_reason="Prediction not yet generated. Please check back soon.",
-        home_team=match_info.get("home_team"),
-        away_team=match_info.get("away_team"),
-        competition=match_info.get("competition"),
-        match_date=match_info.get("match_date"),
-        lang=lang,
+    raise HTTPException(
+        status_code=404,
+        detail="Prediction not yet available for this match. It will be generated automatically.",
     )
 
 
