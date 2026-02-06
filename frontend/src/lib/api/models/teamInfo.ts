@@ -14,5 +14,6 @@ export interface TeamInfo {
   name: string;
   short_name: string;
   logo_url?: string | null;
-  elo_rating?: number;
+  elo_rating?: number | null;
+  form?: string | null;
 }

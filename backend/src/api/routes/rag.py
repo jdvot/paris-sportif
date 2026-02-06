@@ -86,17 +86,19 @@ async def get_football_news(
             teams = service._get_competition_teams(competition)[:5]  # Top 5 teams
             for t in teams:
                 team_articles = await service.fetch_team_news_from_api(t, max_articles=3)
-                articles.extend([
-                    NewsArticle(
-                        title=a.title,
-                        source=a.source,
-                        published_at=a.published_at,
-                        url=a.url,
-                        article_type=a.article_type,
-                        team_name=a.team_name,
-                    )
-                    for a in team_articles
-                ])
+                articles.extend(
+                    [
+                        NewsArticle(
+                            title=a.title,
+                            source=a.source,
+                            published_at=a.published_at,
+                            url=a.url,
+                            article_type=a.article_type,
+                            team_name=a.team_name,
+                        )
+                        for a in team_articles
+                    ]
+                )
         else:
             # Fetch general football news
             general_articles = await service.fetch_general_football_news(max_per_source=limit // 3)
@@ -118,7 +120,7 @@ async def get_football_news(
                 return datetime.min
             # Remove timezone info if present for consistent comparison
             dt = article.published_at
-            if hasattr(dt, 'tzinfo') and dt.tzinfo is not None:
+            if hasattr(dt, "tzinfo") and dt.tzinfo is not None:
                 return dt.replace(tzinfo=None)
             return dt
 
@@ -247,7 +249,7 @@ async def get_rag_status(user: PremiumUser) -> RAGStatusResponse:
         return RAGStatusResponse(
             enabled=True,
             groq_configured=rag.llm_client is not None,
-            last_enrichment=None,  # TODO: track this
+            last_enrichment=None,  # Tracking via PAR-189
             total_enrichments=0,
         )
     except Exception as e:

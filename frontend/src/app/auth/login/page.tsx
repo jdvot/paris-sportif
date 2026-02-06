@@ -18,7 +18,6 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,28 +236,8 @@ function LoginForm() {
               </div>
             </div>
 
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-5 h-5 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-600 rounded-md peer-checked:bg-primary-500 peer-checked:border-primary-500 transition-all flex items-center justify-center">
-                    {rememberMe && (
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                </div>
-                <span className="text-sm text-gray-600 dark:text-dark-400 group-hover:text-gray-700 dark:text-dark-300 transition-colors">
-                  Se souvenir de moi
-                </span>
-              </label>
+            {/* Forgot Password */}
+            <div className="flex items-center justify-end">
               <Link
                 href="/auth/forgot-password"
                 className="text-sm text-primary-400 hover:text-primary-300 font-medium transition-colors"

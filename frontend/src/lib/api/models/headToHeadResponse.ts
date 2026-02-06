@@ -5,8 +5,8 @@
  * API de predictions de paris sportifs sur le football europeen
  * OpenAPI spec version: 0.1.0
  */
+import type { DataSourceInfo } from './dataSourceInfo';
 import type { HeadToHeadMatch } from './headToHeadMatch';
-import type { SrcApiRoutesMatchesDataSourceInfo } from './srcApiRoutesMatchesDataSourceInfo';
 
 /**
  * Head-to-head response.
@@ -18,5 +18,5 @@ export interface HeadToHeadResponse {
   away_wins: number;
   avg_goals: number;
   total_matches: number;
-  data_source?: SrcApiRoutesMatchesDataSourceInfo | null;
+  data_source?: DataSourceInfo | null;
 }

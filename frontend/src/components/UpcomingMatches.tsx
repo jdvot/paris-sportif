@@ -1,22 +1,14 @@
 "use client";
 
+import { memo } from "react";
 import { ChevronRight, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { fr, enUS } from "date-fns/locale";
 import { useTranslations, useLocale } from "next-intl";
 import { useGetUpcomingMatches } from "@/lib/api/endpoints/matches/matches";
-import type { Match } from "@/lib/api/models";
-
-const competitionColors: Record<string, string> = {
-  PL: "bg-purple-500",
-  PD: "bg-orange-500",
-  BL1: "bg-red-500",
-  SA: "bg-blue-500",
-  FL1: "bg-green-500",
-  CL: "bg-indigo-500",
-  EL: "bg-amber-500",
-};
+import type { MatchResponse } from "@/lib/api/models";
+import { COMPETITION_COLORS as competitionColors } from "@/lib/constants";
 
 export function UpcomingMatches() {
   const t = useTranslations("upcomingMatches");
@@ -28,7 +20,7 @@ export function UpcomingMatches() {
   );
 
   // Extract matches from response - API returns { data: { matches: [...] }, status: number }
-  const matches = (response?.data as { matches?: Match[] } | undefined)?.matches || [];
+  const matches = (response?.data as { matches?: MatchResponse[] } | undefined)?.matches || [];
 
   if (isLoading) {
     return (
@@ -112,7 +104,7 @@ export function UpcomingMatches() {
   );
 }
 
-function MatchRow({ match, dateLocale }: { match: Match; dateLocale: typeof fr }) {
+const MatchRow = memo(function MatchRow({ match, dateLocale }: { match: MatchResponse; dateLocale: typeof fr }) {
   // Use snake_case properties from Orval types
   const matchDate = new Date(match.match_date);
   const homeTeam = typeof match.home_team === 'string' ? match.home_team : match.home_team.name;
@@ -151,4 +143,4 @@ function MatchRow({ match, dateLocale }: { match: Match; dateLocale: typeof fr }
       </div>
     </Link>
   );
-}
+});

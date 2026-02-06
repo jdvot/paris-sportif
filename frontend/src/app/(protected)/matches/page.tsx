@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, memo } from "react";
 import {
   Calendar,
   ChevronRight,
@@ -16,18 +16,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { useGetMatches } from "@/lib/api/endpoints/matches/matches";
 import type { MatchResponse, MatchListResponse } from "@/lib/api/models";
 import { isAuthError } from "@/lib/utils";
-import { getCompetitionName } from "@/lib/constants";
-
-// Competition colors for visual distinction
-const competitionColors: Record<string, string> = {
-  PL: "bg-purple-500",
-  PD: "bg-orange-500",
-  BL1: "bg-red-500",
-  SA: "bg-blue-500",
-  FL1: "bg-green-500",
-  CL: "bg-indigo-500",
-  EL: "bg-amber-500",
-};
+import { getCompetitionName, COMPETITION_COLORS as competitionColors } from "@/lib/constants";
 
 type DateRange = "today" | "tomorrow" | "week" | "next7days" | "custom";
 
@@ -81,16 +70,29 @@ export default function MatchesPage() {
     };
   }, [dateRange, today]);
 
-  // Fetch matches using Orval hook
+  // Check if any matches are currently live to enable auto-refresh
+  const [hasLiveMatches, setHasLiveMatches] = useState(false);
+
+  // Fetch matches using Orval hook - auto-refresh every 60s if live matches exist
   const { data: response, isLoading, error } = useGetMatches(
     dateParams,
-    { query: { staleTime: 0, retry: 2 } }
+    { query: {
+      staleTime: hasLiveMatches ? 30 * 1000 : 5 * 60 * 1000,
+      refetchInterval: hasLiveMatches ? 60 * 1000 : false,
+      retry: 2,
+    } }
   );
 
   // Extract matches from response - API returns { data: { matches: [...] }, status: number }
   const matches = useMemo(() => {
     return (response?.data as MatchListResponse | undefined)?.matches || [];
   }, [response?.data]);
+
+  // Detect live matches for auto-refresh
+  useEffect(() => {
+    const live = matches.some((m) => m.status === "live");
+    setHasLiveMatches(live);
+  }, [matches]);
 
   // Filter matches by selected competitions and status
   const filteredMatches = useMemo(() => {
@@ -373,12 +375,13 @@ export default function MatchesPage() {
   );
 }
 
-function MatchCard({ match, dateLocale }: { match: MatchResponse; dateLocale: Locale }) {
+const MatchCard = memo(function MatchCard({ match, dateLocale }: { match: MatchResponse; dateLocale: Locale }) {
   const t = useTranslations("matches");
   const matchDate = new Date(match.match_date);
   const homeTeamName = getTeamName(match.home_team);
   const awayTeamName = getTeamName(match.away_team);
   const isFinished = match.status === "finished";
+  const isLive = match.status === "live";
 
   return (
     <Link
@@ -389,7 +392,7 @@ function MatchCard({ match, dateLocale }: { match: MatchResponse; dateLocale: Lo
         {/* Competition indicator */}
         <div
           className={`w-2 sm:w-3 h-8 sm:h-10 rounded-full flex-shrink-0 ${
-            competitionColors[match.competition_code] || "bg-dark-500"
+            isLive ? "bg-red-500 animate-pulse" : competitionColors[match.competition_code] || "bg-dark-500"
           }`}
         />
 
@@ -399,8 +402,8 @@ function MatchCard({ match, dateLocale }: { match: MatchResponse; dateLocale: Lo
             <h4 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-300 transition-colors">
               {homeTeamName}
             </h4>
-            {isFinished && match.home_score !== null && match.away_score !== null ? (
-              <span className="text-sm sm:text-base font-bold text-primary-400">
+            {(isFinished || isLive) && match.home_score !== null && match.away_score !== null ? (
+              <span className={`text-sm sm:text-base font-bold ${isLive ? "text-red-500 animate-pulse" : "text-primary-400"}`}>
                 {match.home_score} - {match.away_score}
               </span>
             ) : (
@@ -417,6 +420,12 @@ function MatchCard({ match, dateLocale }: { match: MatchResponse; dateLocale: Lo
             {match.matchday && (
               <span className="text-xs text-gray-500 dark:text-slate-500">
                 {t("matchday", { day: match.matchday })}
+              </span>
+            )}
+            {isLive && (
+              <span className="text-xs font-medium text-red-400 bg-red-500/20 px-2 py-1 rounded animate-pulse flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
+                LIVE
               </span>
             )}
             {isFinished && (
@@ -442,4 +451,4 @@ function MatchCard({ match, dateLocale }: { match: MatchResponse; dateLocale: Lo
       </div>
     </Link>
   );
-}
+});

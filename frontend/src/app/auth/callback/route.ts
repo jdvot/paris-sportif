@@ -11,26 +11,30 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
-
-  console.log("[Callback] OAuth callback - code:", !!code, "next:", next);
+  // Prevent open redirect: only allow relative paths starting with /
+  const rawNext = searchParams.get("next") ?? "/";
+  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
 
   if (code) {
     // Next.js 15: cookies() returns a Promise
     const cookieStore = await cookies();
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.redirect(`${origin}/auth/error`);
+    }
+
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      supabaseUrl,
+      supabaseAnonKey,
       {
         cookies: {
           getAll() {
             return cookieStore.getAll();
           },
           setAll(cookiesToSet) {
-            console.log("[Callback] setAll called with", cookiesToSet.length, "cookies");
             cookiesToSet.forEach(({ name, value, options }) => {
-              console.log("[Callback] Setting cookie:", name);
               cookieStore.set(name, value, options);
             });
           },
@@ -41,8 +45,6 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      console.log("[Callback] Session exchanged successfully");
-
       // Determine redirect URL
       const forwardedHost = request.headers.get("x-forwarded-host");
       const isLocalEnv = process.env.NODE_ENV === "development";
@@ -56,11 +58,9 @@ export async function GET(request: Request) {
         redirectUrl = `${origin}${next}`;
       }
 
-      console.log("[Callback] Redirecting to:", redirectUrl);
       return NextResponse.redirect(redirectUrl);
     }
 
-    console.error("[Callback] Exchange failed:", error.message);
   }
 
   return NextResponse.redirect(`${origin}/auth/error`);

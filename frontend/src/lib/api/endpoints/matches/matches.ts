@@ -23,12 +23,14 @@ import type {
 import type {
   CompetitionsListResponse,
   GetHeadToHeadParams,
+  GetLiveScoresParams,
   GetMatchesParams,
   GetTeamFormParams,
   GetUpcomingMatchesParams,
   HTTPErrorResponse,
   HTTPValidationError,
   HeadToHeadResponse,
+  LiveScoresResponse,
   MatchListResponse,
   MatchResponse,
   StandingsResponse,
@@ -43,7 +45,7 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
 /**
- * Get list of matches with optional filters.
+ * Get list of matches with optional filters from database.
 
 Competition codes:
 - PL: Premier League
@@ -182,7 +184,7 @@ export function useGetMatches<TData = Awaited<ReturnType<typeof getMatches>>, TE
 
 
 /**
- * Get upcoming matches for the next N days.
+ * Get upcoming matches for the next N days from database.
  * @summary Get Upcoming Matches
  */
 export type getUpcomingMatchesResponse200 = {
@@ -312,7 +314,261 @@ export function useGetUpcomingMatches<TData = Awaited<ReturnType<typeof getUpcom
 
 
 /**
- * Get details for a specific match (requires authentication).
+ * Get live match scores with real-time updates.
+
+Returns all currently playing matches with scores, minute, and status.
+Results are cached for 30 seconds to reduce API calls.
+ * @summary Get Live Scores
+ */
+export type getLiveScoresResponse200 = {
+  data: LiveScoresResponse
+  status: 200
+}
+
+export type getLiveScoresResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getLiveScoresResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getLiveScoresResponseSuccess = (getLiveScoresResponse200) & {
+  headers: Headers;
+};
+export type getLiveScoresResponseError = (getLiveScoresResponse401 | getLiveScoresResponse422) & {
+  headers: Headers;
+};
+
+export type getLiveScoresResponse = (getLiveScoresResponseSuccess | getLiveScoresResponseError)
+
+export const getGetLiveScoresUrl = (params?: GetLiveScoresParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/matches/live?${stringifiedParams}` : `/api/v1/matches/live`
+}
+
+export const getLiveScores = async (params?: GetLiveScoresParams, options?: RequestInit): Promise<getLiveScoresResponse> => {
+  
+  return customInstance<getLiveScoresResponse>(getGetLiveScoresUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getGetLiveScoresQueryKey = (params?: GetLiveScoresParams,) => {
+    return [
+    `/api/v1/matches/live`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+    
+export const getGetLiveScoresQueryOptions = <TData = Awaited<ReturnType<typeof getLiveScores>>, TError = HTTPErrorResponse | HTTPValidationError>(params?: GetLiveScoresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLiveScores>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLiveScoresQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLiveScores>>> = ({ signal }) => getLiveScores(params, { signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLiveScores>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetLiveScoresQueryResult = NonNullable<Awaited<ReturnType<typeof getLiveScores>>>
+export type GetLiveScoresQueryError = HTTPErrorResponse | HTTPValidationError
+
+
+export function useGetLiveScores<TData = Awaited<ReturnType<typeof getLiveScores>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: undefined |  GetLiveScoresParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLiveScores>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLiveScores>>,
+          TError,
+          Awaited<ReturnType<typeof getLiveScores>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLiveScores<TData = Awaited<ReturnType<typeof getLiveScores>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetLiveScoresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLiveScores>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLiveScores>>,
+          TError,
+          Awaited<ReturnType<typeof getLiveScores>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLiveScores<TData = Awaited<ReturnType<typeof getLiveScores>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetLiveScoresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLiveScores>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Live Scores
+ */
+
+export function useGetLiveScores<TData = Awaited<ReturnType<typeof getLiveScores>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetLiveScoresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLiveScores>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetLiveScoresQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
+ * Get list of all supported competitions.
+
+Returns competition codes, names, countries, and flag codes for UI display.
+This is the single source of truth for competition data.
+ * @summary Get Competitions
+ */
+export type getCompetitionsResponse200 = {
+  data: CompetitionsListResponse
+  status: 200
+}
+
+export type getCompetitionsResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+    
+export type getCompetitionsResponseSuccess = (getCompetitionsResponse200) & {
+  headers: Headers;
+};
+export type getCompetitionsResponseError = (getCompetitionsResponse401) & {
+  headers: Headers;
+};
+
+export type getCompetitionsResponse = (getCompetitionsResponseSuccess | getCompetitionsResponseError)
+
+export const getGetCompetitionsUrl = () => {
+
+
+  
+
+  return `/api/v1/matches/competitions`
+}
+
+export const getCompetitions = async ( options?: RequestInit): Promise<getCompetitionsResponse> => {
+  
+  return customInstance<getCompetitionsResponse>(getGetCompetitionsUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getGetCompetitionsQueryKey = () => {
+    return [
+    `/api/v1/matches/competitions`
+    ] as const;
+    }
+
+    
+export const getGetCompetitionsQueryOptions = <TData = Awaited<ReturnType<typeof getCompetitions>>, TError = HTTPErrorResponse>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCompetitions>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCompetitionsQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCompetitions>>> = ({ signal }) => getCompetitions({ signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCompetitions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetCompetitionsQueryResult = NonNullable<Awaited<ReturnType<typeof getCompetitions>>>
+export type GetCompetitionsQueryError = HTTPErrorResponse
+
+
+export function useGetCompetitions<TData = Awaited<ReturnType<typeof getCompetitions>>, TError = HTTPErrorResponse>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCompetitions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCompetitions>>,
+          TError,
+          Awaited<ReturnType<typeof getCompetitions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCompetitions<TData = Awaited<ReturnType<typeof getCompetitions>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCompetitions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCompetitions>>,
+          TError,
+          Awaited<ReturnType<typeof getCompetitions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCompetitions<TData = Awaited<ReturnType<typeof getCompetitions>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCompetitions>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Competitions
+ */
+
+export function useGetCompetitions<TData = Awaited<ReturnType<typeof getCompetitions>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCompetitions>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetCompetitionsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
+ * Get details for a specific match from database (requires authentication).
  * @summary Get Match
  */
 export type getMatchResponse200 = {
@@ -435,7 +691,7 @@ export function useGetMatch<TData = Awaited<ReturnType<typeof getMatch>>, TError
 
 
 /**
- * Get head-to-head history for teams in a match.
+ * Get head-to-head history for teams in a match from database.
  * @summary Get Head To Head
  */
 export type getHeadToHeadResponse200 = {
@@ -833,127 +1089,6 @@ export function useGetStandings<TData = Awaited<ReturnType<typeof getStandings>>
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetStandingsQueryOptions(competitionCode,options)
-
-  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-
-
-
-/**
- * Get list of all supported competitions.
-
-Returns competition codes, names, countries, and flag codes for UI display.
-This is the single source of truth for competition data.
- * @summary Get Competitions
- */
-export type getCompetitionsResponse200 = {
-  data: CompetitionsListResponse
-  status: 200
-}
-
-export type getCompetitionsResponse401 = {
-  data: HTTPErrorResponse
-  status: 401
-}
-    
-export type getCompetitionsResponseSuccess = (getCompetitionsResponse200) & {
-  headers: Headers;
-};
-export type getCompetitionsResponseError = (getCompetitionsResponse401) & {
-  headers: Headers;
-};
-
-export type getCompetitionsResponse = (getCompetitionsResponseSuccess | getCompetitionsResponseError)
-
-export const getGetCompetitionsUrl = () => {
-
-
-  
-
-  return `/api/v1/matches/competitions`
-}
-
-export const getCompetitions = async ( options?: RequestInit): Promise<getCompetitionsResponse> => {
-  
-  return customInstance<getCompetitionsResponse>(getGetCompetitionsUrl(),
-  {      
-    ...options,
-    method: 'GET'
-    
-    
-  }
-);}
-
-
-
-
-
-export const getGetCompetitionsQueryKey = () => {
-    return [
-    `/api/v1/matches/competitions`
-    ] as const;
-    }
-
-    
-export const getGetCompetitionsQueryOptions = <TData = Awaited<ReturnType<typeof getCompetitions>>, TError = HTTPErrorResponse>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCompetitions>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetCompetitionsQueryKey();
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCompetitions>>> = ({ signal }) => getCompetitions({ signal, ...requestOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCompetitions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
-}
-
-export type GetCompetitionsQueryResult = NonNullable<Awaited<ReturnType<typeof getCompetitions>>>
-export type GetCompetitionsQueryError = HTTPErrorResponse
-
-
-export function useGetCompetitions<TData = Awaited<ReturnType<typeof getCompetitions>>, TError = HTTPErrorResponse>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCompetitions>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getCompetitions>>,
-          TError,
-          Awaited<ReturnType<typeof getCompetitions>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetCompetitions<TData = Awaited<ReturnType<typeof getCompetitions>>, TError = HTTPErrorResponse>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCompetitions>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getCompetitions>>,
-          TError,
-          Awaited<ReturnType<typeof getCompetitions>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetCompetitions<TData = Awaited<ReturnType<typeof getCompetitions>>, TError = HTTPErrorResponse>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCompetitions>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/**
- * @summary Get Competitions
- */
-
-export function useGetCompetitions<TData = Awaited<ReturnType<typeof getCompetitions>>, TError = HTTPErrorResponse>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCompetitions>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient 
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-
-  const queryOptions = getGetCompetitionsQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

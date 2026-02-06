@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Card,
   CardContent,
@@ -17,16 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import {
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
-} from "recharts";
+import dynamic from "next/dynamic";
 import {
   TrendingUp,
   TrendingDown,
@@ -36,6 +28,8 @@ import {
   Loader2,
   AlertCircle,
 } from "lucide-react";
+
+const DashboardChart = dynamic(() => import("@/components/DashboardChart").then(m => ({ default: m.DashboardChart })), { ssr: false });
 import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
 import type { PredictionStatsResponse } from "@/lib/api/models";
 import { getCompetitionName } from "@/lib/constants";
@@ -52,6 +46,7 @@ const defaultStats = {
 };
 
 export default function DashboardPage() {
+  const t = useTranslations("dashboard");
   const [period, setPeriod] = useState("30");
 
   // Fetch real stats from API
@@ -96,30 +91,30 @@ export default function DashboardPage() {
 
   const statCards = [
     {
-      title: "Total Predictions",
+      title: t("totalPredictions"),
       value: totalPredictions,
       icon: Target,
-      description: pending > 0 ? `${pending} pending` : "All verified",
+      description: pending > 0 ? t("pending", { count: pending }) : t("allVerified"),
     },
     {
-      title: "Win Rate",
+      title: t("winRate"),
       value: verifiedPredictions > 0 ? `${(accuracy * 100).toFixed(1)}%` : "N/A",
       icon: Trophy,
-      description: verifiedPredictions > 0 ? `${won}W - ${lost}L` : "No verified bets",
+      description: verifiedPredictions > 0 ? `${won}W - ${lost}L` : t("noVerifiedBets"),
       positive: accuracy > 0.5,
     },
     {
-      title: "ROI",
+      title: t("roi"),
       value: verifiedPredictions > 0 ? `${roi > 0 ? "+" : ""}${roi.toFixed(1)}%` : "N/A",
       icon: roi >= 0 ? TrendingUp : TrendingDown,
-      description: "Return on investment",
+      description: t("roiDesc"),
       positive: roi > 0,
     },
     {
-      title: "Est. Profit",
+      title: t("estProfit"),
       value: verifiedPredictions > 0 ? `€${profit.toFixed(2)}` : "N/A",
       icon: DollarSign,
-      description: `Staked: €${totalStake.toFixed(0)}`,
+      description: t("staked", { amount: `€${totalStake.toFixed(0)}` }),
       positive: profit > 0,
     },
   ];
@@ -129,7 +124,7 @@ export default function DashboardPage() {
       <div className="container mx-auto py-6 flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading statistics...</p>
+          <p className="text-muted-foreground">{t("loading")}</p>
         </div>
       </div>
     );
@@ -142,9 +137,9 @@ export default function DashboardPage() {
           <CardContent className="p-6 flex items-start gap-4">
             <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0" />
             <div>
-              <h3 className="font-semibold text-red-500">Error loading statistics</h3>
+              <h3 className="font-semibold text-red-500">{t("errorTitle")}</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Unable to fetch prediction statistics. Please try again later.
+                {t("errorMessage")}
               </p>
             </div>
           </CardContent>
@@ -157,20 +152,20 @@ export default function DashboardPage() {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
           <p className="text-muted-foreground">
-            Your betting performance and statistics
+            {t("subtitle")}
           </p>
         </div>
         <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select period" />
+          <SelectTrigger className="w-[180px] focus:ring-2 focus:ring-primary focus:ring-offset-2">
+            <SelectValue placeholder={t("selectPeriod")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-            <SelectItem value="90">Last 90 days</SelectItem>
-            <SelectItem value="365">Last year</SelectItem>
+            <SelectItem value="7">{t("last7days")}</SelectItem>
+            <SelectItem value="30">{t("last30days")}</SelectItem>
+            <SelectItem value="90">{t("last90days")}</SelectItem>
+            <SelectItem value="365">{t("lastYear")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -212,9 +207,9 @@ export default function DashboardPage() {
         <Card>
           <CardContent className="p-8 text-center">
             <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-semibold text-lg mb-2">No predictions yet</h3>
+            <h3 className="font-semibold text-lg mb-2">{t("noPredictions")}</h3>
             <p className="text-muted-foreground">
-              Start making predictions to see your performance statistics here.
+              {t("noPredictionsDesc")}
             </p>
           </CardContent>
         </Card>
@@ -222,40 +217,25 @@ export default function DashboardPage() {
         <>
           <Tabs defaultValue="competitions" className="space-y-4">
             <TabsList>
-              <TabsTrigger value="competitions">By Competition</TabsTrigger>
+              <TabsTrigger value="competitions" className="focus:ring-2 focus:ring-primary focus:ring-offset-1">
+                {t("byCompetition")}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="competitions" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Performance by Competition</CardTitle>
+                  <CardTitle>{t("performanceByCompetition")}</CardTitle>
                   <CardDescription>
-                    Win rate across different leagues
+                    {t("winRateAcrossLeagues")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="h-[300px]">
                   {byCompetitionData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={byCompetitionData} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => v + "%"} />
-                        <YAxis dataKey="competition" type="category" width={120} className="text-xs" />
-                        <Tooltip
-                          formatter={(value: number) => [value.toFixed(1) + "%", "Win Rate"]}
-                        />
-                        <Bar dataKey="win_rate" radius={[0, 4, 4, 0]}>
-                          {byCompetitionData.map((entry, index) => (
-                            <Cell
-                              key={"cell-" + index}
-                              fill={entry.win_rate >= 60 ? "hsl(var(--chart-1))" : entry.win_rate >= 50 ? "hsl(var(--chart-2))" : "hsl(var(--chart-3))"}
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <DashboardChart data={byCompetitionData} winRateLabel={t("winRate")} />
                   ) : (
                     <div className="h-full flex items-center justify-center text-muted-foreground">
-                      No competition data available
+                      {t("noCompetitionData")}
                     </div>
                   )}
                 </CardContent>
@@ -266,9 +246,9 @@ export default function DashboardPage() {
           {byCompetitionData.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Detailed Statistics</CardTitle>
+                <CardTitle>{t("detailedStats")}</CardTitle>
                 <CardDescription>
-                  Breakdown by competition
+                  {t("breakdownByCompetition")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -280,7 +260,7 @@ export default function DashboardPage() {
                     >
                       <div className="flex items-center gap-3">
                         <div className="font-medium">{comp.competition}</div>
-                        <Badge variant="outline">{comp.total} picks</Badge>
+                        <Badge variant="outline">{t("picks", { count: comp.total })}</Badge>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-sm">

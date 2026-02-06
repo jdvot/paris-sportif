@@ -216,19 +216,19 @@ async def main() -> None:
         await pipeline.run_full_pipeline()
 
     elif args.command == "status":
-        print("\n=== ML Pipeline Status ===")
-        print(f"Should collect data: {pipeline.should_collect_data()}")
-        print(f"Should retrain: {pipeline.should_retrain()}")
+        logger.info("=== ML Pipeline Status ===")
+        logger.info("Should collect data: %s", pipeline.should_collect_data())
+        logger.info("Should retrain: %s", pipeline.should_retrain())
 
         from .data_collector import HistoricalDataCollector
 
         collector = HistoricalDataCollector()
         age = collector.get_data_age_days()
-        print(f"Data age: {age} days" if age else "No data collected")
+        logger.info("Data age: %s days", age) if age else logger.info("No data collected")
 
         from .model_loader import model_loader
 
-        print(f"Models loaded: {model_loader.is_trained()}")
+        logger.info("Models loaded: %s", model_loader.is_trained())
 
 
 if __name__ == "__main__":

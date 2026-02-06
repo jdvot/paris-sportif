@@ -13,5 +13,4 @@ export const DataSourceInfoSource = {
   live_api: 'live_api',
   cache: 'cache',
   database: 'database',
-  fallback: 'fallback',
 } as const;

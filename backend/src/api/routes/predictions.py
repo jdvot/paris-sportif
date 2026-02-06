@@ -23,6 +23,7 @@ from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.cache import cache_get, cache_set
 from src.core.config import settings
 from src.core.exceptions import FootballDataAPIError, RateLimitError
+from src.core.messages import api_msg, detect_language_from_header
 from src.core.rate_limit import RATE_LIMITS, limiter
 from src.data.data_enrichment import get_data_enrichment
 from src.data.fatigue_service import MatchFatigueData, get_fatigue_service
@@ -44,26 +45,11 @@ router = APIRouter()
 
 
 def _detect_language(request: Request) -> str:
+    """Detect user's preferred language from Accept-Language header.
+
+    Returns "fr" or "en" (default "fr"). Delegates to shared helper.
     """
-    Detect user's preferred language from Accept-Language header.
-
-    Returns:
-        "fr" for French, "en" for English (default)
-    """
-    accept_language = request.headers.get("Accept-Language", "")
-
-    # Parse Accept-Language header (e.g., "fr-FR,fr;q=0.9,en;q=0.8")
-    if accept_language:
-        # Get first language preference
-        primary_lang = accept_language.split(",")[0].split("-")[0].lower()
-        if primary_lang == "fr":
-            return "fr"
-        elif primary_lang == "en":
-            return "en"
-        elif primary_lang == "nl":
-            return "nl"  # Dutch support for future
-
-    return "fr"  # Default to French
+    return detect_language_from_header(request.headers.get("Accept-Language", ""))
 
 
 class DataSourceInfo(BaseModel):
@@ -268,13 +254,23 @@ class PredictionResponse(BaseModel):
     # Multi-markets predictions (optional)
     multi_markets: MultiMarketsResponse | None = None
 
+    # Match context summary (RAG-generated)
+    match_context_summary: str | None = Field(
+        None, description="LLM-generated match context analysis"
+    )
+    news_sources: list[dict[str, str]] | None = Field(
+        None, description="News sources used for context"
+    )
+
     # Metadata
     created_at: datetime
     is_daily_pick: bool = False
 
     # Verification status (filled after match completion)
     is_verified: bool = Field(False, description="Whether the match result has been verified")
-    is_correct: bool | None = Field(None, description="Whether prediction was correct (null if not verified)")
+    is_correct: bool | None = Field(
+        None, description="Whether prediction was correct (null if not verified)"
+    )
     actual_score: str | None = Field(None, description="Actual match score (e.g., '2-1')")
 
     # Beta: data source info for transparency
@@ -332,9 +328,8 @@ class DailyStatsResponse(BaseModel):
 from src.core.constants import COMPETITION_NAMES
 from src.core.messages import (
     get_key_factors_templates,
-    get_risk_factors_templates,
     get_label,
-    Language,
+    get_risk_factors_templates,
 )
 
 # Legacy aliases for backward compatibility (used in fallback generator)
@@ -387,23 +382,36 @@ async def _generate_llm_explanation(
         home_sentiment = home_ctx.get("sentiment", "neutral")
         away_sentiment = away_ctx.get("sentiment", "neutral")
 
-        rag_summary = f"""
-CONTEXTE ACTUALITÉS:
-- {home_team}: sentiment={home_sentiment}, blessures={[i.get('player', '?') for i in home_injuries[:3]]}
-- {away_team}: sentiment={away_sentiment}, blessures={[i.get('player', '?') for i in away_injuries[:3]]}
-- Infos {home_team}: {home_key_info[:2] if home_key_info else 'Aucune'}
-- Infos {away_team}: {away_key_info[:2] if away_key_info else 'Aucune'}
-"""
+        home_inj = [i.get("player", "?") for i in home_injuries[:3]]
+        away_inj = [i.get("player", "?") for i in away_injuries[:3]]
+        home_info = home_key_info[:2] if home_key_info else "Aucune"
+        away_info = away_key_info[:2] if away_key_info else "Aucune"
+        rag_summary = (
+            f"\nCONTEXTE ACTUALITÉS:\n"
+            f"- {home_team}: sentiment={home_sentiment}, blessures={home_inj}\n"
+            f"- {away_team}: sentiment={away_sentiment}, blessures={away_inj}\n"
+            f"- Infos {home_team}: {home_info}\n"
+            f"- Infos {away_team}: {away_info}\n"
+        )
 
-    # Determine language instructions
+    # Determine language instructions and favored team
+    if recommended_bet == "draw":
+        favored_en, favored_fr = "a draw", "le match nul"
+    elif recommended_bet == "home_win":
+        favored_en, favored_fr = home_team, home_team
+    else:
+        favored_en, favored_fr = away_team, away_team
+
     if language == "en":
         lang_instruction = "Respond in English."
-        default_explanation = f"Our analysis favors {'a draw' if recommended_bet == 'draw' else home_team if recommended_bet == 'home_win' else away_team}."
+        default_explanation = f"Our analysis favors {favored_en}."
     else:
         lang_instruction = "Réponds en français."
-        default_explanation = f"Notre analyse privilégie {'le match nul' if recommended_bet == 'draw' else home_team if recommended_bet == 'home_win' else away_team}."
+        default_explanation = f"Notre analyse privilégie {favored_fr}."
 
-    prompt = f"""Tu es un analyste football expert. Génère une analyse pour {home_team} vs {away_team}.
+    prompt = f"""\
+Tu es un analyste football expert. \
+Génère une analyse pour {home_team} vs {away_team}.
 
 DONNÉES RÉELLES:
 - Probabilités: {home_team}={home_prob:.1%}, Nul={draw_prob:.1%}, {away_team}={away_prob:.1%}
@@ -440,7 +448,7 @@ IMPORTANT: Base ton analyse UNIQUEMENT sur les données fournies. Pas de génér
                 import re
 
                 # Try to extract JSON from response
-                json_match = re.search(r'\{[^{}]*\}', response, re.DOTALL)
+                json_match = re.search(r"\{[^{}]*\}", response, re.DOTALL)
                 if json_match:
                     data = json.loads(json_match.group())
                     explanation = data.get("explanation", default_explanation)[:500]
@@ -456,8 +464,14 @@ IMPORTANT: Base ton analyse UNIQUEMENT sur les données fournies. Pas de génér
 
     # Fallback to programmatic generation if LLM fails
     return _generate_fallback_explanation(
-        home_team, away_team, team_stats, recommended_bet,
-        home_prob, away_prob, rag_context, language
+        home_team,
+        away_team,
+        team_stats,
+        recommended_bet,
+        home_prob,
+        away_prob,
+        rag_context,
+        language,
     )
 
 
@@ -485,7 +499,7 @@ def _generate_fallback_explanation(
     home_form = team_stats.get("home_form")
     away_form = team_stats.get("away_form")
 
-    lang: Language = language if language in ("fr", "en", "nl") else "fr"
+    lang = language if language in ("fr", "en", "nl") else "fr"  # type: ignore[assignment]
     is_fr = lang == "fr"
 
     # Only add ELO factor if we have REAL data (not default 1500)
@@ -540,17 +554,26 @@ def _generate_fallback_explanation(
     if has_real_data:
         # We have some real statistical data to show
         if is_fr:
-            explanation = f"Analyse statistique: {home_team} vs {away_team}. Probabilites basees sur ELO et forme."
+            explanation = (
+                f"Analyse statistique: {home_team} vs {away_team}. "
+                "Probabilites basees sur ELO et forme."
+            )
         else:
-            explanation = f"Statistical analysis: {home_team} vs {away_team}. Probabilities based on ELO and form."
+            explanation = (
+                f"Statistical analysis: {home_team} vs {away_team}. "
+                "Probabilities based on ELO and form."
+            )
     else:
         # No real data available - be transparent
         if is_fr:
-            explanation = f"Analyse LLM indisponible. Prediction basee uniquement sur les modeles statistiques."
+            explanation = (
+                "Analyse LLM indisponible. "
+                "Prediction basee uniquement sur les modeles statistiques."
+            )
             key_factors = ["Donnees detaillees non disponibles"]
             risk_factors = ["Analyse qualitative indisponible"]
         else:
-            explanation = f"LLM analysis unavailable. Prediction based on statistical models only."
+            explanation = "LLM analysis unavailable. Prediction based on statistical models only."
             key_factors = ["Detailed data unavailable"]
             risk_factors = ["Qualitative analysis unavailable"]
 
@@ -699,6 +722,7 @@ async def _get_team_stats_for_ml(home_team: str, away_team: str, match_id: int) 
     Falls back to defaults if team not found.
     """
     from sqlalchemy import text
+
     from src.db import async_session_factory
 
     # Default values
@@ -724,41 +748,73 @@ async def _get_team_stats_for_ml(home_team: str, away_team: str, match_id: int) 
         async with async_session_factory() as session:
             # Fetch home team stats
             home_result = await session.execute(
-                text("""
+                text(
+                    """
                     SELECT id, elo_rating, avg_goals_scored_home, avg_goals_conceded_home,
                            form_score, form
                     FROM teams WHERE name ILIKE :name LIMIT 1
-                """),
-                {"name": f"%{home_team}%"}
+                """
+                ),
+                {"name": f"%{home_team}%"},
             )
             home_row = home_result.fetchone()
 
             if home_row:
                 result["home_team_id"] = home_row.id
-                result["home_elo"] = float(home_row.elo_rating) if home_row.elo_rating else default_elo
-                result["home_attack"] = float(home_row.avg_goals_scored_home) if home_row.avg_goals_scored_home else default_attack
-                result["home_defense"] = float(home_row.avg_goals_conceded_home) if home_row.avg_goals_conceded_home else default_defense
-                result["home_form"] = float(home_row.form_score or 0.5) * 100 if home_row.form_score else default_form
-                logger.debug(f"Home team {home_team}: ELO={result['home_elo']}, form={home_row.form}")
+                result["home_elo"] = (
+                    float(home_row.elo_rating) if home_row.elo_rating else default_elo
+                )
+                result["home_attack"] = (
+                    float(home_row.avg_goals_scored_home)
+                    if home_row.avg_goals_scored_home
+                    else default_attack
+                )
+                result["home_defense"] = (
+                    float(home_row.avg_goals_conceded_home)
+                    if home_row.avg_goals_conceded_home
+                    else default_defense
+                )
+                result["home_form"] = (
+                    float(home_row.form_score or 0.5) * 100 if home_row.form_score else default_form
+                )
+                logger.debug(
+                    f"Home team {home_team}: ELO={result['home_elo']}, form={home_row.form}"
+                )
 
             # Fetch away team stats
             away_result = await session.execute(
-                text("""
+                text(
+                    """
                     SELECT id, elo_rating, avg_goals_scored_away, avg_goals_conceded_away,
                            form_score, form
                     FROM teams WHERE name ILIKE :name LIMIT 1
-                """),
-                {"name": f"%{away_team}%"}
+                """
+                ),
+                {"name": f"%{away_team}%"},
             )
             away_row = away_result.fetchone()
 
             if away_row:
                 result["away_team_id"] = away_row.id
-                result["away_elo"] = float(away_row.elo_rating) if away_row.elo_rating else default_elo
-                result["away_attack"] = float(away_row.avg_goals_scored_away) if away_row.avg_goals_scored_away else default_attack
-                result["away_defense"] = float(away_row.avg_goals_conceded_away) if away_row.avg_goals_conceded_away else default_defense
-                result["away_form"] = float(away_row.form_score or 0.5) * 100 if away_row.form_score else default_form
-                logger.debug(f"Away team {away_team}: ELO={result['away_elo']}, form={away_row.form}")
+                result["away_elo"] = (
+                    float(away_row.elo_rating) if away_row.elo_rating else default_elo
+                )
+                result["away_attack"] = (
+                    float(away_row.avg_goals_scored_away)
+                    if away_row.avg_goals_scored_away
+                    else default_attack
+                )
+                result["away_defense"] = (
+                    float(away_row.avg_goals_conceded_away)
+                    if away_row.avg_goals_conceded_away
+                    else default_defense
+                )
+                result["away_form"] = (
+                    float(away_row.form_score or 0.5) * 100 if away_row.form_score else default_form
+                )
+                logger.debug(
+                    f"Away team {away_team}: ELO={result['away_elo']}, form={away_row.form}"
+                )
 
     except Exception as e:
         logger.warning(f"Failed to fetch team stats from DB: {e}, using defaults")
@@ -782,6 +838,7 @@ async def _generate_prediction_from_api_match(
     away_team = api_match.awayTeam.name
     competition = api_match.competition.code
     match_date = datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00"))
+    lang = _detect_language(request) if request else "fr"  # type: ignore[assignment]
 
     # Try RAG enrichment for better context
     rag_context = None
@@ -926,7 +983,7 @@ async def _generate_prediction_from_api_match(
     )
 
     # Add fatigue factor if significant advantage exists
-    lang: Language = _detect_language(request) if request else "fr"
+    lang = _detect_language(request) if request else "fr"  # type: ignore[assignment]
     if fatigue_data:
         if fatigue_data.fatigue_advantage > 0.15:
             key_factors.append(get_label("physical_advantage", lang))
@@ -935,7 +992,6 @@ async def _generate_prediction_from_api_match(
 
     # Model contributions from ensemble (real data) - ALWAYS calculate for DB storage
     model_contributions = None
-    model_details_data = None  # Dict for DB storage
     try:
         # Build real model contributions from ensemble
         contributions = {}
@@ -949,22 +1005,6 @@ async def _generate_prediction_from_api_match(
                     "away_win": round(contrib.away_prob, 4),
                     "weight": round(contrib.weight, 4),
                 }
-
-        # Store raw contributions for DB
-        model_details_data = {
-            "contributions": contributions,
-            "model_agreement": model_agreement,
-            "team_stats": {
-                "home_elo": team_stats["home_elo"],
-                "away_elo": team_stats["away_elo"],
-                "home_attack": team_stats["home_attack"],
-                "home_defense": team_stats["home_defense"],
-                "away_attack": team_stats["away_attack"],
-                "away_defense": team_stats["away_defense"],
-                "home_form": team_stats["home_form"],
-                "away_form": team_stats["away_form"],
-            },
-        }
 
         # Map to API model contributions format (for response only)
         if include_model_details:
@@ -999,7 +1039,6 @@ async def _generate_prediction_from_api_match(
     except Exception as e:
         logger.warning(f"Failed to build model contributions: {e}")
         model_contributions = None
-        model_details_data = None
 
     # LLM adjustments (from RAG context if available)
     # ALWAYS calculate adjustments and apply to probabilities
@@ -1034,17 +1073,33 @@ async def _generate_prediction_from_api_match(
 
         # Add injury info to reasoning
         if home_injuries > 0:
-            reasoning_parts.append(f"⚠️ {home_team}: {home_injuries} blessure(s) signalée(s)")
+            reasoning_parts.append(
+                f"⚠️ {api_msg('rag_injuries_reported', lang, team=home_team, count=home_injuries)}"
+            )
         if away_injuries > 0:
-            reasoning_parts.append(f"⚠️ {away_team}: {away_injuries} blessure(s) signalée(s)")
+            reasoning_parts.append(
+                f"⚠️ {api_msg('rag_injuries_reported', lang, team=away_team, count=away_injuries)}"
+            )
 
         # Add sentiment info
         if home_sentiment_raw != "neutral":
             emoji = "✅" if home_sentiment_raw == "positive" else "❌"
-            reasoning_parts.append(f"{emoji} {home_team}: sentiment {home_sentiment_raw} dans les news")
+            msg = api_msg(
+                "rag_sentiment",
+                lang,
+                team=home_team,
+                sentiment=home_sentiment_raw,
+            )
+            reasoning_parts.append(f"{emoji} {msg}")
         if away_sentiment_raw != "neutral":
             emoji = "✅" if away_sentiment_raw == "positive" else "❌"
-            reasoning_parts.append(f"{emoji} {away_team}: sentiment {away_sentiment_raw} dans les news")
+            msg = api_msg(
+                "rag_sentiment",
+                lang,
+                team=away_team,
+                sentiment=away_sentiment_raw,
+            )
+            reasoning_parts.append(f"{emoji} {msg}")
 
         # Add key info highlights
         if home_key_info:
@@ -1056,7 +1111,7 @@ async def _generate_prediction_from_api_match(
         if reasoning_parts:
             detailed_reasoning = " | ".join(reasoning_parts)
         else:
-            detailed_reasoning = "Aucune information contextuelle significative trouvée dans les news récentes."
+            detailed_reasoning = api_msg("rag_no_context", lang)
 
         llm_adjustments_data = {
             "injury_impact_home": injury_impact_home,
@@ -1103,7 +1158,8 @@ async def _generate_prediction_from_api_match(
 
             logger.info(
                 f"Applied LLM adjustments for {home_team} vs {away_team}: "
-                f"total_adj={clamped_total:+.3f}, new probs: H={home_prob:.2%} D={draw_prob:.2%} A={away_prob:.2%}"
+                f"total_adj={clamped_total:+.3f}, "
+                f"new probs: H={home_prob:.2%} D={draw_prob:.2%} A={away_prob:.2%}"
             )
 
     # Only include in response when model details requested
@@ -1120,7 +1176,7 @@ async def _generate_prediction_from_api_match(
                 sentiment_away=0.0,
                 tactical_edge=0.0,
                 total_adjustment=0.0,
-                reasoning="Données contextuelles non disponibles.",
+                reasoning=api_msg("contextual_data_unavailable", lang),
             )
 
     # Reset random seed
@@ -1272,6 +1328,86 @@ async def _generate_prediction_from_api_match(
             impact=weather_data.get("impact"),
         )
 
+    # Generate match context summary using RAG + LLM
+    match_context_summary: str | None = None
+    news_sources: list[dict[str, str]] | None = None
+    if rag_context:
+        try:
+            from src.llm.client import get_llm_client
+
+            llm = get_llm_client()
+
+            # Extract context data
+            home_ctx = rag_context.get("home_context", {})
+            away_ctx = rag_context.get("away_context", {})
+            home_form = home_ctx.get("recent_form", [])
+            away_form = away_ctx.get("recent_form", [])
+            home_injuries = home_ctx.get("injuries", [])
+            away_injuries = away_ctx.get("injuries", [])
+            home_news = home_ctx.get("news", [])
+            away_news = away_ctx.get("news", [])
+
+            # Build news sources list
+            all_sources = set()
+            for news in home_news[:3] + away_news[:3]:
+                if isinstance(news, dict) and news.get("source"):
+                    all_sources.add(news["source"])
+            if all_sources:
+                news_sources = [{"source": s, "title": ""} for s in list(all_sources)[:5]]
+
+            # Build context prompt
+            weather_str = ""
+            if weather_info and weather_info.available:
+                weather_str = f"Météo: {weather_info.temperature}°C, {weather_info.description}"
+
+            home_form_str = "".join(home_form[:5]) if home_form else "N/A"
+            away_form_str = "".join(away_form[:5]) if away_form else "N/A"
+
+            home_inj_str = (
+                ", ".join([i.get("player", "") for i in home_injuries[:3] if isinstance(i, dict)])
+                or "Aucune"
+            )
+            away_inj_str = (
+                ", ".join([i.get("player", "") for i in away_injuries[:3] if isinstance(i, dict)])
+                or "Aucune"
+            )
+
+            news_headlines = []
+            for n in (home_news + away_news)[:5]:
+                if isinstance(n, dict) and n.get("title"):
+                    news_headlines.append(f"- {n['title'][:80]}")
+            news_str = "\n".join(news_headlines) if news_headlines else "Aucune actualité récente"
+
+            lang_instruction = "Réponds en français." if lang == "fr" else "Reply in English."
+
+            context_prompt = f"""\
+Tu es un analyste football. \
+Génère une synthèse du contexte pour {home_team} vs {away_team}.
+
+DONNÉES:
+- Blessures {home_team}: {home_inj_str}
+- Blessures {away_team}: {away_inj_str}
+- Forme {home_team}: {home_form_str}
+- Forme {away_team}: {away_form_str}
+- {weather_str}
+- News récentes:
+{news_str}
+
+Génère 3-4 phrases factuelles résumant le contexte de ce match.
+{lang_instruction}
+Sois concis (max 150 mots). Pas de titre."""
+
+            match_context_summary = await llm.complete(
+                prompt=context_prompt,
+                max_tokens=250,
+                temperature=0.3,
+            )
+            match_context_summary = match_context_summary.strip() if match_context_summary else None
+            logger.info(f"Generated match context summary for {home_team} vs {away_team}")
+        except Exception as e:
+            logger.warning(f"Failed to generate match context summary: {e}")
+            match_context_summary = None
+
     return PredictionResponse(
         match_id=api_match.id,
         home_team=home_team,
@@ -1294,6 +1430,8 @@ async def _generate_prediction_from_api_match(
         fatigue_info=fatigue_info,
         weather=weather_info,
         multi_markets=multi_markets,
+        match_context_summary=match_context_summary,
+        news_sources=news_sources,
         created_at=datetime.now(),
         is_daily_pick=False,
     )
@@ -1325,7 +1463,18 @@ async def get_daily_picks(
         target_date_str = query_date or datetime.now().strftime("%Y-%m-%d")
         target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
 
-        # First, check if we have cached predictions in DB
+        # Check Redis cache first (5-minute TTL for daily picks)
+        redis_cache_key = f"daily_picks:{target_date_str}"
+        cached_response = await cache_get(redis_cache_key)
+        if cached_response:
+            try:
+                cached_data = json.loads(cached_response)
+                logger.debug(f"Redis HIT for daily picks {target_date_str}")
+                return DailyPicksResponse(**cached_data)
+            except (json.JSONDecodeError, Exception) as e:
+                logger.warning(f"Invalid Redis cache for daily picks: {e}")
+
+        # Check if we have cached predictions in DB
         cached_predictions = await PredictionService.get_predictions_for_date_with_details(
             target_date
         )
@@ -1369,8 +1518,10 @@ async def get_daily_picks(
                     confidence=cached["confidence"],
                     value_score=cached_value_score if cached_value_score else 0.10,
                     explanation=cached.get("explanation") or "",
-                    key_factors=cached_key_factors if cached_key_factors else ["Analyse statistique"],
-                    risk_factors=cached_risk_factors if cached_risk_factors else ["Données en cache"],
+                    key_factors=(
+                        cached_key_factors if cached_key_factors else ["Statistical analysis"]
+                    ),
+                    risk_factors=cached_risk_factors if cached_risk_factors else ["Cached data"],
                     created_at=datetime.fromisoformat(cached["created_at"]),
                     is_daily_pick=True,
                     # Verification fields from database
@@ -1387,11 +1538,19 @@ async def get_daily_picks(
                 DailyPickResponse(rank=i + 1, prediction=p, pick_score=round(s, 4))
                 for i, (p, s) in enumerate(all_predictions[:5])
             ]
-            return DailyPicksResponse(
+            response = DailyPicksResponse(
                 date=target_date_str,
                 picks=daily_picks,
                 total_matches_analyzed=len(cached_predictions),
             )
+            # Cache in Redis for 5 minutes
+            try:
+                await cache_set(
+                    redis_cache_key, json.dumps(response.model_dump(mode="json"), default=str), 300
+                )
+            except Exception as e:
+                logger.debug(f"Failed to cache daily picks in Redis: {e}")
+            return response
 
         # No cached predictions, fetch from API
         # Only fetch matches for the specific target date
@@ -1433,23 +1592,41 @@ async def get_daily_picks(
         all_predictions = []
         for api_match in api_matches:
             # Generate with full model details so we can store everything in DB
-            pred = await _generate_prediction_from_api_match(api_match, include_model_details=True, request=request)
+            pred = await _generate_prediction_from_api_match(
+                api_match, include_model_details=True, request=request
+            )
 
             # Extract model_details and llm_adjustments for DB storage
             model_details_for_db = None
             if pred.model_contributions:
                 model_details_for_db = {
-                    "poisson": pred.model_contributions.poisson.model_dump() if pred.model_contributions.poisson else None,
-                    "xgboost": pred.model_contributions.xgboost.model_dump() if pred.model_contributions.xgboost else None,
-                    "xg_model": pred.model_contributions.xg_model.model_dump() if pred.model_contributions.xg_model else None,
-                    "elo": pred.model_contributions.elo.model_dump() if pred.model_contributions.elo else None,
+                    "poisson": (
+                        pred.model_contributions.poisson.model_dump()
+                        if pred.model_contributions.poisson
+                        else None
+                    ),
+                    "xgboost": (
+                        pred.model_contributions.xgboost.model_dump()
+                        if pred.model_contributions.xgboost
+                        else None
+                    ),
+                    "xg_model": (
+                        pred.model_contributions.xg_model.model_dump()
+                        if pred.model_contributions.xg_model
+                        else None
+                    ),
+                    "elo": (
+                        pred.model_contributions.elo.model_dump()
+                        if pred.model_contributions.elo
+                        else None
+                    ),
                 }
 
             llm_adjustments_for_db = None
             if pred.llm_adjustments:
                 llm_adjustments_for_db = pred.llm_adjustments.model_dump()
 
-            # Save prediction to database with ALL data (including ML model details and LLM adjustments)
+            # Save prediction to DB with all data (model details + LLM adjustments)
             await PredictionService.save_prediction_from_api(
                 {
                     "match_id": pred.match_id,
@@ -1492,31 +1669,41 @@ async def get_daily_picks(
                 )
             )
 
-        return DailyPicksResponse(
+        response = DailyPicksResponse(
             date=target_date_str,
             picks=daily_picks,
             total_matches_analyzed=len(api_matches),
             data_source=DataSourceInfo(source="live_api"),
         )
+        # Cache in Redis for 5 minutes
+        try:
+            await cache_set(
+                redis_cache_key, json.dumps(response.model_dump(mode="json"), default=str), 300
+            )
+        except Exception as e:
+            logger.debug(f"Failed to cache daily picks in Redis: {e}")
+        return response
 
     except RateLimitError as e:
         retry_after = e.details.get("retry_after", 60) if e.details else 60
+        lang = _detect_language(request)
         raise HTTPException(
             status_code=429,
             detail={
-                "message": "[BETA] Limite API externe atteinte (football-data.org: 10 req/min)",
+                "message": api_msg("rate_limit_reached", lang),
                 "warning_code": "EXTERNAL_API_RATE_LIMIT",
                 "retry_after_seconds": retry_after,
-                "tip": "Réessayez dans quelques instants ou consultez les picks en cache",
+                "tip": api_msg("rate_limit_tip", lang),
             },
         )
     except FootballDataAPIError as e:
+        lang = _detect_language(request)
         raise HTTPException(
             status_code=502,
             detail={
-                "message": f"[BETA] Erreur API externe: {str(e)[:100]}",
+                "message": api_msg("api_error", lang, detail=str(e)[:100]),
                 "warning_code": "EXTERNAL_API_ERROR",
-                "tip": "L'API football-data.org est temporairement indisponible",
+                "tip": api_msg("api_unavailable_tip", lang),
             },
         )
 
@@ -1544,8 +1731,10 @@ async def get_prediction_debug(
     """Debug endpoint to check prediction data state."""
     try:
         async with get_uow() as uow:
-            from datetime import date, timedelta
+            from datetime import timedelta
+
             from sqlalchemy import func, select
+
             from src.db.models import Match, Prediction, PredictionResult
 
             cutoff = datetime.now() - timedelta(days=days)
@@ -1581,7 +1770,12 @@ async def get_prediction_debug(
                 verified_predictions=verified_count or 0,
                 finished_matches_with_predictions=finished_with_pred or 0,
                 pending_verification=verify_count,
-                message=f"Last {days} days: {pred_count} predictions, {verified_count} verified, {finished_with_pred} finished matches with predictions, {verify_count} newly verified",
+                message=(
+                    f"Last {days} days: {pred_count} predictions, "
+                    f"{verified_count} verified, "
+                    f"{finished_with_pred} finished w/ predictions, "
+                    f"{verify_count} newly verified"
+                ),
             )
     except Exception as e:
         logger.error(f"Debug endpoint error: {e}")
@@ -1704,12 +1898,20 @@ async def _get_match_info_from_db(match_id: int) -> dict[str, Any] | None:
         async with get_uow() as uow:
             match = await uow.matches.get_by_id(match_id)
             if match:
-                home_team = await uow.teams.get_by_id(match.home_team_id) if match.home_team_id else None
-                away_team = await uow.teams.get_by_id(match.away_team_id) if match.away_team_id else None
+                home_team = (
+                    await uow.teams.get_by_id(match.home_team_id) if match.home_team_id else None
+                )
+                away_team = (
+                    await uow.teams.get_by_id(match.away_team_id) if match.away_team_id else None
+                )
                 return {
                     "home_team": home_team.name if home_team else None,
                     "away_team": away_team.name if away_team else None,
-                    "competition": COMPETITION_NAMES.get(match.competition_code, match.competition_code) if match.competition_code else None,
+                    "competition": (
+                        COMPETITION_NAMES.get(match.competition_code, match.competition_code)
+                        if match.competition_code
+                        else None
+                    ),
                     "match_date": match.match_date,
                 }
     except Exception as e:
@@ -1720,13 +1922,14 @@ async def _get_match_info_from_db(match_id: int) -> dict[str, Any] | None:
 def _generate_fallback_prediction(
     match_id: int,
     include_model_details: bool = False,
-    fallback_reason: str = "API externe indisponible",
+    fallback_reason: str = "External API unavailable",
     is_rate_limit: bool = False,
     retry_after: int | None = None,
     home_team: str | None = None,
     away_team: str | None = None,
     competition: str | None = None,
     match_date: datetime | None = None,
+    lang: str = "fr",
 ) -> PredictionResponse:
     """
     Generate a basic prediction when external API fails.
@@ -1758,59 +1961,33 @@ def _generate_fallback_prediction(
     confidence = round(random.uniform(0.60, 0.75), 3)
     value_score = round(random.uniform(0.05, 0.12), 3)
 
-    # Select key factors
+    # Select key factors (language-aware)
+    kf_templates = get_key_factors_templates(lang)  # type: ignore[arg-type]
+    rf_templates = get_risk_factors_templates(lang)  # type: ignore[arg-type]
     if recommended_bet == "home_win":
-        key_factors = random.sample(KEY_FACTORS_TEMPLATES["home_dominant"], 3)
+        key_factors = random.sample(kf_templates["home_dominant"], 3)
     elif recommended_bet == "away_win":
-        key_factors = random.sample(KEY_FACTORS_TEMPLATES["away_strong"], 3)
+        key_factors = random.sample(kf_templates["away_strong"], 3)
     else:
-        key_factors = random.sample(KEY_FACTORS_TEMPLATES["balanced"], 3)
+        key_factors = random.sample(kf_templates["balanced"], 3)
 
-    risk_factors = random.sample(RISK_FACTORS_TEMPLATES, 2)
+    risk_factors = random.sample(rf_templates, 2)
 
-    explanation = (
-        "Analyse basée sur des données statistiques. Prédiction générée en mode "
-        "dégradé (API externe temporairement indisponible)."
-    )
+    if lang == "en":
+        explanation = (
+            "Analysis based on statistical data. Prediction generated in degraded mode "
+            "(external API temporarily unavailable)."
+        )
+    else:
+        explanation = (
+            "Analyse basée sur des données statistiques. Prédiction générée en mode "
+            "dégradé (API externe temporairement indisponible)."
+        )
 
-    # Model contributions (optional)
+    # No model contributions or LLM adjustments for fallback predictions
+    # (returning fabricated data would mislead users)
     model_contributions = None
-    if include_model_details:
-        model_contributions = ModelContributions(
-            poisson=PredictionProbabilities(
-                home_win=round(home_prob + random.uniform(-0.03, 0.03), 4),
-                draw=round(draw_prob + random.uniform(-0.02, 0.02), 4),
-                away_win=round(away_prob + random.uniform(-0.03, 0.03), 4),
-            ),
-            xgboost=PredictionProbabilities(
-                home_win=home_prob,
-                draw=draw_prob,
-                away_win=away_prob,
-            ),
-            xg_model=PredictionProbabilities(
-                home_win=round(home_prob + random.uniform(-0.02, 0.02), 4),
-                draw=round(draw_prob + random.uniform(-0.01, 0.01), 4),
-                away_win=round(away_prob + random.uniform(-0.02, 0.02), 4),
-            ),
-            elo=PredictionProbabilities(
-                home_win=round(home_prob - random.uniform(0.01, 0.03), 4),
-                draw=round(draw_prob + random.uniform(0.00, 0.02), 4),
-                away_win=round(away_prob + random.uniform(0.01, 0.02), 4),
-            ),
-        )
-
-    # LLM adjustments (optional)
     llm_adjustments = None
-    if include_model_details:
-        llm_adjustments = LLMAdjustments(
-            injury_impact_home=round(random.uniform(-0.10, 0.0), 3),
-            injury_impact_away=round(random.uniform(-0.10, 0.0), 3),
-            sentiment_home=round(random.uniform(-0.03, 0.03), 3),
-            sentiment_away=round(random.uniform(-0.03, 0.03), 3),
-            tactical_edge=round(random.uniform(-0.02, 0.02), 3),
-            total_adjustment=round(random.uniform(-0.05, 0.05), 3),
-            reasoning="Prédiction générée en mode fallback. Données contextuelles limitées.",
-        )
 
     # Multi-markets for fallback
     multi_markets = None
@@ -1895,9 +2072,9 @@ def _generate_fallback_prediction(
     data_source = DataSourceInfo(
         source="fallback",
         is_fallback=True,
-        warning=f"[BETA] Prédiction estimée - {fallback_reason}",
+        warning=api_msg("estimated_prediction", lang, reason=fallback_reason),
         warning_code="EXTERNAL_API_RATE_LIMIT" if is_rate_limit else "EXTERNAL_API_ERROR",
-        details="Données basées sur des modèles statistiques sans contexte temps réel",
+        details=api_msg("fallback_data_warning", lang),
         retry_after_seconds=retry_after,
     )
 
@@ -1962,12 +2139,22 @@ async def get_prediction(
             async with get_uow() as uow:
                 match_obj = await uow.matches.get_by_id(match_id)
                 if match_obj:
-                    home_team_obj = await uow.teams.get_by_id(match_obj.home_team_id) if match_obj.home_team_id else None
-                    away_team_obj = await uow.teams.get_by_id(match_obj.away_team_id) if match_obj.away_team_id else None
+                    home_team_obj = (
+                        await uow.teams.get_by_id(match_obj.home_team_id)
+                        if match_obj.home_team_id
+                        else None
+                    )
+                    away_team_obj = (
+                        await uow.teams.get_by_id(match_obj.away_team_id)
+                        if match_obj.away_team_id
+                        else None
+                    )
                     home_team = home_team_obj.name if home_team_obj else "Unknown"
                     away_team = away_team_obj.name if away_team_obj else "Unknown"
                     comp_code = match_obj.competition_code or "UNKNOWN"
-                    match_date_val = match_obj.match_date if match_obj.match_date else datetime.now()
+                    match_date_val = (
+                        match_obj.match_date if match_obj.match_date else datetime.now()
+                    )
                 else:
                     home_team = "Unknown"
                     away_team = "Unknown"
@@ -1987,8 +2174,10 @@ async def get_prediction(
             # Use cached key_factors and risk_factors if available, fallback to defaults
             cached_key_factors = cached.get("key_factors")
             cached_risk_factors = cached.get("risk_factors")
-            key_factors = cached_key_factors if cached_key_factors else ["Analyse statistique", "Modèles ML"]
-            risk_factors = cached_risk_factors if cached_risk_factors else ["Données en cache"]
+            key_factors = (
+                cached_key_factors if cached_key_factors else ["Statistical analysis", "ML models"]
+            )
+            risk_factors = cached_risk_factors if cached_risk_factors else ["Cached data"]
 
             # Build model_contributions and llm_adjustments from cached data
             model_contributions = None
@@ -2000,10 +2189,34 @@ async def get_prediction(
                 if cached_model_details:
                     try:
                         model_contributions = ModelContributions(
-                            poisson=PredictionProbabilities(**cached_model_details["poisson"]) if cached_model_details.get("poisson") else PredictionProbabilities(home_win=0.33, draw=0.34, away_win=0.33),
-                            xgboost=PredictionProbabilities(**cached_model_details["xgboost"]) if cached_model_details.get("xgboost") else PredictionProbabilities(home_win=0.33, draw=0.34, away_win=0.33),
-                            xg_model=PredictionProbabilities(**cached_model_details["xg_model"]) if cached_model_details.get("xg_model") else PredictionProbabilities(home_win=0.33, draw=0.34, away_win=0.33),
-                            elo=PredictionProbabilities(**cached_model_details["elo"]) if cached_model_details.get("elo") else PredictionProbabilities(home_win=0.33, draw=0.34, away_win=0.33),
+                            poisson=(
+                                PredictionProbabilities(**cached_model_details["poisson"])
+                                if cached_model_details.get("poisson")
+                                else PredictionProbabilities(
+                                    home_win=0.33, draw=0.34, away_win=0.33
+                                )
+                            ),
+                            xgboost=(
+                                PredictionProbabilities(**cached_model_details["xgboost"])
+                                if cached_model_details.get("xgboost")
+                                else PredictionProbabilities(
+                                    home_win=0.33, draw=0.34, away_win=0.33
+                                )
+                            ),
+                            xg_model=(
+                                PredictionProbabilities(**cached_model_details["xg_model"])
+                                if cached_model_details.get("xg_model")
+                                else PredictionProbabilities(
+                                    home_win=0.33, draw=0.34, away_win=0.33
+                                )
+                            ),
+                            elo=(
+                                PredictionProbabilities(**cached_model_details["elo"])
+                                if cached_model_details.get("elo")
+                                else PredictionProbabilities(
+                                    home_win=0.33, draw=0.34, away_win=0.33
+                                )
+                            ),
                         )
                     except Exception as e:
                         logger.debug(f"Failed to parse model_details from cache: {e}")
@@ -2037,7 +2250,7 @@ async def get_prediction(
                 confidence=safe_float(cached.get("confidence"), 0.5),
                 recommended_bet=recommended,
                 value_score=safe_float(cached.get("value_score"), 0.10),
-                explanation=cached.get("explanation", "Prédiction mise en cache"),
+                explanation=cached.get("explanation", "Cached prediction"),
                 key_factors=key_factors,
                 risk_factors=risk_factors,
                 model_contributions=model_contributions,
@@ -2049,8 +2262,8 @@ async def get_prediction(
             # Also cache in Redis for faster future access
             try:
                 await _cache_prediction_to_redis(match_id, response.model_dump(mode="json"))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to cache prediction {match_id} in Redis: {e}")
 
             return response
     except Exception as e:
@@ -2070,10 +2283,26 @@ async def get_prediction(
         model_details_for_db = None
         if prediction.model_contributions:
             model_details_for_db = {
-                "poisson": prediction.model_contributions.poisson.model_dump() if prediction.model_contributions.poisson else None,
-                "xgboost": prediction.model_contributions.xgboost.model_dump() if prediction.model_contributions.xgboost else None,
-                "xg_model": prediction.model_contributions.xg_model.model_dump() if prediction.model_contributions.xg_model else None,
-                "elo": prediction.model_contributions.elo.model_dump() if prediction.model_contributions.elo else None,
+                "poisson": (
+                    prediction.model_contributions.poisson.model_dump()
+                    if prediction.model_contributions.poisson
+                    else None
+                ),
+                "xgboost": (
+                    prediction.model_contributions.xgboost.model_dump()
+                    if prediction.model_contributions.xgboost
+                    else None
+                ),
+                "xg_model": (
+                    prediction.model_contributions.xg_model.model_dump()
+                    if prediction.model_contributions.xg_model
+                    else None
+                ),
+                "elo": (
+                    prediction.model_contributions.elo.model_dump()
+                    if prediction.model_contributions.elo
+                    else None
+                ),
             }
 
         llm_adjustments_for_db = None
@@ -2082,25 +2311,27 @@ async def get_prediction(
 
         # 4. Save to DB for permanent storage with ALL data
         try:
-            await PredictionService.save_prediction_from_api({
-                "match_id": prediction.match_id,
-                "match_external_id": f"{api_match.competition.code}_{api_match.id}",
-                "home_team": prediction.home_team,
-                "away_team": prediction.away_team,
-                "competition_code": api_match.competition.code,
-                "match_date": api_match.utcDate,
-                "home_win_prob": prediction.probabilities.home_win,
-                "draw_prob": prediction.probabilities.draw,
-                "away_win_prob": prediction.probabilities.away_win,
-                "confidence": prediction.confidence,
-                "recommendation": prediction.recommended_bet,
-                "explanation": prediction.explanation,
-                "key_factors": prediction.key_factors,
-                "risk_factors": prediction.risk_factors,
-                "value_score": prediction.value_score,
-                "model_details": model_details_for_db,
-                "llm_adjustments": llm_adjustments_for_db,
-            })
+            await PredictionService.save_prediction_from_api(
+                {
+                    "match_id": prediction.match_id,
+                    "match_external_id": f"{api_match.competition.code}_{api_match.id}",
+                    "home_team": prediction.home_team,
+                    "away_team": prediction.away_team,
+                    "competition_code": api_match.competition.code,
+                    "match_date": api_match.utcDate,
+                    "home_win_prob": prediction.probabilities.home_win,
+                    "draw_prob": prediction.probabilities.draw,
+                    "away_win_prob": prediction.probabilities.away_win,
+                    "confidence": prediction.confidence,
+                    "recommendation": prediction.recommended_bet,
+                    "explanation": prediction.explanation,
+                    "key_factors": prediction.key_factors,
+                    "risk_factors": prediction.risk_factors,
+                    "value_score": prediction.value_score,
+                    "model_details": model_details_for_db,
+                    "llm_adjustments": llm_adjustments_for_db,
+                }
+            )
             logger.info(f"Saved prediction to DB for match {match_id}")
         except Exception as db_err:
             logger.warning(f"Failed to save prediction to DB: {db_err}")
@@ -2114,8 +2345,8 @@ async def get_prediction(
         # 5. Cache in Redis
         try:
             await _cache_prediction_to_redis(match_id, prediction.model_dump(mode="json"))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to cache prediction {match_id} in Redis: {e}")
 
         return prediction
 
@@ -2123,18 +2354,20 @@ async def get_prediction(
         # On rate limit, try fallback instead of failing
         retry_after = e.details.get("retry_after", 60) if e.details else 60
         logger.warning(f"Rate limit hit for match {match_id}, using fallback prediction")
+        lang = _detect_language(request)
         # Try to get real match info from DB
         match_info = await _get_match_info_from_db(match_id)
         return _generate_fallback_prediction(
             match_id,
             include_model_details,
-            fallback_reason="Limite API externe atteinte (10 req/min)",
+            fallback_reason=api_msg("rate_limit_reason", lang),
             is_rate_limit=True,
             retry_after=retry_after,
             home_team=match_info.get("home_team") if match_info else None,
             away_team=match_info.get("away_team") if match_info else None,
             competition=match_info.get("competition") if match_info else None,
             match_date=match_info.get("match_date") if match_info else None,
+            lang=lang,
         )
 
     except FootballDataAPIError as e:
@@ -2149,31 +2382,35 @@ async def get_prediction(
 
         # For other API failures (502, timeout, etc), use fallback
         logger.warning(f"API failed for match {match_id}: {e}. Using fallback prediction.")
+        lang = _detect_language(request)
         # Try to get real match info from DB
         match_info = await _get_match_info_from_db(match_id)
         return _generate_fallback_prediction(
             match_id,
             include_model_details,
-            fallback_reason=f"Erreur API externe: {str(e)[:50]}",
+            fallback_reason=api_msg("api_error_reason", lang, detail=str(e)[:50]),
             home_team=match_info.get("home_team") if match_info else None,
             away_team=match_info.get("away_team") if match_info else None,
             competition=match_info.get("competition") if match_info else None,
             match_date=match_info.get("match_date") if match_info else None,
+            lang=lang,
         )
 
     except Exception as e:
         # Catch-all for any other errors, use fallback
         logger.error(f"Unexpected error for match {match_id}: {e}. Using fallback prediction.")
+        lang = _detect_language(request)
         # Try to get real match info from DB
         match_info = await _get_match_info_from_db(match_id)
         return _generate_fallback_prediction(
             match_id,
             include_model_details,
-            fallback_reason=f"Erreur inattendue: {str(e)[:50]}",
+            fallback_reason=api_msg("unexpected_error_reason", lang, detail=str(e)[:50]),
             home_team=match_info.get("home_team") if match_info else None,
             away_team=match_info.get("away_team") if match_info else None,
             competition=match_info.get("competition") if match_info else None,
             match_date=match_info.get("match_date") if match_info else None,
+            lang=lang,
         )
 
 
@@ -2254,21 +2491,23 @@ async def refresh_prediction(
 
     except RateLimitError as e:
         retry_after = e.details.get("retry_after", 60) if e.details else 60
+        lang = _detect_language(request)
         raise HTTPException(
             status_code=429,
             detail={
-                "message": "[BETA] Limite API externe atteinte (football-data.org: 10 req/min)",
+                "message": api_msg("rate_limit_reached", lang),
                 "warning_code": "EXTERNAL_API_RATE_LIMIT",
                 "retry_after_seconds": retry_after,
             },
         )
     except FootballDataAPIError as e:
+        lang = _detect_language(request)
         raise HTTPException(
             status_code=404 if "not found" in str(e).lower() else 502,
             detail=(
                 f"Match {match_id} not found"
                 if "not found" in str(e).lower()
-                else f"[BETA] Erreur API: {str(e)}"
+                else api_msg("api_error_beta", lang, detail=str(e))
             ),
         )
 
@@ -2285,7 +2524,9 @@ class CalibrationBucket(BaseModel):
     predicted_confidence: float = Field(..., description="Average predicted confidence in bucket")
     actual_win_rate: float = Field(..., description="Actual win rate in this bucket")
     count: int = Field(..., description="Number of predictions in bucket")
-    overconfidence: float = Field(..., description="Difference: predicted - actual (positive = overconfident)")
+    overconfidence: float = Field(
+        ..., description="Difference: predicted - actual (positive = overconfident)"
+    )
 
 
 class CalibrationByBet(BaseModel):
@@ -2306,9 +2547,13 @@ class CalibrationResponse(BaseModel):
 
     total_verified: int = Field(..., description="Total verified predictions")
     overall_accuracy: float = Field(..., description="Overall accuracy rate")
-    overall_calibration_error: float = Field(..., description="Mean calibration error (lower is better)")
+    overall_calibration_error: float = Field(
+        ..., description="Mean calibration error (lower is better)"
+    )
     by_bet_type: list[CalibrationByBet] = Field(..., description="Calibration by bet type")
-    by_confidence: list[CalibrationBucket] = Field(..., description="Calibration by confidence bucket")
+    by_confidence: list[CalibrationBucket] = Field(
+        ..., description="Calibration by confidence bucket"
+    )
     by_competition: dict[str, dict[str, Any]] = Field(..., description="Performance by competition")
     period: str = Field(..., description="Analysis period")
     generated_at: datetime
@@ -2337,8 +2582,9 @@ async def get_calibration(
         - Breakdown by confidence buckets (50-60%, 60-70%, etc.)
         - Performance by competition
     """
-    from sqlalchemy import select, func, and_
-    from src.db.models import PredictionResult, Match
+    from sqlalchemy import and_, select
+
+    from src.db.models import Match, PredictionResult
 
     async with get_uow() as uow:
         cutoff_date = datetime.now() - timedelta(days=days)
@@ -2382,13 +2628,15 @@ async def get_calibration(
             confidence = float(pred.confidence) if pred.confidence else 0.5
             is_correct = predicted == actual_outcome
 
-            predictions_data.append({
-                "predicted": predicted,
-                "actual": actual_outcome,
-                "confidence": confidence,
-                "is_correct": is_correct,
-                "competition": match.competition_code,
-            })
+            predictions_data.append(
+                {
+                    "predicted": predicted,
+                    "actual": actual_outcome,
+                    "confidence": confidence,
+                    "is_correct": is_correct,
+                    "competition": match.competition_code,
+                }
+            )
 
         total_verified = len(predictions_data)
         total_correct = sum(1 for p in predictions_data if p["is_correct"])
@@ -2407,14 +2655,16 @@ async def get_calibration(
             # Buckets for this bet type
             buckets = _calculate_buckets(bt_preds)
 
-            by_bet_type.append(CalibrationByBet(
-                bet_type=bet,
-                total_predictions=bt_count,
-                correct=bt_correct,
-                accuracy=bt_accuracy,
-                avg_confidence=bt_avg_conf,
-                buckets=buckets,
-            ))
+            by_bet_type.append(
+                CalibrationByBet(
+                    bet_type=bet,
+                    total_predictions=bt_count,
+                    correct=bt_correct,
+                    accuracy=bt_accuracy,
+                    avg_confidence=bt_avg_conf,
+                    buckets=buckets,
+                )
+            )
 
         # Calculate overall confidence buckets
         overall_buckets = _calculate_buckets(predictions_data)
@@ -2424,7 +2674,9 @@ async def get_calibration(
         for bucket in overall_buckets:
             if bucket.count > 0:
                 calibration_errors.append(abs(bucket.overconfidence))
-        mean_calibration_error = sum(calibration_errors) / len(calibration_errors) if calibration_errors else 0
+        mean_calibration_error = (
+            sum(calibration_errors) / len(calibration_errors) if calibration_errors else 0
+        )
 
         # Calculate by competition
         by_competition: dict[str, dict[str, Any]] = {}
@@ -2437,7 +2689,9 @@ async def get_calibration(
                 "total": comp_count,
                 "correct": comp_correct,
                 "accuracy": comp_correct / comp_count if comp_count > 0 else 0,
-                "avg_confidence": sum(p["confidence"] for p in comp_preds) / comp_count if comp_count > 0 else 0,
+                "avg_confidence": (
+                    sum(p["confidence"] for p in comp_preds) / comp_count if comp_count > 0 else 0
+                ),
             }
 
         return CalibrationResponse(
@@ -2478,12 +2732,14 @@ def _calculate_buckets(predictions: list[dict]) -> list[CalibrationBucket]:
             actual_rate = 0
             overconfidence = 0
 
-        buckets.append(CalibrationBucket(
-            confidence_range=label,
-            predicted_confidence=avg_conf,
-            actual_win_rate=actual_rate,
-            count=count,
-            overconfidence=overconfidence,
-        ))
+        buckets.append(
+            CalibrationBucket(
+                confidence_range=label,
+                predicted_confidence=avg_conf,
+                actual_win_rate=actual_rate,
+                count=count,
+                overconfidence=overconfidence,
+            )
+        )
 
     return buckets

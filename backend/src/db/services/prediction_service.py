@@ -93,6 +93,7 @@ class PredictionService:
                 return None
 
             import json
+
             # Parse stored JSON arrays for key_factors and risk_factors
             key_factors = None
             risk_factors = None
@@ -139,7 +140,7 @@ class PredictionService:
                 "llm_adjustments": llm_adjustments,
                 "created_at": (
                     pred.created_at.isoformat()
-                    if pred.created_at and hasattr(pred.created_at, 'isoformat')
+                    if pred.created_at and hasattr(pred.created_at, "isoformat")
                     else str(pred.created_at) if pred.created_at else None
                 ),
             }
@@ -318,10 +319,14 @@ class PredictionService:
                             "home_team": (p.match.home_team.name if p.match.home_team else None),
                             "away_team": (p.match.away_team.name if p.match.away_team else None),
                             "match_date": (
-                                p.match.match_date.isoformat()
-                                if hasattr(p.match.match_date, 'isoformat')
-                                else str(p.match.match_date)
-                            ) if p.match.match_date else None,
+                                (
+                                    p.match.match_date.isoformat()
+                                    if hasattr(p.match.match_date, "isoformat")
+                                    else str(p.match.match_date)
+                                )
+                                if p.match.match_date
+                                else None
+                            ),
                         }
                         if p.match
                         else None
@@ -374,6 +379,7 @@ class PredictionService:
             for p in predictions:
                 # Parse stored JSON arrays for key_factors and risk_factors
                 import json
+
                 key_factors = None
                 risk_factors = None
                 if p.key_factors:
@@ -392,45 +398,47 @@ class PredictionService:
                 if p.match and p.match.home_score is not None and p.match.away_score is not None:
                     actual_score = f"{p.match.home_score}-{p.match.away_score}"
 
-                results.append({
-                    "id": p.id,
-                    "match_id": p.match_id,
-                    "match_external_id": p.match.external_id if p.match else None,
-                    "home_team": (
-                        p.match.home_team.name if p.match and p.match.home_team else None
-                    ),
-                    "away_team": (
-                        p.match.away_team.name if p.match and p.match.away_team else None
-                    ),
-                    "competition_code": (
-                        p.match.competition_code if p.match else None
-                    ),
-                    "match_date": (
-                        p.match.match_date.isoformat()
-                        if p.match and p.match.match_date and hasattr(p.match.match_date, 'isoformat')
-                        else str(p.match.match_date) if p.match and p.match.match_date else None
-                    ),
-                    "home_win_prob": float(p.home_prob),
-                    "draw_prob": float(p.draw_prob),
-                    "away_win_prob": float(p.away_prob),
-                    "confidence": float(p.confidence),
-                    "recommendation": p.predicted_outcome,
-                    "explanation": p.explanation,
-                    "key_factors": key_factors,
-                    "risk_factors": risk_factors,
-                    "value_score": float(p.value_score) if p.value_score else None,
-                    "is_daily_pick": p.is_daily_pick,
-                    "pick_rank": p.pick_rank,
-                    "created_at": (
-                        p.created_at.isoformat()
-                        if p.created_at and hasattr(p.created_at, 'isoformat')
-                        else str(p.created_at) if p.created_at else None
-                    ),
-                    # Verification fields
-                    "is_verified": p.result is not None,
-                    "is_correct": p.result.was_correct if p.result else None,
-                    "actual_score": actual_score,
-                })
+                results.append(
+                    {
+                        "id": p.id,
+                        "match_id": p.match_id,
+                        "match_external_id": p.match.external_id if p.match else None,
+                        "home_team": (
+                            p.match.home_team.name if p.match and p.match.home_team else None
+                        ),
+                        "away_team": (
+                            p.match.away_team.name if p.match and p.match.away_team else None
+                        ),
+                        "competition_code": (p.match.competition_code if p.match else None),
+                        "match_date": (
+                            p.match.match_date.isoformat()
+                            if p.match
+                            and p.match.match_date
+                            and hasattr(p.match.match_date, "isoformat")
+                            else str(p.match.match_date) if p.match and p.match.match_date else None
+                        ),
+                        "home_win_prob": float(p.home_prob),
+                        "draw_prob": float(p.draw_prob),
+                        "away_win_prob": float(p.away_prob),
+                        "confidence": float(p.confidence),
+                        "recommendation": p.predicted_outcome,
+                        "explanation": p.explanation,
+                        "key_factors": key_factors,
+                        "risk_factors": risk_factors,
+                        "value_score": float(p.value_score) if p.value_score else None,
+                        "is_daily_pick": p.is_daily_pick,
+                        "pick_rank": p.pick_rank,
+                        "created_at": (
+                            p.created_at.isoformat()
+                            if p.created_at and hasattr(p.created_at, "isoformat")
+                            else str(p.created_at) if p.created_at else None
+                        ),
+                        # Verification fields
+                        "is_verified": p.result is not None,
+                        "is_correct": p.result.was_correct if p.result else None,
+                        "actual_score": actual_score,
+                    }
+                )
             return results
 
     @staticmethod
@@ -497,6 +505,7 @@ class PredictionService:
 
                 # Prepare optional fields
                 import json
+
                 key_factors = prediction_data.get("key_factors")
                 risk_factors = prediction_data.get("risk_factors")
                 value_score = prediction_data.get("value_score")
@@ -610,8 +619,7 @@ class PredictionService:
         Called by scheduler every day at 9:00 UTC.
         Returns list of generated picks.
         """
-        from datetime import timezone
-        from src.data.sources.football_data import get_football_data_client, COMPETITIONS
+        from src.data.sources.football_data import COMPETITIONS, get_football_data_client
 
         logger.info("Generating daily picks...")
 
@@ -628,7 +636,7 @@ class PredictionService:
                     competition=comp_code,
                     date_from=today,
                     date_to=tomorrow,
-                    status="SCHEDULED,TIMED"
+                    status="SCHEDULED",  # type: ignore[arg-type]
                 )
 
                 for match in matches:
@@ -645,10 +653,26 @@ class PredictionService:
                         model_details_for_db = None
                         if pred.model_contributions:
                             model_details_for_db = {
-                                "poisson": pred.model_contributions.poisson.model_dump() if pred.model_contributions.poisson else None,
-                                "xgboost": pred.model_contributions.xgboost.model_dump() if pred.model_contributions.xgboost else None,
-                                "xg_model": pred.model_contributions.xg_model.model_dump() if pred.model_contributions.xg_model else None,
-                                "elo": pred.model_contributions.elo.model_dump() if pred.model_contributions.elo else None,
+                                "poisson": (
+                                    pred.model_contributions.poisson.model_dump()
+                                    if pred.model_contributions.poisson
+                                    else None
+                                ),
+                                "xgboost": (
+                                    pred.model_contributions.xgboost.model_dump()
+                                    if pred.model_contributions.xgboost
+                                    else None
+                                ),
+                                "xg_model": (
+                                    pred.model_contributions.xg_model.model_dump()
+                                    if pred.model_contributions.xg_model
+                                    else None
+                                ),
+                                "elo": (
+                                    pred.model_contributions.elo.model_dump()
+                                    if pred.model_contributions.elo
+                                    else None
+                                ),
                             }
 
                         llm_adjustments_for_db = None
@@ -656,37 +680,43 @@ class PredictionService:
                             llm_adjustments_for_db = pred.llm_adjustments.model_dump()
 
                         # Save to DB
-                        await PredictionService.save_prediction_from_api({
-                            "match_id": match.id,
-                            "match_external_id": f"{comp_code}_{match.id}",
-                            "home_team": pred.home_team,
-                            "away_team": pred.away_team,
-                            "competition_code": comp_code,
-                            "match_date": match.utcDate,
-                            "home_win_prob": pred.probabilities.home_win,
-                            "draw_prob": pred.probabilities.draw,
-                            "away_win_prob": pred.probabilities.away_win,
-                            "confidence": pred.confidence,
-                            "recommendation": pred.recommended_bet,
-                            "explanation": pred.explanation,
-                            "key_factors": pred.key_factors,
-                            "risk_factors": pred.risk_factors,
-                            "value_score": pred.value_score,
-                            "model_details": model_details_for_db,
-                            "llm_adjustments": llm_adjustments_for_db,
-                        })
+                        await PredictionService.save_prediction_from_api(
+                            {
+                                "match_id": match.id,
+                                "match_external_id": f"{comp_code}_{match.id}",
+                                "home_team": pred.home_team,
+                                "away_team": pred.away_team,
+                                "competition_code": comp_code,
+                                "match_date": match.utcDate,
+                                "home_win_prob": pred.probabilities.home_win,
+                                "draw_prob": pred.probabilities.draw,
+                                "away_win_prob": pred.probabilities.away_win,
+                                "confidence": pred.confidence,
+                                "recommendation": pred.recommended_bet,
+                                "explanation": pred.explanation,
+                                "key_factors": pred.key_factors,
+                                "risk_factors": pred.risk_factors,
+                                "value_score": pred.value_score,
+                                "model_details": model_details_for_db,
+                                "llm_adjustments": llm_adjustments_for_db,
+                            }
+                        )
 
-                        all_picks.append({
-                            "match_id": match.id,
-                            "home_team": pred.home_team,
-                            "away_team": pred.away_team,
-                            "confidence": pred.confidence,
-                            "recommendation": pred.recommended_bet,
-                        })
+                        all_picks.append(
+                            {
+                                "match_id": match.id,
+                                "home_team": pred.home_team,
+                                "away_team": pred.away_team,
+                                "confidence": pred.confidence,
+                                "recommendation": pred.recommended_bet,
+                            }
+                        )
                         matches_processed += 1
 
                     except Exception as match_err:
-                        logger.warning(f"Failed to generate prediction for match {match.id}: {match_err}")
+                        logger.warning(
+                            f"Failed to generate prediction for match {match.id}: {match_err}"
+                        )
                         continue
 
             except Exception as comp_err:

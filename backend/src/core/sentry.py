@@ -1,10 +1,13 @@
 """Sentry configuration for error monitoring and alerting."""
 
+import logging
 import os
 
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
+
+logger = logging.getLogger(__name__)
 
 
 def init_sentry() -> None:
@@ -12,7 +15,7 @@ def init_sentry() -> None:
     sentry_dsn = os.getenv("SENTRY_DSN")
 
     if not sentry_dsn:
-        print("WARNING: SENTRY_DSN not set, Sentry disabled")
+        logger.warning("SENTRY_DSN not set, Sentry disabled")
         return
 
     environment = os.getenv("APP_ENV", "development")
@@ -35,4 +38,4 @@ def init_sentry() -> None:
         enabled=environment == "production",
     )
 
-    print(f"Sentry initialized for environment: {environment}")
+    logger.info("Sentry initialized for environment: %s", environment)

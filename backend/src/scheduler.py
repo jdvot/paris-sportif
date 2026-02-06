@@ -52,7 +52,10 @@ async def sync_weekly_task():
         status = "success" if not all_errors else "partial"
         await SyncServiceAsync.log_sync("weekly_auto", status, matches_synced + standings_synced)
 
-        logger.info(f"Weekly sync complete: {matches_synced} matches, {standings_synced} standings, {teams_updated} teams")
+        logger.info(
+            f"Weekly sync complete: {matches_synced} matches, "
+            f"{standings_synced} standings, {teams_updated} teams"
+        )
 
     except Exception as e:
         logger.error(f"Weekly sync failed: {e}")
@@ -111,7 +114,10 @@ async def sync_daily_scores_task():
         # Update team stats
         teams_updated = await _recalculate_all_team_stats()
 
-        logger.info(f"Daily sync complete: {total_synced} matches, {verified} verified, {teams_updated} teams updated")
+        logger.info(
+            f"Daily sync complete: {total_synced} matches, "
+            f"{verified} verified, {teams_updated} teams updated"
+        )
 
     except Exception as e:
         logger.error(f"Daily sync failed: {e}")
@@ -130,28 +136,28 @@ def init_scheduler():
     # Weekly sync: Sundays at 20:00 UTC
     scheduler.add_job(
         sync_weekly_task,
-        CronTrigger(day_of_week='sun', hour=20, minute=0),
-        id='weekly_sync',
+        CronTrigger(day_of_week="sun", hour=20, minute=0),
+        id="weekly_sync",
         replace_existing=True,
-        name='Weekly match & standings sync'
+        name="Weekly match & standings sync",
     )
 
     # Daily score sync: Every day at 06:00 UTC
     scheduler.add_job(
         sync_daily_scores_task,
         CronTrigger(hour=6, minute=0),
-        id='daily_sync',
+        id="daily_sync",
         replace_existing=True,
-        name='Daily score updates'
+        name="Daily score updates",
     )
 
     # Daily picks generation: Every day at 09:00 UTC
     scheduler.add_job(
         generate_daily_picks_task,
         CronTrigger(hour=9, minute=0),
-        id='daily_picks',
+        id="daily_picks",
         replace_existing=True,
-        name='Daily picks generation'
+        name="Daily picks generation",
     )
 
     scheduler.start()
@@ -179,11 +185,13 @@ def get_scheduler_status() -> dict:
 
     jobs = []
     for job in scheduler.get_jobs():
-        jobs.append({
-            "id": job.id,
-            "name": job.name,
-            "next_run": str(job.next_run_time) if job.next_run_time else None,
-        })
+        jobs.append(
+            {
+                "id": job.id,
+                "name": job.name,
+                "next_run": str(job.next_run_time) if job.next_run_time else None,
+            }
+        )
 
     return {
         "running": scheduler.running,

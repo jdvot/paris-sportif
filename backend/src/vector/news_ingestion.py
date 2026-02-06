@@ -10,9 +10,10 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import quote
 
-import defusedxml.ElementTree as ET
+import defusedxml.ElementTree as DefusedET  # noqa: N817
 import httpx
 
+from src.core.http_client import get_http_client
 from src.vector.news_indexer import NewsArticle, NewsIndexer
 
 logger = logging.getLogger(__name__)
@@ -57,15 +58,28 @@ class NewsIngestionService:
 
     # Sources that are in French (for language detection)
     FRENCH_SOURCES = {
-        "lequipe_football", "lequipe_transfers", "rmcsport_football",
-        "footmercato", "sofoot", "maxifoot_general", "maxifoot_transfer",
-        "maxifoot_ligue1", "maxifoot_champions", "maxifoot_angleterre",
-        "maxifoot_espagne", "maxifoot_italie", "maxifoot_allemagne",
-        "maxifoot_psg", "maxifoot_om", "maxifoot_ol",
+        "lequipe_football",
+        "lequipe_transfers",
+        "rmcsport_football",
+        "footmercato",
+        "sofoot",
+        "maxifoot_general",
+        "maxifoot_transfer",
+        "maxifoot_ligue1",
+        "maxifoot_champions",
+        "maxifoot_angleterre",
+        "maxifoot_espagne",
+        "maxifoot_italie",
+        "maxifoot_allemagne",
+        "maxifoot_psg",
+        "maxifoot_om",
+        "maxifoot_ol",
     }
 
     # Google News RSS template for team-specific searches
-    GOOGLE_NEWS_RSS = "https://news.google.com/rss/search?q={query}&hl={lang}&gl={country}&ceid={country}:{lang}"
+    GOOGLE_NEWS_RSS = (
+        "https://news.google.com/rss/search?q={query}&hl={lang}&gl={country}&ceid={country}:{lang}"
+    )
 
     # Team name mappings for football-data.org API
     TEAM_IDS = {
@@ -159,33 +173,35 @@ class NewsIngestionService:
                 {"query": f"{team_name} football", "lang": "en", "country": "GB"},
             ]
 
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                for config in search_configs:
-                    if len(articles) >= max_articles:
-                        break
+            client = get_http_client()
+            for config in search_configs:
+                if len(articles) >= max_articles:
+                    break
 
-                    try:
-                        encoded_query = quote(config["query"])
-                        rss_url = self.GOOGLE_NEWS_RSS.format(
-                            query=encoded_query,
-                            lang=config["lang"],
-                            country=config["country"],
+                try:
+                    encoded_query = quote(config["query"])
+                    rss_url = self.GOOGLE_NEWS_RSS.format(
+                        query=encoded_query,
+                        lang=config["lang"],
+                        country=config["country"],
+                    )
+
+                    response = await client.get(rss_url, timeout=15.0)
+                    if response.status_code == 200:
+                        parsed = self._parse_rss_feed(
+                            response.text,
+                            source=f"Google News ({config['lang'].upper()})",
+                            team_name=team_name,
                         )
+                        articles.extend(parsed)
 
-                        response = await client.get(rss_url)
-                        if response.status_code == 200:
-                            parsed = self._parse_rss_feed(
-                                response.text,
-                                source=f"Google News ({config['lang'].upper()})",
-                                team_name=team_name,
-                            )
-                            articles.extend(parsed)
+                    # Rate limit
+                    await asyncio.sleep(0.5)
 
-                        # Rate limit
-                        await asyncio.sleep(0.5)
-
-                    except Exception as e:
-                        logger.warning(f"Error fetching Google News for {team_name} ({config['lang']}): {e}")
+                except Exception as e:
+                    logger.warning(
+                        f"Error fetching Google News for {team_name} ({config['lang']}): {e}"
+                    )
 
             # Deduplicate by title
             seen_titles: set[str] = set()
@@ -207,28 +223,30 @@ class NewsIngestionService:
         """Fetch general football news from major RSS sources."""
         all_articles: list[NewsArticle] = []
 
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            for source_name, rss_url in self.RSS_SOURCES.items():
-                try:
-                    response = await client.get(rss_url)
-                    if response.status_code == 200:
-                        articles = self._parse_rss_feed(
-                            response.text,
-                            source=source_name,
-                            team_name=None,
-                        )
-                        all_articles.extend(articles[:max_per_source])
-                        logger.info(f"Fetched {len(articles[:max_per_source])} articles from {source_name}")
+        client = get_http_client()
+        for source_name, rss_url in self.RSS_SOURCES.items():
+            try:
+                response = await client.get(rss_url, timeout=10.0)
+                if response.status_code == 200:
+                    articles = self._parse_rss_feed(
+                        response.text,
+                        source=source_name,
+                        team_name=None,
+                    )
+                    all_articles.extend(articles[:max_per_source])
+                    logger.info(
+                        f"Fetched {len(articles[:max_per_source])} articles from {source_name}"
+                    )
 
-                    # Rate limit
-                    await asyncio.sleep(0.5)
+                # Rate limit
+                await asyncio.sleep(0.5)
 
-                except httpx.TimeoutException:
-                    logger.warning(f"Timeout fetching RSS from {source_name}")
-                except httpx.ConnectError:
-                    logger.warning(f"Connection error for {source_name}")
-                except Exception as e:
-                    logger.warning(f"Error fetching RSS from {source_name}: {e}")
+            except httpx.TimeoutException:
+                logger.warning(f"Timeout fetching RSS from {source_name}")
+            except httpx.ConnectError:
+                logger.warning(f"Connection error for {source_name}")
+            except Exception as e:
+                logger.warning(f"Error fetching RSS from {source_name}: {e}")
 
         logger.info(f"Total general news fetched: {len(all_articles)}")
         return all_articles
@@ -243,7 +261,7 @@ class NewsIngestionService:
         articles: list[NewsArticle] = []
 
         try:
-            root = ET.fromstring(xml_content)
+            root = DefusedET.fromstring(xml_content)
 
             # Handle both RSS 2.0 and Atom feeds
             items = root.findall(".//item") or root.findall(".//{http://www.w3.org/2005/Atom}entry")
@@ -268,7 +286,11 @@ class NewsIngestionService:
 
                     if title_elem is not None and title_elem.text:
                         title = title_elem.text.strip()
-                        content = desc_elem.text.strip() if desc_elem is not None and desc_elem.text else None
+                        content = (
+                            desc_elem.text.strip()
+                            if desc_elem is not None and desc_elem.text
+                            else None
+                        )
                         url = None
 
                         # Get URL (handle Atom link with href attribute)
@@ -287,12 +309,14 @@ class NewsIngestionService:
                                     "%Y-%m-%dT%H:%M:%SZ",
                                 ]:
                                     try:
-                                        published_at = datetime.strptime(pub_date_elem.text.strip(), fmt)
+                                        published_at = datetime.strptime(
+                                            pub_date_elem.text.strip(), fmt
+                                        )
                                         break
                                     except ValueError:
                                         continue
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logger.debug(f"Date parsing failed for RSS item: {e}")
 
                         # Detect article type from content
                         article_type = self._detect_article_type(title, content or "")
@@ -301,7 +325,13 @@ class NewsIngestionService:
                         language = "en"  # default
                         if source in self.FRENCH_SOURCES:
                             language = "fr"
-                        elif source.startswith("maxifoot") or source.startswith("lequipe") or source.startswith("rmcsport") or source.startswith("footmercato") or source.startswith("sofoot"):
+                        elif (
+                            source.startswith("maxifoot")
+                            or source.startswith("lequipe")
+                            or source.startswith("rmcsport")
+                            or source.startswith("footmercato")
+                            or source.startswith("sofoot")
+                        ):
                             language = "fr"
                         elif "(FR)" in source.upper():
                             language = "fr"
@@ -324,7 +354,7 @@ class NewsIngestionService:
                     logger.debug(f"Error parsing RSS item: {e}")
                     continue
 
-        except ET.ParseError as e:
+        except DefusedET.ParseError as e:
             logger.warning(f"Error parsing RSS XML from {source}: {e}")
 
         return articles
@@ -334,17 +364,46 @@ class NewsIngestionService:
         text = f"{title} {content}".lower()
 
         # Injury keywords
-        injury_keywords = ["injury", "injured", "blessure", "blessé", "ruled out", "sidelined", "miss", "doubt"]
+        injury_keywords = [
+            "injury",
+            "injured",
+            "blessure",
+            "blessé",
+            "ruled out",
+            "sidelined",
+            "miss",
+            "doubt",
+        ]
         if any(kw in text for kw in injury_keywords):
             return "injury"
 
         # Transfer keywords
-        transfer_keywords = ["transfer", "signing", "sign", "deal", "bid", "target", "linked", "mercato", "transfert"]
+        transfer_keywords = [
+            "transfer",
+            "signing",
+            "sign",
+            "deal",
+            "bid",
+            "target",
+            "linked",
+            "mercato",
+            "transfert",
+        ]
         if any(kw in text for kw in transfer_keywords):
             return "transfer"
 
         # Form/result keywords
-        form_keywords = ["win", "victory", "defeat", "loss", "draw", "result", "score", "victoire", "défaite"]
+        form_keywords = [
+            "win",
+            "victory",
+            "defeat",
+            "loss",
+            "draw",
+            "result",
+            "score",
+            "victoire",
+            "défaite",
+        ]
         if any(kw in text for kw in form_keywords):
             return "form"
 
@@ -542,34 +601,34 @@ class NewsIngestionService:
                 f"{team_name} ruled out doubtful",
             ]
 
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                for query in search_queries:
-                    if len(articles) >= max_articles:
-                        break
+            client = get_http_client()
+            for query in search_queries:
+                if len(articles) >= max_articles:
+                    break
 
-                    try:
-                        encoded_query = quote(query)
-                        rss_url = self.GOOGLE_NEWS_RSS.format(
-                            query=encoded_query,
-                            lang="fr",
-                            country="FR",
+                try:
+                    encoded_query = quote(query)
+                    rss_url = self.GOOGLE_NEWS_RSS.format(
+                        query=encoded_query,
+                        lang="fr",
+                        country="FR",
+                    )
+
+                    response = await client.get(rss_url, timeout=15.0)
+                    if response.status_code == 200:
+                        parsed = self._parse_rss_feed(
+                            response.text,
+                            source="Google News (Injury)",
+                            team_name=team_name,
                         )
+                        # Only keep injury-related articles
+                        injury_articles = [a for a in parsed if a.article_type == "injury"]
+                        articles.extend(injury_articles)
 
-                        response = await client.get(rss_url)
-                        if response.status_code == 200:
-                            parsed = self._parse_rss_feed(
-                                response.text,
-                                source="Google News (Injury)",
-                                team_name=team_name,
-                            )
-                            # Only keep injury-related articles
-                            injury_articles = [a for a in parsed if a.article_type == "injury"]
-                            articles.extend(injury_articles)
+                    await asyncio.sleep(0.3)
 
-                        await asyncio.sleep(0.3)
-
-                    except Exception as e:
-                        logger.warning(f"Error fetching injury news for {team_name}: {e}")
+                except Exception as e:
+                    logger.warning(f"Error fetching injury news for {team_name}: {e}")
 
             logger.info(f"Fetched {len(articles)} injury news for {team_name}")
             return articles[:max_articles]

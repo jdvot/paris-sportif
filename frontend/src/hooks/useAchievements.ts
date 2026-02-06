@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { logger } from "@/lib/logger";
 
 export type AchievementId =
   // Streak achievements
@@ -270,7 +271,7 @@ export function useAchievements() {
         setData(parsed);
       }
     } catch (error) {
-      console.error("Failed to load achievements:", error);
+      logger.error("Failed to load achievements:", error);
     }
     setIsLoaded(true);
   }, []);
@@ -281,7 +282,7 @@ export function useAchievements() {
       try {
         localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(data));
       } catch (error) {
-        console.error("Failed to save achievements:", error);
+        logger.error("Failed to save achievements:", error);
       }
     }
   }, [data, isLoaded]);

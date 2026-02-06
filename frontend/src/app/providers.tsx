@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { createClient } from "@/lib/supabase/client";
 import { setAuthToken, clearAuthToken, markAuthInitialized } from "@/lib/auth/token-store";
+import { logger } from "@/lib/logger";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 // Flag to prevent multiple redirects
@@ -49,7 +50,7 @@ function parseSessionFromCookies(): { access_token: string; expires_in: number; 
     }
 
     if (authTokenChunks.length === 0) {
-      console.log('[CookieParser] No auth token cookies found');
+      logger.log('[CookieParser] No auth token cookies found');
       return null;
     }
 
@@ -57,7 +58,7 @@ function parseSessionFromCookies(): { access_token: string; expires_in: number; 
     authTokenChunks.sort((a, b) => a.index - b.index);
     const encodedSession = authTokenChunks.map(c => c.value).join('');
 
-    console.log('[CookieParser] Found', authTokenChunks.length, 'cookie chunks');
+    logger.log('[CookieParser] Found', authTokenChunks.length, 'cookie chunks');
 
     // Decode - Supabase uses base64url encoding with 'base64-' prefix
     let sessionJson: string;
@@ -75,11 +76,11 @@ function parseSessionFromCookies(): { access_token: string; expires_in: number; 
     const session = JSON.parse(sessionJson);
 
     if (!session.access_token) {
-      console.log('[CookieParser] Session missing access_token');
+      logger.log('[CookieParser] Session missing access_token');
       return null;
     }
 
-    console.log('[CookieParser] Successfully parsed session for:', session.user?.email);
+    logger.log('[CookieParser] Successfully parsed session for:', session.user?.email);
 
     return {
       access_token: session.access_token,
@@ -87,7 +88,7 @@ function parseSessionFromCookies(): { access_token: string; expires_in: number; 
       user: session.user || {}
     };
   } catch (err) {
-    console.error('[CookieParser] Failed to parse session:', err);
+    logger.error('[CookieParser] Failed to parse session:', err);
     return null;
   }
 }
@@ -119,7 +120,7 @@ function clearSupabaseCookies() {
     }
   });
 
-  console.log('[Auth] Manually cleared Supabase cookies');
+  logger.log('[Auth] Manually cleared Supabase cookies');
 }
 
 async function handleAuthError(status: number) {
@@ -130,18 +131,18 @@ async function handleAuthError(status: number) {
 
   // Don't redirect if already on an auth page - prevents redirect loops
   if (currentPath.startsWith('/auth/')) {
-    console.log('[Auth] Already on auth page, skipping redirect');
+    logger.log('[Auth] Already on auth page, skipping redirect');
     return;
   }
 
   // Don't redirect if we just redirected (prevent race condition loops)
   if (wasRecentlyRedirected()) {
-    console.log('[Auth] Recently redirected, skipping to prevent loop');
+    logger.log('[Auth] Recently redirected, skipping to prevent loop');
     return;
   }
 
   if (status === 401) {
-    console.log('[Auth] 401 detected, clearing auth and redirecting...');
+    logger.log('[Auth] 401 detected, clearing auth and redirecting...');
     isRedirecting = true;
 
     // Mark that we're redirecting (persists across the navigation)
@@ -155,10 +156,10 @@ async function handleAuthError(status: number) {
       const supabase = createClient();
       await supabase.auth.signOut();
       signOutSuccess = true;
-      console.log('[Auth] Sign out complete');
+      logger.log('[Auth] Sign out complete');
     } catch (e) {
       const error = e as { name?: string };
-      console.error('[Auth] Sign out failed:', error.name || 'Unknown error');
+      logger.error('[Auth] Sign out failed:', error.name || 'Unknown error');
 
       // If signOut failed (especially AbortError), manually clear cookies
       // This ensures middleware won't see the user on next request
@@ -185,7 +186,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   // Reset redirect flag on mount (new page load)
   useEffect(() => {
     isRedirecting = false;
-    console.log('[Providers] Component mounted, reset redirect flag');
+    logger.log('[Providers] Component mounted, reset redirect flag');
   }, []);
 
   /**
@@ -194,34 +195,34 @@ export function Providers({ children }: { children: React.ReactNode }) {
    * This ensures we detect if user has logged out from another device/browser
    */
   const validateUserWithServer = useCallback(async () => {
-    console.log('[Providers] Starting server-side user validation...');
+    logger.log('[Providers] Starting server-side user validation...');
     try {
       const supabase = createClient();
       const { data: { user }, error } = await supabase.auth.getUser();
 
       if (error) {
-        console.error('[Providers] User validation failed:', error.message);
+        logger.error('[Providers] User validation failed:', error.message);
         // User is no longer valid - clear auth and let next API call trigger redirect
         clearAuthToken();
         return false;
       }
 
       if (!user) {
-        console.log('[Providers] User validation: no user returned');
+        logger.log('[Providers] User validation: no user returned');
         clearAuthToken();
         return false;
       }
 
-      console.log('[Providers] User validation successful:', user.email);
+      logger.log('[Providers] User validation successful:', user.email);
       return true;
     } catch (err) {
       const error = err as { name?: string; message?: string };
       // Don't treat AbortError as validation failure
       if (error?.name === 'AbortError') {
-        console.log('[Providers] User validation aborted (navigation)');
+        logger.log('[Providers] User validation aborted (navigation)');
         return true; // Assume valid, will re-validate on next interval
       }
-      console.error('[Providers] User validation error:', error?.message);
+      logger.error('[Providers] User validation error:', error?.message);
       return false;
     }
   }, []);
@@ -254,7 +255,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               return;
             }
 
-            console.log('[QueryCache] Error caught:', err?.name, err?.status, err?.message);
+            logger.log('[QueryCache] Error caught:', err?.name, err?.status, err?.message);
 
             // Check for auth error by status (works in minified code)
             // ApiError has status property, other errors don't
@@ -270,7 +271,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               return;
             }
 
-            console.log('[MutationCache] Error caught:', err?.name, err?.status, err?.message);
+            logger.log('[MutationCache] Error caught:', err?.name, err?.status, err?.message);
 
             // Check for auth error by status (works in minified code)
             if (typeof err?.status === 'number' && err.status > 0) {
@@ -296,7 +297,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let isActive = true;
 
-    console.log('[Providers] Starting auth initialization...');
+    logger.log('[Providers] Starting auth initialization...');
 
     // Clear OAuth pending flag if present
     if (typeof window !== 'undefined') {
@@ -308,14 +309,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
     // Helper to mark ready (idempotent)
     const markReady = () => {
       if (isActive) {
-        console.log('[Providers] Setting isReady = true');
+        logger.log('[Providers] Setting isReady = true');
         setIsReady(true);
       }
     };
 
     // Helper to set up session from access token
     const setupSession = (accessToken: string, expiresIn: number, userEmail?: string) => {
-      console.log('[Providers] Setting up session for:', userEmail);
+      logger.log('[Providers] Setting up session for:', userEmail);
       setAuthToken(accessToken, expiresIn);
 
       // Clear redirect marker
@@ -326,7 +327,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       // Set up periodic validation
       if (!validationIntervalRef.current) {
         validationIntervalRef.current = setInterval(() => {
-          console.log('[Providers] Periodic validation');
+          logger.log('[Providers] Periodic validation');
           validateUserWithServer();
         }, USER_VALIDATION_INTERVAL_MS);
       }
@@ -335,12 +336,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
     // Step 1: Bootstrap auth with getSession() + timeout + cookie fallback
     const initAuth = async () => {
       try {
-        console.log('[Providers] Calling getSession()...');
+        logger.log('[Providers] Calling getSession()...');
 
         // Create a promise that resolves with a special marker after 2 seconds
         const timeoutPromise = new Promise<{ data: { session: null }; error: null; timedOut: true }>((resolve) => {
           setTimeout(() => {
-            console.warn('[Providers] getSession() timeout after 2s');
+            logger.warn('[Providers] getSession() timeout after 2s');
             resolve({ data: { session: null }, error: null, timedOut: true });
           }, 2000);
         });
@@ -356,42 +357,42 @@ export function Providers({ children }: { children: React.ReactNode }) {
         const { data, error, timedOut } = result as { data: { session: Session | null }; error: unknown; timedOut: boolean };
 
         if (error) {
-          console.error('[Providers] getSession error:', (error as { message?: string }).message);
+          logger.error('[Providers] getSession error:', (error as { message?: string }).message);
           markAuthInitialized();
         } else if (data.session?.access_token) {
           // getSession worked! Use the session
           setupSession(data.session.access_token, data.session.expires_in, data.session.user?.email);
         } else if (timedOut) {
           // getSession timed out - try cookie fallback
-          console.log('[Providers] getSession timed out, trying cookie fallback...');
+          logger.log('[Providers] getSession timed out, trying cookie fallback...');
           const cookieSession = parseSessionFromCookies();
 
           if (cookieSession) {
-            console.log('[Providers] Cookie fallback successful!');
+            logger.log('[Providers] Cookie fallback successful!');
             setupSession(cookieSession.access_token, cookieSession.expires_in, cookieSession.user?.email);
           } else {
-            console.log('[Providers] No session from cookies either');
+            logger.log('[Providers] No session from cookies either');
             markAuthInitialized();
           }
         } else {
-          console.log('[Providers] No session from getSession');
+          logger.log('[Providers] No session from getSession');
           markAuthInitialized();
         }
       } catch (err) {
         const error = err as { name?: string; message?: string };
         // Don't treat AbortError as failure (StrictMode double-mount)
         if (error?.name === 'AbortError') {
-          console.log('[Providers] getSession aborted (StrictMode)');
+          logger.log('[Providers] getSession aborted (StrictMode)');
           // Still try cookie fallback on abort
           const cookieSession = parseSessionFromCookies();
           if (cookieSession) {
-            console.log('[Providers] Cookie fallback after abort successful!');
+            logger.log('[Providers] Cookie fallback after abort successful!');
             setupSession(cookieSession.access_token, cookieSession.expires_in, cookieSession.user?.email);
           } else {
             markAuthInitialized();
           }
         } else {
-          console.error('[Providers] getSession failed:', error?.message);
+          logger.error('[Providers] getSession failed:', error?.message);
           markAuthInitialized();
         }
       } finally {
@@ -402,11 +403,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     // Step 2: Set up onAuthStateChange for future events
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-      console.log('[Providers] onAuthStateChange:', event, 'session:', !!session);
+      logger.log('[Providers] onAuthStateChange:', event, 'session:', !!session);
 
       // Skip INITIAL_SESSION - we handle this via getSession() above
       if (event === 'INITIAL_SESSION') {
-        console.log('[Providers] INITIAL_SESSION (skipped, using getSession)');
+        logger.log('[Providers] INITIAL_SESSION (skipped, using getSession)');
         return;
       }
 
@@ -414,7 +415,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         if (session?.access_token) {
           setAuthToken(session.access_token, session.expires_in);
-          console.log('[Providers] Token updated after', event, 'user:', session.user?.email);
+          logger.log('[Providers] Token updated after', event, 'user:', session.user?.email);
           queryClient.invalidateQueries();
 
           // Start periodic validation if not already running
@@ -429,7 +430,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
       // Handle sign out
       if (event === 'SIGNED_OUT') {
-        console.log('[Providers] SIGNED_OUT - clearing auth');
+        logger.log('[Providers] SIGNED_OUT - clearing auth');
         clearAuthToken();
         queryClient.clear();
 
@@ -452,7 +453,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     initAuth();
 
     return () => {
-      console.log('[Providers] Cleanup');
+      logger.log('[Providers] Cleanup');
       isActive = false;
       subscription.unsubscribe();
       if (validationIntervalRef.current) {

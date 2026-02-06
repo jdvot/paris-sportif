@@ -633,7 +633,9 @@ class AdvancedEnsemblePredictor:
                         )
                     )
                     ml_added = True
-                    logger.info(f"ML prediction added from LOCAL models (features: {local_ml_result.get('feature_count', 7)})")
+                    logger.info(
+                        f"ML prediction added from LOCAL models (features: {local_ml_result.get('feature_count', 7)})"
+                    )
             except Exception as e:
                 logger.warning(f"Local ML prediction failed: {e}")
 

@@ -41,11 +41,9 @@ jobs:
 
       - name: Run Ruff linter
         run: uv run ruff check src/ tests/
-        continue-on-error: true  # Don't fail on lint warnings initially
 
       - name: Run Ruff formatter check
         run: uv run ruff format --check src/ tests/
-        continue-on-error: true
 
   typecheck:
     name: Type Check
@@ -71,7 +69,6 @@ jobs:
 
       - name: Run mypy
         run: uv run mypy src/ --ignore-missing-imports
-        continue-on-error: true  # Don't fail on type errors initially
 
   test:
     name: Tests
@@ -138,4 +135,3 @@ jobs:
 
       - name: Run Bandit security scan
         run: uv run bandit -r src/ -ll --skip B101
-        continue-on-error: true  # Report but don't fail initially

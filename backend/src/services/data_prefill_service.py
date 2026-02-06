@@ -10,14 +10,11 @@ It handles:
 - Sync logs: track all operations
 """
 
-import asyncio
 import hashlib
 import json
 import logging
-import traceback
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
-from decimal import Decimal
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import text
@@ -44,18 +41,28 @@ async def log_sync_operation(
     """Log a sync operation to the sync_log table."""
     async with get_async_session() as session:
         result = await session.execute(
-            text("""
-                INSERT INTO sync_log (sync_type, status, records_synced, started_at, completed_at, error_message, triggered_by)
-                VALUES (:sync_type, :status, :records_synced, NOW(), NOW(), :error_message, :triggered_by)
+            text(
+                """
+                INSERT INTO sync_log (
+                    sync_type, status, records_synced,
+                    started_at, completed_at,
+                    error_message, triggered_by
+                )
+                VALUES (
+                    :sync_type, :status, :records_synced,
+                    NOW(), NOW(),
+                    :error_message, :triggered_by
+                )
                 RETURNING id
-            """),
+            """
+            ),
             {
                 "sync_type": sync_type,
                 "status": status,
                 "records_synced": records_synced,
                 "error_message": error_message,
                 "triggered_by": triggered_by,
-            }
+            },
         )
         await session.commit()
         row = result.fetchone()
@@ -78,7 +85,9 @@ class DataPrefillService:
 
         async with get_async_session() as session:
             # 1. Fill country from competition
-            country_result = await session.execute(text("""
+            country_result = await session.execute(
+                text(
+                    """
                 WITH team_leagues AS (
                     SELECT team_id, competition_code, SUM(cnt) as total_matches
                     FROM (
@@ -108,12 +117,16 @@ class DataPrefillService:
                 updated_at = NOW()
                 FROM primary_league pl
                 WHERE t.id = pl.team_id AND (t.country IS NULL OR t.country = '')
-            """))
+            """
+                )
+            )
             results["country"] = country_result.rowcount
             await session.commit()
 
             # 2. Fill form from last 5 matches
-            form_result = await session.execute(text("""
+            form_result = await session.execute(
+                text(
+                    """
                 WITH recent_matches AS (
                     SELECT
                         team_id,
@@ -125,11 +138,15 @@ class DataPrefillService:
                         END as result,
                         ROW_NUMBER() OVER (PARTITION BY team_id ORDER BY match_date DESC) as rn
                     FROM (
-                        SELECT home_team_id as team_id, match_date, home_score as goals_for, away_score as goals_against
-                        FROM matches WHERE status = 'FINISHED' AND home_score IS NOT NULL
+                        SELECT home_team_id as team_id, match_date,
+                            home_score as goals_for, away_score as goals_against
+                        FROM matches
+                        WHERE status = 'FINISHED' AND home_score IS NOT NULL
                         UNION ALL
-                        SELECT away_team_id as team_id, match_date, away_score as goals_for, home_score as goals_against
-                        FROM matches WHERE status = 'FINISHED' AND away_score IS NOT NULL
+                        SELECT away_team_id as team_id, match_date,
+                            away_score as goals_for, home_score as goals_against
+                        FROM matches
+                        WHERE status = 'FINISHED' AND away_score IS NOT NULL
                     ) all_matches
                 ),
                 team_form AS (
@@ -148,18 +165,24 @@ class DataPrefillService:
                     updated_at = NOW()
                 FROM team_form tf
                 WHERE t.id = tf.team_id
-            """))
+            """
+                )
+            )
             results["form"] = form_result.rowcount
             await session.commit()
 
             # 3. Fill rest_days and fixture_congestion
-            rest_result = await session.execute(text("""
+            rest_result = await session.execute(
+                text(
+                    """
                 WITH last_match AS (
                     SELECT team_id, MAX(match_date) as last_date
                     FROM (
-                        SELECT home_team_id as team_id, match_date FROM matches WHERE status = 'FINISHED'
+                        SELECT home_team_id as team_id, match_date
+                        FROM matches WHERE status = 'FINISHED'
                         UNION ALL
-                        SELECT away_team_id as team_id, match_date FROM matches WHERE status = 'FINISHED'
+                        SELECT away_team_id as team_id, match_date
+                        FROM matches WHERE status = 'FINISHED'
                     ) all_matches
                     GROUP BY team_id
                 ),
@@ -183,12 +206,16 @@ class DataPrefillService:
                 FROM last_match lm
                 LEFT JOIN congestion c ON lm.team_id = c.team_id
                 WHERE t.id = lm.team_id
-            """))
+            """
+                )
+            )
             results["rest_days"] = rest_result.rowcount
             await session.commit()
 
             # 4. Fill avg_goals from match history
-            goals_result = await session.execute(text("""
+            goals_result = await session.execute(
+                text(
+                    """
                 WITH home_stats AS (
                     SELECT
                         home_team_id as team_id,
@@ -217,7 +244,9 @@ class DataPrefillService:
                 FROM home_stats h
                 FULL OUTER JOIN away_stats a ON h.team_id = a.team_id
                 WHERE t.id = COALESCE(h.team_id, a.team_id)
-            """))
+            """
+                )
+            )
             results["avg_goals"] = goals_result.rowcount
             await session.commit()
 
@@ -234,14 +263,18 @@ class DataPrefillService:
 
         async with get_async_session() as session:
             # Get all finished matches ordered by date
-            result = await session.execute(text("""
+            result = await session.execute(
+                text(
+                    """
                 SELECT id, home_team_id, away_team_id, home_score, away_score, match_date
                 FROM matches
                 WHERE status = 'FINISHED'
                     AND home_score IS NOT NULL
                     AND away_score IS NOT NULL
                 ORDER BY match_date ASC
-            """))
+            """
+                )
+            )
             matches = result.fetchall()
 
             logger.info(f"Processing {len(matches)} matches for ELO calculation")
@@ -273,7 +306,7 @@ class DataPrefillService:
                 clamped_elo = max(1000.0, min(2500.0, elo))
                 await session.execute(
                     text("UPDATE teams SET elo_rating = :elo, updated_at = NOW() WHERE id = :id"),
-                    {"elo": clamped_elo, "id": team_id}
+                    {"elo": clamped_elo, "id": team_id},
                 )
                 updated += 1
 
@@ -288,7 +321,9 @@ class DataPrefillService:
 
         async with get_async_session() as session:
             # Get upcoming matches without predictions
-            result = await session.execute(text("""
+            result = await session.execute(
+                text(
+                    """
                 SELECT m.id, m.external_id, m.home_team_id, m.away_team_id,
                        m.competition_code, m.match_date,
                        ht.name as home_team, at.name as away_team
@@ -301,7 +336,9 @@ class DataPrefillService:
                     AND m.match_date < NOW() + INTERVAL '14 days'
                     AND p.id IS NULL
                 ORDER BY m.match_date
-            """))
+            """
+                )
+            )
             upcoming = result.fetchall()
 
             logger.info(f"Found {len(upcoming)} upcoming matches without predictions")
@@ -313,12 +350,17 @@ class DataPrefillService:
                     from src.prediction_engine.ensemble_advanced import advanced_ensemble_predictor
 
                     # Get team stats
-                    team_result = await session.execute(text("""
+                    team_result = await session.execute(
+                        text(
+                            """
                         SELECT t.id, t.elo_rating, t.avg_goals_scored_home, t.avg_goals_scored_away,
                                t.avg_goals_conceded_home, t.avg_goals_conceded_away, t.form_score,
                                t.rest_days, t.fixture_congestion
                         FROM teams t WHERE t.id IN (:home_id, :away_id)
-                    """), {"home_id": match.home_team_id, "away_id": match.away_team_id})
+                    """
+                        ),
+                        {"home_id": match.home_team_id, "away_id": match.away_team_id},
+                    )
                     teams = {t.id: t for t in team_result.fetchall()}
 
                     home = teams.get(match.home_team_id)
@@ -346,20 +388,25 @@ class DataPrefillService:
                     )
 
                     # Save prediction
-                    await PredictionService.save_prediction_from_api({
-                        "match_id": match.id,
-                        "match_external_id": match.external_id,
-                        "home_team": match.home_team,
-                        "away_team": match.away_team,
-                        "competition_code": match.competition_code,
-                        "match_date": match.match_date.isoformat(),
-                        "home_win_prob": pred.home_win_prob,
-                        "draw_prob": pred.draw_prob,
-                        "away_win_prob": pred.away_win_prob,
-                        "confidence": pred.confidence,
-                        "recommendation": pred.recommended_bet,
-                        "explanation": f"Prédiction pré-calculée pour {match.home_team} vs {match.away_team}",
-                    })
+                    await PredictionService.save_prediction_from_api(
+                        {
+                            "match_id": match.id,
+                            "match_external_id": match.external_id,
+                            "home_team": match.home_team,
+                            "away_team": match.away_team,
+                            "competition_code": match.competition_code,
+                            "match_date": match.match_date.isoformat(),
+                            "home_win_prob": pred.home_win_prob,
+                            "draw_prob": pred.draw_prob,
+                            "away_win_prob": pred.away_win_prob,
+                            "confidence": pred.confidence,
+                            "recommendation": pred.recommended_bet,
+                            "explanation": (
+                                f"Prédiction pré-calculée pour "
+                                f"{match.home_team} vs {match.away_team}"
+                            ),
+                        }
+                    )
                     generated += 1
 
                 except Exception as e:
@@ -372,12 +419,15 @@ class DataPrefillService:
     async def warm_redis_cache() -> int:
         """Pre-warm Redis cache with predictions and stats."""
         import json
+
         from src.core.cache import cache_set
 
         cached = 0
         async with get_async_session() as session:
             # Cache all predictions for upcoming matches
-            result = await session.execute(text("""
+            result = await session.execute(
+                text(
+                    """
                 SELECT p.match_id, p.home_prob, p.draw_prob, p.away_prob,
                        p.predicted_outcome, p.confidence, p.value_score,
                        p.explanation, p.created_at,
@@ -388,13 +438,23 @@ class DataPrefillService:
                 JOIN teams ht ON m.home_team_id = ht.id
                 JOIN teams at ON m.away_team_id = at.id
                 WHERE m.match_date > NOW() AND m.match_date < NOW() + INTERVAL '14 days'
-            """))
+            """
+                )
+            )
             predictions = result.fetchall()
 
             for pred in predictions:
                 # Handle datetime fields that might already be strings
-                match_date_str = pred.match_date.isoformat() if hasattr(pred.match_date, 'isoformat') else str(pred.match_date)
-                created_at_str = pred.created_at.isoformat() if hasattr(pred.created_at, 'isoformat') else str(pred.created_at)
+                match_date_str = (
+                    pred.match_date.isoformat()
+                    if hasattr(pred.match_date, "isoformat")
+                    else str(pred.match_date)
+                )
+                created_at_str = (
+                    pred.created_at.isoformat()
+                    if hasattr(pred.created_at, "isoformat")
+                    else str(pred.created_at)
+                )
 
                 cache_data = {
                     "match_id": pred.match_id,
@@ -418,7 +478,7 @@ class DataPrefillService:
                     await cache_set(
                         f"prediction:{pred.match_id}",
                         json.dumps(cache_data, default=str),
-                        ttl=3600  # 1 hour
+                        ttl=3600,  # 1 hour
                     )
                     cached += 1
                 except Exception as e:
@@ -451,7 +511,7 @@ class DataPrefillService:
                         # Check if already exists
                         existing = await session.execute(
                             text("SELECT id FROM news_items WHERE external_id = :ext_id"),
-                            {"ext_id": external_id}
+                            {"ext_id": external_id},
                         )
                         if existing.fetchone():
                             continue
@@ -461,9 +521,15 @@ class DataPrefillService:
                         if article.team_id:
                             team_ids = json.dumps([article.team_id])
 
+                        # Convert timezone-aware datetime to naive UTC
+                        pub_at = article.published_at
+                        if pub_at and pub_at.tzinfo is not None:
+                            pub_at = pub_at.astimezone(UTC).replace(tzinfo=None)
+
                         # Insert news item
                         await session.execute(
-                            text("""
+                            text(
+                                """
                                 INSERT INTO news_items (
                                     external_id, title, content, url, source,
                                     team_ids, is_injury_news, published_at, created_at
@@ -471,17 +537,19 @@ class DataPrefillService:
                                     :external_id, :title, :content, :url, :source,
                                     :team_ids, :is_injury_news, :published_at, NOW()
                                 )
-                            """),
+                            """
+                            ),
                             {
                                 "external_id": external_id,
                                 "title": article.title[:500],
                                 "content": article.content[:2000] if article.content else None,
-                                "url": article.url or f"https://news.google.com/search?q={article.title[:50]}",
+                                "url": article.url
+                                or f"https://news.google.com/search?q={article.title[:50]}",
                                 "source": article.source,
                                 "team_ids": team_ids,
                                 "is_injury_news": article.article_type == "injury",
-                                "published_at": article.published_at,
-                            }
+                                "published_at": pub_at,
+                            },
                         )
                         saved += 1
 
@@ -517,7 +585,9 @@ class DataPrefillService:
         try:
             results["team_data"] = await DataPrefillService.fill_all_team_data()
             total_team_updates = sum(results["team_data"].values())
-            await log_sync_operation("team_data", "success", total_team_updates, triggered_by=triggered_by)
+            await log_sync_operation(
+                "team_data", "success", total_team_updates, triggered_by=triggered_by
+            )
         except Exception as e:
             logger.error(f"Team data prefill failed: {e}")
             errors.append(f"team_data: {str(e)}")
@@ -526,7 +596,9 @@ class DataPrefillService:
         # 2. Calculate ELO ratings
         try:
             results["elo_ratings"] = await DataPrefillService.calculate_elo_ratings()
-            await log_sync_operation("elo_ratings", "success", results["elo_ratings"], triggered_by=triggered_by)
+            await log_sync_operation(
+                "elo_ratings", "success", results["elo_ratings"], triggered_by=triggered_by
+            )
         except Exception as e:
             logger.error(f"ELO calculation failed: {e}")
             errors.append(f"elo_ratings: {str(e)}")
@@ -535,7 +607,9 @@ class DataPrefillService:
         # 3. Pre-generate predictions
         try:
             results["predictions"] = await DataPrefillService.prefill_predictions_for_upcoming()
-            await log_sync_operation("predictions", "success", results["predictions"], triggered_by=triggered_by)
+            await log_sync_operation(
+                "predictions", "success", results["predictions"], triggered_by=triggered_by
+            )
         except Exception as e:
             logger.error(f"Predictions prefill failed: {e}")
             errors.append(f"predictions: {str(e)}")
@@ -544,7 +618,9 @@ class DataPrefillService:
         # 4. Warm Redis cache
         try:
             results["redis_cache"] = await DataPrefillService.warm_redis_cache()
-            await log_sync_operation("redis_cache", "success", results["redis_cache"], triggered_by=triggered_by)
+            await log_sync_operation(
+                "redis_cache", "success", results["redis_cache"], triggered_by=triggered_by
+            )
         except Exception as e:
             logger.error(f"Redis cache warm failed: {e}")
             errors.append(f"redis_cache: {str(e)}")
@@ -553,7 +629,9 @@ class DataPrefillService:
         # 5. Fill news items from RSS
         try:
             results["news_items"] = await DataPrefillService.fill_news_items()
-            await log_sync_operation("news_items", "success", results["news_items"], triggered_by=triggered_by)
+            await log_sync_operation(
+                "news_items", "success", results["news_items"], triggered_by=triggered_by
+            )
         except Exception as e:
             logger.error(f"News items fetch failed: {e}")
             errors.append(f"news_items: {str(e)}")
@@ -566,18 +644,18 @@ class DataPrefillService:
         # Log overall prefill operation
         overall_status = "success" if not errors else "partial"
         total_records = (
-            sum(results["team_data"].values()) +
-            results["elo_ratings"] +
-            results["predictions"] +
-            results["redis_cache"] +
-            results["news_items"]
+            sum(results["team_data"].values())
+            + results["elo_ratings"]
+            + results["predictions"]
+            + results["redis_cache"]
+            + results["news_items"]
         )
         await log_sync_operation(
             "full_prefill",
             overall_status,
             total_records,
             "; ".join(errors) if errors else None,
-            triggered_by
+            triggered_by,
         )
 
         logger.info(f"Full prefill complete in {duration:.1f}s: {results}")

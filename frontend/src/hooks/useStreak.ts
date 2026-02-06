@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { logger } from "@/lib/logger";
 
 export interface StreakData {
   currentStreak: number;
@@ -42,7 +43,7 @@ export function useStreak() {
         setStreak(parsed);
       }
     } catch (error) {
-      console.error("Failed to load streak:", error);
+      logger.error("Failed to load streak:", error);
     }
     setIsLoaded(true);
   }, []);
@@ -53,7 +54,7 @@ export function useStreak() {
       try {
         localStorage.setItem(STREAK_KEY, JSON.stringify(streak));
       } catch (error) {
-        console.error("Failed to save streak:", error);
+        logger.error("Failed to save streak:", error);
       }
     }
   }, [streak, isLoaded]);

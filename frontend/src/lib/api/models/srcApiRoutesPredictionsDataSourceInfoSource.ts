@@ -13,6 +13,5 @@ export const SrcApiRoutesPredictionsDataSourceInfoSource = {
   live_api: 'live_api',
   cache: 'cache',
   database: 'database',
-  mock: 'mock',
   fallback: 'fallback',
 } as const;

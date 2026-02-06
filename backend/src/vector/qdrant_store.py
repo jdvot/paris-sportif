@@ -117,7 +117,9 @@ class QdrantStore:
                 if "already exists" in error_str or "already indexed" in error_str:
                     logger.debug(f"Index for '{field}' already exists in {self.collection_name}")
                 else:
-                    logger.warning(f"Failed to create index for '{field}' in {self.collection_name}: {e}")
+                    logger.warning(
+                        f"Failed to create index for '{field}' in {self.collection_name}: {e}"
+                    )
 
     def upsert(
         self,

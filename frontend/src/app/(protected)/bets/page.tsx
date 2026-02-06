@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 import {
   useGetBankrollApiV1BetsBankrollGet,
   useListBetsApiV1BetsGet,
@@ -88,7 +89,7 @@ export default function BetsPage() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/v1/bets/bankroll"] });
     } catch (error) {
-      console.error("Failed to update bankroll:", error);
+      logger.error("Failed to update bankroll:", error);
     }
   };
 
@@ -113,7 +114,7 @@ export default function BetsPage() {
       setFormAmount("");
       setFormConfidence("");
     } catch (error) {
-      console.error("Failed to create bet:", error);
+      logger.error("Failed to create bet:", error);
     }
   };
 
@@ -127,7 +128,7 @@ export default function BetsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/v1/bets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/v1/bets/bankroll"] });
     } catch (error) {
-      console.error("Failed to update bet:", error);
+      logger.error("Failed to update bet:", error);
     }
   };
 
@@ -138,7 +139,7 @@ export default function BetsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/v1/bets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/v1/bets/bankroll"] });
     } catch (error) {
-      console.error("Failed to delete bet:", error);
+      logger.error("Failed to delete bet:", error);
     }
   };
 

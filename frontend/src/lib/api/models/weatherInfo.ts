@@ -11,11 +11,18 @@
  */
 export interface WeatherInfo {
   available?: boolean;
+  /** Temperature in Celsius */
   temperature?: number | null;
+  /** Feels like temperature */
   feels_like?: number | null;
+  /** Humidity percentage */
   humidity?: number | null;
+  /** Weather description (e.g., 'Cloudy') */
   description?: string | null;
+  /** Wind speed in m/s */
   wind_speed?: number | null;
+  /** Rain probability 0-100 */
   rain_probability?: number | null;
+  /** Impact on match: low, moderate, high */
   impact?: string | null;
 }

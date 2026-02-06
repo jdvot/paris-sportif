@@ -2,8 +2,8 @@
 
 import { Newspaper, UserX, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle, Info, Cloud, CloudRain, Sun, Wind, Thermometer, MessageSquare, Database, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEnrichMatch } from "@/lib/api/endpoints/rag/rag";
-import type { TeamContext, WeatherInfo } from "@/lib/api/models";
+import { useEnrichMatchApiV1RagEnrichGet } from "@/lib/api/endpoints/rag-enrichment/rag-enrichment";
+import type { TeamContext, WeatherInfo, MatchContext } from "@/lib/api/models";
 import { format } from "date-fns";
 import { useTranslations, useLocale } from "next-intl";
 import { useAuth } from "@/hooks/useAuth";
@@ -196,7 +196,7 @@ export function RAGContext({
   const locale = useLocale();
   const { isPremium, loading: authLoading } = useAuth();
 
-  const { data, isLoading, error } = useEnrichMatch(
+  const { data, isLoading, error } = useEnrichMatchApiV1RagEnrichGet(
     {
       home_team: homeTeam,
       away_team: awayTeam,
@@ -217,8 +217,8 @@ export function RAGContext({
     return null;
   }
 
-  // Extract the actual data from the response
-  const ragContext = data?.data;
+  // Extract the actual data from the response - cast to MatchContext since error case is handled separately
+  const ragContext = data?.data as MatchContext | undefined;
 
   if (isLoading) {
     return (

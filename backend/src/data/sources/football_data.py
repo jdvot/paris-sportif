@@ -266,7 +266,7 @@ class StandingTeam(BaseModel):
 
 # Import centralized competition names
 # Note: EL (Europa League) and ECL (Conference League) require paid tier
-from src.core.constants import COMPETITION_NAMES as COMPETITIONS
+from src.core.constants import COMPETITION_NAMES as COMPETITIONS  # noqa: E402
 
 
 class FootballDataClient:
@@ -328,9 +328,12 @@ class FootballDataClient:
                 # Set the rate limiter to wait for reset
                 _rate_limiter.set_rate_limit(reset_seconds + 2)  # Add 2s buffer
 
+                avail = response.headers.get(
+                    "x-requests-available-minute",
+                )
                 logger.warning(
                     f"Rate limit exceeded! Reset in {reset_seconds}s. "
-                    f"Headers: x-requests-available-minute={response.headers.get('x-requests-available-minute')}"
+                    f"Headers: x-requests-available-minute={avail}"
                 )
                 raise RateLimitError(
                     "Rate limit exceeded for football-data.org",

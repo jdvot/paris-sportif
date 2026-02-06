@@ -19,6 +19,7 @@ def _get_poisson():
     global _poisson
     if _poisson is None:
         from scipy.stats import poisson as scipy_poisson
+
         _poisson = scipy_poisson
     return _poisson
 

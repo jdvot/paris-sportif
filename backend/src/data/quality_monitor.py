@@ -11,7 +11,7 @@ Migrated to async repository pattern (PAR-142).
 
 import logging
 from dataclasses import dataclass, field
-from datetime import timezone,  datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -158,7 +158,7 @@ async def check_freshness() -> DataQualityCheck:
         )
 
     # Calculate hours since last update
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     oldest_entity = min(valid_updates, key=lambda x: x[1])
     oldest_name, oldest_dt = oldest_entity
 
@@ -241,7 +241,9 @@ async def check_completeness() -> DataQualityCheck:
     match_completeness = {}
     if total_matches > 0:
         match_completeness = {
-            "finished_with_score": matches_with_score / finished_matches if finished_matches else 1.0,
+            "finished_with_score": (
+                matches_with_score / finished_matches if finished_matches else 1.0
+            ),
         }
         details["matches"] = {
             "total": total_matches,
@@ -299,9 +301,7 @@ async def check_range_validation() -> DataQualityCheck:
         stmt = (
             select(Prediction)
             .where(
-                func.abs(
-                    (Prediction.home_prob + Prediction.draw_prob + Prediction.away_prob) - 1.0
-                )
+                func.abs((Prediction.home_prob + Prediction.draw_prob + Prediction.away_prob) - 1.0)
                 > 0.01
             )
             .limit(20)
@@ -311,14 +311,16 @@ async def check_range_validation() -> DataQualityCheck:
 
         for pred in invalid_probs:
             prob_sum = float(pred.home_prob) + float(pred.draw_prob) + float(pred.away_prob)
-            anomalies.append({
-                "type": "probability_sum_invalid",
-                "entity": "prediction",
-                "id": pred.id,
-                "field": "probabilities",
-                "value": round(prob_sum, 4),
-                "expected": 1.0,
-            })
+            anomalies.append(
+                {
+                    "type": "probability_sum_invalid",
+                    "entity": "prediction",
+                    "id": pred.id,
+                    "field": "probabilities",
+                    "value": round(prob_sum, 4),
+                    "expected": 1.0,
+                }
+            )
 
         # Check confidence in valid range
         stmt = (
@@ -335,14 +337,16 @@ async def check_range_validation() -> DataQualityCheck:
         invalid_conf = result.scalars().all()
 
         for pred in invalid_conf:
-            anomalies.append({
-                "type": "range_violation",
-                "entity": "prediction",
-                "id": pred.id,
-                "field": "confidence",
-                "value": float(pred.confidence) if pred.confidence else None,
-                "valid_range": VALID_RANGES["confidence"],
-            })
+            anomalies.append(
+                {
+                    "type": "range_violation",
+                    "entity": "prediction",
+                    "id": pred.id,
+                    "field": "confidence",
+                    "value": float(pred.confidence) if pred.confidence else None,
+                    "valid_range": VALID_RANGES["confidence"],
+                }
+            )
 
         # Check goal scores are reasonable
         stmt = (
@@ -365,14 +369,16 @@ async def check_range_validation() -> DataQualityCheck:
         invalid_goals = result.scalars().all()
 
         for match in invalid_goals:
-            anomalies.append({
-                "type": "range_violation",
-                "entity": "match",
-                "id": match.id,
-                "field": "score",
-                "value": f"{match.home_score}-{match.away_score}",
-                "valid_range": VALID_RANGES["goals"],
-            })
+            anomalies.append(
+                {
+                    "type": "range_violation",
+                    "entity": "match",
+                    "id": match.id,
+                    "field": "score",
+                    "value": f"{match.home_score}-{match.away_score}",
+                    "valid_range": VALID_RANGES["goals"],
+                }
+            )
 
     # Determine status
     anomaly_count = len(anomalies)
@@ -417,12 +423,14 @@ async def check_consistency() -> DataQualityCheck:
         duplicate_matches = result.all()
 
         for row in duplicate_matches:
-            issues.append({
-                "type": "duplicate",
-                "entity": "match",
-                "description": f"Duplicate match: teams {row[0]} vs {row[1]} on {row[2]}",
-                "count": row[3],
-            })
+            issues.append(
+                {
+                    "type": "duplicate",
+                    "entity": "match",
+                    "description": f"Duplicate match: teams {row[0]} vs {row[1]} on {row[2]}",
+                    "count": row[3],
+                }
+            )
 
         # Check for duplicate teams (same external_id)
         stmt = (
@@ -435,12 +443,14 @@ async def check_consistency() -> DataQualityCheck:
         duplicate_teams = result.all()
 
         for row in duplicate_teams:
-            issues.append({
-                "type": "duplicate",
-                "entity": "team",
-                "description": f"Duplicate team external_id: {row[0]}",
-                "count": row[1],
-            })
+            issues.append(
+                {
+                    "type": "duplicate",
+                    "entity": "team",
+                    "description": f"Duplicate team external_id: {row[0]}",
+                    "count": row[1],
+                }
+            )
 
         # Check for matches with same team as home and away
         stmt = select(Match).where(Match.home_team_id == Match.away_team_id)
@@ -448,11 +458,13 @@ async def check_consistency() -> DataQualityCheck:
         self_matches = result.scalars().all()
 
         for match in self_matches:
-            issues.append({
-                "type": "conflict",
-                "entity": "match",
-                "description": f"Match {match.id} has same team as home and away",
-            })
+            issues.append(
+                {
+                    "type": "conflict",
+                    "entity": "match",
+                    "description": f"Match {match.id} has same team as home and away",
+                }
+            )
 
         # Check for predictions without matching match
         from sqlalchemy.orm import aliased
@@ -467,12 +479,14 @@ async def check_consistency() -> DataQualityCheck:
         orphan_count = result.scalar_one() or 0
 
         if orphan_count > 0:
-            issues.append({
-                "type": "orphan",
-                "entity": "prediction",
-                "description": f"Found {orphan_count} predictions without matching match",
-                "count": orphan_count,
-            })
+            issues.append(
+                {
+                    "type": "orphan",
+                    "entity": "prediction",
+                    "description": f"Found {orphan_count} predictions without matching match",
+                    "count": orphan_count,
+                }
+            )
 
         # Check for finished matches without scores
         stmt = select(func.count(Match.id)).where(
@@ -483,12 +497,14 @@ async def check_consistency() -> DataQualityCheck:
         missing_scores = result.scalar_one() or 0
 
         if missing_scores > 0:
-            issues.append({
-                "type": "missing_data",
-                "entity": "match",
-                "description": f"{missing_scores} finished matches missing scores",
-                "count": missing_scores,
-            })
+            issues.append(
+                {
+                    "type": "missing_data",
+                    "entity": "match",
+                    "description": f"{missing_scores} finished matches missing scores",
+                    "count": missing_scores,
+                }
+            )
 
     # Determine status
     issue_count = len(issues)
@@ -536,7 +552,9 @@ async def get_data_quality_metrics() -> dict[str, Any]:
         result = await uow.session.execute(stmt)
         total_predictions = result.scalar_one() or 0
 
-        stmt = select(func.count(PredictionResult.id)).where(PredictionResult.was_correct == True)  # noqa: E712
+        stmt = select(func.count(PredictionResult.id)).where(
+            PredictionResult.was_correct == True  # noqa: E712
+        )
         result = await uow.session.execute(stmt)
         correct_predictions = result.scalar_one() or 0
 
@@ -599,7 +617,7 @@ async def run_quality_check() -> DataQualityReport:
         overall_status = AlertLevel.OK
 
     report = DataQualityReport(
-        timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
+        timestamp=datetime.now(UTC).replace(tzinfo=None),
         overall_status=overall_status,
         freshness=freshness,
         completeness=completeness,

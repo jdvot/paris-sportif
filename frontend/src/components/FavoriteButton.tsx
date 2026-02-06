@@ -53,6 +53,7 @@ export function FavoriteButton({
         className
       )}
       title={isActive ? t("remove") : t("add")}
+      aria-label={isActive ? t("remove") : t("add")}
     >
       <Heart
         className={cn(

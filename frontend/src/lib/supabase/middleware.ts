@@ -2,29 +2,28 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
-  console.log("[updateSession] Starting for path:", request.nextUrl.pathname);
-
-  // Log existing cookies (only sb- prefixed for Supabase)
-  const allCookies = request.cookies.getAll();
-  const supabaseCookies = allCookies.filter((c) => c.name.startsWith("sb-"));
-  console.log("[updateSession] Supabase cookies found:", supabaseCookies.map((c) => c.name));
+  const supabaseCookies = request.cookies.getAll().filter((c) => c.name.startsWith("sb-"));
 
   let supabaseResponse = NextResponse.next({
     request,
   });
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
           const cookies = request.cookies.getAll();
-          console.log("[updateSession] getAll() called, returning", cookies.length, "cookies");
           return cookies;
         },
         setAll(cookiesToSet) {
-          console.log("[updateSession] setAll() called with", cookiesToSet.length, "cookies:", cookiesToSet.map((c) => c.name));
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
@@ -44,7 +43,6 @@ export async function updateSession(request: NextRequest) {
   // IMPORTANT: Avoid writing any logic between createServerClient and
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
-  console.log("[updateSession] Calling getUser()...");
 
   // Add timeout to prevent middleware hanging if Supabase is slow
   const timeoutPromise = new Promise<{ data: { user: null }; error: { message: string }; timedOut: true }>((resolve) => {
@@ -58,25 +56,17 @@ export async function updateSession(request: NextRequest) {
 
   let user = result.data.user;
 
-  if (result.error) {
-    console.error("[updateSession] getUser() error:", result.error.message);
-  }
-
   // On timeout or error, fallback to getSession() which reads from cookies
   if (!user && supabaseCookies.length > 0) {
-    console.log("[updateSession] getUser() failed but cookies exist, trying getSession()...");
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        console.log("[updateSession] getSession() fallback successful:", session.user.email);
         user = session.user;
       }
-    } catch (sessionError) {
-      console.error("[updateSession] getSession() fallback failed:", sessionError);
+    } catch {
+      // getSession() fallback failed, proceed without user
     }
   }
-
-  console.log("[updateSession] Final result - user:", user?.email || "none", "id:", user?.id || "none");
 
   return { supabaseResponse, user, supabase };
 }

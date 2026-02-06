@@ -15,7 +15,7 @@ import {
   Cell,
 } from "recharts";
 import { Loader2 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useGetPredictionStats, useGetDailyStats } from "@/lib/api/endpoints/predictions/predictions";
 import { cn } from "@/lib/utils";
 import { ROUNDED_TOP } from "@/lib/recharts-types";
@@ -37,7 +37,7 @@ interface CompetitionChartData {
 
 export function PerformanceHistory() {
   const t = useTranslations("stats");
-  // locale is available via useLocale() if needed for date formatting
+  const locale = useLocale();
   const { data: response, isLoading, error } = useGetPredictionStats(
     { days: 30 },
     { query: { staleTime: 5 * 60 * 1000 } } // 5 minutes
@@ -65,13 +65,13 @@ export function PerformanceHistory() {
     return dailyStats.data.map((day) => {
       cumulative += day.correct;
       return {
-        date: new Date(day.date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }),
+        date: new Date(day.date).toLocaleDateString(locale === "fr" ? "fr-FR" : "en-US", { day: "2-digit", month: "short" }),
         accuracy: day.accuracy * 100, // Convert to percentage
         predictions: day.predictions,
         cumulative,
       };
     });
-  }, [dailyStats]);
+  }, [dailyStats, locale]);
 
   // Memoize competition chart data with proper types
   const competitionData = useMemo((): CompetitionChartData[] => {

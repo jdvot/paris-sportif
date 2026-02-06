@@ -38,7 +38,7 @@ import {
   useUpdateProfileApiV1UsersMePatch,
   getGetCurrentProfileApiV1UsersMeGetQueryKey,
 } from "@/lib/api/endpoints/users/users";
-import { useListBets } from "@/lib/api/endpoints/bets/bets";
+import { useListBetsApiV1BetsGet } from "@/lib/api/endpoints/bets-bankroll/bets-bankroll";
 import { cn } from "@/lib/utils";
 import { type UserRole } from "@/lib/supabase/types";
 import { useQueryClient } from "@tanstack/react-query";
@@ -79,13 +79,14 @@ export default function ProfilePage() {
   // Fetch user stats
   const { data: statsResponse, isLoading: statsLoading } =
     useGetUserStatsApiV1UsersMeStatsGet({
-      query: { enabled: isAuthenticated },
+      query: { enabled: isAuthenticated, staleTime: 5 * 60 * 1000 },
     });
 
   // Fetch user bets
-  const { data: betsResponse, isLoading: betsLoading } = useListBets({
-    query: { enabled: isAuthenticated },
-  });
+  const { data: betsResponse, isLoading: betsLoading } = useListBetsApiV1BetsGet(
+    undefined,
+    { query: { enabled: isAuthenticated, staleTime: 5 * 60 * 1000 } }
+  );
 
   if (loading) {
     return (
@@ -271,6 +272,7 @@ export default function ProfilePage() {
                         onClick={handleEditSave}
                         disabled={updateProfileMutation.isPending}
                         className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                        aria-label="Save"
                       >
                         {updateProfileMutation.isPending ? (
                           <Loader2 className="w-5 h-5 text-white animate-spin" />
@@ -281,6 +283,7 @@ export default function ProfilePage() {
                       <button
                         onClick={handleEditCancel}
                         className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                        aria-label="Cancel"
                       >
                         <X className="w-5 h-5 text-white" />
                       </button>

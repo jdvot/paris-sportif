@@ -564,6 +564,22 @@
       "label": "Confiance"
     }
   },
+  "newsFeed": {
+    "title": "Actualites Football",
+    "injury": "Blessure",
+    "transfer": "Transfert",
+    "result": "Resultat",
+    "prematch": "Avant-match",
+    "news": "Actualite",
+    "retry": "Reessayer",
+    "empty": "Aucune actualite disponible",
+    "articlesFound": "articles trouves",
+    "refresh": "Actualiser",
+    "all": "Tous",
+    "loadError": "Impossible de charger les actualites",
+    "recent": "Recent",
+    "updatedAt": "Mis a jour"
+  },
   "dailyPicks": {
     "loading": "Analyse des matchs en cours...",
     "loadError": "Impossible de charger les picks du jour",
@@ -578,7 +594,34 @@
     "draw": "Match nul",
     "confidence": "confiance",
     "sport": "Football",
-    "drawShort": "Nul"
+    "drawShort": "Nul",
+    "bestUpcomingPicks": "Meilleurs picks des 7 prochains jours",
+    "todaysPicks": "Picks du jour",
+    "viewPrediction": "Voir prediction {home} contre {away}"
+  },
+  "predictionCard": {
+    "topPick": "Top Pick",
+    "confidence": "confiance",
+    "confidenceLabel": "Confiance",
+    "value": "Value",
+    "score": "Score",
+    "top": "Top",
+    "good": "Bon",
+    "average": "Moyen",
+    "positiveFactors": "Points positifs",
+    "riskFactors": "Risques a surveiller",
+    "homeWin": "Victoire {team}",
+    "awayWin": "Victoire {team}",
+    "draw": "Match nul",
+    "drawShort": "Nul",
+    "pickRank": "Pick #{rank}"
+  },
+  "matchContext": {
+    "title": "Analyse du contexte",
+    "minutesAgo": "il y a {count} min",
+    "hoursAgo": "il y a {count}h",
+    "daysAgo": "il y a {count}j",
+    "updatedAgo": "Mis a jour {time}"
   },
   "upcomingMatches": {
     "loading": "Chargement des matchs...",
@@ -1260,5 +1303,35 @@
     "selectClub": "Choisir mon club",
     "form": "Forme",
     "position": "Position"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "subtitle": "Vos performances et statistiques de paris",
+    "loading": "Chargement des statistiques...",
+    "errorTitle": "Erreur de chargement",
+    "errorMessage": "Impossible de charger les statistiques. Veuillez reessayer plus tard.",
+    "selectPeriod": "Selectionner une periode",
+    "last7days": "7 derniers jours",
+    "last30days": "30 derniers jours",
+    "last90days": "90 derniers jours",
+    "lastYear": "Derniere annee",
+    "totalPredictions": "Total Predictions",
+    "pending": "{count} en attente",
+    "allVerified": "Toutes verifiees",
+    "winRate": "Taux de reussite",
+    "noVerifiedBets": "Aucun pari verifie",
+    "roi": "ROI",
+    "roiDesc": "Retour sur investissement",
+    "estProfit": "Profit estime",
+    "staked": "Mise: {amount}",
+    "noPredictions": "Aucune prediction",
+    "noPredictionsDesc": "Commencez a faire des predictions pour voir vos statistiques ici.",
+    "byCompetition": "Par competition",
+    "performanceByCompetition": "Performance par competition",
+    "winRateAcrossLeagues": "Taux de reussite par ligue",
+    "noCompetitionData": "Aucune donnee de competition disponible",
+    "detailedStats": "Statistiques detaillees",
+    "breakdownByCompetition": "Repartition par competition",
+    "picks": "{count} picks"
   }
 }

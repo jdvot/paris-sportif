@@ -25,8 +25,15 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  GetTeamNewsApiV1UsersTeamsTeamIdNewsGetParams,
   HTTPErrorResponse,
   HTTPValidationError,
+  SearchTeamsApiV1UsersTeamsSearchGetParams,
+  TeamNewsResponse,
+  TeamSearchResponse,
+  TeamSummaryResponse,
+  UserPreferencesResponse,
+  UserPreferencesUpdate,
   UserProfileResponse,
   UserProfileUpdate,
   UserStatsResponse
@@ -368,6 +375,620 @@ export function useGetUserStatsApiV1UsersMeStatsGet<TData = Awaited<ReturnType<t
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetUserStatsApiV1UsersMeStatsGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
+ * Get current user's preferences.
+
+Returns display, notification, and betting preferences.
+ * @summary Get Preferences
+ */
+export type getPreferencesApiV1UsersMePreferencesGetResponse200 = {
+  data: UserPreferencesResponse
+  status: 200
+}
+
+export type getPreferencesApiV1UsersMePreferencesGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+    
+export type getPreferencesApiV1UsersMePreferencesGetResponseSuccess = (getPreferencesApiV1UsersMePreferencesGetResponse200) & {
+  headers: Headers;
+};
+export type getPreferencesApiV1UsersMePreferencesGetResponseError = (getPreferencesApiV1UsersMePreferencesGetResponse401) & {
+  headers: Headers;
+};
+
+export type getPreferencesApiV1UsersMePreferencesGetResponse = (getPreferencesApiV1UsersMePreferencesGetResponseSuccess | getPreferencesApiV1UsersMePreferencesGetResponseError)
+
+export const getGetPreferencesApiV1UsersMePreferencesGetUrl = () => {
+
+
+  
+
+  return `/api/v1/users/me/preferences`
+}
+
+export const getPreferencesApiV1UsersMePreferencesGet = async ( options?: RequestInit): Promise<getPreferencesApiV1UsersMePreferencesGetResponse> => {
+  
+  return customInstance<getPreferencesApiV1UsersMePreferencesGetResponse>(getGetPreferencesApiV1UsersMePreferencesGetUrl(),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getGetPreferencesApiV1UsersMePreferencesGetQueryKey = () => {
+    return [
+    `/api/v1/users/me/preferences`
+    ] as const;
+    }
+
+    
+export const getGetPreferencesApiV1UsersMePreferencesGetQueryOptions = <TData = Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>, TError = HTTPErrorResponse>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPreferencesApiV1UsersMePreferencesGetQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>> = ({ signal }) => getPreferencesApiV1UsersMePreferencesGet({ signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetPreferencesApiV1UsersMePreferencesGetQueryResult = NonNullable<Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>>
+export type GetPreferencesApiV1UsersMePreferencesGetQueryError = HTTPErrorResponse
+
+
+export function useGetPreferencesApiV1UsersMePreferencesGet<TData = Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>, TError = HTTPErrorResponse>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPreferencesApiV1UsersMePreferencesGet<TData = Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPreferencesApiV1UsersMePreferencesGet<TData = Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Preferences
+ */
+
+export function useGetPreferencesApiV1UsersMePreferencesGet<TData = Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>, TError = HTTPErrorResponse>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPreferencesApiV1UsersMePreferencesGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPreferencesApiV1UsersMePreferencesGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
+ * Update current user's preferences.
+
+Supports partial updates - only provided fields will be changed.
+ * @summary Update Preferences
+ */
+export type updatePreferencesApiV1UsersMePreferencesPutResponse200 = {
+  data: UserPreferencesResponse
+  status: 200
+}
+
+export type updatePreferencesApiV1UsersMePreferencesPutResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type updatePreferencesApiV1UsersMePreferencesPutResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type updatePreferencesApiV1UsersMePreferencesPutResponseSuccess = (updatePreferencesApiV1UsersMePreferencesPutResponse200) & {
+  headers: Headers;
+};
+export type updatePreferencesApiV1UsersMePreferencesPutResponseError = (updatePreferencesApiV1UsersMePreferencesPutResponse401 | updatePreferencesApiV1UsersMePreferencesPutResponse422) & {
+  headers: Headers;
+};
+
+export type updatePreferencesApiV1UsersMePreferencesPutResponse = (updatePreferencesApiV1UsersMePreferencesPutResponseSuccess | updatePreferencesApiV1UsersMePreferencesPutResponseError)
+
+export const getUpdatePreferencesApiV1UsersMePreferencesPutUrl = () => {
+
+
+  
+
+  return `/api/v1/users/me/preferences`
+}
+
+export const updatePreferencesApiV1UsersMePreferencesPut = async (userPreferencesUpdate: UserPreferencesUpdate, options?: RequestInit): Promise<updatePreferencesApiV1UsersMePreferencesPutResponse> => {
+  
+  return customInstance<updatePreferencesApiV1UsersMePreferencesPutResponse>(getUpdatePreferencesApiV1UsersMePreferencesPutUrl(),
+  {      
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      userPreferencesUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdatePreferencesApiV1UsersMePreferencesPutMutationOptions = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePreferencesApiV1UsersMePreferencesPut>>, TError,{data: UserPreferencesUpdate}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePreferencesApiV1UsersMePreferencesPut>>, TError,{data: UserPreferencesUpdate}, TContext> => {
+
+const mutationKey = ['updatePreferencesApiV1UsersMePreferencesPut'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePreferencesApiV1UsersMePreferencesPut>>, {data: UserPreferencesUpdate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updatePreferencesApiV1UsersMePreferencesPut(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePreferencesApiV1UsersMePreferencesPutMutationResult = NonNullable<Awaited<ReturnType<typeof updatePreferencesApiV1UsersMePreferencesPut>>>
+    export type UpdatePreferencesApiV1UsersMePreferencesPutMutationBody = UserPreferencesUpdate
+    export type UpdatePreferencesApiV1UsersMePreferencesPutMutationError = HTTPErrorResponse | HTTPValidationError
+
+    /**
+ * @summary Update Preferences
+ */
+export const useUpdatePreferencesApiV1UsersMePreferencesPut = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePreferencesApiV1UsersMePreferencesPut>>, TError,{data: UserPreferencesUpdate}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updatePreferencesApiV1UsersMePreferencesPut>>,
+        TError,
+        {data: UserPreferencesUpdate},
+        TContext
+      > => {
+      return useMutation(getUpdatePreferencesApiV1UsersMePreferencesPutMutationOptions(options), queryClient);
+    }
+    /**
+ * Search for teams by name.
+
+Returns teams matching the search query for use in autocomplete.
+ * @summary Search Teams
+ */
+export type searchTeamsApiV1UsersTeamsSearchGetResponse200 = {
+  data: TeamSearchResponse
+  status: 200
+}
+
+export type searchTeamsApiV1UsersTeamsSearchGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type searchTeamsApiV1UsersTeamsSearchGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type searchTeamsApiV1UsersTeamsSearchGetResponseSuccess = (searchTeamsApiV1UsersTeamsSearchGetResponse200) & {
+  headers: Headers;
+};
+export type searchTeamsApiV1UsersTeamsSearchGetResponseError = (searchTeamsApiV1UsersTeamsSearchGetResponse401 | searchTeamsApiV1UsersTeamsSearchGetResponse422) & {
+  headers: Headers;
+};
+
+export type searchTeamsApiV1UsersTeamsSearchGetResponse = (searchTeamsApiV1UsersTeamsSearchGetResponseSuccess | searchTeamsApiV1UsersTeamsSearchGetResponseError)
+
+export const getSearchTeamsApiV1UsersTeamsSearchGetUrl = (params: SearchTeamsApiV1UsersTeamsSearchGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/users/teams/search?${stringifiedParams}` : `/api/v1/users/teams/search`
+}
+
+export const searchTeamsApiV1UsersTeamsSearchGet = async (params: SearchTeamsApiV1UsersTeamsSearchGetParams, options?: RequestInit): Promise<searchTeamsApiV1UsersTeamsSearchGetResponse> => {
+  
+  return customInstance<searchTeamsApiV1UsersTeamsSearchGetResponse>(getSearchTeamsApiV1UsersTeamsSearchGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getSearchTeamsApiV1UsersTeamsSearchGetQueryKey = (params?: SearchTeamsApiV1UsersTeamsSearchGetParams,) => {
+    return [
+    `/api/v1/users/teams/search`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+    
+export const getSearchTeamsApiV1UsersTeamsSearchGetQueryOptions = <TData = Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>, TError = HTTPErrorResponse | HTTPValidationError>(params: SearchTeamsApiV1UsersTeamsSearchGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSearchTeamsApiV1UsersTeamsSearchGetQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>> = ({ signal }) => searchTeamsApiV1UsersTeamsSearchGet(params, { signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type SearchTeamsApiV1UsersTeamsSearchGetQueryResult = NonNullable<Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>>
+export type SearchTeamsApiV1UsersTeamsSearchGetQueryError = HTTPErrorResponse | HTTPValidationError
+
+
+export function useSearchTeamsApiV1UsersTeamsSearchGet<TData = Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: SearchTeamsApiV1UsersTeamsSearchGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>,
+          TError,
+          Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSearchTeamsApiV1UsersTeamsSearchGet<TData = Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: SearchTeamsApiV1UsersTeamsSearchGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>,
+          TError,
+          Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSearchTeamsApiV1UsersTeamsSearchGet<TData = Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: SearchTeamsApiV1UsersTeamsSearchGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Search Teams
+ */
+
+export function useSearchTeamsApiV1UsersTeamsSearchGet<TData = Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: SearchTeamsApiV1UsersTeamsSearchGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchTeamsApiV1UsersTeamsSearchGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getSearchTeamsApiV1UsersTeamsSearchGetQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
+ * Get recent news for a specific team.
+
+Used for the favorite team section on homepage.
+ * @summary Get Team News
+ */
+export type getTeamNewsApiV1UsersTeamsTeamIdNewsGetResponse200 = {
+  data: TeamNewsResponse
+  status: 200
+}
+
+export type getTeamNewsApiV1UsersTeamsTeamIdNewsGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getTeamNewsApiV1UsersTeamsTeamIdNewsGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getTeamNewsApiV1UsersTeamsTeamIdNewsGetResponseSuccess = (getTeamNewsApiV1UsersTeamsTeamIdNewsGetResponse200) & {
+  headers: Headers;
+};
+export type getTeamNewsApiV1UsersTeamsTeamIdNewsGetResponseError = (getTeamNewsApiV1UsersTeamsTeamIdNewsGetResponse401 | getTeamNewsApiV1UsersTeamsTeamIdNewsGetResponse422) & {
+  headers: Headers;
+};
+
+export type getTeamNewsApiV1UsersTeamsTeamIdNewsGetResponse = (getTeamNewsApiV1UsersTeamsTeamIdNewsGetResponseSuccess | getTeamNewsApiV1UsersTeamsTeamIdNewsGetResponseError)
+
+export const getGetTeamNewsApiV1UsersTeamsTeamIdNewsGetUrl = (teamId: number,
+    params?: GetTeamNewsApiV1UsersTeamsTeamIdNewsGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/users/teams/${teamId}/news?${stringifiedParams}` : `/api/v1/users/teams/${teamId}/news`
+}
+
+export const getTeamNewsApiV1UsersTeamsTeamIdNewsGet = async (teamId: number,
+    params?: GetTeamNewsApiV1UsersTeamsTeamIdNewsGetParams, options?: RequestInit): Promise<getTeamNewsApiV1UsersTeamsTeamIdNewsGetResponse> => {
+  
+  return customInstance<getTeamNewsApiV1UsersTeamsTeamIdNewsGetResponse>(getGetTeamNewsApiV1UsersTeamsTeamIdNewsGetUrl(teamId,params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getGetTeamNewsApiV1UsersTeamsTeamIdNewsGetQueryKey = (teamId: number,
+    params?: GetTeamNewsApiV1UsersTeamsTeamIdNewsGetParams,) => {
+    return [
+    `/api/v1/users/teams/${teamId}/news`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+    
+export const getGetTeamNewsApiV1UsersTeamsTeamIdNewsGetQueryOptions = <TData = Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>, TError = HTTPErrorResponse | HTTPValidationError>(teamId: number,
+    params?: GetTeamNewsApiV1UsersTeamsTeamIdNewsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTeamNewsApiV1UsersTeamsTeamIdNewsGetQueryKey(teamId,params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>> = ({ signal }) => getTeamNewsApiV1UsersTeamsTeamIdNewsGet(teamId,params, { signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(teamId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetTeamNewsApiV1UsersTeamsTeamIdNewsGetQueryResult = NonNullable<Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>>
+export type GetTeamNewsApiV1UsersTeamsTeamIdNewsGetQueryError = HTTPErrorResponse | HTTPValidationError
+
+
+export function useGetTeamNewsApiV1UsersTeamsTeamIdNewsGet<TData = Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ teamId: number,
+    params: undefined |  GetTeamNewsApiV1UsersTeamsTeamIdNewsGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTeamNewsApiV1UsersTeamsTeamIdNewsGet<TData = Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ teamId: number,
+    params?: GetTeamNewsApiV1UsersTeamsTeamIdNewsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTeamNewsApiV1UsersTeamsTeamIdNewsGet<TData = Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ teamId: number,
+    params?: GetTeamNewsApiV1UsersTeamsTeamIdNewsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Team News
+ */
+
+export function useGetTeamNewsApiV1UsersTeamsTeamIdNewsGet<TData = Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ teamId: number,
+    params?: GetTeamNewsApiV1UsersTeamsTeamIdNewsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamNewsApiV1UsersTeamsTeamIdNewsGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetTeamNewsApiV1UsersTeamsTeamIdNewsGetQueryOptions(teamId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
+ * Get LLM-generated summary for a team's current situation.
+
+Uses RAG to fetch recent news/articles and generates analysis via LLM.
+ * @summary Get Team Summary
+ */
+export type getTeamSummaryApiV1UsersTeamsTeamIdSummaryGetResponse200 = {
+  data: TeamSummaryResponse
+  status: 200
+}
+
+export type getTeamSummaryApiV1UsersTeamsTeamIdSummaryGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getTeamSummaryApiV1UsersTeamsTeamIdSummaryGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type getTeamSummaryApiV1UsersTeamsTeamIdSummaryGetResponseSuccess = (getTeamSummaryApiV1UsersTeamsTeamIdSummaryGetResponse200) & {
+  headers: Headers;
+};
+export type getTeamSummaryApiV1UsersTeamsTeamIdSummaryGetResponseError = (getTeamSummaryApiV1UsersTeamsTeamIdSummaryGetResponse401 | getTeamSummaryApiV1UsersTeamsTeamIdSummaryGetResponse422) & {
+  headers: Headers;
+};
+
+export type getTeamSummaryApiV1UsersTeamsTeamIdSummaryGetResponse = (getTeamSummaryApiV1UsersTeamsTeamIdSummaryGetResponseSuccess | getTeamSummaryApiV1UsersTeamsTeamIdSummaryGetResponseError)
+
+export const getGetTeamSummaryApiV1UsersTeamsTeamIdSummaryGetUrl = (teamId: number,) => {
+
+
+  
+
+  return `/api/v1/users/teams/${teamId}/summary`
+}
+
+export const getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet = async (teamId: number, options?: RequestInit): Promise<getTeamSummaryApiV1UsersTeamsTeamIdSummaryGetResponse> => {
+  
+  return customInstance<getTeamSummaryApiV1UsersTeamsTeamIdSummaryGetResponse>(getGetTeamSummaryApiV1UsersTeamsTeamIdSummaryGetUrl(teamId),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getGetTeamSummaryApiV1UsersTeamsTeamIdSummaryGetQueryKey = (teamId: number,) => {
+    return [
+    `/api/v1/users/teams/${teamId}/summary`
+    ] as const;
+    }
+
+    
+export const getGetTeamSummaryApiV1UsersTeamsTeamIdSummaryGetQueryOptions = <TData = Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>, TError = HTTPErrorResponse | HTTPValidationError>(teamId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTeamSummaryApiV1UsersTeamsTeamIdSummaryGetQueryKey(teamId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>> = ({ signal }) => getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet(teamId, { signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(teamId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetTeamSummaryApiV1UsersTeamsTeamIdSummaryGetQueryResult = NonNullable<Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>>
+export type GetTeamSummaryApiV1UsersTeamsTeamIdSummaryGetQueryError = HTTPErrorResponse | HTTPValidationError
+
+
+export function useGetTeamSummaryApiV1UsersTeamsTeamIdSummaryGet<TData = Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ teamId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>,
+          TError,
+          Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTeamSummaryApiV1UsersTeamsTeamIdSummaryGet<TData = Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ teamId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>,
+          TError,
+          Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTeamSummaryApiV1UsersTeamsTeamIdSummaryGet<TData = Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ teamId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Team Summary
+ */
+
+export function useGetTeamSummaryApiV1UsersTeamsTeamIdSummaryGet<TData = Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ teamId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamSummaryApiV1UsersTeamsTeamIdSummaryGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetTeamSummaryApiV1UsersTeamsTeamIdSummaryGetQueryOptions(teamId,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

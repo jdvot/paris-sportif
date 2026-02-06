@@ -46,9 +46,22 @@ class TeamRepository(BaseRepository[Team]):
 
         # Try without common prefixes/suffixes
         clean_name = name
-        for prefix in ["FC ", "1. FC ", "1. ", "AC ", "AS ", "SS ", "SC ", "SV ", "VfB ", "VfL ", "TSG ", "RB "]:
+        for prefix in [
+            "FC ",
+            "1. FC ",
+            "1. ",
+            "AC ",
+            "AS ",
+            "SS ",
+            "SC ",
+            "SV ",
+            "VfB ",
+            "VfL ",
+            "TSG ",
+            "RB ",
+        ]:
             if clean_name.startswith(prefix):
-                clean_name = clean_name[len(prefix):]
+                clean_name = clean_name[len(prefix) :]
                 break
 
         if clean_name != name:

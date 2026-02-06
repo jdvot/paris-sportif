@@ -590,10 +590,10 @@ def main() -> None:
     success = trainer.train_all()
 
     if success:
-        print("\nTraining completed successfully!")
-        print("Run tests: cd backend && uv run pytest tests/test_models.py -v -k ModelLoader")
+        logger.info("Training completed successfully!")
+        logger.info("Run tests: cd backend && uv run pytest tests/test_models.py -v -k ModelLoader")
     else:
-        print("\nTraining failed. Check logs for details.")
+        logger.error("Training failed. Check logs for details.")
         exit(1)
 
 

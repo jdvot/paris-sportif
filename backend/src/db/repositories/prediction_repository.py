@@ -156,12 +156,14 @@ class PredictionRepository(BaseRepository[Prediction]):
             correct = row.correct or 0
             accuracy = (correct / predictions) if predictions > 0 else 0.0
 
-            daily_stats.append({
-                "date": row.date.isoformat() if row.date else None,
-                "predictions": predictions,
-                "correct": correct,
-                "accuracy": round(accuracy, 4),
-            })
+            daily_stats.append(
+                {
+                    "date": row.date.isoformat() if row.date else None,
+                    "predictions": predictions,
+                    "correct": correct,
+                    "accuracy": round(accuracy, 4),
+                }
+            )
 
         return daily_stats
 

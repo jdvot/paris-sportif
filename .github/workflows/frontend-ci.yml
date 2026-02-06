@@ -36,7 +36,6 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint -w frontend --if-present
-        continue-on-error: true  # Don't fail on lint warnings initially
 
   build:
     name: Build

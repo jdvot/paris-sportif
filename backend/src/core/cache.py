@@ -25,10 +25,10 @@ T = TypeVar("T")
 P = ParamSpec("P")
 
 # Connection pool for efficient Redis connections
-_pool: ConnectionPool[Any] | None = None
+_pool: ConnectionPool | None = None  # type: ignore[type-arg]
 
 
-def get_redis_pool() -> ConnectionPool[Any]:
+def get_redis_pool() -> ConnectionPool:  # type: ignore[type-arg]
     """Get or create the Redis connection pool."""
     global _pool
     if _pool is None:
@@ -40,7 +40,7 @@ def get_redis_pool() -> ConnectionPool[Any]:
     return _pool
 
 
-async def get_redis_client() -> aioredis.Redis[Any]:
+async def get_redis_client() -> aioredis.Redis:  # type: ignore[type-arg]
     """Get an async Redis client from the connection pool."""
     pool = get_redis_pool()
     return aioredis.Redis(connection_pool=pool)
@@ -312,7 +312,7 @@ async def health_check() -> bool:
     """
     try:
         client = await get_redis_client()
-        await client.ping()
+        await client.ping()  # type: ignore[misc]
         return True
     except aioredis.RedisError as e:
         logger.error(f"Redis health check failed: {e}")

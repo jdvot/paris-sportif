@@ -64,8 +64,7 @@ async def get_admin_stats(user: AdminUser) -> AdminStatsResponse:
     # Get database stats
     db_stats = await StatsService.get_db_stats()
 
-    # TODO: Fetch real user stats from Supabase admin API
-    # For now, return placeholder data combined with real DB stats
+    # Placeholder - see PAR-167 for Supabase admin API integration
     return AdminStatsResponse(
         total_users=0,  # Would come from Supabase
         premium_users=0,  # Would come from Supabase
@@ -90,8 +89,7 @@ async def list_users(
     Returns a paginated list of all users.
     Admin role required.
     """
-    # TODO: Implement actual user listing from Supabase admin API
-    # For now, return empty list
+    # Placeholder - see PAR-167 for Supabase admin API integration
     return UserListResponse(
         users=[],
         total=0,
@@ -115,7 +113,7 @@ async def update_user_role(
     if role not in ["free", "premium", "admin"]:
         raise HTTPException(status_code=400, detail="Invalid role")
 
-    # TODO: Implement actual role update via Supabase admin API
+    # Placeholder - see PAR-167 for Supabase admin API integration
     return {
         "status": "success",
         "message": f"Role updated to {role}",
@@ -285,7 +283,7 @@ async def run_alert_check(user: AdminUser) -> AlertCheckResponse:
         )
     except Exception as e:
         logger.error(f"Error running alert check: {e}")
-        raise HTTPException(status_code=500, detail=f"Alert check failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Alert check failed")
 
 
 @router.post("/notifications/daily-picks", responses=ADMIN_RESPONSES)
@@ -455,7 +453,9 @@ class VerifyPredictionsResponse(BaseModel):
     timestamp: str
 
 
-@router.post("/verify-predictions", response_model=VerifyPredictionsResponse, responses=ADMIN_RESPONSES)
+@router.post(
+    "/verify-predictions", response_model=VerifyPredictionsResponse, responses=ADMIN_RESPONSES
+)
 async def verify_all_predictions(user: AdminUser) -> VerifyPredictionsResponse:
     """
     Force verification of all unverified predictions.
@@ -464,8 +464,8 @@ async def verify_all_predictions(user: AdminUser) -> VerifyPredictionsResponse:
     if the prediction was correct.
     Admin role required.
     """
-    from src.db.services.prediction_service import PredictionService
     from src.db.repositories import get_uow
+    from src.db.services.prediction_service import PredictionService
 
     try:
         # Get count of unverified before
@@ -478,8 +478,10 @@ async def verify_all_predictions(user: AdminUser) -> VerifyPredictionsResponse:
 
         # Get count of already verified
         async with get_uow() as uow:
-            from sqlalchemy import select, func
+            from sqlalchemy import func, select
+
             from src.db.models import PredictionResult
+
             result = await uow.session.execute(select(func.count(PredictionResult.id)))
             already_verified = result.scalar() or 0
 

@@ -18,9 +18,9 @@ from typing import Any
 from urllib.parse import quote
 
 import defusedxml.ElementTree as ET
-import httpx
 
 from src.core.config import settings
+from src.core.http_client import get_http_client
 from src.llm.client import GroqClient, get_llm_client
 
 logger = logging.getLogger(__name__)
@@ -484,32 +484,30 @@ class RAGEnrichment:
             search_term = quote(team_name)
             rss_url = f"https://news.google.com/rss/search?q={search_term}+football&hl=fr&gl=FR&ceid=FR:fr"
 
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(rss_url)
+            client = get_http_client()
+            response = await client.get(rss_url, timeout=10.0)
 
-                if response.status_code == 200:
-                    # Parse RSS XML using defusedxml (XXE protection)
-                    root = ET.fromstring(response.text)
+            if response.status_code == 200:
+                # Parse RSS XML using defusedxml (XXE protection)
+                root = ET.fromstring(response.text)
 
-                    items = root.findall(".//item")[:limit]
-                    for item in items:
-                        title_elem = item.find("title")
-                        pub_date_elem = item.find("pubDate")
-                        link_elem = item.find("link")
+                items = root.findall(".//item")[:limit]
+                for item in items:
+                    title_elem = item.find("title")
+                    pub_date_elem = item.find("pubDate")
+                    link_elem = item.find("link")
 
-                        if title_elem is not None:
-                            news.append(
-                                {
-                                    "title": title_elem.text,
-                                    "date": (
-                                        pub_date_elem.text if pub_date_elem is not None else None
-                                    ),
-                                    "url": link_elem.text if link_elem is not None else None,
-                                    "source": "Google News",
-                                }
-                            )
+                    if title_elem is not None:
+                        news.append(
+                            {
+                                "title": title_elem.text,
+                                "date": (pub_date_elem.text if pub_date_elem is not None else None),
+                                "url": link_elem.text if link_elem is not None else None,
+                                "source": "Google News",
+                            }
+                        )
 
-                    logger.info(f"Fetched {len(news)} news items for {team_name}")
+                logger.info(f"Fetched {len(news)} news items for {team_name}")
 
         except Exception as e:
             logger.error(f"Error fetching news for {team_name}: {e}")
@@ -567,30 +565,28 @@ class RAGEnrichment:
 
             all_headlines: list[tuple[str, str | None]] = []
 
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                for query in search_queries:
-                    rss_url = f"https://news.google.com/rss/search?q={query}&hl=fr&gl=FR&ceid=FR:fr"
+            client = get_http_client()
+            for query in search_queries:
+                rss_url = f"https://news.google.com/rss/search?q={query}&hl=fr&gl=FR&ceid=FR:fr"
 
-                    try:
-                        response = await client.get(rss_url)
+                try:
+                    response = await client.get(rss_url, timeout=10.0)
 
-                        if response.status_code == 200:
-                            # Parse RSS XML using defusedxml (XXE protection)
-                            root = ET.fromstring(response.text)
-                            items = root.findall(".//item")[:5]
+                    if response.status_code == 200:
+                        # Parse RSS XML using defusedxml (XXE protection)
+                        root = ET.fromstring(response.text)
+                        items = root.findall(".//item")[:5]
 
-                            for item in items:
-                                title_elem = item.find("title")
-                                pub_date_elem = item.find("pubDate")
-                                if title_elem is not None and title_elem.text:
-                                    pub_date = (
-                                        pub_date_elem.text if pub_date_elem is not None else None
-                                    )
-                                    all_headlines.append((title_elem.text, pub_date))
+                        for item in items:
+                            title_elem = item.find("title")
+                            pub_date_elem = item.find("pubDate")
+                            if title_elem is not None and title_elem.text:
+                                pub_date = pub_date_elem.text if pub_date_elem is not None else None
+                                all_headlines.append((title_elem.text, pub_date))
 
-                    except Exception as e:
-                        logger.debug(f"Error fetching query '{query}': {e}")
-                        continue
+                except Exception as e:
+                    logger.debug(f"Error fetching query '{query}': {e}")
+                    continue
 
             # Deduplicate headlines
             seen_headlines: set[str] = set()
@@ -642,34 +638,34 @@ class RAGEnrichment:
             search_term = quote(f"{team_name} résultat score match")
             rss_url = f"https://news.google.com/rss/search?q={search_term}&hl=fr&gl=FR&ceid=FR:fr"
 
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(rss_url)
+            client = get_http_client()
+            response = await client.get(rss_url, timeout=10.0)
 
-                if response.status_code == 200:
-                    # Parse RSS XML using defusedxml (XXE protection)
-                    root = ET.fromstring(response.text)
+            if response.status_code == 200:
+                # Parse RSS XML using defusedxml (XXE protection)
+                root = ET.fromstring(response.text)
 
-                    items = root.findall(".//item")[:MAX_NEWS_ITEMS]
-                    for item in items:
-                        title_elem = item.find("title")
-                        if title_elem is not None and title_elem.text:
-                            title = title_elem.text
-                            # Look for score patterns (e.g., "2-1", "0-0")
-                            score_match = re.search(r"\b(\d+)\s*[-:]\s*(\d+)\b", title)
-                            if score_match:
-                                form_data["results"].append(
-                                    {
-                                        "headline": title[:100],
-                                        "score": f"{score_match.group(1)}-{score_match.group(2)}",
-                                    }
-                                )
+                items = root.findall(".//item")[:MAX_NEWS_ITEMS]
+                for item in items:
+                    title_elem = item.find("title")
+                    if title_elem is not None and title_elem.text:
+                        title = title_elem.text
+                        # Look for score patterns (e.g., "2-1", "0-0")
+                        score_match = re.search(r"\b(\d+)\s*[-:]\s*(\d+)\b", title)
+                        if score_match:
+                            form_data["results"].append(
+                                {
+                                    "headline": title[:100],
+                                    "score": f"{score_match.group(1)}-{score_match.group(2)}",
+                                }
+                            )
 
-                    # Generate summary
-                    if form_data["results"]:
-                        form_data["summary"] = f"{len(form_data['results'])} recent results found"
+                # Generate summary
+                if form_data["results"]:
+                    form_data["summary"] = f"{len(form_data['results'])} recent results found"
 
-                    result_count = len(form_data["results"])
-                    logger.info(f"Fetched form for {team_name}: {result_count} results")
+                result_count = len(form_data["results"])
+                logger.info(f"Fetched form for {team_name}: {result_count} results")
 
         except Exception as e:
             logger.error(f"Error fetching form for {team_name}: {e}")

@@ -20,6 +20,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from src.core.config import settings
 from src.core.exceptions import LLMError, RateLimitError
+from src.core.http_client import get_http_client
 
 
 class LLMResponse(BaseModel):
@@ -88,59 +89,59 @@ class GroqClient:
         if response_format:
             payload["response_format"] = response_format
 
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(
-                    f"{self.BASE_URL}/chat/completions",
-                    headers=self.headers,
-                    json=payload,
-                    timeout=60.0,
+        client = get_http_client()
+        try:
+            response = await client.post(
+                f"{self.BASE_URL}/chat/completions",
+                headers=self.headers,
+                json=payload,
+                timeout=60.0,
+            )
+
+            if response.status_code == 429:
+                retry_after = response.headers.get("Retry-After", "unknown")
+                raise RateLimitError(
+                    "Groq rate limit exceeded - waiting before retry",
+                    details={"retry_after": retry_after, "model": model},
                 )
 
-                if response.status_code == 429:
-                    retry_after = response.headers.get("Retry-After", "unknown")
-                    raise RateLimitError(
-                        "Groq rate limit exceeded - waiting before retry",
-                        details={"retry_after": retry_after, "model": model},
-                    )
-
-                if response.status_code == 401:
-                    raise LLMError(
-                        "Groq authentication failed - invalid API key",
-                        details={"status": 401},
-                    )
-
-                if response.status_code == 500:
-                    raise LLMError(
-                        "Groq service temporarily unavailable",
-                        details={"status": 500},
-                    )
-
-                if response.status_code != 200:
-                    raise LLMError(
-                        f"Groq API error: {response.status_code}",
-                        details={"status": response.status_code, "response": response.text[:200]},
-                    )
-
-                data = response.json()
-
-                # Validate response structure
-                if "choices" not in data or not data["choices"]:
-                    raise LLMError(
-                        "Invalid Groq response structure",
-                        details={"data": str(data)[:200]},
-                    )
-
-                return LLMResponse(
-                    content=data["choices"][0]["message"]["content"] or "",
-                    model=data.get("model") or model,
-                    usage=data.get("usage") or {},
-                )
-            except httpx.TimeoutException as e:
+            if response.status_code == 401:
                 raise LLMError(
-                    "Groq request timeout - LLM took too long to respond",
-                    details={"error": str(e)},
+                    "Groq authentication failed - invalid API key",
+                    details={"status": 401},
                 )
+
+            if response.status_code == 500:
+                raise LLMError(
+                    "Groq service temporarily unavailable",
+                    details={"status": 500},
+                )
+
+            if response.status_code != 200:
+                raise LLMError(
+                    f"Groq API error: {response.status_code}",
+                    details={"status": response.status_code, "response": response.text[:200]},
+                )
+
+            data = response.json()
+
+            # Validate response structure
+            if "choices" not in data or not data["choices"]:
+                raise LLMError(
+                    "Invalid Groq response structure",
+                    details={"data": str(data)[:200]},
+                )
+
+            return LLMResponse(
+                content=data["choices"][0]["message"]["content"] or "",
+                model=data.get("model") or model,
+                usage=data.get("usage") or {},
+            )
+        except httpx.TimeoutException as e:
+            raise LLMError(
+                "Groq request timeout - LLM took too long to respond",
+                details={"error": str(e)},
+            )
 
     async def complete(
         self,

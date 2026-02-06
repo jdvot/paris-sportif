@@ -1,7 +1,7 @@
 """Stats service for database statistics and cache operations."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import func, select
@@ -59,7 +59,7 @@ class StatsService:
             result = await uow._session.execute(stmt)
             items = result.scalars().all()
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             return [
                 {
                     "key": item.cache_key,
@@ -67,7 +67,7 @@ class StatsService:
                     "expires_at": item.expires_at.isoformat() if item.expires_at else None,
                     "created_at": item.created_at.isoformat() if item.created_at else None,
                     "is_expired": (
-                        now > item.expires_at.replace(tzinfo=timezone.utc)
+                        now > item.expires_at.replace(tzinfo=UTC)
                         if item.expires_at and item.expires_at.tzinfo is None
                         else now > item.expires_at if item.expires_at else True
                     ),
@@ -84,7 +84,9 @@ class StatsService:
             session = uow._session
 
             # Teams table analysis
-            teams_result = await session.execute(text("""
+            teams_result = await session.execute(
+                text(
+                    """
                 SELECT
                     COUNT(*) as total,
                     COUNT(country) as country,
@@ -97,11 +99,15 @@ class StatsService:
                     COUNT(avg_xg_for) as xg_for,
                     COUNT(avg_xg_against) as xg_against
                 FROM teams
-            """))
+            """
+                )
+            )
             teams_row = teams_result.fetchone()
 
             # Matches table analysis
-            matches_result = await session.execute(text("""
+            matches_result = await session.execute(
+                text(
+                    """
                 SELECT
                     COUNT(*) as total,
                     COUNT(*) FILTER (WHERE status = 'FINISHED') as finished,
@@ -111,74 +117,120 @@ class StatsService:
                     COUNT(home_xg) as xg,
                     COUNT(odds_home) as odds
                 FROM matches
-            """))
+            """
+                )
+            )
             matches_row = matches_result.fetchone()
 
             # Predictions table analysis
-            predictions_result = await session.execute(text("""
+            predictions_result = await session.execute(
+                text(
+                    """
                 SELECT
                     COUNT(*) as total,
                     COUNT(*) FILTER (WHERE is_daily_pick = true) as daily_picks,
                     COUNT(*) FILTER (WHERE llm_adjustments IS NOT NULL) as with_llm,
                     COUNT(*) FILTER (WHERE explanation IS NOT NULL) as with_explanation
                 FROM predictions
-            """))
+            """
+                )
+            )
             predictions_row = predictions_result.fetchone()
 
             # News items table analysis
-            news_result = await session.execute(text("""
+            news_result = await session.execute(
+                text(
+                    """
                 SELECT
                     COUNT(*) as total,
                     COUNT(*) FILTER (WHERE is_injury_news = true) as injury_news,
                     COUNT(*) FILTER (WHERE llm_analysis IS NOT NULL) as analyzed,
                     COUNT(*) FILTER (WHERE published_at > NOW() - INTERVAL '7 days') as recent
                 FROM news_items
-            """))
+            """
+                )
+            )
             news_row = news_result.fetchone()
 
             # Sync log analysis
-            sync_result = await session.execute(text("""
+            sync_result = await session.execute(
+                text(
+                    """
                 SELECT
                     COUNT(*) as total,
                     COUNT(*) FILTER (WHERE status = 'success') as success,
                     COUNT(*) FILTER (WHERE status = 'failed') as failed,
                     MAX(completed_at) as last_sync
                 FROM sync_log
-            """))
+            """
+                )
+            )
             sync_row = sync_result.fetchone()
 
             # ML models analysis
-            ml_result = await session.execute(text("""
+            ml_result = await session.execute(
+                text(
+                    """
                 SELECT
                     COUNT(*) as total,
                     COUNT(*) FILTER (WHERE is_active = true) as active,
                     COUNT(*) FILTER (WHERE model_binary IS NOT NULL) as with_binary,
                     MAX(trained_at) as last_trained
                 FROM ml_models
-            """))
+            """
+                )
+            )
             ml_row = ml_result.fetchone()
 
             # Standings table analysis
-            standings_result = await session.execute(text("""
+            standings_result = await session.execute(
+                text(
+                    """
                 SELECT
                     COUNT(*) as total,
                     COUNT(DISTINCT competition_code) as competitions,
                     COUNT(form) as with_form,
                     MAX(synced_at) as last_sync
                 FROM standings
-            """))
+            """
+                )
+            )
             standings_row = standings_result.fetchone()
 
             return {
                 "teams": {
                     "total": teams_row.total if teams_row else 0,
                     "fill_rates": {
-                        "country": f"{(teams_row.country / teams_row.total * 100):.1f}%" if teams_row and teams_row.total > 0 else "0%",
-                        "form": f"{(teams_row.form / teams_row.total * 100):.1f}%" if teams_row and teams_row.total > 0 else "0%",
-                        "elo_rating": f"{(teams_row.elo_rating / teams_row.total * 100):.1f}%" if teams_row and teams_row.total > 0 else "0%",
-                        "rest_days": f"{(teams_row.rest_days / teams_row.total * 100):.1f}%" if teams_row and teams_row.total > 0 else "0%",
-                        "avg_goals": f"{(teams_row.avg_goals_home / teams_row.total * 100):.1f}%" if teams_row and teams_row.total > 0 else "0%",
-                        "xg": f"{(teams_row.xg_for / teams_row.total * 100):.1f}%" if teams_row and teams_row.total > 0 else "0%",
+                        "country": (
+                            f"{(teams_row.country / teams_row.total * 100):.1f}%"
+                            if teams_row and teams_row.total > 0
+                            else "0%"
+                        ),
+                        "form": (
+                            f"{(teams_row.form / teams_row.total * 100):.1f}%"
+                            if teams_row and teams_row.total > 0
+                            else "0%"
+                        ),
+                        "elo_rating": (
+                            f"{(teams_row.elo_rating / teams_row.total * 100):.1f}%"
+                            if teams_row and teams_row.total > 0
+                            else "0%"
+                        ),
+                        "rest_days": (
+                            f"{(teams_row.rest_days / teams_row.total * 100):.1f}%"
+                            if teams_row and teams_row.total > 0
+                            else "0%"
+                        ),
+                        "avg_goals": (
+                            f"{(teams_row.avg_goals_home / teams_row.total * 100):.1f}%"
+                            if teams_row and teams_row.total > 0
+                            else "0%"
+                        ),
+                        "xg": (
+                            f"{(teams_row.xg_for / teams_row.total * 100):.1f}%"
+                            if teams_row and teams_row.total > 0
+                            else "0%"
+                        ),
                     },
                     "raw_counts": {
                         "country": teams_row.country if teams_row else 0,
@@ -186,18 +238,34 @@ class StatsService:
                         "elo_rating": teams_row.elo_rating if teams_row else 0,
                         "rest_days": teams_row.rest_days if teams_row else 0,
                         "xg": teams_row.xg_for if teams_row else 0,
-                    }
+                    },
                 },
                 "matches": {
                     "total": matches_row.total if matches_row else 0,
                     "finished": matches_row.finished if matches_row else 0,
                     "upcoming": matches_row.upcoming if matches_row else 0,
                     "fill_rates": {
-                        "matchday": f"{(matches_row.matchday / matches_row.total * 100):.1f}%" if matches_row and matches_row.total > 0 else "0%",
-                        "ht_scores": f"{(matches_row.ht_scores / matches_row.finished * 100):.1f}%" if matches_row and matches_row.finished > 0 else "0%",
-                        "xg": f"{(matches_row.xg / matches_row.finished * 100):.1f}%" if matches_row and matches_row.finished > 0 else "0%",
-                        "odds": f"{(matches_row.odds / matches_row.total * 100):.1f}%" if matches_row and matches_row.total > 0 else "0%",
-                    }
+                        "matchday": (
+                            f"{(matches_row.matchday / matches_row.total * 100):.1f}%"
+                            if matches_row and matches_row.total > 0
+                            else "0%"
+                        ),
+                        "ht_scores": (
+                            f"{(matches_row.ht_scores / matches_row.finished * 100):.1f}%"
+                            if matches_row and matches_row.finished > 0
+                            else "0%"
+                        ),
+                        "xg": (
+                            f"{(matches_row.xg / matches_row.finished * 100):.1f}%"
+                            if matches_row and matches_row.finished > 0
+                            else "0%"
+                        ),
+                        "odds": (
+                            f"{(matches_row.odds / matches_row.total * 100):.1f}%"
+                            if matches_row and matches_row.total > 0
+                            else "0%"
+                        ),
+                    },
                 },
                 "predictions": {
                     "total": predictions_row.total if predictions_row else 0,
@@ -216,7 +284,10 @@ class StatsService:
                     "success": sync_row.success if sync_row else 0,
                     "failed": sync_row.failed if sync_row else 0,
                     "last_sync": (
-                        sync_row.last_sync.isoformat() if sync_row and sync_row.last_sync and hasattr(sync_row.last_sync, 'isoformat')
+                        sync_row.last_sync.isoformat()
+                        if sync_row
+                        and sync_row.last_sync
+                        and hasattr(sync_row.last_sync, "isoformat")
                         else str(sync_row.last_sync) if sync_row and sync_row.last_sync else None
                     ),
                 },
@@ -225,7 +296,10 @@ class StatsService:
                     "active": ml_row.active if ml_row else 0,
                     "with_binary": ml_row.with_binary if ml_row else 0,
                     "last_trained": (
-                        ml_row.last_trained.isoformat() if ml_row and ml_row.last_trained and hasattr(ml_row.last_trained, 'isoformat')
+                        ml_row.last_trained.isoformat()
+                        if ml_row
+                        and ml_row.last_trained
+                        and hasattr(ml_row.last_trained, "isoformat")
                         else str(ml_row.last_trained) if ml_row and ml_row.last_trained else None
                     ),
                 },
@@ -234,8 +308,15 @@ class StatsService:
                     "competitions": standings_row.competitions if standings_row else 0,
                     "with_form": standings_row.with_form if standings_row else 0,
                     "last_sync": (
-                        standings_row.last_sync.isoformat() if standings_row and standings_row.last_sync and hasattr(standings_row.last_sync, 'isoformat')
-                        else str(standings_row.last_sync) if standings_row and standings_row.last_sync else None
+                        standings_row.last_sync.isoformat()
+                        if standings_row
+                        and standings_row.last_sync
+                        and hasattr(standings_row.last_sync, "isoformat")
+                        else (
+                            str(standings_row.last_sync)
+                            if standings_row and standings_row.last_sync
+                            else None
+                        )
                     ),
                 },
             }

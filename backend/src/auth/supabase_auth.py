@@ -7,7 +7,6 @@ Supports role-based access control (free, premium, admin).
 
 import logging
 import os
-from functools import lru_cache
 from typing import Any
 
 import httpx
@@ -27,6 +26,8 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
 # Cache for JWKS keys
 _jwks_cache: dict[str, Any] | None = None
+_jwks_cache_time: float = 0.0
+_JWKS_CACHE_TTL = 3600  # 1 hour
 
 
 def _get_jwt_secret() -> str:
@@ -47,9 +48,14 @@ def _get_jwks_url() -> str | None:
     return f"{base_url}/auth/v1/.well-known/jwks.json"
 
 
-@lru_cache(maxsize=1)
 def _fetch_jwks() -> dict[str, Any] | None:
-    """Fetch JWKS from Supabase (cached)."""
+    """Fetch JWKS from Supabase (cached with TTL)."""
+    global _jwks_cache, _jwks_cache_time
+    import time
+
+    now = time.time()
+    if _jwks_cache is not None and (now - _jwks_cache_time) < _JWKS_CACHE_TTL:
+        return _jwks_cache
     jwks_url = _get_jwks_url()
     if not jwks_url:
         logger.debug("No JWKS URL configured")
@@ -61,10 +67,13 @@ def _fetch_jwks() -> dict[str, Any] | None:
             response.raise_for_status()
             jwks: dict[str, Any] = response.json()
             logger.info(f"Fetched JWKS from {jwks_url}")
+            _jwks_cache = jwks
+            _jwks_cache_time = now
             return jwks
     except Exception as e:
         logger.warning(f"Failed to fetch JWKS: {e}")
-        return None
+        # Return stale cache if available
+        return _jwks_cache
 
 
 def _get_signing_key(token: str, jwks: dict[str, Any]) -> dict[str, Any] | None:
@@ -178,7 +187,7 @@ async def get_current_user(
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentification requise",
+            detail="Authentication required",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -192,7 +201,7 @@ async def get_current_user(
         logger.warning(f"JWT validation failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token invalide ou expire",
+            detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -239,7 +248,7 @@ def require_premium(user: dict[str, Any] = Depends(get_current_user)) -> dict[st
     if role not in ("premium", "admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Abonnement premium requis pour acceder a cette ressource",
+            detail="Premium subscription required",
         )
 
     return user
@@ -257,7 +266,7 @@ def require_admin(user: dict[str, Any] = Depends(get_current_user)) -> dict[str,
     if role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acces administrateur requis",
+            detail="Admin access required",
         )
 
     return user
@@ -281,17 +290,19 @@ async def get_user_from_supabase(user_id: str) -> dict[str, Any] | None:
     url = f"{base_url}/auth/v1/admin/users/{user_id}"
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                url,
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                },
-            )
-            response.raise_for_status()
-            result: dict[str, Any] = response.json()
-            return result
+        from src.core.http_client import get_http_client
+
+        client = get_http_client()
+        response = await client.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            },
+        )
+        response.raise_for_status()
+        result: dict[str, Any] = response.json()
+        return result
     except httpx.HTTPStatusError as e:
         logger.warning(f"Failed to fetch user from Supabase: {e.response.status_code}")
         return None
@@ -322,26 +333,28 @@ async def update_user_metadata(
     auth_url = f"{base_url}/auth/v1/admin/users/{user_id}"
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            # Update user_metadata in Supabase Auth
-            response = await client.put(
-                auth_url,
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Content-Type": "application/json",
-                },
-                json={"user_metadata": user_metadata},
-            )
-            response.raise_for_status()
-            result: dict[str, Any] = response.json()
-            logger.info(f"Updated user metadata for {user_id}")
+        from src.core.http_client import get_http_client
 
-            # Also update user_profiles table if full_name is being updated
-            if "full_name" in user_metadata:
-                await _update_user_profiles_table(client, base_url, user_id, user_metadata)
+        client = get_http_client()
+        # Update user_metadata in Supabase Auth
+        response = await client.put(
+            auth_url,
+            headers={
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Content-Type": "application/json",
+            },
+            json={"user_metadata": user_metadata},
+        )
+        response.raise_for_status()
+        result: dict[str, Any] = response.json()
+        logger.info(f"Updated user metadata for {user_id}")
 
-            return result
+        # Also update user_profiles table if full_name is being updated
+        if "full_name" in user_metadata:
+            await _update_user_profiles_table(client, base_url, user_id, user_metadata)
+
+        return result
     except httpx.HTTPStatusError as e:
         logger.error(
             f"Failed to update user metadata: {e.response.status_code} - {e.response.text}"
@@ -406,21 +419,23 @@ async def get_user_role_from_profiles(user_id: str) -> str | None:
     url = f"{base_url}/rest/v1/user_profiles?id=eq.{user_id}&select=role"
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                url,
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            if data and len(data) > 0:
-                role = data[0].get("role")
-                if role:
-                    logger.debug(f"Found role '{role}' in user_profiles for {user_id}")
-                    return str(role)
+        from src.core.http_client import get_http_client
+
+        client = get_http_client()
+        response = await client.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+        if data and len(data) > 0:
+            role = data[0].get("role")
+            if role:
+                logger.debug(f"Found role '{role}' in user_profiles for {user_id}")
+                return str(role)
     except Exception as e:
         logger.debug(f"Failed to fetch role from user_profiles: {e}")
 
@@ -448,19 +463,21 @@ async def sync_role_to_app_metadata(user_id: str, role: str) -> bool:
     auth_url = f"{base_url}/auth/v1/admin/users/{user_id}"
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.put(
-                auth_url,
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Content-Type": "application/json",
-                },
-                json={"app_metadata": {"role": role}},
-            )
-            response.raise_for_status()
-            logger.info(f"Synced role '{role}' to app_metadata for user {user_id}")
-            return True
+        from src.core.http_client import get_http_client
+
+        client = get_http_client()
+        response = await client.put(
+            auth_url,
+            headers={
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Content-Type": "application/json",
+            },
+            json={"app_metadata": {"role": role}},
+        )
+        response.raise_for_status()
+        logger.info(f"Synced role '{role}' to app_metadata for user {user_id}")
+        return True
     except httpx.HTTPStatusError as e:
         logger.error(f"Failed to sync role to app_metadata: {e.response.status_code}")
         return False

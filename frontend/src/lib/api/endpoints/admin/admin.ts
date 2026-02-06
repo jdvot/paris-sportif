@@ -42,7 +42,8 @@ import type {
   TriggerDataQualityAlertApiV1AdminDataQualityAlertPostParams,
   UpdateUserRoleApiV1AdminUsersUserIdRolePost200,
   UpdateUserRoleApiV1AdminUsersUserIdRolePostParams,
-  UserListResponse
+  UserListResponse,
+  VerifyPredictionsResponse
 } from '../../models';
 
 import { customInstance } from '../../custom-instance';
@@ -1423,3 +1424,102 @@ export function useGetDataStatusApiV1AdminDataStatusGet<TData = Awaited<ReturnTy
 
 
 
+/**
+ * Force verification of all unverified predictions.
+
+Checks all finished matches with predictions and verifies
+if the prediction was correct.
+Admin role required.
+ * @summary Verify All Predictions
+ */
+export type verifyAllPredictionsApiV1AdminVerifyPredictionsPostResponse200 = {
+  data: VerifyPredictionsResponse
+  status: 200
+}
+
+export type verifyAllPredictionsApiV1AdminVerifyPredictionsPostResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type verifyAllPredictionsApiV1AdminVerifyPredictionsPostResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
+    
+export type verifyAllPredictionsApiV1AdminVerifyPredictionsPostResponseSuccess = (verifyAllPredictionsApiV1AdminVerifyPredictionsPostResponse200) & {
+  headers: Headers;
+};
+export type verifyAllPredictionsApiV1AdminVerifyPredictionsPostResponseError = (verifyAllPredictionsApiV1AdminVerifyPredictionsPostResponse401 | verifyAllPredictionsApiV1AdminVerifyPredictionsPostResponse403) & {
+  headers: Headers;
+};
+
+export type verifyAllPredictionsApiV1AdminVerifyPredictionsPostResponse = (verifyAllPredictionsApiV1AdminVerifyPredictionsPostResponseSuccess | verifyAllPredictionsApiV1AdminVerifyPredictionsPostResponseError)
+
+export const getVerifyAllPredictionsApiV1AdminVerifyPredictionsPostUrl = () => {
+
+
+  
+
+  return `/api/v1/admin/verify-predictions`
+}
+
+export const verifyAllPredictionsApiV1AdminVerifyPredictionsPost = async ( options?: RequestInit): Promise<verifyAllPredictionsApiV1AdminVerifyPredictionsPostResponse> => {
+  
+  return customInstance<verifyAllPredictionsApiV1AdminVerifyPredictionsPostResponse>(getVerifyAllPredictionsApiV1AdminVerifyPredictionsPostUrl(),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+);}
+
+
+
+
+export const getVerifyAllPredictionsApiV1AdminVerifyPredictionsPostMutationOptions = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyAllPredictionsApiV1AdminVerifyPredictionsPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyAllPredictionsApiV1AdminVerifyPredictionsPost>>, TError,void, TContext> => {
+
+const mutationKey = ['verifyAllPredictionsApiV1AdminVerifyPredictionsPost'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyAllPredictionsApiV1AdminVerifyPredictionsPost>>, void> = () => {
+          
+
+          return  verifyAllPredictionsApiV1AdminVerifyPredictionsPost(requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyAllPredictionsApiV1AdminVerifyPredictionsPostMutationResult = NonNullable<Awaited<ReturnType<typeof verifyAllPredictionsApiV1AdminVerifyPredictionsPost>>>
+    
+    export type VerifyAllPredictionsApiV1AdminVerifyPredictionsPostMutationError = HTTPErrorResponse
+
+    /**
+ * @summary Verify All Predictions
+ */
+export const useVerifyAllPredictionsApiV1AdminVerifyPredictionsPost = <TError = HTTPErrorResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyAllPredictionsApiV1AdminVerifyPredictionsPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof verifyAllPredictionsApiV1AdminVerifyPredictionsPost>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getVerifyAllPredictionsApiV1AdminVerifyPredictionsPostMutationOptions(options), queryClient);
+    }
+    

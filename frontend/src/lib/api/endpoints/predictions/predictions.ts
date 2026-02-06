@@ -25,8 +25,10 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CalibrationResponse,
   DailyPicksResponse,
   DailyStatsResponse,
+  GetCalibrationParams,
   GetDailyPicksParams,
   GetDailyStatsParams,
   GetPredictionDebugParams,
@@ -915,4 +917,143 @@ export const useRefreshPrediction = <TError = HTTPErrorResponse | HTTPValidation
       > => {
       return useMutation(getRefreshPredictionMutationOptions(options), queryClient);
     }
+    /**
+ * Get calibration analysis for prediction accuracy.
+
+Compares predicted confidence levels with actual outcomes to assess
+how well-calibrated the predictions are. A well-calibrated model
+should have 70% accuracy when it predicts 70% confidence.
+
+Returns:
+    - Overall accuracy and calibration error
+    - Breakdown by bet type (home_win, draw, away_win)
+    - Breakdown by confidence buckets (50-60%, 60-70%, etc.)
+    - Performance by competition
+ * @summary Get Calibration
+ */
+export type getCalibrationResponse200 = {
+  data: CalibrationResponse
+  status: 200
+}
+
+export type getCalibrationResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type getCalibrationResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
     
+export type getCalibrationResponseSuccess = (getCalibrationResponse200) & {
+  headers: Headers;
+};
+export type getCalibrationResponseError = (getCalibrationResponse401 | getCalibrationResponse422) & {
+  headers: Headers;
+};
+
+export type getCalibrationResponse = (getCalibrationResponseSuccess | getCalibrationResponseError)
+
+export const getGetCalibrationUrl = (params?: GetCalibrationParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/predictions/calibration?${stringifiedParams}` : `/api/v1/predictions/calibration`
+}
+
+export const getCalibration = async (params?: GetCalibrationParams, options?: RequestInit): Promise<getCalibrationResponse> => {
+  
+  return customInstance<getCalibrationResponse>(getGetCalibrationUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getGetCalibrationQueryKey = (params?: GetCalibrationParams,) => {
+    return [
+    `/api/v1/predictions/calibration`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+    
+export const getGetCalibrationQueryOptions = <TData = Awaited<ReturnType<typeof getCalibration>>, TError = HTTPErrorResponse | HTTPValidationError>(params?: GetCalibrationParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCalibration>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCalibrationQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCalibration>>> = ({ signal }) => getCalibration(params, { signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCalibration>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetCalibrationQueryResult = NonNullable<Awaited<ReturnType<typeof getCalibration>>>
+export type GetCalibrationQueryError = HTTPErrorResponse | HTTPValidationError
+
+
+export function useGetCalibration<TData = Awaited<ReturnType<typeof getCalibration>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: undefined |  GetCalibrationParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCalibration>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCalibration>>,
+          TError,
+          Awaited<ReturnType<typeof getCalibration>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCalibration<TData = Awaited<ReturnType<typeof getCalibration>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetCalibrationParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCalibration>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCalibration>>,
+          TError,
+          Awaited<ReturnType<typeof getCalibration>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCalibration<TData = Awaited<ReturnType<typeof getCalibration>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetCalibrationParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCalibration>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Calibration
+ */
+
+export function useGetCalibration<TData = Awaited<ReturnType<typeof getCalibration>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: GetCalibrationParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCalibration>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetCalibrationQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+

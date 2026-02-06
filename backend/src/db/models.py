@@ -50,10 +50,14 @@ class Team(Base):
 
     # Form and schedule data (updated from standings)
     form: Mapped[str | None] = mapped_column(String(10), nullable=True)  # e.g., "WWDLW"
-    form_score: Mapped[Decimal | None] = mapped_column(Numeric(4, 3), nullable=True)  # 0-1 normalized
+    form_score: Mapped[Decimal | None] = mapped_column(
+        Numeric(4, 3), nullable=True
+    )  # 0-1 normalized
     last_match_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     rest_days: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Days since last match
-    fixture_congestion: Mapped[Decimal | None] = mapped_column(Numeric(4, 3), nullable=True)  # 0-1 ratio
+    fixture_congestion: Mapped[Decimal | None] = mapped_column(
+        Numeric(4, 3), nullable=True
+    )  # 0-1 ratio
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
@@ -105,7 +109,9 @@ class Match(Base):
     # Using competition_code (string) to match existing DB schema
     competition_code: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
 
-    match_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    match_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     matchday: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     status: Mapped[str] = mapped_column(
@@ -143,6 +149,7 @@ class Match(Base):
 
     # Indexes
     __table_args__ = (
+        Index("ix_matches_status", "status"),
         Index("ix_matches_date_status", "match_date", "status"),
         Index("ix_matches_competition_date", "competition_code", "match_date"),
     )
@@ -194,6 +201,10 @@ class Prediction(Base):
     # Model contributions (JSON)
     model_details: Mapped[str | None] = mapped_column(Text, nullable=True)
     llm_adjustments: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Match context summary (RAG + LLM generated)
+    match_context_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    news_sources: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())

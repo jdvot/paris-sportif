@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Heart, Search, X, Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 import { useTranslations } from "next-intl";
 import {
   useUserPreferences,
@@ -92,7 +93,7 @@ export function FavoriteTeamModal({ forceOpen, onClose }: FavoriteTeamModalProps
       });
       handleClose();
     } catch (error) {
-      console.error("Failed to save favorite team:", error);
+      logger.error("Failed to save favorite team:", error);
     }
   }, [selectedTeam, updatePrefs, handleClose]);
 

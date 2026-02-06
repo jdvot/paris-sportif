@@ -3,7 +3,7 @@
 import json
 import logging
 from dataclasses import dataclass
-from datetime import timezone,  datetime
+from datetime import UTC, datetime
 
 from src.core.config import settings
 from src.db.repositories import get_uow
@@ -77,7 +77,7 @@ class PushNotificationService:
                         sub.is_active = False
                 else:
                     sub.is_active = False
-                sub.updated_at = datetime.now(timezone.utc)
+                sub.updated_at = datetime.now(UTC)
                 await uow.commit()
 
     async def send_notification(

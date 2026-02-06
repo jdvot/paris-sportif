@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Goal, BarChart3, Calendar, Trophy, Wallet, Target } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -40,9 +41,11 @@ export function Header() {
           <Link href="/" className="flex items-center gap-2 flex-shrink-0">
             {favoriteTeam?.logo_url ? (
               <div className="flex items-center gap-2">
-                <img
+                <Image
                   src={favoriteTeam.logo_url}
                   alt={favoriteTeam.name}
+                  width={32}
+                  height={32}
                   className="w-8 h-8 object-contain"
                 />
                 <span className="font-bold text-xl text-gray-900 dark:text-white hidden sm:inline">
@@ -55,7 +58,7 @@ export function Header() {
           </Link>
 
           {/* Navigation */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav aria-label="Navigation" className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
@@ -92,7 +95,7 @@ export function Header() {
       </div>
 
       {/* Mobile Navigation */}
-      <nav className="md:hidden flex items-center justify-around py-2 border-t border-gray-200 dark:border-dark-700">
+      <nav aria-label="Navigation principale" className="md:hidden flex items-center justify-around py-2 border-t border-gray-200 dark:border-dark-700">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;

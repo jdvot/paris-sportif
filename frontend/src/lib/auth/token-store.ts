@@ -13,6 +13,8 @@
  * - Debug logging for troubleshooting auth issues
  */
 
+import { logger } from "@/lib/logger";
+
 let cachedToken: string | null = null;
 let tokenExpiresAt: number | null = null;
 let refreshInProgress = false;
@@ -44,19 +46,19 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       if (event.data.type === 'REFRESH_STARTED') {
         // Another tab started refresh, mark as in progress
         refreshInProgress = true;
-        console.log('[TokenStore] Another tab started refresh');
+        logger.log('[TokenStore] Another tab started refresh');
       } else if (event.data.type === 'TOKEN_UPDATED' && event.data.token) {
         // Another tab completed refresh, update our cache
         cachedToken = event.data.token;
         tokenExpiresAt = event.data.expiresAt;
         refreshInProgress = false;
-        console.log('[TokenStore] Token updated from another tab');
+        logger.log('[TokenStore] Token updated from another tab');
       } else if (event.data.type === 'REFRESH_COMPLETED') {
         refreshInProgress = false;
       }
     };
   } catch (e) {
-    console.warn('[TokenStore] BroadcastChannel not available:', e);
+    logger.warn('[TokenStore] BroadcastChannel not available:', e);
   }
 }
 
@@ -67,7 +69,7 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
  * @param expiresIn Optional expiration time in seconds
  */
 export function setAuthToken(token: string | null, expiresIn?: number): void {
-  console.log('[TokenStore] Setting token:', !!token, expiresIn ? `expires in ${expiresIn}s` : '', 'authInitialized:', authInitialized);
+  logger.log('[TokenStore] Setting token:', !!token, expiresIn ? `expires in ${expiresIn}s` : '', 'authInitialized:', authInitialized);
   cachedToken = token;
   tokenExpiresAt = token && expiresIn ? Date.now() + expiresIn * 1000 : null;
   refreshInProgress = false;
@@ -76,7 +78,7 @@ export function setAuthToken(token: string | null, expiresIn?: number): void {
   if (!authInitialized) {
     authInitialized = true;
     authReadyResolve?.();
-    console.log('[TokenStore] Auth initialized');
+    logger.log('[TokenStore] Auth initialized');
   }
 
   // Broadcast token update to other tabs
@@ -101,20 +103,20 @@ async function triggerRefresh(): Promise<void> {
   broadcastChannel?.postMessage({ type: 'REFRESH_STARTED' });
 
   try {
-    console.log('[TokenStore] Triggering proactive refresh...');
+    logger.log('[TokenStore] Triggering proactive refresh...');
     // Dynamic import to avoid circular dependencies
     const { createClient } = await import('@/lib/supabase/client');
     const supabase = createClient();
     const { data, error } = await supabase.auth.refreshSession();
     if (error) {
-      console.error('[TokenStore] Refresh failed:', error.message);
+      logger.error('[TokenStore] Refresh failed:', error.message);
       broadcastChannel?.postMessage({ type: 'REFRESH_COMPLETED' });
     } else if (data.session) {
-      console.log('[TokenStore] Refresh successful');
+      logger.log('[TokenStore] Refresh successful');
       // Token will be updated via onAuthStateChange, which calls setAuthToken
     }
   } catch (e) {
-    console.error('[TokenStore] Refresh error:', e);
+    logger.error('[TokenStore] Refresh error:', e);
     broadcastChannel?.postMessage({ type: 'REFRESH_COMPLETED' });
   } finally {
     refreshInProgress = false;
@@ -132,13 +134,13 @@ export function getAuthToken(): string | null {
 
   // If token is actually expired, return null
   if (tokenExpiresAt && now > tokenExpiresAt - EXPIRY_BUFFER_MS) {
-    console.log('[TokenStore] Token expired, returning null');
+    logger.log('[TokenStore] Token expired, returning null');
     return null;
   }
 
   // If token is close to expiry, trigger refresh in background but still return the token
   if (tokenExpiresAt && now > tokenExpiresAt - REFRESH_THRESHOLD_MS) {
-    console.log('[TokenStore] Token expiring soon, triggering refresh');
+    logger.log('[TokenStore] Token expiring soon, triggering refresh');
     triggerRefresh();
   }
 
@@ -149,7 +151,7 @@ export function getAuthToken(): string | null {
  * Clear the cached token (called on sign out)
  */
 export function clearAuthToken(): void {
-  console.log('[TokenStore] Clearing token');
+  logger.log('[TokenStore] Clearing token');
   cachedToken = null;
   tokenExpiresAt = null;
 }
@@ -186,7 +188,7 @@ export function waitForAuthReady(): Promise<void> {
  */
 export function markAuthInitialized(): void {
   if (!authInitialized) {
-    console.log('[TokenStore] Marking auth as initialized (no session)');
+    logger.log('[TokenStore] Marking auth as initialized (no session)');
     authInitialized = true;
     authReadyResolve?.();
   }

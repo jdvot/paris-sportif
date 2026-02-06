@@ -33,7 +33,7 @@ export default function PicksPage() {
 
   const { data: response, isLoading, error } = useGetDailyPicks(
     { date: selectedDate },
-    { query: { staleTime: 0, retry: 2 } }
+    { query: { staleTime: 5 * 60 * 1000, retry: 2 } }
   );
 
   // Extract picks from response - API returns { data: { picks: [...] }, status: number }

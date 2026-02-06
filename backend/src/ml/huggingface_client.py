@@ -14,10 +14,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 # HuggingFace Space URL
-HF_ML_SERVICE_URL = os.getenv(
-    "HF_ML_SERVICE_URL",
-    "https://jdevot244-paris-sportif.hf.space"
-)
+HF_ML_SERVICE_URL = os.getenv("HF_ML_SERVICE_URL", "https://jdevot244-paris-sportif.hf.space")
 
 # Timeout for ML requests (training can take longer)
 PREDICT_TIMEOUT = 30.0
@@ -92,7 +89,7 @@ class HuggingFaceMLClient:
                         "away_rest_days": away_rest_days,
                         "home_fixture_congestion": home_fixture_congestion,
                         "away_fixture_congestion": away_fixture_congestion,
-                    }
+                    },
                 )
 
                 if response.status_code == 200:
@@ -173,7 +170,7 @@ class HuggingFaceMLClient:
                         "away_rest_days": away_rest_days,
                         "home_fixture_congestion": home_fixture_congestion,
                         "away_fixture_congestion": away_fixture_congestion,
-                    }
+                    },
                 )
 
                 if response.status_code == 200:
@@ -232,11 +229,7 @@ def get_hf_ml_client() -> HuggingFaceMLClient:
 
 
 async def get_ml_prediction_from_hf(
-    home_attack: float,
-    home_defense: float,
-    away_attack: float,
-    away_defense: float,
-    **kwargs
+    home_attack: float, home_defense: float, away_attack: float, away_defense: float, **kwargs
 ) -> dict[str, float] | None:
     """
     Convenience function to get ML predictions.
@@ -249,7 +242,7 @@ async def get_ml_prediction_from_hf(
         home_defense=home_defense,
         away_attack=away_attack,
         away_defense=away_defense,
-        **kwargs
+        **kwargs,
     )
 
     if result and result.get("ensemble"):

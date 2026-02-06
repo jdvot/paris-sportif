@@ -43,11 +43,16 @@ import {
 import { cn, isAuthError } from "@/lib/utils";
 import { format, parseISO, type Locale } from "date-fns";
 import { fr, enUS } from "date-fns/locale";
-import { PredictionCharts } from "@/components/PredictionCharts";
-import { MultiMarkets } from "@/components/MultiMarkets";
-import { BookmakerOddsComparison, type BookmakerOdds } from "@/components/BookmakerOddsComparison";
-import { NewsFeed } from "@/components/NewsFeed";
-import { KellySuggestion } from "@/components/KellySuggestion";
+import dynamic from "next/dynamic";
+import type { BookmakerOdds } from "@/components/BookmakerOddsComparison";
+
+// Lazy-load heavy components to reduce initial bundle size
+const PredictionCharts = dynamic(() => import("@/components/PredictionCharts").then(m => ({ default: m.PredictionCharts })), { ssr: false });
+const MultiMarkets = dynamic(() => import("@/components/MultiMarkets").then(m => ({ default: m.MultiMarkets })), { ssr: false });
+const BookmakerOddsComparison = dynamic(() => import("@/components/BookmakerOddsComparison").then(m => ({ default: m.BookmakerOddsComparison })), { ssr: false });
+const NewsFeed = dynamic(() => import("@/components/NewsFeed").then(m => ({ default: m.NewsFeed })), { ssr: false });
+const KellySuggestion = dynamic(() => import("@/components/KellySuggestion").then(m => ({ default: m.KellySuggestion })), { ssr: false });
+const MatchContextSummary = dynamic(() => import("@/components/MatchContextSummary").then(m => ({ default: m.MatchContextSummary })), { ssr: false });
 
 // Helper to get team name from TeamInfo | string
 const getTeamName = (team: MatchResponse["home_team"] | string): string => {
@@ -78,26 +83,42 @@ export default function MatchDetailPage() {
     }
   }, [params]);
 
-  // Using Orval hooks
+  // Track if match is live to enable auto-refresh
+  const [isLive, setIsLive] = useState(false);
+
+  // Using Orval hooks - refetch every 30s if match is live
   const { data: matchResponse, isLoading: matchLoading, error: matchError } = useGetMatch(
     matchId!,
-    { query: { enabled: !!matchId && matchId > 0 } }
+    { query: {
+      enabled: !!matchId && matchId > 0,
+      staleTime: isLive ? 15 * 1000 : 5 * 60 * 1000,
+      refetchInterval: isLive ? 30 * 1000 : false,
+    } }
   );
 
   const { data: predictionResponse, isLoading: predictionLoading, error: predictionError } = useGetPrediction(
     matchId!,
     { include_model_details: true },
-    { query: { enabled: !!matchId && matchId > 0, retry: 1 } }
+    { query: { enabled: !!matchId && matchId > 0, retry: 1, staleTime: 5 * 60 * 1000 } }
   );
 
   const { data: h2hResponse } = useGetHeadToHead(
     matchId!,
     { limit: 10 },
-    { query: { enabled: !!matchId && matchId > 0 } }
+    { query: { enabled: !!matchId && matchId > 0, staleTime: 10 * 60 * 1000 } }
   );
 
   // Extract data from responses - API returns { data: {...}, status: number }
   const match = matchResponse?.data as MatchResponse | undefined;
+
+  // Auto-detect live match status for real-time updates
+  useEffect(() => {
+    if (match?.status === "live") {
+      setIsLive(true);
+    } else if (match?.status === "finished" || match?.status === "postponed") {
+      setIsLive(false);
+    }
+  }, [match?.status]);
   const prediction = predictionResponse?.data as PredictionResponse | undefined;
   const headToHead = h2hResponse?.data as HeadToHeadResponse | undefined;
 
@@ -108,13 +129,13 @@ export default function MatchDetailPage() {
   const { data: homeFormResponse } = useGetTeamForm(
     homeTeamId!,
     { matches_count: 5, team_name: getTeamName(match?.home_team || "") || undefined },
-    { query: { enabled: !!homeTeamId && homeTeamId > 0 } }
+    { query: { enabled: !!homeTeamId && homeTeamId > 0, staleTime: 10 * 60 * 1000 } }
   );
 
   const { data: awayFormResponse } = useGetTeamForm(
     awayTeamId!,
     { matches_count: 5, team_name: getTeamName(match?.away_team || "") || undefined },
-    { query: { enabled: !!awayTeamId && awayTeamId > 0 } }
+    { query: { enabled: !!awayTeamId && awayTeamId > 0, staleTime: 10 * 60 * 1000 } }
   );
 
   // Extract form data from responses - API returns { data: {...}, status: number }
@@ -133,7 +154,7 @@ export default function MatchDetailPage() {
       away_team: awayTeamName,
       competition: competitionCode,
     },
-    { query: { enabled: !!homeTeamName && !!awayTeamName } }
+    { query: { enabled: !!homeTeamName && !!awayTeamName, staleTime: 10 * 60 * 1000 } }
   );
 
   const enrichment = enrichmentResponse?.data as FullEnrichmentResponse | undefined;
@@ -218,6 +239,15 @@ export default function MatchDetailPage() {
           )}
 
           {prediction && <PredictionSection prediction={prediction} />}
+
+          {/* Match Context Summary (RAG-generated) */}
+          {prediction?.match_context_summary && (
+            <MatchContextSummary
+              summary={prediction.match_context_summary}
+              sources={prediction.news_sources}
+              generatedAt={prediction.created_at}
+            />
+          )}
 
           {prediction && prediction.key_factors && prediction.key_factors.length > 0 && (
             <KeyFactorsSection prediction={prediction} />

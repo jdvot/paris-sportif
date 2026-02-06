@@ -564,6 +564,22 @@
       "label": "Confidence"
     }
   },
+  "newsFeed": {
+    "title": "Football News",
+    "injury": "Injury",
+    "transfer": "Transfer",
+    "result": "Result",
+    "prematch": "Pre-match",
+    "news": "News",
+    "retry": "Retry",
+    "empty": "No news available",
+    "articlesFound": "articles found",
+    "refresh": "Refresh",
+    "all": "All",
+    "loadError": "Unable to load news",
+    "recent": "Recent",
+    "updatedAt": "Updated"
+  },
   "dailyPicks": {
     "loading": "Analyzing matches...",
     "loadError": "Unable to load today's picks",
@@ -578,7 +594,34 @@
     "draw": "Draw",
     "confidence": "confidence",
     "sport": "Football",
-    "drawShort": "Draw"
+    "drawShort": "Draw",
+    "bestUpcomingPicks": "Best picks for the next 7 days",
+    "todaysPicks": "Today's picks",
+    "viewPrediction": "View prediction {home} vs {away}"
+  },
+  "predictionCard": {
+    "topPick": "Top Pick",
+    "confidence": "confidence",
+    "confidenceLabel": "Confidence",
+    "value": "Value",
+    "score": "Score",
+    "top": "Top",
+    "good": "Good",
+    "average": "Average",
+    "positiveFactors": "Key strengths",
+    "riskFactors": "Risks to watch",
+    "homeWin": "{team} Win",
+    "awayWin": "{team} Win",
+    "draw": "Draw",
+    "drawShort": "Draw",
+    "pickRank": "Pick #{rank}"
+  },
+  "matchContext": {
+    "title": "Context Analysis",
+    "minutesAgo": "{count} min ago",
+    "hoursAgo": "{count}h ago",
+    "daysAgo": "{count}d ago",
+    "updatedAgo": "Updated {time}"
   },
   "upcomingMatches": {
     "loading": "Loading matches...",
@@ -1260,5 +1303,35 @@
     "selectClub": "Choose my club",
     "form": "Form",
     "position": "Position"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Your betting performance and statistics",
+    "loading": "Loading statistics...",
+    "errorTitle": "Error loading statistics",
+    "errorMessage": "Unable to fetch prediction statistics. Please try again later.",
+    "selectPeriod": "Select period",
+    "last7days": "Last 7 days",
+    "last30days": "Last 30 days",
+    "last90days": "Last 90 days",
+    "lastYear": "Last year",
+    "totalPredictions": "Total Predictions",
+    "pending": "{count} pending",
+    "allVerified": "All verified",
+    "winRate": "Win Rate",
+    "noVerifiedBets": "No verified bets",
+    "roi": "ROI",
+    "roiDesc": "Return on investment",
+    "estProfit": "Est. Profit",
+    "staked": "Staked: {amount}",
+    "noPredictions": "No predictions yet",
+    "noPredictionsDesc": "Start making predictions to see your performance statistics here.",
+    "byCompetition": "By Competition",
+    "performanceByCompetition": "Performance by Competition",
+    "winRateAcrossLeagues": "Win rate across different leagues",
+    "noCompetitionData": "No competition data available",
+    "detailedStats": "Detailed Statistics",
+    "breakdownByCompetition": "Breakdown by competition",
+    "picks": "{count} picks"
   }
 }

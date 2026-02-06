@@ -180,6 +180,28 @@ export const COMPETITIONS: Competition[] = [
 // Quick lookup by code
 export const COMPETITION_MAP = new Map(COMPETITIONS.map(c => [c.code, c]));
 
+// Competition colors for visual distinction (solid background)
+export const COMPETITION_COLORS: Record<string, string> = {
+  PL: "bg-purple-500",
+  PD: "bg-orange-500",
+  BL1: "bg-red-500",
+  SA: "bg-blue-500",
+  FL1: "bg-green-500",
+  CL: "bg-indigo-500",
+  EL: "bg-amber-500",
+};
+
+// Competition gradient colors for buttons/filters
+export const COMPETITION_GRADIENTS: Record<string, string> = {
+  PL: "from-purple-500 to-purple-600",
+  PD: "from-orange-500 to-orange-600",
+  BL1: "from-red-500 to-red-600",
+  SA: "from-blue-500 to-blue-600",
+  FL1: "from-green-500 to-green-600",
+  CL: "from-indigo-500 to-indigo-600",
+  EL: "from-amber-500 to-amber-600",
+};
+
 // Get competition name by code
 export function getCompetitionName(code: string): string {
   return COMPETITION_MAP.get(code)?.name ?? code;

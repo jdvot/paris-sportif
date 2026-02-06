@@ -12,7 +12,7 @@ import os
 from datetime import datetime
 from typing import Any
 
-import httpx
+from src.core.http_client import get_http_client
 
 logger = logging.getLogger(__name__)
 
@@ -53,27 +53,28 @@ class OddsAPIClient:
             return []
 
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.get(
-                    f"{self.BASE_URL}/sports/{sport_key}/odds",
-                    params={
-                        "apiKey": self.api_key,
-                        "regions": regions,
-                        "markets": markets,
-                        "oddsFormat": "decimal",
-                    },
-                )
+            client = get_http_client()
+            response = await client.get(
+                f"{self.BASE_URL}/sports/{sport_key}/odds",
+                params={
+                    "apiKey": self.api_key,
+                    "regions": regions,
+                    "markets": markets,
+                    "oddsFormat": "decimal",
+                },
+                timeout=15.0,
+            )
 
-                if response.status_code == 200:
-                    data: list[dict[str, Any]] = response.json()
-                    logger.info(f"Fetched odds for {len(data)} matches in {competition}")
-                    return data
-                elif response.status_code == 401:
-                    logger.error("Invalid ODDS_API_KEY")
-                elif response.status_code == 429:
-                    logger.warning("Odds API rate limit reached")
-                else:
-                    logger.error(f"Odds API error: {response.status_code}")
+            if response.status_code == 200:
+                data: list[dict[str, Any]] = response.json()
+                logger.info(f"Fetched odds for {len(data)} matches in {competition}")
+                return data
+            elif response.status_code == 401:
+                logger.error("Invalid ODDS_API_KEY")
+            elif response.status_code == 429:
+                logger.warning("Odds API rate limit reached")
+            else:
+                logger.error(f"Odds API error: {response.status_code}")
 
         except Exception as e:
             logger.error(f"Error fetching odds: {e}")
@@ -267,64 +268,65 @@ class WeatherClient:
             return {"available": False, "reason": "stadium_not_found"}
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                # Open-Meteo forecast API
-                hourly_params = (
-                    "temperature_2m,relative_humidity_2m,apparent_temperature,"
-                    "precipitation_probability,weather_code,wind_speed_10m"
-                )
-                response = await client.get(
-                    self.BASE_URL,
-                    params={
-                        "latitude": coords[0],
-                        "longitude": coords[1],
-                        "hourly": hourly_params,
-                        "forecast_days": 7,
-                        "timezone": "auto",
-                    },
-                )
+            client = get_http_client()
+            # Open-Meteo forecast API
+            hourly_params = (
+                "temperature_2m,relative_humidity_2m,apparent_temperature,"
+                "precipitation_probability,weather_code,wind_speed_10m"
+            )
+            response = await client.get(
+                self.BASE_URL,
+                params={
+                    "latitude": coords[0],
+                    "longitude": coords[1],
+                    "hourly": hourly_params,
+                    "forecast_days": 7,
+                    "timezone": "auto",
+                },
+                timeout=10.0,
+            )
 
-                if response.status_code == 200:
-                    data = response.json()
-                    hourly = data.get("hourly", {})
-                    times = hourly.get("time", [])
+            if response.status_code == 200:
+                data = response.json()
+                hourly = data.get("hourly", {})
+                times = hourly.get("time", [])
 
-                    # Find forecast closest to match time
-                    closest_idx = 0
-                    min_diff = float("inf")
+                # Find forecast closest to match time
+                closest_idx = 0
+                min_diff = float("inf")
 
-                    for idx, time_str in enumerate(times):
-                        try:
-                            forecast_dt = datetime.fromisoformat(time_str)
-                            diff = abs((forecast_dt - match_date).total_seconds())
-                            if diff < min_diff:
-                                min_diff = diff
-                                closest_idx = idx
-                        except ValueError:
-                            continue
+                for idx, time_str in enumerate(times):
+                    try:
+                        forecast_dt = datetime.fromisoformat(time_str)
+                        diff = abs((forecast_dt - match_date).total_seconds())
+                        if diff < min_diff:
+                            min_diff = diff
+                            closest_idx = idx
+                    except ValueError:
+                        continue
 
-                    if times and closest_idx < len(times):
-                        temp = hourly.get("temperature_2m", [None])[closest_idx]
-                        feels_like = hourly.get("apparent_temperature", [None])[closest_idx]
-                        humidity = hourly.get("relative_humidity_2m", [None])[closest_idx]
-                        precip_prob = hourly.get("precipitation_probability", [0])[closest_idx] or 0
-                        wind_speed = hourly.get("wind_speed_10m", [0])[closest_idx] or 0
-                        weather_code = hourly.get("weather_code", [0])[closest_idx] or 0
+                if times and closest_idx < len(times):
+                    temp = hourly.get("temperature_2m", [None])[closest_idx]
+                    feels_like = hourly.get("apparent_temperature", [None])[closest_idx]
+                    humidity = hourly.get("relative_humidity_2m", [None])[closest_idx]
+                    precip_prob = hourly.get("precipitation_probability", [0])[closest_idx] or 0
+                    wind_speed = hourly.get("wind_speed_10m", [0])[closest_idx] or 0
+                    weather_code = hourly.get("weather_code", [0])[closest_idx] or 0
 
-                        return {
-                            "available": True,
-                            "temperature": temp,
-                            "feels_like": feels_like,
-                            "humidity": humidity,
-                            "description": self._weather_code_to_description(weather_code),
-                            "wind_speed": round(wind_speed / 3.6, 1),  # Convert km/h to m/s
-                            "rain_probability": precip_prob,
-                            "impact": self._assess_weather_impact(
-                                temp or 15,
-                                wind_speed / 3.6,  # Convert km/h to m/s
-                                precip_prob / 100,  # Convert to 0-1 range
-                            ),
-                        }
+                    return {
+                        "available": True,
+                        "temperature": temp,
+                        "feels_like": feels_like,
+                        "humidity": humidity,
+                        "description": self._weather_code_to_description(weather_code),
+                        "wind_speed": round(wind_speed / 3.6, 1),  # Convert km/h to m/s
+                        "rain_probability": precip_prob,
+                        "impact": self._assess_weather_impact(
+                            temp or 15,
+                            wind_speed / 3.6,  # Convert km/h to m/s
+                            precip_prob / 100,  # Convert to 0-1 range
+                        ),
+                    }
 
         except Exception as e:
             logger.error(f"Error fetching weather from Open-Meteo: {e}")

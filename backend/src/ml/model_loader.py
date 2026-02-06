@@ -138,16 +138,16 @@ class TrainedModelLoader:
             try:
                 if hasattr(self.xgb_model, "n_features_in_"):
                     return int(self.xgb_model.n_features_in_)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Could not read n_features_in_ from XGBoost model: {e}")
 
         # Try Random Forest
         if self.rf_model is not None:
             try:
                 if hasattr(self.rf_model, "n_features_in_"):
                     return int(self.rf_model.n_features_in_)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Could not read n_features_in_ from RF model: {e}")
 
         # Check feature state for version info
         if self.feature_state and "feature_count" in self.feature_state:

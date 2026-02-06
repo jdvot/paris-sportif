@@ -16,7 +16,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
 import { useTeamNews, useTeamSummary } from "@/lib/hooks/useTeamNews";
 import { FavoriteTeamModal } from "@/components/FavoriteTeamModal";
@@ -55,6 +55,7 @@ interface MyClubSectionProps {
 
 export function MyClubSection({ className }: MyClubSectionProps) {
   const t = useTranslations("myClub");
+  const locale = useLocale();
   const [showModal, setShowModal] = useState(false);
 
   const { data: preferences, isLoading: prefsLoading } = useUserPreferences();
@@ -222,7 +223,7 @@ export function MyClubSection({ className }: MyClubSectionProps) {
                       vs {summary.next_match.opponent}
                     </p>
                     <p className="text-sm text-dark-400">
-                      {new Date(summary.next_match.date).toLocaleDateString("fr-FR", {
+                      {new Date(summary.next_match.date).toLocaleDateString(locale === "fr" ? "fr-FR" : "en-US", {
                         weekday: "long",
                         day: "numeric",
                         month: "long",
@@ -306,7 +307,7 @@ export function MyClubSection({ className }: MyClubSectionProps) {
                                 {news.category}
                               </Badge>
                               <span className="text-xs text-dark-500">
-                                {new Date(news.published_at).toLocaleDateString("fr-FR")}
+                                {new Date(news.published_at).toLocaleDateString(locale === "fr" ? "fr-FR" : "en-US")}
                               </span>
                             </div>
                           </div>

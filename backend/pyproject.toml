@@ -114,8 +114,8 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = ["src.api.routes.*"]
-# API routes use dynamic database queries
-disable_error_code = ["index", "attr-defined", "arg-type", "operator", "union-attr"]
+# API routes use dynamic database queries and Pydantic Field() patterns
+disable_error_code = ["index", "attr-defined", "arg-type", "operator", "union-attr", "call-arg"]
 
 [tool.ruff]
 line-length = 100

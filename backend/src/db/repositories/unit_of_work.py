@@ -6,7 +6,7 @@ automatic transaction handling.
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing_extensions import Self
+from typing import Self
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -2,8 +2,6 @@
 
 import csv
 import io
-import json
-from typing import Any
 
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
@@ -48,7 +46,7 @@ class DashboardStats(BaseModel):
 @router.get("/stats", response_model=DashboardStats, responses=AUTH_RESPONSES)
 async def get_user_stats(
     days: int = Query(30, ge=7, le=365),
-    user: AuthenticatedUser = None,
+    user: AuthenticatedUser | None = None,
 ) -> DashboardStats:
     """Get user betting statistics and ROI.
 
@@ -75,9 +73,9 @@ async def get_user_stats(
         roi_percentage=bankroll["roi_pct"],
         initial_bankroll=bankroll["initial_bankroll"],
         current_bankroll=bankroll["current_bankroll"],
-        current_streak=0,  # TODO: Implement streak tracking
-        best_streak=0,  # TODO: Implement streak tracking
-        followed_predictions=0,  # TODO: Track prediction following
+        current_streak=0,  # See PAR-170 for streak tracking
+        best_streak=0,  # See PAR-170 for streak tracking
+        followed_predictions=0,  # See PAR-170 for prediction following tracking
         followed_wins=0,
         followed_win_rate=0.0,
     )
@@ -86,7 +84,7 @@ async def get_user_stats(
 @router.get("/export", response_model=None, responses=AUTH_RESPONSES)
 async def export_user_data(
     format: str = Query("csv", pattern="^(csv|json)$"),
-    user: AuthenticatedUser = None,
+    user: AuthenticatedUser | None = None,
 ):
     """Export user betting data.
 
@@ -128,7 +126,5 @@ async def export_user_data(
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={
-            "Content-Disposition": f"attachment; filename=bets-export-{user_id[:8]}.csv"
-        },
+        headers={"Content-Disposition": f"attachment; filename=bets-export-{user_id[:8]}.csv"},
     )

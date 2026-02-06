@@ -4,12 +4,15 @@ Provides async service methods compatible with API route handlers.
 """
 
 import json
+import logging
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
 from src.db.models import PushSubscription, UserBet, UserFavorite
 from src.db.repositories.unit_of_work import get_uow
+
+logger = logging.getLogger(__name__)
 
 
 class BetService:
@@ -385,8 +388,8 @@ class PreferencesService:
             if prefs.favorite_competitions:
                 try:
                     fav_comps = json.loads(prefs.favorite_competitions)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to parse favorite_competitions JSON: {e}")
 
             # Get favorite team details if set
             favorite_team = None

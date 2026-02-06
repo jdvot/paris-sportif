@@ -12,7 +12,7 @@ instead of calculating in real-time on each API request.
 
 import json
 import logging
-from datetime import timezone,  datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from src.data.sources.football_data import COMPETITIONS, get_football_data_client
@@ -39,7 +39,7 @@ async def get_cached_data(cache_key: str) -> dict[str, Any] | None:
 
         stmt = select(CachedData).where(
             CachedData.cache_key == cache_key,
-            CachedData.expires_at > datetime.now(timezone.utc),
+            CachedData.expires_at > datetime.now(UTC),
         )
         result = await uow._session.execute(stmt)
         cached = result.scalar_one_or_none()
@@ -61,9 +61,9 @@ async def set_cached_data(
 
         from src.db.models import CachedData
 
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+        expires_at = datetime.now(UTC) + timedelta(hours=ttl_hours)
         json_data = json.dumps(data, default=str)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Delete existing entry if any
         del_stmt = delete(CachedData).where(CachedData.cache_key == cache_key)
@@ -99,7 +99,7 @@ async def calculate_prediction_stats() -> dict[str, Any]:
         "roi_simulated": stats.get("roi_simulated", 0.0),
         "by_competition": stats.get("by_competition", {}),
         "by_bet_type": stats.get("by_bet_type", {}),
-        "calculated_at": datetime.now(timezone.utc).isoformat(),
+        "calculated_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -134,7 +134,7 @@ async def calculate_standings(competition_code: str) -> dict[str, Any] | None:
             "competition_code": competition_code,
             "competition_name": COMPETITIONS.get(competition_code, competition_code),
             "standings": standings,
-            "calculated_at": datetime.now(timezone.utc).isoformat(),
+            "calculated_at": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Failed to calculate standings for {competition_code}: {e}")
@@ -181,7 +181,7 @@ async def calculate_upcoming_matches() -> dict[str, Any]:
     return {
         "matches": enriched_matches,
         "total": len(enriched_matches),
-        "calculated_at": datetime.now(timezone.utc).isoformat(),
+        "calculated_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -221,7 +221,7 @@ async def calculate_teams() -> dict[str, Any]:
     return {
         "teams": teams_data,
         "total": len(teams_data),
-        "calculated_at": datetime.now(timezone.utc).isoformat(),
+        "calculated_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -249,8 +249,8 @@ async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
             select(Match)
             .outerjoin(Prediction, Match.id == Prediction.match_id)
             .where(
-                Match.match_date >= datetime.now(timezone.utc),
-                Match.match_date <= datetime.now(timezone.utc) + timedelta(days=2),  # Next 2 days only
+                Match.match_date >= datetime.now(UTC),
+                Match.match_date <= datetime.now(UTC) + timedelta(days=2),  # Next 2 days only
                 Match.status.in_(["scheduled", "SCHEDULED", "TIMED"]),
                 Prediction.id.is_(None),
             )
@@ -359,7 +359,7 @@ async def calculate_predictions_for_upcoming_matches() -> dict[str, Any]:
         "predicted": predicted,
         "failed": failed,
         "matches": predicted_matches,
-        "calculated_at": datetime.now(timezone.utc).isoformat(),
+        "calculated_at": datetime.now(UTC).isoformat(),
     }
 
 

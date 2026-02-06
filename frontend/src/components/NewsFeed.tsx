@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { Newspaper, ExternalLink, Clock, AlertTriangle, TrendingUp, Users, Loader2, RefreshCw } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { fr, enUS } from "date-fns/locale";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 interface NewsArticle {
   title: string;
@@ -30,35 +31,35 @@ interface NewsFeedProps {
   className?: string;
 }
 
-const TYPE_CONFIG: Record<string, { icon: typeof Newspaper; color: string; label: string }> = {
+const TYPE_CONFIG: Record<string, { icon: typeof Newspaper; color: string; labelKey: string }> = {
   injury: {
     icon: AlertTriangle,
     color: "text-red-500 bg-red-100 dark:bg-red-500/20",
-    label: "Blessure",
+    labelKey: "injury",
   },
   transfer: {
     icon: Users,
     color: "text-blue-500 bg-blue-100 dark:bg-blue-500/20",
-    label: "Transfert",
+    labelKey: "transfer",
   },
   form: {
     icon: TrendingUp,
     color: "text-green-500 bg-green-100 dark:bg-green-500/20",
-    label: "Résultat",
+    labelKey: "result",
   },
   preview: {
     icon: Newspaper,
     color: "text-purple-500 bg-purple-100 dark:bg-purple-500/20",
-    label: "Avant-match",
+    labelKey: "prematch",
   },
   general: {
     icon: Newspaper,
     color: "text-gray-500 bg-gray-100 dark:bg-gray-500/20",
-    label: "Actualité",
+    labelKey: "news",
   },
 };
 
-function ArticleCard({ article, locale }: { article: NewsArticle; locale: string }) {
+function ArticleCard({ article, locale, t }: { article: NewsArticle; locale: string; t: (key: string) => string }) {
   const dateLocale = locale === "fr" ? fr : enUS;
   const config = TYPE_CONFIG[article.article_type] || TYPE_CONFIG.general;
   const Icon = config.icon;
@@ -96,7 +97,7 @@ function ArticleCard({ article, locale }: { article: NewsArticle; locale: string
 
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              {timeAgo || "Récent"}
+              {timeAgo || t("recent")}
             </span>
 
             <span>{article.source}</span>
@@ -119,6 +120,7 @@ export function NewsFeed({
   className,
 }: NewsFeedProps) {
   const locale = useLocale();
+  const t = useTranslations("newsFeed");
   const [news, setNews] = useState<NewsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -146,8 +148,8 @@ export function NewsFeed({
       const data: NewsResponse = await response.json();
       setNews(data);
     } catch (err) {
-      console.error("Failed to fetch news:", err);
-      setError("Impossible de charger les actualités");
+      logger.error("Failed to fetch news:", err);
+      setError(t("loadError"));
     } finally {
       setIsLoading(false);
     }
@@ -164,7 +166,7 @@ export function NewsFeed({
         {showTitle && (
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
             <Newspaper className="w-5 h-5 text-primary-500" />
-            Actualités Football
+            {t("title")}
           </h3>
         )}
         <div className="flex items-center justify-center py-12">
@@ -180,7 +182,7 @@ export function NewsFeed({
         {showTitle && (
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
             <Newspaper className="w-5 h-5 text-primary-500" />
-            Actualités Football
+            {t("title")}
           </h3>
         )}
         <div className="text-center py-8">
@@ -190,7 +192,7 @@ export function NewsFeed({
             className="inline-flex items-center gap-2 text-sm text-primary-600 dark:text-primary-400 hover:underline"
           >
             <RefreshCw className="w-4 h-4" />
-            Réessayer
+            {t("retry")}
           </button>
         </div>
       </div>
@@ -203,11 +205,11 @@ export function NewsFeed({
         {showTitle && (
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
             <Newspaper className="w-5 h-5 text-primary-500" />
-            Actualités Football
+            {t("title")}
           </h3>
         )}
         <p className="text-sm text-gray-500 dark:text-dark-400 text-center py-8">
-          Aucune actualité disponible
+          {t("empty")}
         </p>
       </div>
     );
@@ -219,13 +221,13 @@ export function NewsFeed({
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Newspaper className="w-5 h-5 text-primary-500" />
-            Actualités Football
+            {t("title")}
             {team && <span className="text-primary-500">- {team}</span>}
           </h3>
           <button
             onClick={fetchNews}
             className="p-2 text-gray-500 hover:text-primary-500 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg transition-colors"
-            title="Actualiser"
+            title={t("refresh")}
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -234,14 +236,14 @@ export function NewsFeed({
 
       <div className="space-y-3">
         {news.articles.map((article, index) => (
-          <ArticleCard key={`${article.title}-${index}`} article={article} locale={locale} />
+          <ArticleCard key={`${article.title}-${index}`} article={article} locale={locale} t={t} />
         ))}
       </div>
 
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-dark-700 flex items-center justify-between text-xs text-gray-500 dark:text-dark-400">
-        <span>{news.total} articles trouvés</span>
+        <span>{news.total} {t("articlesFound")}</span>
         <span>
-          Mis à jour{" "}
+          {t("updatedAt")}{" "}
           {format(new Date(news.fetched_at), "HH:mm", {
             locale: locale === "fr" ? fr : enUS,
           })}

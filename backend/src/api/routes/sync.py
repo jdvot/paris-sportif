@@ -7,7 +7,6 @@ Can also be triggered manually.
 
 import logging
 from datetime import date, timedelta
-from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
@@ -46,7 +45,8 @@ async def _calculate_proper_elo_ratings() -> dict[int, float]:
     try:
         with get_db_context() as db:
             # Get all finished matches ordered by date
-            query = text("""
+            query = text(
+                """
                 SELECT
                     m.id,
                     m.home_team_id,
@@ -61,7 +61,8 @@ async def _calculate_proper_elo_ratings() -> dict[int, float]:
                     AND m.home_team_id IS NOT NULL
                     AND m.away_team_id IS NOT NULL
                 ORDER BY m.match_date ASC
-            """)
+            """
+            )
             result = db.execute(query)
             matches = result.fetchall()
 
@@ -122,11 +123,13 @@ async def _update_team_elo_ratings(ratings: dict[int, float]) -> int:
             for team_id, elo in ratings.items():
                 # Clamp ELO between 1000 and 2500 for sanity
                 clamped_elo = max(1000.0, min(2500.0, elo))
-                query = text("""
+                query = text(
+                    """
                     UPDATE teams
                     SET elo_rating = :elo, updated_at = NOW()
                     WHERE id = :team_id
-                """)
+                """
+                )
                 result = db.execute(query, {"team_id": team_id, "elo": clamped_elo})
                 if result.rowcount > 0:
                     updated += 1
@@ -149,7 +152,8 @@ async def _sync_form_from_standings() -> int:
     """
     try:
         with get_db_context() as db:
-            query = text("""
+            query = text(
+                """
                 UPDATE teams t
                 SET
                     form = s.form,
@@ -163,7 +167,8 @@ async def _sync_form_from_standings() -> int:
                 WHERE t.id = s.team_id
                     AND s.form IS NOT NULL
                     AND s.form != ''
-            """)
+            """
+            )
             result = db.execute(query)
             db.commit()
             updated = result.rowcount
@@ -181,21 +186,11 @@ async def _update_missing_team_countries() -> int:
     Uses match data to determine which league each team belongs to,
     then maps that to a country.
     """
-    # Competition code -> Country mapping
-    COMP_TO_COUNTRY = {
-        "PL": "England",
-        "PD": "Spain",
-        "BL1": "Germany",
-        "SA": "Italy",
-        "FL1": "France",
-        "CL": None,  # Champions League - teams from various countries
-        "EL": None,  # Europa League - teams from various countries
-    }
-
     try:
         with get_db_context() as db:
             # Update teams without country based on their most recent domestic league match
-            query = text("""
+            query = text(
+                """
                 WITH team_leagues AS (
                     -- Find primary league for each team (most matches)
                     SELECT team_id, competition_code, count
@@ -234,7 +229,8 @@ async def _update_missing_team_countries() -> int:
                 FROM primary_league pl
                 WHERE t.id = pl.team_id
                     AND (t.country IS NULL OR t.country = '')
-            """)
+            """
+            )
             result = db.execute(query)
             db.commit()
             updated = result.rowcount
@@ -286,7 +282,8 @@ async def _recalculate_all_team_stats() -> int:
     try:
         with get_db_context() as db:
             # Calculate and update all stats for teams with finished matches
-            query = text("""
+            query = text(
+                """
                 WITH home_stats AS (
                     SELECT
                         home_team_id as team_id,
@@ -347,7 +344,8 @@ async def _recalculate_all_team_stats() -> int:
                 LEFT JOIN last_match lm ON COALESCE(h.team_id, a.team_id) = lm.team_id
                 LEFT JOIN congestion c ON COALESCE(h.team_id, a.team_id) = c.team_id
                 WHERE t.id = COALESCE(h.team_id, a.team_id)
-            """)
+            """
+            )
 
             result = db.execute(query)
             db.commit()
@@ -549,6 +547,7 @@ async def sync_weekly_data(
         xg_synced = 0
         try:
             from src.data.sources.understat import sync_all_xg_data
+
             xg_synced = await sync_all_xg_data()
             logger.info(f"Synced xG for {xg_synced} teams")
         except Exception as e:
@@ -654,8 +653,7 @@ async def get_last_sync_info(
 async def sync_historical_season(
     user: AdminUser,
     season_start: date = Query(
-        default=date(2025, 8, 1),
-        description="Season start date (default: Aug 1, 2025)"
+        default=date(2025, 8, 1), description="Season start date (default: Aug 1, 2025)"
     ),
 ) -> SyncResponse:
     """
@@ -755,6 +753,7 @@ async def sync_historical_season(
     xg_synced = 0
     try:
         from src.data.sources.understat import sync_all_xg_data
+
         xg_synced = await sync_all_xg_data()
         logger.info(f"Synced xG for {xg_synced} teams")
     except Exception as e:

@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description = `Prediction pour ${homeTeam} vs ${awayTeam}. Confiance: ${confidence}%. Analyse ML et IA avancée.`;
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://paris-sportif.vercel.app";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://paris-sportif.vercel.app";
 
   return {
     title,
@@ -150,7 +150,7 @@ function SportsEventJsonLd({
 
 export default async function MatchLayout({ params, children }: Props) {
   const { id: matchId } = await params;
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://paris-sportif.vercel.app";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://paris-sportif.vercel.app";
 
   const data = await fetchMatchData(matchId);
   const homeTeam = data?.home_team || "Equipe Domicile";

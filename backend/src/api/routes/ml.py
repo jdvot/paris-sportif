@@ -142,7 +142,10 @@ async def train_models(user: AdminUser) -> PipelineResponse:
     Models are trained on HuggingFace Spaces (16GB RAM).
     """
     return PipelineResponse(
-        message="Local training disabled (OOM risk). Use POST /api/v1/ml/train-remote to train on HuggingFace.",
+        message=(
+            "Local training disabled (OOM risk). "
+            "Use POST /api/v1/ml/train-remote to train on HuggingFace."
+        ),
         status="disabled",
     )
 
@@ -156,7 +159,10 @@ async def run_full_pipeline(user: AdminUser) -> PipelineResponse:
     Models are trained on HuggingFace Spaces (16GB RAM).
     """
     return PipelineResponse(
-        message="Local pipeline disabled (OOM risk). Use POST /api/v1/ml/train-remote to train on HuggingFace.",
+        message=(
+            "Local pipeline disabled (OOM risk). "
+            "Use POST /api/v1/ml/train-remote to train on HuggingFace."
+        ),
         status="disabled",
     )
 
@@ -244,7 +250,8 @@ async def get_training_data(
             # Fetch finished matches with team stats from teams table
             # Attack = avg_goals_scored, Defense = avg_goals_conceded
             # If no stats, use defaults (1.0 for attack/defense, 1500 for ELO)
-            query = text("""
+            query = text(
+                """
                 SELECT
                     m.id,
                     m.home_score,
@@ -266,7 +273,8 @@ async def get_training_data(
                     AND m.away_score IS NOT NULL
                 ORDER BY m.match_date DESC
                 LIMIT :limit
-            """)
+            """
+            )
 
             result = db.execute(query, {"limit": limit})
             rows = result.fetchall()
@@ -281,21 +289,23 @@ async def get_training_data(
                     match_result = 1  # Draw
 
                 # Use team stats, with defaults for form/fatigue (not tracked yet)
-                matches.append(TrainingMatch(
-                    home_attack=float(row.home_attack) if row.home_attack else 1.0,
-                    home_defense=float(row.home_defense) if row.home_defense else 1.0,
-                    away_attack=float(row.away_attack) if row.away_attack else 1.0,
-                    away_defense=float(row.away_defense) if row.away_defense else 1.0,
-                    home_elo=float(row.home_elo) if row.home_elo else 1500.0,
-                    away_elo=float(row.away_elo) if row.away_elo else 1500.0,
-                    home_form=0.5,  # Default - not tracked in teams table
-                    away_form=0.5,
-                    home_rest_days=7.0,  # Default - not tracked
-                    away_rest_days=7.0,
-                    home_fixture_congestion=0.0,  # Default - not tracked
-                    away_fixture_congestion=0.0,
-                    result=match_result,
-                ))
+                matches.append(
+                    TrainingMatch(
+                        home_attack=float(row.home_attack) if row.home_attack else 1.0,
+                        home_defense=float(row.home_defense) if row.home_defense else 1.0,
+                        away_attack=float(row.away_attack) if row.away_attack else 1.0,
+                        away_defense=float(row.away_defense) if row.away_defense else 1.0,
+                        home_elo=float(row.home_elo) if row.home_elo else 1500.0,
+                        away_elo=float(row.away_elo) if row.away_elo else 1500.0,
+                        home_form=0.5,  # Default - not tracked in teams table
+                        away_form=0.5,
+                        home_rest_days=7.0,  # Default - not tracked
+                        away_rest_days=7.0,
+                        home_fixture_congestion=0.0,  # Default - not tracked
+                        away_fixture_congestion=0.0,
+                        result=match_result,
+                    )
+                )
 
             logger.info(f"Returning {len(matches)} matches for ML training")
 
@@ -345,7 +355,8 @@ async def train_on_huggingface(user: AdminUser) -> HFTrainingResponse:
 
     try:
         with get_db_context() as db:
-            query = text("""
+            query = text(
+                """
                 SELECT
                     m.id,
                     m.home_score,
@@ -364,28 +375,31 @@ async def train_on_huggingface(user: AdminUser) -> HFTrainingResponse:
                     AND m.away_score IS NOT NULL
                 ORDER BY m.match_date DESC
                 LIMIT 2000
-            """)
+            """
+            )
 
             result = db.execute(query)
             rows = result.fetchall()
 
             for row in rows:
-                training_matches.append({
-                    "home_attack": float(row.home_attack) if row.home_attack else 1.0,
-                    "home_defense": float(row.home_defense) if row.home_defense else 1.0,
-                    "away_attack": float(row.away_attack) if row.away_attack else 1.0,
-                    "away_defense": float(row.away_defense) if row.away_defense else 1.0,
-                    "home_elo": float(row.home_elo) if row.home_elo else 1500.0,
-                    "away_elo": float(row.away_elo) if row.away_elo else 1500.0,
-                    "home_form": 0.5,
-                    "away_form": 0.5,
-                    "home_rest_days": 7.0,
-                    "away_rest_days": 7.0,
-                    "home_fixture_congestion": 0.0,
-                    "away_fixture_congestion": 0.0,
-                    "home_score": row.home_score,
-                    "away_score": row.away_score,
-                })
+                training_matches.append(
+                    {
+                        "home_attack": float(row.home_attack) if row.home_attack else 1.0,
+                        "home_defense": float(row.home_defense) if row.home_defense else 1.0,
+                        "away_attack": float(row.away_attack) if row.away_attack else 1.0,
+                        "away_defense": float(row.away_defense) if row.away_defense else 1.0,
+                        "home_elo": float(row.home_elo) if row.home_elo else 1500.0,
+                        "away_elo": float(row.away_elo) if row.away_elo else 1500.0,
+                        "home_form": 0.5,
+                        "away_form": 0.5,
+                        "home_rest_days": 7.0,
+                        "away_rest_days": 7.0,
+                        "home_fixture_congestion": 0.0,
+                        "away_fixture_congestion": 0.0,
+                        "home_score": row.home_score,
+                        "away_score": row.away_score,
+                    }
+                )
 
         logger.info(f"Fetched {len(training_matches)} matches for training")
 
@@ -412,7 +426,10 @@ async def train_on_huggingface(user: AdminUser) -> HFTrainingResponse:
 
             if response.status_code == 200:
                 data = response.json()
-                logger.info(f"Training complete: XGB={data.get('accuracy_xgboost')}, RF={data.get('accuracy_random_forest')}")
+                logger.info(
+                    f"Training complete: XGB={data.get('accuracy_xgboost')}, "
+                    f"RF={data.get('accuracy_random_forest')}"
+                )
 
                 return HFTrainingResponse(
                     status="success",
@@ -424,7 +441,9 @@ async def train_on_huggingface(user: AdminUser) -> HFTrainingResponse:
                 )
             else:
                 error_detail = response.text
-                logger.error(f"HuggingFace training failed: {response.status_code} - {error_detail}")
+                logger.error(
+                    f"HuggingFace training failed: {response.status_code} - {error_detail}"
+                )
                 return HFTrainingResponse(
                     status="error",
                     error=f"HuggingFace returned {response.status_code}: {error_detail}",

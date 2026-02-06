@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { useTranslations } from "next-intl";
+import { logger } from "@/lib/logger";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -50,24 +51,24 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
         if (!result || !result.data?.session) {
           // No session - redirect to login immediately
-          console.log("[AuthGuard] No session, redirecting to login...");
+          logger.log("[AuthGuard] No session, redirecting to login...");
           setAuthState("redirecting");
           redirectToLogin();
           return;
         }
 
         // User is authenticated
-        console.log("[AuthGuard] Session valid, user authenticated");
+        logger.log("[AuthGuard] Session valid, user authenticated");
         setAuthState("authenticated");
       } catch (err) {
         // Ignore AbortError - this happens during normal navigation/unmount
         if (err instanceof Error && err.name === "AbortError") {
-          console.log("[AuthGuard] Request aborted (normal during navigation)");
+          logger.log("[AuthGuard] Request aborted (normal during navigation)");
           return;
         }
 
         // On timeout, redirect to login (don't trust stale session)
-        console.warn("[AuthGuard] Auth check failed, redirecting:", err);
+        logger.warn("[AuthGuard] Auth check failed, redirecting:", err);
         if (isMounted) {
           setAuthState("redirecting");
           redirectToLogin();
@@ -80,7 +81,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     // Listen for auth state changes
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-      console.log("[AuthGuard] Auth state change:", event);
+      logger.log("[AuthGuard] Auth state change:", event);
       if (event === "SIGNED_OUT" || !session) {
         setAuthState("redirecting");
         redirectToLogin();

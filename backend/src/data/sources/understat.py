@@ -14,11 +14,11 @@ logger = logging.getLogger(__name__)
 
 # League mappings: our code -> Understat league name
 LEAGUE_MAPPING = {
-    "PL": "epl",           # English Premier League
-    "PD": "La_liga",       # Spanish La Liga
-    "BL1": "Bundesliga",   # German Bundesliga
-    "SA": "Serie_A",       # Italian Serie A
-    "FL1": "Ligue_1",      # French Ligue 1
+    "PL": "epl",  # English Premier League
+    "PD": "La_liga",  # Spanish La Liga
+    "BL1": "Bundesliga",  # German Bundesliga
+    "SA": "Serie_A",  # Italian Serie A
+    "FL1": "Ligue_1",  # French Ligue 1
 }
 
 
@@ -28,7 +28,9 @@ class UnderstatClient:
     def __init__(self):
         self.understat = Understat()
 
-    async def get_team_xg(self, team_name: str, league_code: str, season: str = "2025") -> dict[str, float] | None:
+    async def get_team_xg(
+        self, team_name: str, league_code: str, season: str = "2025"
+    ) -> dict[str, float] | None:
         """
         Get xG stats for a team.
 
@@ -54,7 +56,10 @@ class UnderstatClient:
                 team_data = None
                 team_name_lower = team_name.lower()
                 for team in teams:
-                    if team_name_lower in team["title"].lower() or team["title"].lower() in team_name_lower:
+                    if (
+                        team_name_lower in team["title"].lower()
+                        or team["title"].lower() in team_name_lower
+                    ):
                         team_data = team
                         break
 
@@ -96,8 +101,9 @@ class UnderstatClient:
         Returns:
             Number of teams updated
         """
-        from src.db import get_db_context
         from sqlalchemy import text
+
+        from src.db import get_db_context
 
         updated = 0
 
@@ -129,18 +135,20 @@ class UnderstatClient:
                     if xg_data:
                         with get_db_context() as db:
                             db.execute(
-                                text("""
+                                text(
+                                    """
                                     UPDATE teams
                                     SET avg_xg_for = :xg_for,
                                         avg_xg_against = :xg_against,
                                         updated_at = NOW()
                                     WHERE id = :team_id
-                                """),
+                                """
+                                ),
                                 {
                                     "xg_for": xg_data["avg_xg_for"],
                                     "xg_against": xg_data["avg_xg_against"],
                                     "team_id": team["id"],
-                                }
+                                },
                             )
                             db.commit()
                         updated += 1
@@ -174,8 +182,9 @@ async def sync_all_xg_data() -> int:
 
     Returns number of teams updated.
     """
-    from src.db import get_db_context
     from sqlalchemy import text
+
+    from src.db import get_db_context
 
     # Get all teams
     with get_db_context() as db:

@@ -3,6 +3,7 @@
 import { X, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { COMPETITION_GRADIENTS as COMPETITION_COLORS } from "@/lib/constants";
 
 interface Competition {
   id: string;
@@ -17,16 +18,6 @@ interface CompetitionFilterProps {
   isOpen: boolean;
   onToggleOpen: () => void;
 }
-
-const COMPETITION_COLORS: Record<string, string> = {
-  PL: "from-purple-500 to-purple-600",
-  PD: "from-orange-500 to-orange-600",
-  BL1: "from-red-500 to-red-600",
-  SA: "from-blue-500 to-blue-600",
-  FL1: "from-green-500 to-green-600",
-  CL: "from-indigo-500 to-indigo-600",
-  EL: "from-amber-500 to-amber-600",
-};
 
 export function CompetitionFilter({
   competitions,

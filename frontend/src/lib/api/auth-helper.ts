@@ -8,6 +8,7 @@
  */
 
 import { getAuthToken, isAuthInitialized, waitForAuthReady } from "../auth/token-store";
+import { logger } from "@/lib/logger";
 
 // Timeout for waiting for auth to be ready (3 seconds max)
 const AUTH_READY_TIMEOUT_MS = 3000;
@@ -20,13 +21,13 @@ const AUTH_READY_TIMEOUT_MS = 3000;
  */
 export async function getSupabaseToken(): Promise<string | null> {
   if (typeof window === "undefined") {
-    console.log("[AuthHelper] Server-side, no token available");
+    logger.log("[AuthHelper] Server-side, no token available");
     return null; // Server-side, no token
   }
 
   // If auth is not yet initialized, wait for it (with timeout)
   if (!isAuthInitialized()) {
-    console.log("[AuthHelper] Auth not initialized, waiting...");
+    logger.log("[AuthHelper] Auth not initialized, waiting...");
     try {
       await Promise.race([
         waitForAuthReady(),
@@ -34,13 +35,13 @@ export async function getSupabaseToken(): Promise<string | null> {
           setTimeout(() => reject(new Error("Auth init timeout")), AUTH_READY_TIMEOUT_MS)
         ),
       ]);
-      console.log("[AuthHelper] Auth ready, proceeding");
+      logger.log("[AuthHelper] Auth ready, proceeding");
     } catch {
-      console.warn("[AuthHelper] Auth wait timed out, proceeding without token");
+      logger.warn("[AuthHelper] Auth wait timed out, proceeding without token");
     }
   }
 
   const token = getAuthToken();
-  console.log("[AuthHelper] getSupabaseToken() called, token:", token ? "present" : "MISSING", "authInitialized:", isAuthInitialized());
+  logger.log("[AuthHelper] getSupabaseToken() called, token:", token ? "present" : "MISSING", "authInitialized:", isAuthInitialized());
   return token;
 }

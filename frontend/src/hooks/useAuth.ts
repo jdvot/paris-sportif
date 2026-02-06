@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { User, AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 import type { UserProfile, UserRole } from "@/lib/supabase/types";
 
 interface AuthState {
@@ -43,7 +44,7 @@ export function useAuth() {
         if (error) {
           // Don't log AbortError as it's expected on timeout
           if (error.message && !error.message.includes('AbortError')) {
-            console.error("Error fetching profile:", error);
+            logger.error("Error fetching profile:", error);
           }
           return null;
         }
@@ -52,7 +53,7 @@ export function useAuth() {
         // Silently handle AbortError
         const error = err as { name?: string };
         if (error?.name !== 'AbortError') {
-          console.error("Error fetching profile:", err);
+          logger.error("Error fetching profile:", err);
         }
         return null;
       }
@@ -105,10 +106,10 @@ export function useAuth() {
         const session = JSON.parse(sessionJson);
         if (!session.user) return null;
 
-        console.log('[useAuth] Cookie fallback successful:', session.user?.email);
+        logger.log('[useAuth] Cookie fallback successful:', session.user?.email);
         return { user: session.user as User };
       } catch (err) {
-        console.error('[useAuth] Cookie parse failed:', err);
+        logger.error('[useAuth] Cookie parse failed:', err);
         return null;
       }
     };
@@ -131,7 +132,7 @@ export function useAuth() {
 
         // If getSession timed out or no session, try cookie fallback
         if (!user && sessionResult.timedOut) {
-          console.log('[useAuth] getSession timed out, trying cookie fallback...');
+          logger.log('[useAuth] getSession timed out, trying cookie fallback...');
           const cookieSession = parseSessionFromCookies();
           if (cookieSession) {
             user = cookieSession.user;
@@ -144,7 +145,7 @@ export function useAuth() {
           const userMetadataRole = (user.user_metadata?.role as UserRole) || null;
           const immediateRole = appMetadataRole || userMetadataRole || "free";
 
-          console.log('[useAuth] Immediate role from metadata:', { appMetadataRole, userMetadataRole, immediateRole });
+          logger.log('[useAuth] Immediate role from metadata:', { appMetadataRole, userMetadataRole, immediateRole });
 
           // Set user IMMEDIATELY with role from app_metadata
           setState({
@@ -158,7 +159,7 @@ export function useAuth() {
           // Then fetch profile in background for additional data (non-blocking)
           fetchProfile(user.id).then((profile) => {
             if (!isMounted) return;
-            console.log('[useAuth] fetchProfile result:', { userId: user.id, profile, role: profile?.role });
+            logger.log('[useAuth] fetchProfile result:', { userId: user.id, profile, role: profile?.role });
             if (profile) {
               // Use profile role if available, otherwise keep metadata role
               const finalRole = profile.role || immediateRole;
@@ -168,7 +169,7 @@ export function useAuth() {
                 role: finalRole,
               }));
             } else {
-              console.warn('[useAuth] No profile found for user:', user.id);
+              logger.warn('[useAuth] No profile found for user:', user.id);
             }
           });
         } else {
@@ -275,7 +276,7 @@ export function useAuth() {
     try {
       await supabase.auth.signOut();
     } catch (err) {
-      console.error('[useAuth] signOut error:', err);
+      logger.error('[useAuth] signOut error:', err);
       // Even if signOut fails, clear cookies manually
       if (typeof document !== 'undefined') {
         document.cookie.split(';').forEach(cookie => {

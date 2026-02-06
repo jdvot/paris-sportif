@@ -4,9 +4,8 @@ Provides endpoints for user profile management, preferences, and team search.
 """
 
 import logging
-from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
@@ -15,8 +14,9 @@ from src.auth.supabase_auth import (
     sync_role_to_app_metadata,
     update_user_metadata,
 )
-from src.db.services.user_service import PreferencesService
+from src.core.messages import api_msg, detect_language_from_header, ordinal_suffix
 from src.db.repositories.unit_of_work import get_uow
+from src.db.services.user_service import PreferencesService
 
 logger = logging.getLogger(__name__)
 
@@ -76,13 +76,11 @@ async def get_current_profile(user: AuthenticatedUser) -> UserProfileResponse:
 
     # Get role from app_metadata first, then user_metadata
     role = app_metadata.get("role") or user_metadata.get("role")
-    role_from_db = False
 
     # Fallback: check user_profiles table if role not in metadata
     if not role:
         role = await get_user_role_from_profiles(user_id)
         if role:
-            role_from_db = True
             # Sync role to app_metadata so future JWT tokens will have it
             await sync_role_to_app_metadata(user_id, role)
 
@@ -100,6 +98,7 @@ async def get_current_profile(user: AuthenticatedUser) -> UserProfileResponse:
 
 @router.patch("/me", response_model=UserProfileResponse, responses=AUTH_RESPONSES)
 async def update_profile(
+    request: Request,
     user: AuthenticatedUser,
     updates: UserProfileUpdate,
 ) -> UserProfileResponse:
@@ -123,9 +122,10 @@ async def update_profile(
         result = await update_user_metadata(user_id, metadata_updates)
         if result is None:
             logger.warning(f"Failed to persist profile update for user {user_id}")
+            lang = detect_language_from_header(request.headers.get("Accept-Language", ""))
             raise HTTPException(
                 status_code=500,
-                detail="Impossible de sauvegarder les modifications du profil",
+                detail=api_msg("profile_save_error", lang),
             )
         logger.info(f"Profile updated for user {user_id}")
 
@@ -153,14 +153,50 @@ async def get_user_stats(user: AuthenticatedUser) -> UserStatsResponse:
     """
     Get current user's usage statistics.
 
-    Returns statistics about the user's activity on the platform.
+    Returns statistics about the user's activity on the platform,
+    computed from real database data.
     """
-    # In a real implementation, this would fetch from database
-    # For now, return placeholder data
+    from datetime import datetime
+
+    user_id = user.get("sub", "")
+
+    # Calculate member_since_days from JWT created_at
+    member_since_days = 0
+    created_at = user.get("created_at")
+    if created_at:
+        try:
+            if isinstance(created_at, str):
+                # Parse ISO format, handle both with/without timezone
+                created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            else:
+                created_dt = created_at
+            member_since_days = max(0, (datetime.now(created_dt.tzinfo) - created_dt).days)
+        except (ValueError, TypeError):
+            pass
+
+    # Get favorite competition from user preferences
+    favorite_competition = None
+    try:
+        prefs = await PreferencesService.get_preferences(user_id)
+        if prefs and prefs.get("favorite_competitions"):
+            favorite_competition = prefs["favorite_competitions"][0]
+    except Exception as e:
+        logger.warning(f"Failed to get user preferences for {user_id}: {e}")
+
+    # Get total platform predictions (since predictions are system-generated)
+    total_predictions_viewed = 0
+    try:
+        from src.db.services.prediction_service import PredictionService
+
+        stats = await PredictionService.get_statistics(days=365)
+        total_predictions_viewed = stats.get("total_predictions", 0)
+    except Exception as e:
+        logger.warning(f"Failed to get prediction stats: {e}")
+
     return UserStatsResponse(
-        total_predictions_viewed=0,
-        favorite_competition=None,
-        member_since_days=0,
+        total_predictions_viewed=total_predictions_viewed,
+        favorite_competition=favorite_competition,
+        member_since_days=member_since_days,
     )
 
 
@@ -343,7 +379,9 @@ class TeamSummaryResponse(BaseModel):
     summary: str
     form: list[str]  # ["W", "W", "D", "L", "W"]
     position: int | None = None
+    points: int | None = None
     competition: str | None = None
+    injuries_count: int = 0
     generated_at: str
 
 
@@ -397,8 +435,11 @@ async def get_team_news(
         )
 
 
-@router.get("/teams/{team_id}/summary", response_model=TeamSummaryResponse, responses=AUTH_RESPONSES)
+@router.get(
+    "/teams/{team_id}/summary", response_model=TeamSummaryResponse, responses=AUTH_RESPONSES
+)
 async def get_team_summary(
+    request: Request,
     user: AuthenticatedUser,
     team_id: int,
 ) -> TeamSummaryResponse:
@@ -417,15 +458,19 @@ async def get_team_summary(
         team_name = team.name
         form_string = team.form or ""
 
-        # Get standing info if available
+        # Get standing info if available (try by team_id first, then by name)
         standing = await uow.standings.get_team_standing(team_id)
+        if not standing:
+            # Fallback: search by team name (handles ID mismatches between tables)
+            standing = await uow.standings.get_by_team_name(team_name)
         position = standing.position if standing else None
+        points = standing.points if standing else None
         competition = standing.competition_code if standing else None
 
     # Generate summary using RAG + LLM
     try:
-        from src.prediction_engine.rag_enrichment import get_rag_enrichment
         from src.llm.client import get_llm_client
+        from src.prediction_engine.rag_enrichment import get_rag_enrichment
 
         rag = get_rag_enrichment()
         llm = get_llm_client()
@@ -436,9 +481,9 @@ async def get_team_summary(
         # Extract data from RAG context
         news_articles = context.get("news", [])
         injuries = context.get("injuries", [])
-        key_info = context.get("key_info", [])
         sentiment = context.get("sentiment", "neutral")
-        recent_form = context.get("recent_form", [])
+
+        lang = detect_language_from_header(request.headers.get("Accept-Language", ""))
 
         # Build news context for LLM
         news_context = ""
@@ -449,7 +494,9 @@ async def get_team_summary(
                 if title:
                     news_items.append(f"- {title}")
             if news_items:
-                news_context = "Articles récents:\n" + "\n".join(news_items)
+                news_context = (
+                    api_msg("recent_articles_label", lang) + ":\n" + "\n".join(news_items)
+                )
 
         # Build injuries context
         injuries_context = ""
@@ -458,11 +505,11 @@ async def get_team_summary(
             for inj in injuries[:3]:
                 if isinstance(inj, dict):
                     player = inj.get("player", inj.get("player_name", ""))
-                    inj_type = inj.get("type", inj.get("injury_type", "blessure"))
+                    inj_type = inj.get("type", inj.get("injury_type", "injury"))
                     if player:
                         inj_items.append(f"- {player}: {inj_type}")
             if inj_items:
-                injuries_context = "Blessures/Absences:\n" + "\n".join(inj_items)
+                injuries_context = api_msg("injuries_label", lang) + ":\n" + "\n".join(inj_items)
 
         # Build form context
         form_context = ""
@@ -470,19 +517,44 @@ async def get_team_summary(
             wins = form_string.count("W")
             draws = form_string.count("D")
             losses = form_string.count("L")
-            form_context = f"Forme récente: {wins}V-{draws}N-{losses}D sur les 5 derniers matchs"
+            form_context = api_msg("recent_form", lang, wins=wins, draws=draws, losses=losses)
             if position:
-                form_context += f", {position}{'er' if position == 1 else 'e'} au classement"
+                suffix = ordinal_suffix(position, lang)
+                form_context += api_msg("ranking_position", lang, position=position, suffix=suffix)
 
-        # Build LLM prompt
-        prompt = f"""Tu es un analyste football expert. Génère une analyse concise de la situation actuelle de {team_name}.
+        # Build LLM prompt (use user's language for the response)
+        if lang == "en":
+            prompt = f"""\
+You are an expert football analyst. \
+Generate a concise analysis of {team_name}'s current situation.
+
+AVAILABLE DATA:
+{form_context if form_context else api_msg("form_unavailable", lang)}
+
+{news_context if news_context else api_msg("news_none", lang)}
+
+{injuries_context if injuries_context else api_msg("injuries_none", lang)}
+
+Media sentiment: {sentiment}
+
+INSTRUCTIONS:
+- Write 2-3 sentences of synthetic analysis
+- Mention current form if available
+- Highlight important injuries
+- Give an overall impression of the team's dynamic
+- Be factual and concise (max 100 words)
+- Reply only with the analysis, no title or formatting"""
+        else:
+            prompt = f"""\
+Tu es un analyste football expert. \
+Génère une analyse concise de la situation actuelle de {team_name}.
 
 DONNÉES DISPONIBLES:
-{form_context if form_context else "Forme: Non disponible"}
+{form_context if form_context else api_msg("form_unavailable", lang)}
 
-{news_context if news_context else "Actualités: Aucune actualité récente"}
+{news_context if news_context else api_msg("news_none", lang)}
 
-{injuries_context if injuries_context else "Blessures: Aucune blessure signalée"}
+{injuries_context if injuries_context else api_msg("injuries_none", lang)}
 
 Sentiment médiatique: {sentiment}
 
@@ -504,7 +576,10 @@ INSTRUCTIONS:
         # Clean up response
         summary = summary.strip()
         if not summary:
-            summary = f"Analyse de {team_name} temporairement indisponible."
+            summary = api_msg("team_analysis_unavailable", lang, team_name=team_name)
+
+        # Count injuries from context
+        injuries_count = len(injuries) if injuries else 0
 
         return TeamSummaryResponse(
             team_id=team_id,
@@ -512,7 +587,9 @@ INSTRUCTIONS:
             summary=summary,
             form=list(form_string) if form_string else [],
             position=position,
+            points=points,
             competition=competition,
+            injuries_count=injuries_count,
             generated_at=datetime.utcnow().isoformat(),
         )
 
@@ -520,5 +597,5 @@ INSTRUCTIONS:
         logger.error(f"Failed to generate LLM summary for team {team_id}: {e}")
         raise HTTPException(
             status_code=503,
-            detail=f"Impossible de générer l'analyse pour {team_name}. Service temporairement indisponible."
+            detail=api_msg("team_analysis_service_error", lang, team_name=team_name),
         )

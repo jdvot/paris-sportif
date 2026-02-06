@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { AlertCircle, CheckCircle, CalendarDays, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { cn, isAuthError } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 import { LoadingState } from "@/components/LoadingState";
 import { useGetDailyPicks } from "@/lib/api/endpoints/predictions/predictions";
-import type { DailyPick, DailyPicksResponse } from "@/lib/api/models";
+import type { DailyPickResponse, DailyPicksResponse } from "@/lib/api/models";
 import { ValueBetIndicator } from "@/components/ValueBetBadge";
 import { getConfidenceTier, formatConfidence, isValueBet, formatValue } from "@/lib/constants";
 import { customInstance } from "@/lib/api/custom-instance";
@@ -30,7 +31,8 @@ function getUpcomingDates(): string[] {
 
 export function DailyPicks() {
   const t = useTranslations("dailyPicks");
-  const [upcomingPicks, setUpcomingPicks] = useState<DailyPick[] | null>(null);
+  const locale = useLocale();
+  const [upcomingPicks, setUpcomingPicks] = useState<DailyPickResponse[] | null>(null);
   const [isLoadingUpcoming, setIsLoadingUpcoming] = useState(false);
   const [showingUpcoming, setShowingUpcoming] = useState(false);
 
@@ -41,7 +43,7 @@ export function DailyPicks() {
   );
 
   // Extract picks from response
-  const todayPicks = (response?.data as { picks?: DailyPick[]; date?: string } | undefined)?.picks || [];
+  const todayPicks = (response?.data as { picks?: DailyPickResponse[]; date?: string } | undefined)?.picks || [];
   const responseDate = (response?.data as { date?: string } | undefined)?.date;
 
   // If no picks today, fetch upcoming 7 days and get best 5
@@ -51,7 +53,7 @@ export function DailyPicks() {
 
       setIsLoadingUpcoming(true);
       const upcomingDates = getUpcomingDates();
-      const allPicks: (DailyPick & { date: string })[] = [];
+      const allPicks: (DailyPickResponse & { date: string })[] = [];
 
       try {
         // Fetch picks for each of the next 7 days
@@ -89,7 +91,7 @@ export function DailyPicks() {
         setUpcomingPicks(bestPicks);
         setShowingUpcoming(bestPicks.length > 0);
       } catch (err) {
-        console.error("Error fetching upcoming picks:", err);
+        logger.error("Error fetching upcoming picks:", err);
         setUpcomingPicks([]);
       } finally {
         setIsLoadingUpcoming(false);
@@ -162,7 +164,7 @@ export function DailyPicks() {
         <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-lg">
           <CalendarDays className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <p className="text-sm text-emerald-700 dark:text-emerald-300">
-            {t("todaysPicks") || "Picks du jour"} - {new Date(responseDate).toLocaleDateString("fr-FR", {
+            {t("todaysPicks") || "Picks du jour"} - {new Date(responseDate).toLocaleDateString(locale === "fr" ? "fr-FR" : "en-US", {
               weekday: "long",
               day: "numeric",
               month: "long",
@@ -180,8 +182,9 @@ export function DailyPicks() {
   );
 }
 
-function PickCard({ pick, showDate = false }: { pick: DailyPick; showDate?: boolean }) {
+const PickCard = memo(function PickCard({ pick, showDate = false }: { pick: DailyPickResponse; showDate?: boolean }) {
   const t = useTranslations("dailyPicks");
+  const locale = useLocale();
   const { prediction } = pick;
 
   // Use snake_case properties from Orval types
@@ -209,7 +212,7 @@ function PickCard({ pick, showDate = false }: { pick: DailyPick; showDate?: bool
   const awayProb = prediction.probabilities?.away_win || 0;
 
   // Format match date if showing upcoming
-  const formattedDate = matchDate ? new Date(matchDate).toLocaleDateString("fr-FR", {
+  const formattedDate = matchDate ? new Date(matchDate).toLocaleDateString(locale === "fr" ? "fr-FR" : "en-US", {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -221,7 +224,8 @@ function PickCard({ pick, showDate = false }: { pick: DailyPick; showDate?: bool
   return (
     <Link
       href={`/match/${matchId}`}
-      className="block bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl overflow-hidden hover:border-primary-500/50 transition-colors"
+      className="block bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl overflow-hidden hover:border-primary-500/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+      aria-label={t("viewPrediction", { home: homeTeam, away: awayTeam })}
     >
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-dark-700 gap-3 sm:gap-0">
@@ -265,7 +269,7 @@ function PickCard({ pick, showDate = false }: { pick: DailyPick; showDate?: bool
           <ProbBar
             label={homeTeam}
             prob={homeProb}
-            isRecommended={prediction.recommended_bet === "home" || prediction.recommended_bet === "home_win"}
+            isRecommended={prediction.recommended_bet === "home_win"}
           />
           <ProbBar
             label={t("drawShort")}
@@ -275,7 +279,7 @@ function PickCard({ pick, showDate = false }: { pick: DailyPick; showDate?: bool
           <ProbBar
             label={awayTeam}
             prob={awayProb}
-            isRecommended={prediction.recommended_bet === "away" || prediction.recommended_bet === "away_win"}
+            isRecommended={prediction.recommended_bet === "away_win"}
           />
         </div>
 
@@ -306,7 +310,7 @@ function PickCard({ pick, showDate = false }: { pick: DailyPick; showDate?: bool
       </div>
     </Link>
   );
-}
+});
 
 function ProbBar({
   label,
@@ -330,7 +334,14 @@ function ProbBar({
           {percentage}%
         </span>
       </div>
-      <div className="h-2 bg-gray-200 dark:bg-dark-700 rounded-full overflow-hidden">
+      <div
+        className="h-2 bg-gray-200 dark:bg-dark-700 rounded-full overflow-hidden"
+        role="progressbar"
+        aria-valuenow={percentage}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`${label}: ${percentage}%`}
+      >
         <div
           className={cn(
             "h-full rounded-full transition-all",

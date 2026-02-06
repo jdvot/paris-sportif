@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { CheckCircle, TrendingUp, AlertCircle, Zap } from "lucide-react";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr, enUS } from "date-fns/locale";
+import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
-import type { DailyPick } from "@/lib/api/models";
+import type { DailyPickResponse } from "@/lib/api/models";
 import { RAGContext } from "./RAGContext";
 import { ValueBetIndicator } from "./ValueBetBadge";
 import { FavoriteButton } from "./FavoriteButton";
@@ -18,7 +19,7 @@ import {
 } from "@/lib/constants";
 
 interface PredictionCardPremiumProps {
-  pick: DailyPick;
+  pick: DailyPickResponse;
   index?: number;
   isTopPick?: boolean;
 }
@@ -28,6 +29,10 @@ export function PredictionCardPremium({
   index = 0,
   isTopPick = false,
 }: PredictionCardPremiumProps) {
+  const t = useTranslations("predictionCard");
+  const locale = useLocale();
+  const dateLocale = locale === "fr" ? fr : enUS;
+
   const { prediction } = pick;
   const confidence = prediction.confidence || 0;
   const valueScore = prediction.value_score || 0;
@@ -40,11 +45,11 @@ export function PredictionCardPremium({
 
   // Bet label
   const betLabels: Record<string, string> = {
-    home: `Victoire ${prediction.home_team}`,
-    home_win: `Victoire ${prediction.home_team}`,
-    draw: "Match nul",
-    away: `Victoire ${prediction.away_team}`,
-    away_win: `Victoire ${prediction.away_team}`,
+    home: t("homeWin", { team: prediction.home_team }),
+    home_win: t("homeWin", { team: prediction.home_team }),
+    draw: t("draw"),
+    away: t("awayWin", { team: prediction.away_team }),
+    away_win: t("awayWin", { team: prediction.away_team }),
   };
   const betLabel = betLabels[prediction.recommended_bet] || prediction.recommended_bet;
 
@@ -52,7 +57,7 @@ export function PredictionCardPremium({
   const shortBetLabels: Record<string, string> = {
     home: prediction.home_team.split(" ")[0],
     home_win: prediction.home_team.split(" ")[0],
-    draw: "Nul",
+    draw: t("drawShort"),
     away: prediction.away_team.split(" ")[0],
     away_win: prediction.away_team.split(" ")[0],
   };
@@ -103,13 +108,13 @@ export function PredictionCardPremium({
                   {isTopPick && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-primary-500 to-emerald-500 rounded-full text-xs font-bold text-white whitespace-nowrap">
                       <Zap className="w-3 h-3" />
-                      Top Pick
+                      {t("topPick")}
                     </span>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 mt-1 text-[10px] sm:text-xs text-gray-500 dark:text-slate-400 flex-wrap">
                   <span>•</span>
-                  <span>{format(matchDate, "d MMM, HH:mm", { locale: fr })}</span>
+                  <span>{format(matchDate, "d MMM, HH:mm", { locale: dateLocale })}</span>
                 </div>
               </div>
             </div>
@@ -126,7 +131,7 @@ export function PredictionCardPremium({
                 <span className="text-xs sm:text-xs font-bold text-primary-700 dark:text-primary-300">
                   {Math.round(confidence * 100)}%
                 </span>
-                <span className="text-[10px] text-gray-500 dark:text-slate-400">confiance</span>
+                <span className="text-[10px] text-gray-500 dark:text-slate-400">{t("confidence")}</span>
               </div>
               <FavoriteButton
                 match={{
@@ -161,7 +166,7 @@ export function PredictionCardPremium({
                 isRecommended={isRecommendedBet("home")}
               />
               <ProbBarEnhanced
-                label="Nul"
+                label={t("drawShort")}
                 prob={prediction.probabilities?.draw ?? 0}
                 isRecommended={isRecommendedBet("draw")}
               />
@@ -219,7 +224,7 @@ export function PredictionCardPremium({
             <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-700">
               <div className="flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4 text-cyan-700 dark:text-cyan-400 flex-shrink-0" />
-                <span className="text-xs sm:text-sm text-gray-700 dark:text-slate-300">Value</span>
+                <span className="text-xs sm:text-sm text-gray-700 dark:text-slate-300">{t("value")}</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-xs sm:text-sm font-bold text-cyan-700 dark:text-cyan-400">
@@ -243,7 +248,7 @@ export function PredictionCardPremium({
               <div className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-700">
                 <div className="flex items-center gap-1.5">
                   <Zap className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                  <span className="text-xs sm:text-sm text-gray-700 dark:text-slate-300">Score</span>
+                  <span className="text-xs sm:text-sm text-gray-700 dark:text-slate-300">{t("score")}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="text-xs sm:text-sm font-bold text-amber-600 dark:text-amber-400">
@@ -255,7 +260,7 @@ export function PredictionCardPremium({
                     pick.pick_score >= 0.6 ? "bg-yellow-200 dark:bg-yellow-500/30 text-yellow-700 dark:text-yellow-300" :
                     "bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-slate-300"
                   )}>
-                    {pick.pick_score >= 0.8 ? "Top" : pick.pick_score >= 0.6 ? "Bon" : "Moyen"}
+                    {pick.pick_score >= 0.8 ? t("top") : pick.pick_score >= 0.6 ? t("good") : t("average")}
                   </span>
                 </div>
               </div>
@@ -266,7 +271,7 @@ export function PredictionCardPremium({
           {prediction.key_factors && prediction.key_factors.length > 0 && (
             <div>
               <p className="text-[10px] sm:text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 sm:mb-2 flex items-center gap-1">
-                <span>✓ Points positifs</span>
+                <span>✓ {t("positiveFactors")}</span>
               </p>
               <div className="flex flex-wrap gap-1 sm:gap-2">
                 {prediction.key_factors.slice(0, 4).map((factor, i) => (
@@ -286,7 +291,7 @@ export function PredictionCardPremium({
             <div>
               <p className="text-[10px] sm:text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 sm:mb-2 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
-                <span>Risques à surveiller</span>
+                <span>{t("riskFactors")}</span>
               </p>
               <div className="flex flex-wrap gap-1 sm:gap-2">
                 {prediction.risk_factors.slice(0, 3).map((factor, i) => (
@@ -318,7 +323,7 @@ export function PredictionCardPremium({
           "flex items-center justify-between"
         )}>
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-600 dark:text-slate-400">Confiance:</span>
+            <span className="text-slate-600 dark:text-slate-400">{t("confidenceLabel")}:</span>
             <span className={cn(
               "font-bold px-1.5 py-0.5 rounded-full",
               confidenceTier.bgClass,
@@ -347,7 +352,7 @@ function ProbBarEnhanced({
   isRecommended?: boolean;
 }) {
   const getShortLabel = (name: string) => {
-    if (name === "Nul") return name;
+    if (name.length <= 4) return name;
     if (name.length <= 8) return name;
     const firstWord = name.split(" ")[0];
     if (firstWord.length <= 8) return firstWord;
@@ -373,6 +378,11 @@ function ProbBarEnhanced({
       </div>
       <div className="h-1.5 sm:h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
         <div
+          role="progressbar"
+          aria-valuenow={Math.round(prob * 100)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`${label}: ${Math.round(prob * 100)}%`}
           className={cn(
             "h-full rounded-full transition-all duration-500",
             isRecommended ? "bg-gradient-to-r from-primary-500 to-emerald-500" : "bg-slate-300 dark:bg-slate-600"

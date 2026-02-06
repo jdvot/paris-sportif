@@ -4,18 +4,24 @@ All endpoints require authentication.
 Returns HTTP errors (429, 503) when data is unavailable rather than mock data.
 """
 
+import json
 import logging
-from datetime import timezone,  date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
+from src.core.cache import cache_get, cache_set
+from src.core.constants import COMPETITION_NAMES, COMPETITIONS
 from src.core.exceptions import FootballDataAPIError, RateLimitError
+from src.core.messages import api_msg, detect_language_from_header
 from src.core.rate_limit import RATE_LIMITS, limiter
-from src.core.constants import COMPETITIONS, COMPETITION_NAMES
-from src.data.sources.football_data import COMPETITIONS as API_COMPETITIONS, MatchData, get_football_data_client
+from src.data.sources.football_data import (
+    MatchData,
+    get_football_data_client,
+)
 from src.db.services import MatchService, StandingService
 
 router = APIRouter()
@@ -25,6 +31,26 @@ logger = logging.getLogger(__name__)
 MatchStatus = Literal["scheduled", "live", "finished", "postponed"]
 APIStatus = Literal["SCHEDULED", "LIVE", "FINISHED"]
 DataSourceType = Literal["live_api", "cache", "database"]
+
+# Map football-data.org API statuses to our internal status values
+STATUS_MAP: dict[str, MatchStatus] = {
+    "SCHEDULED": "scheduled",
+    "TIMED": "scheduled",
+    "LIVE": "live",
+    "IN_PLAY": "live",
+    "PAUSED": "live",
+    "FINISHED": "finished",
+    "POSTPONED": "postponed",
+    "CANCELLED": "postponed",
+    "SUSPENDED": "postponed",
+}
+
+
+def _normalize_status(raw_status: str | None) -> MatchStatus:
+    """Normalize a raw status string (from DB or API) to our MatchStatus."""
+    if not raw_status:
+        return "scheduled"
+    return STATUS_MAP.get(raw_status, STATUS_MAP.get(raw_status.upper(), "scheduled"))
 
 
 class DataSourceInfo(BaseModel):
@@ -180,18 +206,44 @@ class CompetitionsListResponse(BaseModel):
     total: int
 
 
-# Cache for team data to avoid repeated DB calls
-_team_cache: dict[str, dict] = {}
+# Cache for team data to avoid repeated DB calls (TTL: 10 min, max 200 entries)
+_TEAM_CACHE_TTL = 600  # 10 minutes
+_TEAM_CACHE_MAX = 200
+_team_cache: dict[str, tuple[dict, float]] = {}  # name -> (data, timestamp)
+
+
+def _clean_team_cache() -> None:
+    """Remove expired entries and enforce size limit."""
+    import time
+
+    now = time.time()
+    # Remove expired
+    expired = [k for k, (_, ts) in _team_cache.items() if now - ts > _TEAM_CACHE_TTL]
+    for k in expired:
+        del _team_cache[k]
+    # Enforce max size (remove oldest)
+    if len(_team_cache) > _TEAM_CACHE_MAX:
+        sorted_keys = sorted(_team_cache, key=lambda k: _team_cache[k][1])
+        for k in sorted_keys[: len(_team_cache) - _TEAM_CACHE_MAX]:
+            del _team_cache[k]
 
 
 async def _get_team_from_db(team_name: str) -> dict | None:
     """Fetch real team data from database by name."""
-    # Check cache first
+    import time
+
+    now = time.time()
+
+    # Check cache first (with TTL)
     if team_name in _team_cache:
-        return _team_cache[team_name]
+        data, ts = _team_cache[team_name]
+        if now - ts < _TEAM_CACHE_TTL:
+            return data
+        del _team_cache[team_name]
 
     try:
         from src.db.repositories import get_uow
+
         async with get_uow() as uow:
             # Try exact match first
             team = await uow.teams.get_by_name(team_name)
@@ -204,7 +256,10 @@ async def _get_team_from_db(team_name: str) -> dict | None:
                     "elo_rating": float(team.elo_rating) if team.elo_rating else None,
                     "form": team.form,
                 }
-                _team_cache[team_name] = data
+                _team_cache[team_name] = (data, now)
+                # Periodic cleanup
+                if len(_team_cache) > _TEAM_CACHE_MAX:
+                    _clean_team_cache()
                 return data
     except Exception as e:
         logger.debug(f"Could not fetch team {team_name} from DB: {e}")
@@ -215,19 +270,7 @@ async def _get_team_from_db(team_name: str) -> dict | None:
 async def _convert_api_match_with_db(api_match: MatchData) -> MatchResponse:
     """Convert football-data.org match to our response format with real DB data."""
     # Map API status to our status
-    status_map: dict[str, MatchStatus] = {
-        "SCHEDULED": "scheduled",
-        "TIMED": "scheduled",
-        "LIVE": "live",
-        "IN_PLAY": "live",
-        "PAUSED": "live",
-        "FINISHED": "finished",
-        "POSTPONED": "postponed",
-        "CANCELLED": "postponed",
-        "SUSPENDED": "postponed",
-    }
-
-    status: MatchStatus = status_map.get(api_match.status, "scheduled")
+    status: MatchStatus = _normalize_status(api_match.status)
 
     # Extract scores
     home_score = None
@@ -279,20 +322,7 @@ async def _convert_api_match_with_db(api_match: MatchData) -> MatchResponse:
 
 def _convert_api_match(api_match: MatchData) -> MatchResponse:
     """Convert football-data.org match to our response format."""
-    # Map API status to our status
-    status_map: dict[str, MatchStatus] = {
-        "SCHEDULED": "scheduled",
-        "TIMED": "scheduled",
-        "LIVE": "live",
-        "IN_PLAY": "live",
-        "PAUSED": "live",
-        "FINISHED": "finished",
-        "POSTPONED": "postponed",
-        "CANCELLED": "postponed",
-        "SUSPENDED": "postponed",
-    }
-
-    status: MatchStatus = status_map.get(api_match.status, "scheduled")
+    status: MatchStatus = _normalize_status(api_match.status)
 
     # Extract scores
     home_score = None
@@ -383,7 +413,8 @@ async def get_matches(
             home_team=TeamInfo(
                 id=m["home_team"]["id"],
                 name=m["home_team"]["name"] or "Unknown",
-                short_name=m["home_team"].get("short_name") or (m["home_team"]["name"] or "UNK")[:3].upper(),
+                short_name=m["home_team"].get("short_name")
+                or (m["home_team"]["name"] or "UNK")[:3].upper(),
                 logo_url=m["home_team"].get("logo_url"),
                 elo_rating=m["home_team"].get("elo_rating", 1500.0),
                 form=m["home_team"].get("form"),
@@ -391,17 +422,20 @@ async def get_matches(
             away_team=TeamInfo(
                 id=m["away_team"]["id"],
                 name=m["away_team"]["name"] or "Unknown",
-                short_name=m["away_team"].get("short_name") or (m["away_team"]["name"] or "UNK")[:3].upper(),
+                short_name=m["away_team"].get("short_name")
+                or (m["away_team"]["name"] or "UNK")[:3].upper(),
                 logo_url=m["away_team"].get("logo_url"),
                 elo_rating=m["away_team"].get("elo_rating", 1500.0),
                 form=m["away_team"].get("form"),
             ),
             competition=COMPETITION_NAMES.get(m.get("competition_code", ""), "Unknown"),
             competition_code=m.get("competition_code") or competition or "UNK",
-            match_date=datetime.fromisoformat(m["match_date"])
-            if m.get("match_date")
-            else datetime.now(timezone.utc),
-            status=m.get("status", "scheduled"),
+            match_date=(
+                datetime.fromisoformat(m["match_date"])
+                if m.get("match_date")
+                else datetime.now(UTC)
+            ),
+            status=_normalize_status(m.get("status")),
             home_score=m.get("home_score"),
             away_score=m.get("away_score"),
             matchday=m.get("matchday"),
@@ -437,59 +471,71 @@ async def get_upcoming_matches(
     date_from = date.today()
     date_to = date.today() + timedelta(days=days)
 
-    # Fetch from database only
+    # Check Redis cache (2-minute TTL for upcoming matches)
+    redis_key = f"upcoming:{date_from}:{days}:{competition or 'all'}"
+    cached = await cache_get(redis_key)
+    if cached:
+        try:
+            return MatchListResponse(**json.loads(cached))
+        except Exception as e:
+            logger.debug(f"Invalid Redis cache for upcoming matches: {e}")
+
+    # Fetch from database - teams are eager-loaded (no N+1)
     db_matches = await MatchService.get_scheduled(
         date_from=date_from,
         date_to=date_to,
         competition=competition,
     )
 
-    # Get full match data for each scheduled match
-    matches = []
-    for m in db_matches:
-        match_data = await MatchService.get_match_by_api_id(int(m["external_id"].split("_")[-1]))
-        if match_data:
-            home = match_data["home_team"]
-            away = match_data["away_team"]
-            matches.append(
-                MatchResponse(
-                    id=int(m["external_id"].split("_")[-1]),
-                    external_id=m["external_id"],
-                    home_team=TeamInfo(
-                        id=home["id"],
-                        name=home["name"],
-                        short_name=home.get("short_name") or home["name"][:3].upper(),
-                        logo_url=home.get("logo_url"),
-                        elo_rating=home.get("elo_rating", 1500.0),
-                        form=home.get("form"),
-                    ),
-                    away_team=TeamInfo(
-                        id=away["id"],
-                        name=away["name"],
-                        short_name=away.get("short_name") or away["name"][:3].upper(),
-                        logo_url=away.get("logo_url"),
-                        elo_rating=away.get("elo_rating", 1500.0),
-                        form=away.get("form"),
-                    ),
-                    competition=COMPETITION_NAMES.get(match_data.get("competition_code", ""), "Unknown"),
-                    competition_code=match_data.get("competition_code", "UNK"),
-                    match_date=datetime.fromisoformat(match_data["match_date"])
-                    if match_data.get("match_date")
-                    else datetime.now(timezone.utc),
-                    status=match_data.get("status", "scheduled"),
-                    matchday=match_data.get("matchday"),
-                )
-            )
-
+    matches = [
+        MatchResponse(
+            id=int(m["external_id"].split("_")[-1]) if "_" in m.get("external_id", "") else m["id"],
+            external_id=m["external_id"],
+            home_team=TeamInfo(
+                id=m["home_team"]["id"],
+                name=m["home_team"]["name"] or "Unknown",
+                short_name=m["home_team"].get("short_name")
+                or (m["home_team"]["name"] or "UNK")[:3].upper(),
+                logo_url=m["home_team"].get("logo_url"),
+                elo_rating=m["home_team"].get("elo_rating", 1500.0),
+                form=m["home_team"].get("form"),
+            ),
+            away_team=TeamInfo(
+                id=m["away_team"]["id"],
+                name=m["away_team"]["name"] or "Unknown",
+                short_name=m["away_team"].get("short_name")
+                or (m["away_team"]["name"] or "UNK")[:3].upper(),
+                logo_url=m["away_team"].get("logo_url"),
+                elo_rating=m["away_team"].get("elo_rating", 1500.0),
+                form=m["away_team"].get("form"),
+            ),
+            competition=COMPETITION_NAMES.get(m.get("competition_code", ""), "Unknown"),
+            competition_code=m.get("competition_code") or competition or "UNK",
+            match_date=(
+                datetime.fromisoformat(m["match_date"])
+                if m.get("match_date")
+                else datetime.now(UTC)
+            ),
+            status=_normalize_status(m.get("status")),
+            matchday=m.get("matchday"),
+        )
+        for m in db_matches
+    ]
     matches = sorted(matches, key=lambda m: m.match_date)
 
-    return MatchListResponse(
+    response = MatchListResponse(
         matches=matches,
         total=len(matches),
         page=1,
         per_page=len(matches),
         data_source=DataSourceInfo(source="database"),
     )
+    # Cache in Redis for 2 minutes
+    try:
+        await cache_set(redis_key, json.dumps(response.model_dump(mode="json"), default=str), 120)
+    except Exception as e:
+        logger.debug(f"Failed to cache upcoming matches in Redis: {e}")
+    return response
 
 
 # ============================================================================
@@ -550,16 +596,12 @@ async def get_live_scores(
     Results are cached for 30 seconds to reduce API calls.
     """
     import json
-    from src.core.config import settings
 
     cache_key = f"live_scores:{competition or 'all'}"
 
-    # Try Redis cache first
+    # Try Redis cache first (using shared pool)
     try:
-        import redis.asyncio as redis
-
-        redis_client = redis.from_url(settings.redis_url)
-        cached = await redis_client.get(cache_key)
+        cached = await cache_get(cache_key)
         if cached:
             data = json.loads(cached)
             return LiveScoresResponse(
@@ -607,7 +649,7 @@ async def get_live_scores(
                 away_score = api_match.score.fullTime.away or 0
 
             # Get minute if available (API may provide this)
-            minute = getattr(api_match, 'minute', None)
+            minute = getattr(api_match, "minute", None)
 
             live_matches.append(
                 LiveMatchInfo(
@@ -652,7 +694,7 @@ async def get_live_scores(
                 "total": len(live_matches),
                 "updated_at": now.isoformat(),
             }
-            await redis_client.setex(cache_key, 30, json.dumps(cache_data, default=str))
+            await cache_set(cache_key, json.dumps(cache_data, default=str), 30)
         except Exception as e:
             logger.debug(f"Failed to cache live scores: {e}")
 
@@ -666,24 +708,26 @@ async def get_live_scores(
     except RateLimitError as e:
         logger.warning(f"External API rate limit for live scores: {e}")
         retry_after = e.details.get("retry_after", 60) if e.details else 60
+        lang = detect_language_from_header(request.headers.get("Accept-Language", ""))
         raise HTTPException(
             status_code=429,
             detail={
-                "message": "Limite API externe atteinte",
+                "message": api_msg("live_scores_rate_limit", lang),
                 "error_code": "EXTERNAL_API_RATE_LIMIT",
-                "details": "Scores en direct temporairement indisponibles.",
+                "details": api_msg("live_scores_unavailable", lang),
                 "retry_after_seconds": retry_after,
             },
         )
 
     except (FootballDataAPIError, Exception) as e:
         logger.warning(f"API error for live scores: {e}")
+        lang = detect_language_from_header(request.headers.get("Accept-Language", ""))
         raise HTTPException(
             status_code=503,
             detail={
-                "message": "Scores en direct indisponibles",
+                "message": api_msg("live_scores_service_unavailable", lang),
                 "error_code": "SERVICE_UNAVAILABLE",
-                "details": f"API externe indisponible: {str(e)[:80]}",
+                "details": api_msg("external_api_unavailable", lang, detail=str(e)[:80]),
             },
         )
 
@@ -731,14 +775,16 @@ async def get_match(request: Request, match_id: int, user: AuthenticatedUser) ->
     match_data = await MatchService.get_match_by_api_id(match_id)
 
     if not match_data:
-        raise HTTPException(status_code=404, detail=f"Match {match_id} non trouvé")
+        raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
 
     # Convert DB data to MatchResponse format
     home_team = match_data["home_team"]
     away_team = match_data["away_team"]
 
+    comp_code = match_data.get("competition_code", "")
     return MatchResponse(
-        id=match_id,  # Use the API match_id for consistency
+        id=match_id,
+        external_id=match_data.get("external_id", str(match_id)),
         home_team=TeamInfo(
             id=home_team["id"],
             name=home_team["name"],
@@ -755,17 +801,17 @@ async def get_match(request: Request, match_id: int, user: AuthenticatedUser) ->
             elo_rating=away_team.get("elo_rating"),
             form=away_team.get("form"),
         ),
-        match_date=datetime.fromisoformat(match_data["match_date"]) if match_data["match_date"] else datetime.now(),
-        status=match_data["status"] or "scheduled",
-        competition=match_data["competition_code"],
+        match_date=(
+            datetime.fromisoformat(match_data["match_date"])
+            if match_data["match_date"]
+            else datetime.now()
+        ),
+        status=_normalize_status(match_data.get("status")),
+        competition=comp_code,
+        competition_code=comp_code,
         matchday=match_data.get("matchday"),
         home_score=match_data.get("home_score"),
         away_score=match_data.get("away_score"),
-        odds=OddsInfo(
-            home=match_data.get("odds_home"),
-            draw=match_data.get("odds_draw"),
-            away=match_data.get("odds_away"),
-        ) if any([match_data.get("odds_home"), match_data.get("odds_draw"), match_data.get("odds_away")]) else None,
     )
 
 
@@ -786,7 +832,7 @@ async def get_head_to_head(
     # First get the match to find team IDs
     match_data = await MatchService.get_match_by_api_id(match_id)
     if not match_data:
-        raise HTTPException(status_code=404, detail=f"Match {match_id} non trouvé")
+        raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
 
     home_team_id = match_data["home_team"]["id"]
     away_team_id = match_data["away_team"]["id"]
@@ -1026,7 +1072,8 @@ async def get_standings(
                 return StandingsResponse(
                     competition_code=competition_code,
                     competition_name=cached.get(
-                        "competition_name", COMPETITION_NAMES.get(competition_code, competition_code)
+                        "competition_name",
+                        COMPETITION_NAMES.get(competition_code, competition_code),
                     ),
                     standings=standings,
                     last_updated=datetime.fromisoformat(
@@ -1109,9 +1156,15 @@ async def get_standings(
                     data_source=DataSourceInfo(
                         source="database",
                         is_fallback=True,
-                        warning="[BETA] Classement en cache - Limite API externe atteinte",
+                        warning=api_msg(
+                            "standings_cache_warning",
+                            detect_language_from_header(request.headers.get("Accept-Language", "")),
+                        ),
                         warning_code="EXTERNAL_API_RATE_LIMIT",
-                        details="football-data.org temporairement saturée (10 req/min)",
+                        details=api_msg(
+                            "rate_limit_reached",
+                            detect_language_from_header(request.headers.get("Accept-Language", "")),
+                        ),
                         retry_after_seconds=retry_after,
                     ),
                 )
@@ -1154,9 +1207,16 @@ async def get_standings(
                     data_source=DataSourceInfo(
                         source="database",
                         is_fallback=True,
-                        warning="[BETA] Classement en cache - API externe indisponible",
+                        warning=api_msg(
+                            "standings_cache_warning",
+                            detect_language_from_header(request.headers.get("Accept-Language", "")),
+                        ),
                         warning_code="EXTERNAL_API_ERROR",
-                        details=f"Erreur: {str(e)[:80]}",
+                        details=api_msg(
+                            "error_detail",
+                            detect_language_from_header(request.headers.get("Accept-Language", "")),
+                            detail=str(e)[:80],
+                        ),
                     ),
                 )
         except Exception as db_error:
@@ -1181,5 +1241,3 @@ async def get_standings(
             "warning_code": "SERVICE_UNAVAILABLE",
         },
     )
-
-

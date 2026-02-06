@@ -44,6 +44,19 @@ class StandingRepository(BaseRepository[Standing]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_by_team_name(
+        self,
+        team_name: str,
+        competition_code: str | None = None,
+    ) -> Standing | None:
+        """Get standing by team name (fallback for ID mismatches)."""
+        stmt = select(Standing).where(Standing.team_name.ilike(f"%{team_name}%"))
+        if competition_code:
+            stmt = stmt.where(Standing.competition_code == competition_code)
+        stmt = stmt.order_by(Standing.synced_at.desc()).limit(1)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_top_n(
         self,
         competition_code: str,
@@ -123,7 +136,7 @@ class StandingRepository(BaseRepository[Standing]):
         **data,
     ) -> Standing:
         """Insert or update a standing entry."""
-        existing = await self.get_team_standing(competition_code, team_id)
+        existing = await self.get_team_standing(team_id, competition_code)
         if existing:
             for key, value in data.items():
                 setattr(existing, key, value)

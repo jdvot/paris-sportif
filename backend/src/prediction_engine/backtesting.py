@@ -341,8 +341,8 @@ class WalkForwardBacktest:
                 home_goals=match.home_goals,
                 away_goals=match.away_goals,
             )
-        except Exception:
-            pass  # ELO update failures are non-critical
+        except Exception as e:
+            logger.debug(f"ELO update failed (non-critical): {e}")
 
     def _make_predictions(
         self,
@@ -797,7 +797,7 @@ if __name__ == "__main__":
 
     if args.validate:
         # Generate synthetic data for validation
-        print("Running validation with synthetic data...")
+        logger.info("Running validation with synthetic data...")
 
         synthetic_matches = []
         start_date = date(2023, 1, 1)
@@ -840,5 +840,5 @@ if __name__ == "__main__":
         )
 
         results = backtest.run(synthetic_matches, retrain_ml=False)
-        print(format_backtest_report(results))
-        print("\nValidation completed successfully!")
+        logger.info(format_backtest_report(results))
+        logger.info("Validation completed successfully!")

@@ -68,10 +68,14 @@ class MatchRepository(BaseRepository[Match]):
         status: str | None = None,
     ) -> Sequence[Match]:
         """Get matches within a date range with optional filters."""
-        stmt = select(Match).where(
-            and_(
-                Match.match_date >= datetime.combine(date_from, datetime.min.time()),
-                Match.match_date <= datetime.combine(date_to, datetime.max.time()),
+        stmt = (
+            select(Match)
+            .options(joinedload(Match.home_team), joinedload(Match.away_team))
+            .where(
+                and_(
+                    Match.match_date >= datetime.combine(date_from, datetime.min.time()),
+                    Match.match_date <= datetime.combine(date_to, datetime.max.time()),
+                )
             )
         )
         if competition_code:
@@ -80,7 +84,7 @@ class MatchRepository(BaseRepository[Match]):
             stmt = stmt.where(Match.status == status)
         stmt = stmt.order_by(Match.match_date.asc())
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return result.scalars().unique().all()
 
     async def get_scheduled(
         self,
@@ -90,7 +94,11 @@ class MatchRepository(BaseRepository[Match]):
     ) -> Sequence[Match]:
         """Get scheduled (upcoming) matches."""
         statuses = ["scheduled", "timed", "SCHEDULED", "TIMED"]
-        stmt = select(Match).where(Match.status.in_(statuses))
+        stmt = (
+            select(Match)
+            .options(joinedload(Match.home_team), joinedload(Match.away_team))
+            .where(Match.status.in_(statuses))
+        )
         if date_from:
             stmt = stmt.where(Match.match_date >= datetime.combine(date_from, datetime.min.time()))
         if date_to:
@@ -99,7 +107,7 @@ class MatchRepository(BaseRepository[Match]):
             stmt = stmt.where(Match.competition_code == competition_code)
         stmt = stmt.order_by(Match.match_date.asc())
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return result.scalars().unique().all()
 
     async def get_finished_unverified(self) -> Sequence[Match]:
         """Get finished matches that have predictions but not verified yet."""
@@ -150,6 +158,7 @@ class MatchRepository(BaseRepository[Match]):
         """Get head-to-head matches between two teams."""
         stmt = (
             select(Match)
+            .options(joinedload(Match.home_team), joinedload(Match.away_team))
             .where(
                 ((Match.home_team_id == team1_id) & (Match.away_team_id == team2_id))
                 | ((Match.home_team_id == team2_id) & (Match.away_team_id == team1_id))
@@ -159,7 +168,7 @@ class MatchRepository(BaseRepository[Match]):
             .limit(limit)
         )
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return result.scalars().unique().all()
 
     async def get_team_recent_matches(
         self,
@@ -170,7 +179,11 @@ class MatchRepository(BaseRepository[Match]):
         away_only: bool = False,
     ) -> Sequence[Match]:
         """Get recent finished matches for a team."""
-        stmt = select(Match).where(Match.status.in_(["FINISHED", "finished"]))
+        stmt = (
+            select(Match)
+            .options(joinedload(Match.home_team), joinedload(Match.away_team))
+            .where(Match.status.in_(["FINISHED", "finished"]))
+        )
         if home_only:
             stmt = stmt.where(Match.home_team_id == team_id)
         elif away_only:
@@ -179,7 +192,7 @@ class MatchRepository(BaseRepository[Match]):
             stmt = stmt.where((Match.home_team_id == team_id) | (Match.away_team_id == team_id))
         stmt = stmt.order_by(Match.match_date.desc()).limit(limit)
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return result.scalars().unique().all()
 
     async def update_result(
         self,

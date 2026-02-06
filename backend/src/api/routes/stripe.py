@@ -13,11 +13,12 @@ from src.auth.supabase_auth import (
     SUPABASE_URL,
     sync_role_to_app_metadata,
 )
+from src.core.http_client import get_http_client
 from src.services.stripe_service import stripe_service
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/stripe", tags=["stripe"])
+router = APIRouter(tags=["stripe"])
 
 
 class CreateCheckoutRequest(BaseModel):
@@ -250,11 +251,9 @@ async def stripe_webhook(
 
         return {"status": "success"}
     except Exception as e:
+        # Return 200 to Stripe to prevent retry storms, but log the error
         logger.error(f"Error handling webhook {event_type}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Webhook handler failed",
-        )
+        return {"status": "error", "message": "Handler failed, logged for investigation"}
 
 
 async def update_user_stripe_metadata(
@@ -291,19 +290,20 @@ async def update_user_stripe_metadata(
         return True  # Nothing to update
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.put(
-                auth_url,
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Content-Type": "application/json",
-                },
-                json={"app_metadata": app_metadata},
-            )
-            response.raise_for_status()
-            logger.info(f"Updated Stripe metadata for user {user_id}")
-            return True
+        client = get_http_client()
+        response = await client.put(
+            auth_url,
+            headers={
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Content-Type": "application/json",
+            },
+            json={"app_metadata": app_metadata},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        logger.info(f"Updated Stripe metadata for user {user_id}")
+        return True
     except httpx.HTTPStatusError as e:
         logger.error(f"Failed to update Stripe metadata: {e.response.status_code}")
         return False
@@ -331,20 +331,21 @@ async def update_user_role_in_profiles(user_id: str, role: str) -> bool:
     profiles_url = f"{base_url}/rest/v1/user_profiles?id=eq.{user_id}"
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.patch(
-                profiles_url,
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Content-Type": "application/json",
-                    "Prefer": "return=minimal",
-                },
-                json={"role": role},
-            )
-            response.raise_for_status()
-            logger.info(f"Updated role to '{role}' in user_profiles for {user_id}")
-            return True
+        client = get_http_client()
+        response = await client.patch(
+            profiles_url,
+            headers={
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+            },
+            json={"role": role},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        logger.info(f"Updated role to '{role}' in user_profiles for {user_id}")
+        return True
     except Exception as e:
         logger.warning(f"Failed to update user_profiles role: {e}")
         return False
@@ -368,18 +369,19 @@ async def get_user_id_from_customer(customer_id: str) -> str | None:
     profiles_url = f"{base_url}/rest/v1/user_profiles?stripe_customer_id=eq.{customer_id}&select=id"
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                profiles_url,
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            if data and len(data) > 0:
-                return data[0].get("id")
+        client = get_http_client()
+        response = await client.get(
+            profiles_url,
+            headers={
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            },
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        if data and len(data) > 0:
+            return data[0].get("id")
     except Exception as e:
         logger.debug(f"Failed to get user_id from customer: {e}")
 
@@ -434,7 +436,6 @@ async def handle_subscription_updated(data: dict):
     cancel_at_period_end = data.get("cancel_at_period_end")
     customer_id = data.get("customer")
     user_id = data.get("metadata", {}).get("user_id")
-    plan = data.get("metadata", {}).get("plan", "premium")
 
     logger.info(
         f"Subscription updated: {subscription_id}, "
@@ -503,13 +504,11 @@ async def handle_payment_failed(data: dict):
     """Handle invoice.payment_failed event."""
     invoice_id = data.get("id")
     customer_id = data.get("customer")
-    customer_email = data.get("customer_email")
     attempt_count = data.get("attempt_count", 1)
     next_payment_attempt = data.get("next_payment_attempt")
 
     logger.warning(
-        f"Payment failed: {invoice_id}, customer={customer_id}, "
-        f"email={customer_email}, attempt={attempt_count}"
+        f"Payment failed: invoice={invoice_id}, customer={customer_id}, " f"attempt={attempt_count}"
     )
 
     # Get user_id to log the failure

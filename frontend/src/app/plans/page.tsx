@@ -6,6 +6,7 @@ import { Check, Crown, Zap, X, Sparkles, ArrowLeft, Loader2 } from "lucide-react
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 import { customInstance } from "@/lib/api/custom-instance";
 
 export default function PlansPage() {
@@ -39,7 +40,7 @@ export default function PlansPage() {
         window.location.href = response.data.checkout_url;
       }
     } catch (error) {
-      console.error("Checkout error:", error);
+      logger.error("Checkout error:", error);
       alert(t("checkoutError"));
     } finally {
       setCheckoutLoading(false);

@@ -111,13 +111,14 @@ async def auto_sync_and_verify():
 
         # Sync standings for league competitions (includes form data)
         standings_synced = 0
-        league_competitions = ["PL", "PD", "BL1", "SA", "FL1"]
+        league_competitions = list(COMPETITIONS.keys())
         for comp_code in league_competitions:
             try:
                 data = await client._request("GET", f"/competitions/{comp_code}/standings")
                 for standing_group in data.get("standings", []):
                     if standing_group.get("type") == "TOTAL":
                         from src.db.services.match_service import StandingService
+
                         standings_list = standing_group.get("table", [])
                         synced = await StandingService.save_standings(comp_code, standings_list)
                         standings_synced += synced
@@ -133,6 +134,7 @@ async def auto_sync_and_verify():
         teams_updated = 0
         try:
             from src.api.routes.sync import _recalculate_all_team_stats
+
             teams_updated = await _recalculate_all_team_stats()
         except Exception as e:
             logger.warning(f"[Scheduler] Error recalculating team stats: {e}")
@@ -141,6 +143,7 @@ async def auto_sync_and_verify():
         form_synced = 0
         try:
             from src.api.routes.sync import _sync_form_from_standings
+
             form_synced = await _sync_form_from_standings()
         except Exception as e:
             logger.warning(f"[Scheduler] Error syncing form data: {e}")
@@ -149,6 +152,7 @@ async def auto_sync_and_verify():
         countries_updated = 0
         try:
             from src.api.routes.sync import _update_missing_team_countries
+
             countries_updated = await _update_missing_team_countries()
         except Exception as e:
             logger.warning(f"[Scheduler] Error updating team countries: {e}")
@@ -157,6 +161,7 @@ async def auto_sync_and_verify():
         elo_updated = 0
         try:
             from src.api.routes.sync import _calculate_proper_elo_ratings, _update_team_elo_ratings
+
             elo_ratings = await _calculate_proper_elo_ratings()
             elo_updated = await _update_team_elo_ratings(elo_ratings)
         except Exception as e:
@@ -166,6 +171,7 @@ async def auto_sync_and_verify():
         predictions_generated = 0
         try:
             from src.services.data_prefill_service import DataPrefillService
+
             predictions_generated = await DataPrefillService.prefill_predictions_for_upcoming()
         except Exception as e:
             logger.warning(f"[Scheduler] Error pre-generating predictions: {e}")
@@ -174,6 +180,7 @@ async def auto_sync_and_verify():
         cache_warmed = 0
         try:
             from src.services.data_prefill_service import DataPrefillService
+
             cache_warmed = await DataPrefillService.warm_redis_cache()
         except Exception as e:
             logger.warning(f"[Scheduler] Error warming cache: {e}")
@@ -200,6 +207,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https:; "
+            "font-src 'self'; "
+            "connect-src 'self' https://*.supabase.co https://*.groq.com; "
+            "frame-ancestors 'none'"
+        )
 
         # HSTS - only in production
         if settings.app_env == "production":
@@ -215,31 +231,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     global scheduler
 
     # Startup
-    print(f"Starting {settings.app_name} v{settings.app_version}")
-    print(f"Environment: {settings.app_env}")
+    logger.info(f"Starting {settings.app_name} v{settings.app_version}")
+    logger.info(f"Environment: {settings.app_env}")
 
     # Initialize database tables
     try:
         from src.db.database import init_db
 
         await init_db()
-        print("[Database] Tables initialized")
+        logger.info("[Database] Tables initialized")
     except Exception as e:
-        print(f"[Database] Warning: Could not initialize tables: {e}")
+        logger.warning(f"[Database] Could not initialize tables: {e}")
 
-    # Debug: Show which API key is loaded (masked for security)
+    # Check API key availability (no values logged)
     groq_key = settings.groq_api_key
-    env_groq_key = os.environ.get("GROQ_API_KEY", "")
-
-    print(f"DEBUG ENV VARS: GROQ_API_KEY from os.environ = {'SET' if env_groq_key else 'NOT SET'}")
-    if env_groq_key:
-        print(f"DEBUG ENV: {env_groq_key[:8]}...{env_groq_key[-4:]} (len={len(env_groq_key)})")
-
     if groq_key:
-        masked = f"{groq_key[:8]}...{groq_key[-4:]}" if len(groq_key) > 12 else "***"
-        print(f"GROQ_API_KEY from settings: {masked} (length: {len(groq_key)})")
+        logger.info("GROQ_API_KEY: configured")
     else:
-        print("WARNING: GROQ_API_KEY from settings is NOT set or empty!")
+        logger.warning("GROQ_API_KEY: NOT set or empty")
 
     # Start the scheduler for automatic sync
     scheduler = AsyncIOScheduler()
@@ -270,7 +279,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
 
     scheduler.start()
-    print("[Scheduler] Started - auto sync every 6 hours, cache refresh at 6am UTC")
+    logger.info("[Scheduler] Started - auto sync every 6 hours, cache refresh at 6am UTC")
 
     # Run startup prefill in background (starts immediately)
     asyncio.create_task(_startup_full_prefill())
@@ -280,8 +289,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Shutdown
     if scheduler:
         scheduler.shutdown(wait=False)
-        print("[Scheduler] Stopped")
-    print("Shutting down...")
+        logger.info("[Scheduler] Stopped")
+
+    # Close shared HTTP client
+    from src.core.http_client import close_http_client
+
+    await close_http_client()
+
+    logger.info("Shutting down...")
 
 
 async def _startup_full_prefill():
@@ -290,6 +305,7 @@ async def _startup_full_prefill():
 
     try:
         from sqlalchemy import text
+
         from src.db import get_db_context
         from src.services.data_prefill_service import DataPrefillService, log_sync_operation
 
@@ -299,7 +315,9 @@ async def _startup_full_prefill():
             match_count = result.scalar() or 0
 
         if match_count < 200:
-            logger.info(f"[Startup] Only {match_count} matches in DB, fetching historical season data...")
+            logger.info(
+                f"[Startup] Only {match_count} matches in DB, fetching historical season data..."
+            )
             await log_sync_operation("historical_sync", "running", 0, triggered_by="startup")
             await _fetch_historical_season()
         else:
@@ -319,34 +337,7 @@ async def _startup_full_prefill():
         logger.info("[Startup] Full startup pipeline complete!")
 
     except Exception as e:
-        logger.error(f"[Startup] Error in startup prefill: {e}")
-        import traceback
-        traceback.print_exc()
-
-
-async def _delayed_initial_sync():
-    """DEPRECATED: Kept for backwards compatibility. Use _startup_full_prefill instead."""
-    await asyncio.sleep(30)  # Wait 30 seconds for app to fully start
-
-    # Check if we need historical data (less than 200 matches = fetch full season)
-    try:
-        from src.db import get_db_context
-        from sqlalchemy import text
-
-        with get_db_context() as db:
-            result = db.execute(text("SELECT COUNT(*) FROM matches WHERE status = 'FINISHED'"))
-            match_count = result.scalar() or 0
-
-        if match_count < 200:
-            logger.info(f"[Scheduler] Only {match_count} matches in DB, fetching historical season data...")
-            await _fetch_historical_season()
-        else:
-            logger.info(f"[Scheduler] {match_count} matches in DB, running normal sync...")
-            await auto_sync_and_verify()
-
-    except Exception as e:
-        logger.error(f"[Scheduler] Error checking match count: {e}")
-        await auto_sync_and_verify()
+        logger.error(f"[Startup] Error in startup prefill: {e}", exc_info=True)
 
 
 async def _fetch_historical_season():
@@ -364,8 +355,10 @@ async def _fetch_historical_season():
     logger.info("[Scheduler] Starting historical season sync...")
 
     client = get_football_data_client()
-    season_start = date(2025, 8, 1)
+    # Dynamically calculate current season start (August 1st)
     today = date.today()
+    season_year = today.year if today.month >= 8 else today.year - 1
+    season_start = date(season_year, 8, 1)
     total_synced = 0
 
     for comp_code in COMPETITIONS.keys():
@@ -441,7 +434,7 @@ async def _run_weekly_ml_training():
 
     from src.db import get_db_context
 
-    HF_SPACE_URL = os.getenv("HF_SPACE_URL", "https://jdevot244-paris-sportif.hf.space")
+    hf_space_url = os.getenv("HF_SPACE_URL", "https://jdevot244-paris-sportif.hf.space")
 
     logger.info("[Scheduler] Running weekly ML training on HuggingFace...")
 
@@ -450,7 +443,8 @@ async def _run_weekly_ml_training():
 
     try:
         with get_db_context() as db:
-            query = text("""
+            query = text(
+                """
                 SELECT
                     m.home_score, m.away_score,
                     COALESCE(ht.avg_goals_scored_home, 1.0) as home_attack,
@@ -466,26 +460,29 @@ async def _run_weekly_ml_training():
                     AND m.home_score IS NOT NULL
                 ORDER BY m.match_date DESC
                 LIMIT 2000
-            """)
+            """
+            )
 
             result = db.execute(query)
             for row in result.fetchall():
-                training_matches.append({
-                    "home_attack": float(row.home_attack or 1.0),
-                    "home_defense": float(row.home_defense or 1.0),
-                    "away_attack": float(row.away_attack or 1.0),
-                    "away_defense": float(row.away_defense or 1.0),
-                    "home_elo": float(row.home_elo or 1500.0),
-                    "away_elo": float(row.away_elo or 1500.0),
-                    "home_form": 0.5,
-                    "away_form": 0.5,
-                    "home_rest_days": 7.0,
-                    "away_rest_days": 7.0,
-                    "home_fixture_congestion": 0.0,
-                    "away_fixture_congestion": 0.0,
-                    "home_score": row.home_score,
-                    "away_score": row.away_score,
-                })
+                training_matches.append(
+                    {
+                        "home_attack": float(row.home_attack or 1.0),
+                        "home_defense": float(row.home_defense or 1.0),
+                        "away_attack": float(row.away_attack or 1.0),
+                        "away_defense": float(row.away_defense or 1.0),
+                        "home_elo": float(row.home_elo or 1500.0),
+                        "away_elo": float(row.away_elo or 1500.0),
+                        "home_form": 0.5,
+                        "away_form": 0.5,
+                        "home_rest_days": 7.0,
+                        "away_rest_days": 7.0,
+                        "home_fixture_congestion": 0.0,
+                        "away_fixture_congestion": 0.0,
+                        "home_score": row.home_score,
+                        "away_score": row.away_score,
+                    }
+                )
 
         logger.info(f"[Scheduler] Fetched {len(training_matches)} matches for training")
 
@@ -496,7 +493,7 @@ async def _run_weekly_ml_training():
         # Send to HuggingFace
         async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
-                f"{HF_SPACE_URL}/train",
+                f"{hf_space_url}/train",
                 json={"matches": training_matches},
             )
 
@@ -519,8 +516,8 @@ app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description="API de predictions de paris sportifs sur le football europeen",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if not settings.is_production else None,
+    redoc_url="/redoc" if not settings.is_production else None,
     lifespan=lifespan,
 )
 
@@ -532,13 +529,13 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SecurityHeadersMiddleware)
 
 # CORS Middleware - Restricted to specific domains for security
+_cors_origins = ["https://paris-sportif.vercel.app"]
+if not settings.is_production:
+    _cors_origins += ["http://localhost:3000", "http://127.0.0.1:3000"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "https://paris-sportif.vercel.app",
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept"],

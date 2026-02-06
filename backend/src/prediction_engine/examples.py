@@ -8,7 +8,11 @@ This file demonstrates:
 4. Model evaluation
 """
 
+import logging
+
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 # Example 1: Using the Ensemble Predictor
@@ -44,27 +48,29 @@ def example_ensemble_prediction() -> None:
     )
 
     # Results
-    print("=== Ensemble Prediction ===")
-    print(f"Home Win: {prediction.home_win_prob:.1%}")
-    print(f"Draw: {prediction.draw_prob:.1%}")
-    print(f"Away Win: {prediction.away_win_prob:.1%}")
-    print(f"Recommended Bet: {prediction.recommended_bet}")
-    print(f"Confidence: {prediction.confidence:.1%}")
-    print(f"Model Agreement: {prediction.model_agreement:.1%}")
-    print(f"Value Score: {prediction.value_score}")
-    print(
-        f"Expected Goals: {prediction.expected_home_goals:.1f}-{prediction.expected_away_goals:.1f}"
+    logger.info("=== Ensemble Prediction ===")
+    logger.info("Home Win: %.1f%%", prediction.home_win_prob * 100)
+    logger.info("Draw: %.1f%%", prediction.draw_prob * 100)
+    logger.info("Away Win: %.1f%%", prediction.away_win_prob * 100)
+    logger.info("Recommended Bet: %s", prediction.recommended_bet)
+    logger.info("Confidence: %.1f%%", prediction.confidence * 100)
+    logger.info("Model Agreement: %.1f%%", prediction.model_agreement * 100)
+    logger.info("Value Score: %s", prediction.value_score)
+    logger.info(
+        "Expected Goals: %.1f-%.1f",
+        prediction.expected_home_goals,
+        prediction.expected_away_goals,
     )
 
     # Model contributions
     if prediction.poisson_contribution:
-        print(f"\nPoisson: {prediction.poisson_contribution.home_prob:.1%}")
+        logger.info("Poisson: %.1f%%", prediction.poisson_contribution.home_prob * 100)
     if prediction.elo_contribution:
-        print(f"ELO: {prediction.elo_contribution.home_prob:.1%}")
+        logger.info("ELO: %.1f%%", prediction.elo_contribution.home_prob * 100)
     if prediction.xgboost_contribution:
-        print(f"XGBoost: {prediction.xgboost_contribution.home_prob:.1%}")
+        logger.info("XGBoost: %.1f%%", prediction.xgboost_contribution.home_prob * 100)
     if prediction.random_forest_contribution:
-        print(f"Random Forest: {prediction.random_forest_contribution.home_prob:.1%}")
+        logger.info("Random Forest: %.1f%%", prediction.random_forest_contribution.home_prob * 100)
 
 
 # Example 2: Feature Engineering
@@ -72,7 +78,7 @@ def example_feature_engineering() -> None:
     """Demonstrate feature engineering capabilities."""
     from src.prediction_engine.feature_engineering import FeatureEngineer
 
-    print("\n=== Feature Engineering ===")
+    logger.info("=== Feature Engineering ===")
 
     # Calculate recent form from match results
     home_results = [
@@ -82,7 +88,7 @@ def example_feature_engineering() -> None:
         (1, 1),  # Drew 1-1
     ]
     home_form = FeatureEngineer.calculate_recent_form(home_results, is_home=True)
-    print(f"Home team recent form: {home_form:.1f}/100")
+    logger.info("Home team recent form: %.1f/100", home_form)
 
     # Calculate head-to-head
     h2h_results = [
@@ -91,7 +97,7 @@ def example_feature_engineering() -> None:
         (0, 1),  # Lost 0-1
     ]
     h2h_home = FeatureEngineer.calculate_head_to_head(h2h_results, is_home=True)
-    print(f"H2H advantage (home): {h2h_home:.2f}")
+    logger.info("H2H advantage (home): %.2f", h2h_home)
 
     # Create engineered feature vector
     features = FeatureEngineer.engineer_features(
@@ -104,8 +110,8 @@ def example_feature_engineering() -> None:
         h2h_results=h2h_results,
     )
 
-    print(f"Engineered features shape: {features.to_array().shape}")
-    print(f"Feature vector: {features}")
+    logger.info("Engineered features shape: %s", features.to_array().shape)
+    logger.info("Feature vector: %s", features)
 
 
 # Example 3: Training Models
@@ -113,7 +119,7 @@ def example_training() -> None:
     """Demonstrate model training."""
     from src.prediction_engine.model_trainer import ModelTrainer
 
-    print("\n=== Model Training ===")
+    logger.info("=== Model Training ===")
 
     # Generate synthetic training data
     # In real usage, you'd load historical match data
@@ -157,23 +163,23 @@ def example_training() -> None:
             }
         )
 
-    print(f"Generated {len(match_data)} synthetic matches")
+    logger.info("Generated %d synthetic matches", len(match_data))
 
     # Train models
     trainer = ModelTrainer()
     metrics = trainer.train_both_models(match_data, test_size=0.2)
 
     if metrics["xgboost"]:
-        print("\nXGBoost:")
-        print(f"  Accuracy: {metrics['xgboost'].accuracy:.2%}")
-        print(f"  LogLoss: {metrics['xgboost'].logloss:.4f}")
-        print(f"  Home F1: {metrics['xgboost'].f1_home:.3f}")
+        logger.info("XGBoost:")
+        logger.info("  Accuracy: %.2f%%", metrics["xgboost"].accuracy * 100)
+        logger.info("  LogLoss: %.4f", metrics["xgboost"].logloss)
+        logger.info("  Home F1: %.3f", metrics["xgboost"].f1_home)
 
     if metrics["random_forest"]:
-        print("\nRandom Forest:")
-        print(f"  Accuracy: {metrics['random_forest'].accuracy:.2%}")
-        print(f"  LogLoss: {metrics['random_forest'].logloss:.4f}")
-        print(f"  Home F1: {metrics['random_forest'].f1_home:.3f}")
+        logger.info("Random Forest:")
+        logger.info("  Accuracy: %.2f%%", metrics["random_forest"].accuracy * 100)
+        logger.info("  LogLoss: %.4f", metrics["random_forest"].logloss)
+        logger.info("  Home F1: %.3f", metrics["random_forest"].f1_home)
 
 
 # Example 4: Direct Model Usage
@@ -182,7 +188,7 @@ def example_direct_models() -> None:
     from src.prediction_engine.models.random_forest_model import RandomForestModel
     from src.prediction_engine.models.xgboost_model import XGBoostModel
 
-    print("\n=== Direct Model Usage ===")
+    logger.info("=== Direct Model Usage ===")
 
     # XGBoost
     xgb_model = XGBoostModel()
@@ -198,11 +204,11 @@ def example_direct_models() -> None:
         head_to_head_home=0.2,
     )
 
-    print("XGBoost Prediction:")
-    print(f"  Home Win: {xgb_pred.home_win_prob:.1%}")
-    print(f"  Draw: {xgb_pred.draw_prob:.1%}")
-    print(f"  Away Win: {xgb_pred.away_win_prob:.1%}")
-    print(f"  Confidence: {xgb_pred.prediction_confidence:.1%}")
+    logger.info("XGBoost Prediction:")
+    logger.info("  Home Win: %.1f%%", xgb_pred.home_win_prob * 100)
+    logger.info("  Draw: %.1f%%", xgb_pred.draw_prob * 100)
+    logger.info("  Away Win: %.1f%%", xgb_pred.away_win_prob * 100)
+    logger.info("  Confidence: %.1f%%", xgb_pred.prediction_confidence * 100)
 
     # Random Forest
     rf_model = RandomForestModel()
@@ -216,10 +222,10 @@ def example_direct_models() -> None:
         head_to_head_home=0.2,
     )
 
-    print("\nRandom Forest Prediction:")
-    print(f"  Home Win: {rf_pred.home_win_prob:.1%}")
-    print(f"  Draw: {rf_pred.draw_prob:.1%}")
-    print(f"  Away Win: {rf_pred.away_win_prob:.1%}")
+    logger.info("Random Forest Prediction:")
+    logger.info("  Home Win: %.1f%%", rf_pred.home_win_prob * 100)
+    logger.info("  Draw: %.1f%%", rf_pred.draw_prob * 100)
+    logger.info("  Away Win: %.1f%%", rf_pred.away_win_prob * 100)
 
 
 # Example 5: Batch Predictions
@@ -229,7 +235,7 @@ def example_batch_predictions() -> None:
 
     from src.prediction_engine.models.xgboost_model import XGBoostModel
 
-    print("\n=== Batch Predictions ===")
+    logger.info("=== Batch Predictions ===")
 
     model = XGBoostModel()
 
@@ -244,9 +250,15 @@ def example_batch_predictions() -> None:
 
     probs = model.predict_batch(features)
 
-    print(f"Predicted probabilities for {len(features)} matches:")
+    logger.info("Predicted probabilities for %d matches:", len(features))
     for i, prob in enumerate(probs):
-        print(f"  Match {i + 1}: Home {prob[0]:.1%}, Draw {prob[1]:.1%}, Away {prob[2]:.1%}")
+        logger.info(
+            "  Match %d: Home %.1f%%, Draw %.1f%%, Away %.1f%%",
+            i + 1,
+            prob[0] * 100,
+            prob[1] * 100,
+            prob[2] * 100,
+        )
 
 
 # Example 6: Feature Importance
@@ -256,7 +268,7 @@ def example_feature_importance() -> None:
 
     from src.prediction_engine.models.xgboost_model import XGBoostModel
 
-    print("\n=== Feature Importance ===")
+    logger.info("=== Feature Importance ===")
 
     # Create simple training data
     X_train = np.random.randn(100, 7)
@@ -270,44 +282,44 @@ def example_feature_importance() -> None:
         importance = xgb_model.get_feature_importance()
 
         if importance:
-            print("XGBoost Feature Importance:")
+            logger.info("XGBoost Feature Importance:")
             for feature, score in sorted(importance.items(), key=lambda x: x[1], reverse=True):
-                print(f"  {feature}: {score:.4f}")
+                logger.info("  %s: %.4f", feature, score)
         else:
-            print("(Models not trained with real data yet)")
+            logger.info("(Models not trained with real data yet)")
     except Exception as e:
-        print(f"Note: {e}")
+        logger.warning("Note: %s", e)
 
 
 def run_all_examples() -> None:
     """Run all examples."""
-    print("=" * 60)
-    print("ML Models and Ensemble Predictor Examples")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("ML Models and Ensemble Predictor Examples")
+    logger.info("=" * 60)
 
     try:
         example_ensemble_prediction()
     except Exception as e:
-        print(f"Ensemble example error: {e}")
+        logger.error("Ensemble example error: %s", e)
 
     try:
         example_feature_engineering()
     except Exception as e:
-        print(f"Feature engineering example error: {e}")
+        logger.error("Feature engineering example error: %s", e)
 
     try:
         example_direct_models()
     except Exception as e:
-        print(f"Direct models example error: {e}")
+        logger.error("Direct models example error: %s", e)
 
     try:
         example_batch_predictions()
     except Exception as e:
-        print(f"Batch predictions example error: {e}")
+        logger.error("Batch predictions example error: %s", e)
 
-    print("\n" + "=" * 60)
-    print("Examples completed!")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("Examples completed!")
+    logger.info("=" * 60)
 
 
 if __name__ == "__main__":

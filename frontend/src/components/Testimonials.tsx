@@ -1,7 +1,7 @@
 "use client";
 
 import { Star, Quote, ExternalLink } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
 
 interface Testimonial {
@@ -133,6 +133,8 @@ export function Testimonials({
 }
 
 function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
+  const locale = useLocale();
+
   return (
     <div className="bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl p-4 sm:p-5">
       <div className="flex items-start justify-between mb-3">
@@ -148,7 +150,7 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
               )}
             </p>
             <p className="text-xs text-gray-500 dark:text-dark-400">
-              {new Date(testimonial.date).toLocaleDateString("fr-FR")}
+              {new Date(testimonial.date).toLocaleDateString(locale === "fr" ? "fr-FR" : "en-US")}
             </p>
           </div>
         </div>

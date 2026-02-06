@@ -1,7 +1,7 @@
 """Alert scheduler for triggering match notifications."""
 
 import logging
-from datetime import timezone,  datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from src.db.repositories import get_uow
 from src.notifications.push_service import get_push_service
@@ -28,7 +28,7 @@ class AlertScheduler:
         Returns:
             List of matches that triggered alerts
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         alert_window_start = now + timedelta(minutes=self.MATCH_START_MINUTES_BEFORE - 5)
         alert_window_end = now + timedelta(minutes=self.MATCH_START_MINUTES_BEFORE + 5)
 
@@ -117,7 +117,7 @@ class AlertScheduler:
 
             from src.db.models import NotificationLog
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             stmt = select(func.count(NotificationLog.id)).where(
                 NotificationLog.notification_type == notification_type,
                 NotificationLog.payload.contains(f'"match_id": {match_id}'),
@@ -129,7 +129,7 @@ class AlertScheduler:
 
     async def send_daily_picks_alert(self) -> dict:
         """Send daily picks notification."""
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
 
         # Check if already sent today
         async with get_uow() as uow:
@@ -156,8 +156,8 @@ class AlertScheduler:
 
             from src.db.models import Match, Prediction
 
-            today_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc)
-            today_end = datetime.combine(today, datetime.max.time()).replace(tzinfo=timezone.utc)
+            today_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=UTC)
+            today_end = datetime.combine(today, datetime.max.time()).replace(tzinfo=UTC)
 
             stmt = (
                 select(Match)
@@ -215,8 +215,8 @@ class AlertScheduler:
                 body=body,
                 payload=json.dumps({"match_id": match_id, "sent_count": sent_count}),
                 status="sent",
-                sent_at=datetime.now(timezone.utc),
-                created_at=datetime.now(timezone.utc),
+                sent_at=datetime.now(UTC),
+                created_at=datetime.now(UTC),
             )
             uow._session.add(log_entry)
             await uow.commit()
@@ -226,7 +226,7 @@ class AlertScheduler:
         results: dict = {
             "match_alerts": [],
             "daily_picks": None,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         # Check match start alerts
@@ -237,7 +237,7 @@ class AlertScheduler:
             results["match_alerts_error"] = str(e)
 
         # Check daily picks (only send once per day at specific times)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if 7 <= now.hour <= 9:  # Send between 7-9 AM UTC
             try:
                 results["daily_picks"] = await self.send_daily_picks_alert()

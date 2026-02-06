@@ -5,7 +5,7 @@
  * API de predictions de paris sportifs sur le football europeen
  * OpenAPI spec version: 0.1.0
  */
-import type { SrcApiRoutesMatchesDataSourceInfo } from './srcApiRoutesMatchesDataSourceInfo';
+import type { DataSourceInfo } from './dataSourceInfo';
 import type { TeamFormMatch } from './teamFormMatch';
 
 /**
@@ -22,5 +22,5 @@ export interface TeamFormResponse {
   clean_sheets: number;
   xg_for_avg?: number | null;
   xg_against_avg?: number | null;
-  data_source?: SrcApiRoutesMatchesDataSourceInfo | null;
+  data_source?: DataSourceInfo | null;
 }

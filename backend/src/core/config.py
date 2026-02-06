@@ -20,13 +20,11 @@ class Settings(BaseSettings):
     app_name: str = "WinRate AI API"
     app_version: str = "0.1.0"
     app_env: Literal["development", "staging", "production"] = "development"
-    debug: bool = True
+    debug: bool = False
     log_level: str = "INFO"
 
     # Database
-    database_url: str = (
-        "postgresql+asyncpg://paris_sportif:paris_sportif_secret@localhost:5432/paris_sportif"
-    )
+    database_url: str = ""
 
     # Redis
     redis_url: str = "redis://localhost:6379"
