@@ -12,6 +12,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
+from src.api.schemas import ErrorResponse
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.cache import cache_get, cache_set
 from src.core.constants import COMPETITION_NAMES, COMPETITIONS
@@ -459,7 +460,14 @@ async def get_matches(
     )
 
 
-@router.get("/upcoming", responses=AUTH_RESPONSES, operation_id="getUpcomingMatches")
+@router.get(
+    "/upcoming",
+    responses={
+        **AUTH_RESPONSES,
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+    operation_id="getUpcomingMatches",
+)
 @limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def get_upcoming_matches(
     request: Request,
@@ -765,7 +773,11 @@ async def get_competitions(
 @router.get(
     "/{match_id}",
     response_model=MatchResponse,
-    responses=AUTH_RESPONSES,
+    responses={
+        **AUTH_RESPONSES,
+        404: {"model": ErrorResponse, "description": "Match not found"},
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
     operation_id="getMatch",
 )
 @limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]

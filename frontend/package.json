@@ -14,7 +14,10 @@
     "test:coverage": "vitest run --coverage",
     "docker:build": "docker build -t winrate-frontend .",
     "docker:run": "docker run -p 3000:3000 winrate-frontend",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -43,6 +46,7 @@
   "devDependencies": {
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.4.1",
+    "@playwright/test": "^1.58.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

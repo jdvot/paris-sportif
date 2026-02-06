@@ -19,6 +19,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from groq import Groq
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.api.schemas import ErrorResponse
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
 from src.core.cache import cache_get, cache_set
 from src.core.config import settings
@@ -1458,7 +1459,10 @@ Sois concis (max 150 mots). Pas de titre."""
 @router.get(
     "/daily",
     response_model=DailyPicksResponse,
-    responses=AUTH_RESPONSES,
+    responses={
+        **AUTH_RESPONSES,
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
     operation_id="getDailyPicks",
 )
 @limiter.limit(RATE_LIMITS["predictions"])  # type: ignore[misc]
@@ -2125,7 +2129,11 @@ def _generate_fallback_prediction(
 @router.get(
     "/{match_id}",
     response_model=PredictionResponse,
-    responses=AUTH_RESPONSES,
+    responses={
+        **AUTH_RESPONSES,
+        404: {"model": ErrorResponse, "description": "Match not found"},
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
     operation_id="getPrediction",
 )
 @limiter.limit(RATE_LIMITS["predictions"])  # type: ignore[misc]
