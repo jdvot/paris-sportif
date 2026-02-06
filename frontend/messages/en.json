@@ -996,11 +996,15 @@
     }
   },
   "testimonials": {
-    "title": "Customer Reviews",
+    "title": "What Our Users Say",
+    "subtitle": "Real feedback from our community",
     "excellent": "Excellent",
     "basedOn": "Based on {count} reviews",
     "excellentOnTrustpilot": "Excellent rating on Trustpilot",
-    "verifiedReview": "Verified review"
+    "verifiedReview": "Verified review",
+    "loadError": "Unable to load testimonials",
+    "empty": "No reviews yet",
+    "stars": "{count} stars"
   },
   "admin": {
     "title": "Administration",

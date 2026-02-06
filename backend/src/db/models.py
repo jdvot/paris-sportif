@@ -623,6 +623,21 @@ class UserFavorite(Base):
     )
 
 
+class Testimonial(Base):
+    """User testimonial/review for social proof."""
+
+    __tablename__ = "testimonials"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    author_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    author_role: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    rating: Mapped[int] = mapped_column(Integer, default=5)
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    is_approved: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class UserPreferences(Base):
     """User preferences and settings."""
 

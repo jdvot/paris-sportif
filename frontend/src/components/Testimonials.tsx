@@ -1,46 +1,99 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Star, Quote, ExternalLink } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
+import { customInstance } from "@/lib/api/custom-instance";
+
+interface ApiTestimonial {
+  id: number;
+  author_name: string;
+  author_role: string | null;
+  content: string;
+  rating: number;
+  avatar_url: string | null;
+  created_at: string;
+}
+
+interface ApiTestimonialListResponse {
+  data: {
+    testimonials: ApiTestimonial[];
+    count: number;
+  };
+  status: number;
+}
+
+function useTestimonials() {
+  return useQuery({
+    queryKey: ["testimonials"],
+    queryFn: () =>
+      customInstance<ApiTestimonialListResponse>("/api/v1/testimonials", {
+        method: "GET",
+      }),
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+}
 
 interface Testimonial {
   id: string;
   name: string;
+  role?: string;
   avatar?: string;
   rating: number;
   text: string;
   date: string;
-  verified?: boolean;
 }
 
-// No default testimonials - component shows nothing or message when no real data provided
-
 interface TestimonialsProps {
-  testimonials?: Testimonial[];
   variant?: "grid" | "carousel" | "compact";
   showTrustpilot?: boolean;
   className?: string;
 }
 
 export function Testimonials({
-  testimonials = [],
   variant = "grid",
   showTrustpilot = true,
   className,
 }: TestimonialsProps) {
   const t = useTranslations("testimonials");
   const tCommon = useTranslations("common");
+  const { data: response } = useTestimonials();
 
-  // Return nothing if no real testimonials provided
+  const apiTestimonials = response?.data?.testimonials ?? [];
+
+  // Map API testimonials to internal format
+  const testimonials: Testimonial[] = apiTestimonials.map((item) => ({
+    id: String(item.id),
+    name: item.author_name,
+    role: item.author_role ?? undefined,
+    avatar: item.avatar_url ?? undefined,
+    rating: item.rating,
+    text: item.content,
+    date: item.created_at,
+  }));
+
+  // Return nothing if no testimonials
   if (testimonials.length === 0) {
     return null;
   }
 
-  const averageRating = testimonials.reduce((sum, t) => sum + t.rating, 0) / testimonials.length;
+  const averageRating =
+    testimonials.reduce((sum, item) => sum + item.rating, 0) /
+    testimonials.length;
 
   return (
     <div className={cn("space-y-6", className)}>
+      {/* Section title and subtitle */}
+      <div className="text-center">
+        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+          {t("title")}
+        </h2>
+        <p className="mt-2 text-gray-600 dark:text-dark-400">
+          {t("subtitle")}
+        </p>
+      </div>
+
       {/* Header with Trustpilot-style rating */}
       {showTrustpilot && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white dark:bg-dark-800/50 border border-gray-200 dark:border-dark-700 rounded-xl">
@@ -64,7 +117,9 @@ export function Testimonials({
               </div>
             </div>
             <div>
-              <p className="font-semibold text-gray-900 dark:text-white">{t("excellent")}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">
+                {t("excellent")}
+              </p>
               <p className="text-sm text-gray-600 dark:text-dark-400">
                 {t("basedOn", { count: testimonials.length })}
               </p>
@@ -143,14 +198,18 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
             {testimonial.name.charAt(0)}
           </div>
           <div>
-            <p className="font-semibold text-gray-900 dark:text-white flex items-center gap-1">
+            <p className="font-semibold text-gray-900 dark:text-white">
               {testimonial.name}
-              {testimonial.verified && (
-                <span className="text-green-500 text-xs">✓</span>
-              )}
             </p>
+            {testimonial.role && (
+              <p className="text-xs text-gray-500 dark:text-dark-400">
+                {testimonial.role}
+              </p>
+            )}
             <p className="text-xs text-gray-500 dark:text-dark-400">
-              {new Date(testimonial.date).toLocaleDateString(locale === "fr" ? "fr-FR" : "en-US")}
+              {new Date(testimonial.date).toLocaleDateString(
+                locale === "fr" ? "fr-FR" : "en-US"
+              )}
             </p>
           </div>
         </div>
@@ -178,7 +237,7 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
 // Widget for homepage - requires real rating data
 export function TrustpilotWidget({
   className,
-  rating
+  rating,
 }: {
   className?: string;
   rating?: number;
@@ -213,7 +272,9 @@ export function TrustpilotWidget({
             />
           ))}
         </div>
-        <span className="text-sm font-bold text-gray-900 dark:text-white">{rating.toFixed(1)}</span>
+        <span className="text-sm font-bold text-gray-900 dark:text-white">
+          {rating.toFixed(1)}
+        </span>
       </div>
       <div className="h-4 w-px bg-gray-300 dark:bg-dark-600" />
       <span className="text-xs text-gray-600 dark:text-dark-400">

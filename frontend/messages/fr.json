@@ -996,11 +996,15 @@
     }
   },
   "testimonials": {
-    "title": "Avis Clients",
+    "title": "Ce que disent nos utilisateurs",
+    "subtitle": "Retours réels de notre communauté",
     "excellent": "Excellent",
     "basedOn": "Base sur {count} avis",
     "excellentOnTrustpilot": "Note Excellent sur Trustpilot",
-    "verifiedReview": "Avis verifie"
+    "verifiedReview": "Avis verifie",
+    "loadError": "Impossible de charger les avis",
+    "empty": "Aucun avis pour le moment",
+    "stars": "{count} etoiles"
   },
   "admin": {
     "title": "Administration",

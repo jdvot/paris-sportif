@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from typing import Any
 
+import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -35,11 +36,13 @@ from src.api.routes import (
     rag,
     stripe,
     sync,
+    testimonials,
     users,
     vector,
 )
 from src.core.config import settings
 from src.core.exceptions import ParisportifError
+from src.core.logging_config import generate_request_id, setup_logging
 from src.core.rate_limit import limiter
 from src.core.sentry import init_sentry
 from src.data.sources.football_data import (  # type: ignore[attr-defined]
@@ -199,6 +202,23 @@ async def auto_sync_and_verify() -> None:
         logger.error(f"[Scheduler] Auto sync failed: {e}")
 
 
+class RequestIdMiddleware(BaseHTTPMiddleware):
+    """Middleware that binds a unique request_id to structlog context vars."""
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        request_id = request.headers.get("X-Request-ID") or generate_request_id()
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(
+            request_id=request_id,
+            method=request.method,
+            path=request.url.path,
+        )
+        response: Response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        structlog.contextvars.clear_contextvars()
+        return response
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Middleware to add security headers to all responses."""
 
@@ -233,6 +253,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler."""
     global scheduler
+
+    # Configure structured logging BEFORE anything else
+    setup_logging(
+        json_output=settings.is_production,
+        log_level=settings.log_level,
+    )
 
     # Startup
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
@@ -537,6 +563,9 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Request ID Middleware (binds request_id to structured logs)
+app.add_middleware(RequestIdMiddleware)
+
 # Security Headers Middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
@@ -649,6 +678,11 @@ app.include_router(
     vector.router,
     prefix=f"{settings.api_v1_prefix}/vector",
     tags=["Vector Store"],
+)
+app.include_router(
+    testimonials.router,
+    prefix=f"{settings.api_v1_prefix}/testimonials",
+    tags=["Testimonials"],
 )
 
 
