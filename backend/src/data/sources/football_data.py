@@ -277,11 +277,10 @@ class FootballDataClient:
     def __init__(self, api_key: str | None = None):
         self.api_key = api_key or settings.football_data_api_key
         self.headers = {"X-Auth-Token": self.api_key} if self.api_key else {}
-        # Debug logging
         if self.api_key:
             key = self.api_key
             masked_key = key[:4] + "..." + key[-4:] if len(key) > 8 else "***"
-            logger.info(f"FootballDataClient initialized with API key: {masked_key}")
+            logger.debug(f"FootballDataClient initialized with API key: {masked_key}")
         else:
             logger.warning("FootballDataClient initialized WITHOUT API key!")
 

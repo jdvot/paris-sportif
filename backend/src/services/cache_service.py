@@ -147,7 +147,8 @@ async def calculate_upcoming_matches() -> dict[str, Any]:
 
     logger.info("Calculating upcoming matches...")
 
-    # Get matches for next 7 days from database
+    # Get matches for next 7 days from database.
+    # MatchService.get_scheduled already eager-loads team data.
     now = date.today()
     end_date = now + timedelta(days=7)
 
@@ -156,27 +157,21 @@ async def calculate_upcoming_matches() -> dict[str, Any]:
         date_to=end_date,
     )
 
-    # Enrich matches with team names via UoW
-    async with get_uow() as uow:
-        enriched_matches = []
-        for m in db_matches:
-            home_team = await uow.teams.get_by_id(m.get("home_team_id"))
-            away_team = await uow.teams.get_by_id(m.get("away_team_id"))
-
-            enriched_matches.append(
-                {
-                    "id": m.get("id"),
-                    "external_id": m.get("external_id"),
-                    "home_team": home_team.name if home_team else "Unknown",
-                    "away_team": away_team.name if away_team else "Unknown",
-                    "home_logo": home_team.logo_url if home_team else None,
-                    "away_logo": away_team.logo_url if away_team else None,
-                    "competition": "Unknown",  # Would need competition lookup
-                    "competition_code": None,
-                    "match_date": m.get("match_date"),
-                    "status": m.get("status"),
-                }
-            )
+    enriched_matches = [
+        {
+            "id": m.get("id"),
+            "external_id": m.get("external_id"),
+            "home_team": m.get("home_team", {}).get("name", "Unknown"),
+            "away_team": m.get("away_team", {}).get("name", "Unknown"),
+            "home_logo": m.get("home_team", {}).get("logo_url"),
+            "away_logo": m.get("away_team", {}).get("logo_url"),
+            "competition": m.get("competition_code", "Unknown"),
+            "competition_code": m.get("competition_code"),
+            "match_date": m.get("match_date"),
+            "status": m.get("status"),
+        }
+        for m in db_matches
+    ]
 
     return {
         "matches": enriched_matches,
