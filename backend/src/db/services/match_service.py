@@ -303,16 +303,22 @@ class MatchService:
 
     @staticmethod
     async def get_match_by_api_id(api_match_id: int) -> dict[str, Any] | None:
-        """Get a single match by football-data.org API match ID.
+        """Get a single match by internal DB ID or football-data.org API match ID.
+
+        Tries internal DB ID first, then falls back to external API ID lookup.
 
         Args:
-            api_match_id: The match ID from football-data.org API
+            api_match_id: The match ID (internal DB ID or football-data.org API ID)
 
         Returns:
             Match data dictionary or None if not found
         """
         async with get_uow() as uow:
-            match = await uow.matches.get_by_api_match_id(api_match_id)
+            # Try internal DB ID first (frontend uses these)
+            match = await uow.matches.get_with_teams(api_match_id)
+            # Fall back to external API ID (external_id LIKE '%_{id}')
+            if not match:
+                match = await uow.matches.get_by_api_match_id(api_match_id)
             if not match:
                 return None
 
