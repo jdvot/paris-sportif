@@ -19,14 +19,16 @@ def setup_logging(json_output: bool = True, log_level: str = "INFO") -> None:
         json_output: If True, output JSON (production). If False, pretty console (dev).
         log_level: Root log level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
     """
-    # Shared processors used by both structlog and stdlib logging
+    # Shared processors used by both structlog and stdlib logging.
+    # NOTE: filter_by_level is NOT included here because it requires a real
+    # structlog logger object, but foreign_pre_chain passes None for stdlib
+    # log records, causing "AttributeError: 'NoneType' ... 'disabled'".
+    # StackInfoRenderer is excluded to avoid verbose stack traces on every log.
     shared_processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
-        structlog.stdlib.filter_by_level,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
     ]
@@ -36,9 +38,11 @@ def setup_logging(json_output: bool = True, log_level: str = "INFO") -> None:
     else:
         renderer = structlog.dev.ConsoleRenderer()
 
-    # Configure structlog for direct structlog.get_logger() usage
+    # Configure structlog for direct structlog.get_logger() usage.
+    # filter_by_level is safe here because structlog passes a real logger.
     structlog.configure(
         processors=[
+            structlog.stdlib.filter_by_level,
             *shared_processors,
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
