@@ -6,6 +6,7 @@ Returns HTTP errors (429, 503) when data is unavailable rather than mock data.
 
 import json
 import logging
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, Literal
 
@@ -23,6 +24,7 @@ from src.data.sources.football_data import (
     MatchData,
     get_football_data_client,
 )
+from src.db.models import Match
 from src.db.services import MatchService, StandingService
 
 router = APIRouter()
@@ -898,6 +900,74 @@ async def get_head_to_head(
     )
 
 
+def _build_form_response(
+    db_matches: Sequence[Match],
+    team_id: int,
+    team_name: str,
+    source: str = "database",
+) -> TeamFormResponse:
+    """Build TeamFormResponse from DB Match objects."""
+    last_matches: list[TeamFormMatch] = []
+    form_string = ""
+    total_points = 0
+    goals_scored = 0
+    goals_conceded = 0
+    clean_sheets = 0
+
+    for m in db_matches:
+        is_home = m.home_team_id == team_id
+        opponent = (
+            (m.away_team.name if m.away_team else "Unknown")
+            if is_home
+            else (m.home_team.name if m.home_team else "Unknown")
+        )
+
+        h_score = m.home_score or 0
+        a_score = m.away_score or 0
+        team_score = h_score if is_home else a_score
+        opp_score = a_score if is_home else h_score
+
+        goals_scored += team_score
+        goals_conceded += opp_score
+
+        if opp_score == 0:
+            clean_sheets += 1
+
+        result: Literal["W", "D", "L"]
+        if team_score > opp_score:
+            result = "W"
+            total_points += 3
+        elif team_score < opp_score:
+            result = "L"
+        else:
+            result = "D"
+            total_points += 1
+
+        form_string += result
+        last_matches.append(
+            TeamFormMatch(
+                opponent=opponent,
+                result=result,
+                score=f"{team_score}-{opp_score}",
+                home_away="H" if is_home else "A",
+                date=m.match_date,
+            )
+        )
+
+    num = len(last_matches)
+    return TeamFormResponse(
+        team_id=team_id,
+        team_name=team_name,
+        last_matches=last_matches,
+        form_string=form_string,
+        points_last_5=total_points,
+        goals_scored_avg=round(goals_scored / num, 2) if num > 0 else 0.0,
+        goals_conceded_avg=round(goals_conceded / num, 2) if num > 0 else 0.0,
+        clean_sheets=clean_sheets,
+        data_source=DataSourceInfo(source=source),
+    )
+
+
 @router.get(
     "/teams/{team_id}/form",
     response_model=TeamFormResponse,
@@ -910,118 +980,38 @@ async def get_team_form(
     team_id: int,
     user: AuthenticatedUser,
     matches_count: int = Query(5, ge=3, le=10),
-    team_name: str | None = Query(None, description="Team name for API fallback"),
+    team_name: str | None = Query(None, description="Team name hint"),
 ) -> TeamFormResponse:
-    """Get recent form for a team."""
-    try:
-        # Get team info
-        client = get_football_data_client()
-        team_data = await client.get_team(team_id)
-        team_name = team_data.get("name", "Unknown")
+    """Get recent form for a team (DB only, no external API calls)."""
+    from src.db.repositories import get_uow
 
-        # Get recent finished matches
-        api_matches = await client.get_team_matches(
-            team_id=team_id,
-            status="FINISHED",
-            limit=matches_count,
-        )
+    async with get_uow() as uow:
+        db_matches = await uow.matches.get_team_recent_matches(team_id, limit=matches_count)
 
-        last_matches = []
-        form_string = ""
-        total_points = 0
-        goals_scored = 0
-        goals_conceded = 0
-        clean_sheets = 0
-
-        for api_match in api_matches:
-            is_home = api_match.homeTeam.id == team_id
-            opponent = api_match.awayTeam.name if is_home else api_match.homeTeam.name
-
-            home_score = 0
-            away_score = 0
-
-            if api_match.score and api_match.score.fullTime:
-                home_score = api_match.score.fullTime.home or 0
-                away_score = api_match.score.fullTime.away or 0
-
-            team_score = home_score if is_home else away_score
-            opp_score = away_score if is_home else home_score
-
-            goals_scored += team_score
-            goals_conceded += opp_score
-
-            if opp_score == 0:
-                clean_sheets += 1
-
-            # Determine result
-            result: Literal["W", "D", "L"]
-            if team_score > opp_score:
-                result = "W"
-                total_points += 3
-            elif team_score < opp_score:
-                result = "L"
-            else:
-                result = "D"
-                total_points += 1
-
-            form_string += result
-
-            last_matches.append(
-                TeamFormMatch(
-                    opponent=opponent,
-                    result=result,
-                    score=f"{team_score}-{opp_score}",
-                    home_away="H" if is_home else "A",
-                    date=datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00")),
-                )
+        if not db_matches:
+            return TeamFormResponse(
+                team_id=team_id,
+                team_name=team_name or "Unknown",
+                last_matches=[],
+                form_string="",
+                points_last_5=0,
+                goals_scored_avg=0.0,
+                goals_conceded_avg=0.0,
+                clean_sheets=0,
+                data_source=DataSourceInfo(source="database"),
             )
 
-        num_matches = len(last_matches)
+        # Resolve team name from DB match relationships
+        resolved_name = team_name or "Unknown"
+        for m in db_matches:
+            if m.home_team_id == team_id and m.home_team:
+                resolved_name = m.home_team.name
+                break
+            if m.away_team_id == team_id and m.away_team:
+                resolved_name = m.away_team.name
+                break
 
-        return TeamFormResponse(
-            team_id=team_id,
-            team_name=team_name,
-            last_matches=last_matches,
-            form_string=form_string,
-            points_last_5=total_points,
-            goals_scored_avg=round(goals_scored / num_matches, 2) if num_matches > 0 else 0.0,
-            goals_conceded_avg=round(goals_conceded / num_matches, 2) if num_matches > 0 else 0.0,
-            clean_sheets=clean_sheets,
-            data_source=DataSourceInfo(source="live_api"),
-        )
-
-    except RateLimitError as e:
-        logger.warning(f"External API rate limit for team form: {e}")
-        retry_after = e.details.get("retry_after", 60) if e.details else 60
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "message": "External API rate limit reached. Please retry later.",
-                "warning_code": "EXTERNAL_API_RATE_LIMIT",
-                "retry_after_seconds": retry_after,
-            },
-            headers={"Retry-After": str(retry_after)},
-        )
-
-    except FootballDataAPIError as e:
-        logger.error(f"Football Data API error for team form: {e}")
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "message": "External football data service unavailable. Please retry later.",
-                "warning_code": "EXTERNAL_API_ERROR",
-            },
-        )
-
-    except Exception as e:
-        logger.error(f"Unexpected error for team form {team_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Internal server error while fetching team form.",
-                "warning_code": "INTERNAL_ERROR",
-            },
-        )
+        return _build_form_response(db_matches, team_id, resolved_name, source="database")
 
 
 @router.get(
@@ -1048,208 +1038,88 @@ async def get_standings(
     - SA: Serie A
     - FL1: Ligue 1
     """
-    try:
-        # Validate competition code
-        if competition_code not in COMPETITION_NAMES:
-            valid_codes = ", ".join(COMPETITION_NAMES.keys())
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid competition: {competition_code}. Use: {valid_codes}",
-            )
-
-        # Try to get cached data first
-        try:
-            from src.services.cache_service import get_cached_data
-
-            cached = await get_cached_data(f"standings_{competition_code}")
-            if cached:
-                logger.debug(f"Returning cached standings for {competition_code}")
-                standings = [
-                    StandingTeamResponse(
-                        position=team.get("position", 0),
-                        team_id=team.get("team_id", 0),
-                        team_name=team.get("team_name", "Unknown"),
-                        team_logo_url=team.get("team_logo_url"),
-                        played=team.get("played", 0),
-                        won=team.get("won", 0),
-                        drawn=team.get("drawn", 0),
-                        lost=team.get("lost", 0),
-                        goals_for=team.get("goals_for", 0),
-                        goals_against=team.get("goals_against", 0),
-                        goal_difference=team.get("goal_difference", 0),
-                        points=team.get("points", 0),
-                    )
-                    for team in cached.get("standings", [])
-                ]
-                return StandingsResponse(
-                    competition_code=competition_code,
-                    competition_name=cached.get(
-                        "competition_name",
-                        COMPETITION_NAMES.get(competition_code, competition_code),
-                    ),
-                    standings=standings,
-                    last_updated=datetime.fromisoformat(
-                        cached.get("calculated_at", datetime.now().isoformat())
-                    ),
-                    data_source=DataSourceInfo(source="cache"),
-                )
-        except Exception as e:
-            logger.warning(f"Cache lookup failed for standings {competition_code}: {e}")
-
-        # Fetch standings from API
-        client = get_football_data_client()
-        api_standings = await client.get_standings(competition_code)
-
-        # Convert to our format
-        standings = []
-        for api_team in api_standings:
-            standings.append(
-                StandingTeamResponse(
-                    position=api_team.position,
-                    team_id=api_team.team.id,
-                    team_name=api_team.team.name,
-                    team_logo_url=api_team.team.crest,
-                    played=api_team.playedGames,
-                    won=api_team.won,
-                    drawn=api_team.draw,
-                    lost=api_team.lost,
-                    goals_for=api_team.goalsFor,
-                    goals_against=api_team.goalsAgainst,
-                    goal_difference=api_team.goalDifference,
-                    points=api_team.points,
-                )
-            )
-
-        return StandingsResponse(
-            competition_code=competition_code,
-            competition_name=COMPETITION_NAMES.get(competition_code, competition_code),
-            standings=standings,
-            last_updated=datetime.now(),
-            data_source=DataSourceInfo(source="live_api"),
-        )
-
-    except HTTPException:
-        # Re-raise HTTP exceptions
-        raise
-    except RateLimitError as e:
-        logger.warning(f"External API rate limit for standings {competition_code}: {e}")
-        retry_after = e.details.get("retry_after", 60) if e.details else 60
-
-        # Try database first using async service
-        try:
-            db_standings = await StandingService.get_standings(competition_code)
-            if db_standings:
-                logger.info(f"Found {len(db_standings)} standings in DB for {competition_code}")
-                standings = []
-                for db_team in db_standings:
-                    team_data = db_team.get("team", {})
-                    standings.append(
-                        StandingTeamResponse(
-                            position=db_team.get("position", 0),
-                            team_id=team_data.get("id", 0),
-                            team_name=team_data.get("name", "Unknown"),
-                            team_logo_url=team_data.get("crest"),
-                            played=db_team.get("playedGames", 0),
-                            won=db_team.get("won", 0),
-                            drawn=db_team.get("draw", 0),
-                            lost=db_team.get("lost", 0),
-                            goals_for=db_team.get("goalsFor", 0),
-                            goals_against=db_team.get("goalsAgainst", 0),
-                            goal_difference=db_team.get("goalDifference", 0),
-                            points=db_team.get("points", 0),
-                        )
-                    )
-
-                return StandingsResponse(
-                    competition_code=competition_code,
-                    competition_name=COMPETITION_NAMES.get(competition_code, competition_code),
-                    standings=standings,
-                    last_updated=datetime.now(),
-                    data_source=DataSourceInfo(
-                        source="database",
-                        is_fallback=True,
-                        warning=api_msg(
-                            "standings_cache_warning",
-                            detect_language_from_header(request.headers.get("Accept-Language", "")),
-                        ),
-                        warning_code="EXTERNAL_API_RATE_LIMIT",
-                        details=api_msg(
-                            "rate_limit_reached",
-                            detect_language_from_header(request.headers.get("Accept-Language", "")),
-                        ),
-                        retry_after_seconds=retry_after,
-                    ),
-                )
-        except Exception as db_error:
-            logger.warning(f"Database fallback failed for standings: {db_error}")
-
-    except (FootballDataAPIError, Exception) as e:
-        logger.warning(f"API error for standings {competition_code}: {e}, trying database...")
-
-        # Try database first using async service
-        try:
-            db_standings = await StandingService.get_standings(competition_code)
-            if db_standings:
-                logger.info(f"Found {len(db_standings)} standings in DB for {competition_code}")
-                standings = []
-                for db_team in db_standings:
-                    team_data = db_team.get("team", {})
-                    standings.append(
-                        StandingTeamResponse(
-                            position=db_team.get("position", 0),
-                            team_id=team_data.get("id", 0),
-                            team_name=team_data.get("name", "Unknown"),
-                            team_logo_url=team_data.get("crest"),
-                            played=db_team.get("playedGames", 0),
-                            won=db_team.get("won", 0),
-                            drawn=db_team.get("draw", 0),
-                            lost=db_team.get("lost", 0),
-                            goals_for=db_team.get("goalsFor", 0),
-                            goals_against=db_team.get("goalsAgainst", 0),
-                            goal_difference=db_team.get("goalDifference", 0),
-                            points=db_team.get("points", 0),
-                        )
-                    )
-
-                return StandingsResponse(
-                    competition_code=competition_code,
-                    competition_name=COMPETITION_NAMES.get(competition_code, competition_code),
-                    standings=standings,
-                    last_updated=datetime.now(),
-                    data_source=DataSourceInfo(
-                        source="database",
-                        is_fallback=True,
-                        warning=api_msg(
-                            "standings_cache_warning",
-                            detect_language_from_header(request.headers.get("Accept-Language", "")),
-                        ),
-                        warning_code="EXTERNAL_API_ERROR",
-                        details=api_msg(
-                            "error_detail",
-                            detect_language_from_header(request.headers.get("Accept-Language", "")),
-                            detail=str(e)[:80],
-                        ),
-                    ),
-                )
-        except Exception as db_error:
-            logger.warning(f"Database fallback failed for standings: {db_error}")
-
-        # If we reach here after RateLimitError, no data available
+    # Validate competition code
+    if competition_code not in COMPETITION_NAMES:
+        valid_codes = ", ".join(COMPETITION_NAMES.keys())
         raise HTTPException(
-            status_code=429,
-            detail={
-                "message": "External API rate limit reached and no cached data available.",
-                "warning_code": "EXTERNAL_API_RATE_LIMIT",
-                "retry_after_seconds": retry_after,
-            },
-            headers={"Retry-After": str(retry_after)},
+            status_code=400,
+            detail=f"Invalid competition: {competition_code}. Use: {valid_codes}",
         )
 
-    # If we reach here after other exceptions, raise 503
+    # 1. Try Redis cache first
+    try:
+        from src.services.cache_service import get_cached_data
+
+        cached = await get_cached_data(f"standings_{competition_code}")
+        if cached:
+            logger.debug("Returning cached standings for %s", competition_code)
+            standings = [
+                StandingTeamResponse(
+                    position=team.get("position", 0),
+                    team_id=team.get("team_id", 0),
+                    team_name=team.get("team_name", "Unknown"),
+                    team_logo_url=team.get("team_logo_url"),
+                    played=team.get("played", 0),
+                    won=team.get("won", 0),
+                    drawn=team.get("drawn", 0),
+                    lost=team.get("lost", 0),
+                    goals_for=team.get("goals_for", 0),
+                    goals_against=team.get("goals_against", 0),
+                    goal_difference=team.get("goal_difference", 0),
+                    points=team.get("points", 0),
+                )
+                for team in cached.get("standings", [])
+            ]
+            return StandingsResponse(
+                competition_code=competition_code,
+                competition_name=cached.get(
+                    "competition_name",
+                    COMPETITION_NAMES.get(competition_code, competition_code),
+                ),
+                standings=standings,
+                last_updated=datetime.fromisoformat(
+                    cached.get("calculated_at", datetime.now().isoformat())
+                ),
+                data_source=DataSourceInfo(source="cache"),
+            )
+    except Exception as e:
+        logger.debug("Cache miss for standings %s: %s", competition_code, e)
+
+    # 2. Fallback to database (no external API call)
+    try:
+        db_standings = await StandingService.get_standings(competition_code)
+        if db_standings:
+            standings = [
+                StandingTeamResponse(
+                    position=db_team.get("position", 0),
+                    team_id=db_team.get("team", {}).get("id", 0),
+                    team_name=db_team.get("team", {}).get("name", "Unknown"),
+                    team_logo_url=db_team.get("team", {}).get("crest"),
+                    played=db_team.get("playedGames", 0),
+                    won=db_team.get("won", 0),
+                    drawn=db_team.get("draw", 0),
+                    lost=db_team.get("lost", 0),
+                    goals_for=db_team.get("goalsFor", 0),
+                    goals_against=db_team.get("goalsAgainst", 0),
+                    goal_difference=db_team.get("goalDifference", 0),
+                    points=db_team.get("points", 0),
+                )
+                for db_team in db_standings
+            ]
+            return StandingsResponse(
+                competition_code=competition_code,
+                competition_name=COMPETITION_NAMES.get(competition_code, competition_code),
+                standings=standings,
+                last_updated=datetime.now(),
+                data_source=DataSourceInfo(source="database"),
+            )
+    except Exception as e:
+        logger.warning("DB standings lookup failed for %s: %s", competition_code, e)
+
     raise HTTPException(
-        status_code=503,
+        status_code=404,
         detail={
-            "message": "Standings data unavailable. External API and database both failed.",
-            "warning_code": "SERVICE_UNAVAILABLE",
+            "message": f"No standings data available for {competition_code}.",
+            "warning_code": "NO_DATA",
         },
     )

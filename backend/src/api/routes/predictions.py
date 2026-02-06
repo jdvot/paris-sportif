@@ -1574,26 +1574,13 @@ async def get_daily_picks(
                 logger.debug(f"Failed to cache daily picks in Redis: {e}")
             return response
 
-        # No cached predictions, fetch from API
-        # Only fetch matches for the specific target date
+        # No cached predictions, fetch matches from DB (no external API call)
         date_to = target_date
 
-        # Try to get scheduled matches from DB first (fallback)
         db_matches = await MatchService.get_scheduled(date_from=target_date, date_to=date_to)
-
-        # Fetch matches for date range from real API
-        client = get_football_data_client()
-        try:
-            api_matches = await client.get_matches(
-                date_from=target_date,
-                date_to=date_to,
-            )
-        except (RateLimitError, FootballDataAPIError) as e:
-            logger.warning(f"API failed, using {len(db_matches)} matches from DB: {e}")
-            # Convert DB matches to MatchData format
-            api_matches = []
-            for m in db_matches:
-                api_matches.append(MatchData(**m))
+        api_matches: list[MatchData] = []
+        for m in db_matches:
+            api_matches.append(MatchData(**m))
 
         # Include all matches for the day (scheduled, in-play, and finished)
         # This allows users to see predictions even for completed matches
@@ -2295,149 +2282,22 @@ async def get_prediction(
     except Exception as e:
         logger.warning(f"DB cache lookup failed for match {match_id}: {e}")
 
-    # 3. No cache, generate new prediction
-    try:
-        # Fetch real match from API
-        client = get_football_data_client()
-        api_match = await client.get_match(match_id)
-        # Always generate with full model details for DB storage
-        prediction = await _generate_prediction_from_api_match(
-            api_match, include_model_details=True, request=request
-        )
+    # 3. No cache - generate prediction from DB data (no external API call)
+    match_info = await _get_match_info_from_db(match_id)
+    if not match_info:
+        raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
 
-        # Extract model_details and llm_adjustments for DB storage
-        model_details_for_db = None
-        if prediction.model_contributions:
-            model_details_for_db = {
-                "poisson": (
-                    prediction.model_contributions.poisson.model_dump()
-                    if prediction.model_contributions.poisson
-                    else None
-                ),
-                "xgboost": (
-                    prediction.model_contributions.xgboost.model_dump()
-                    if prediction.model_contributions.xgboost
-                    else None
-                ),
-                "xg_model": (
-                    prediction.model_contributions.xg_model.model_dump()
-                    if prediction.model_contributions.xg_model
-                    else None
-                ),
-                "elo": (
-                    prediction.model_contributions.elo.model_dump()
-                    if prediction.model_contributions.elo
-                    else None
-                ),
-            }
-
-        llm_adjustments_for_db = None
-        if prediction.llm_adjustments:
-            llm_adjustments_for_db = prediction.llm_adjustments.model_dump()
-
-        # 4. Save to DB for permanent storage with ALL data
-        try:
-            await PredictionService.save_prediction_from_api(
-                {
-                    "match_id": prediction.match_id,
-                    "match_external_id": f"{api_match.competition.code}_{api_match.id}",
-                    "home_team": prediction.home_team,
-                    "away_team": prediction.away_team,
-                    "competition_code": api_match.competition.code,
-                    "match_date": api_match.utcDate,
-                    "home_win_prob": prediction.probabilities.home_win,
-                    "draw_prob": prediction.probabilities.draw,
-                    "away_win_prob": prediction.probabilities.away_win,
-                    "confidence": prediction.confidence,
-                    "recommendation": prediction.recommended_bet,
-                    "explanation": prediction.explanation,
-                    "key_factors": prediction.key_factors,
-                    "risk_factors": prediction.risk_factors,
-                    "value_score": prediction.value_score,
-                    "model_details": model_details_for_db,
-                    "llm_adjustments": llm_adjustments_for_db,
-                }
-            )
-            logger.info(f"Saved prediction to DB for match {match_id}")
-        except Exception as db_err:
-            logger.warning(f"Failed to save prediction to DB: {db_err}")
-
-        # If user didn't request model details, strip them from response
-        if not include_model_details:
-            prediction.model_contributions = None
-            prediction.llm_adjustments = None
-            prediction.multi_markets = None
-
-        # 5. Cache in Redis
-        try:
-            await _cache_prediction_to_redis(match_id, prediction.model_dump(mode="json"))
-        except Exception as e:
-            logger.debug(f"Failed to cache prediction {match_id} in Redis: {e}")
-
-        return prediction
-
-    except RateLimitError as e:
-        # On rate limit, try fallback instead of failing
-        retry_after = e.details.get("retry_after", 60) if e.details else 60
-        logger.warning(f"Rate limit hit for match {match_id}, using fallback prediction")
-        lang = _detect_language(request)
-        # Try to get real match info from DB
-        match_info = await _get_match_info_from_db(match_id)
-        return _generate_fallback_prediction(
-            match_id,
-            include_model_details,
-            fallback_reason=api_msg("rate_limit_reason", lang),
-            is_rate_limit=True,
-            retry_after=retry_after,
-            home_team=match_info.get("home_team") if match_info else None,
-            away_team=match_info.get("away_team") if match_info else None,
-            competition=match_info.get("competition") if match_info else None,
-            match_date=match_info.get("match_date") if match_info else None,
-            lang=lang,
-        )
-
-    except FootballDataAPIError as e:
-        error_msg = str(e).lower()
-
-        # If it's a real "not found" error, still return 404
-        if "not found" in error_msg:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Match {match_id} not found",
-            )
-
-        # For other API failures (502, timeout, etc), use fallback
-        logger.warning(f"API failed for match {match_id}: {e}. Using fallback prediction.")
-        lang = _detect_language(request)
-        # Try to get real match info from DB
-        match_info = await _get_match_info_from_db(match_id)
-        return _generate_fallback_prediction(
-            match_id,
-            include_model_details,
-            fallback_reason=api_msg("api_error_reason", lang, detail=str(e)[:50]),
-            home_team=match_info.get("home_team") if match_info else None,
-            away_team=match_info.get("away_team") if match_info else None,
-            competition=match_info.get("competition") if match_info else None,
-            match_date=match_info.get("match_date") if match_info else None,
-            lang=lang,
-        )
-
-    except Exception as e:
-        # Catch-all for any other errors, use fallback
-        logger.error(f"Unexpected error for match {match_id}: {e}. Using fallback prediction.")
-        lang = _detect_language(request)
-        # Try to get real match info from DB
-        match_info = await _get_match_info_from_db(match_id)
-        return _generate_fallback_prediction(
-            match_id,
-            include_model_details,
-            fallback_reason=api_msg("unexpected_error_reason", lang, detail=str(e)[:50]),
-            home_team=match_info.get("home_team") if match_info else None,
-            away_team=match_info.get("away_team") if match_info else None,
-            competition=match_info.get("competition") if match_info else None,
-            match_date=match_info.get("match_date") if match_info else None,
-            lang=lang,
-        )
+    lang = _detect_language(request)
+    return _generate_fallback_prediction(
+        match_id,
+        include_model_details,
+        fallback_reason="Prediction not yet generated. Please check back soon.",
+        home_team=match_info.get("home_team"),
+        away_team=match_info.get("away_team"),
+        competition=match_info.get("competition"),
+        match_date=match_info.get("match_date"),
+        lang=lang,
+    )
 
 
 class VerifyPredictionRequest(BaseModel):

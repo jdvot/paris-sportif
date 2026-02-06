@@ -12,11 +12,26 @@ from pydantic import BaseModel
 
 from src.auth import PREMIUM_RESPONSES, PremiumUser
 from src.data.data_enrichment import get_data_enrichment
-from src.data.sources.football_data import get_football_data_client
+from src.db.models import Match
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _match_to_api_dict(m: Match) -> dict[str, Any]:
+    """Convert a DB Match to a dict compatible with enrichment service."""
+    return {
+        "homeTeam": {"id": m.home_team_id, "name": m.home_team.name if m.home_team else "Unknown"},
+        "awayTeam": {"id": m.away_team_id, "name": m.away_team.name if m.away_team else "Unknown"},
+        "score": {
+            "fullTime": {"home": m.home_score or 0, "away": m.away_score or 0},
+            "halfTime": {"home": m.home_score_ht, "away": m.away_score_ht},
+        },
+        "utcDate": m.match_date.isoformat() if m.match_date else "",
+        "competition": {"code": m.competition_code},
+        "status": m.status,
+    }
 
 
 class FormData(BaseModel):
@@ -137,67 +152,60 @@ async def get_full_enrichment(
 
         # Get services
         enrichment_service = get_data_enrichment()
-        football_client = get_football_data_client()
 
-        # Fetch data from Football-Data.org
-        home_matches = []
-        away_matches = []
-        h2h_matches = []
-        standings_data = []
+        # Fetch data from DB instead of external API
+        from src.db.repositories import get_uow
+
+        home_matches: list[dict[str, Any]] = []
+        away_matches: list[dict[str, Any]] = []
+        h2h_matches: list[dict[str, Any]] = []
+        standings_data: list[dict[str, Any]] = []
 
         try:
-            # Get standings
-            standings_raw = await football_client.get_standings(competition)
-            standings_data = [s.model_dump() for s in standings_raw]
-        except Exception as e:
-            logger.warning(f"Could not fetch standings: {e}")
+            async with get_uow() as uow:
+                # Find teams by name
+                home_team_obj = await uow.teams.get_by_name(home_team)
+                away_team_obj = await uow.teams.get_by_name(away_team)
 
-        # Get recent matches for both teams (from last 30 days)
-        try:
-            from datetime import date
+                if home_team_obj:
+                    db_home = await uow.matches.get_team_recent_matches(home_team_obj.id, limit=10)
+                    for m in db_home:
+                        home_matches.append(_match_to_api_dict(m))
 
-            today = date.today()
-            date_from = today - timedelta(days=60)
+                if away_team_obj:
+                    db_away = await uow.matches.get_team_recent_matches(away_team_obj.id, limit=10)
+                    for m in db_away:
+                        away_matches.append(_match_to_api_dict(m))
 
-            all_matches = await football_client.get_matches(
-                competition=competition,
-                date_from=date_from,
-                date_to=today,
-                status="FINISHED",
-            )
+                # H2H
+                if home_team_obj and away_team_obj:
+                    from src.db.services import MatchService
 
-            # Filter matches for each team
-            for match in all_matches:
-                match_dict = match.model_dump()
-                home_name = match.homeTeam.name.lower()
-                away_name = match.awayTeam.name.lower()
+                    h2h_raw = await MatchService.get_head_to_head_from_db(
+                        home_team_obj.id, away_team_obj.id, limit=10
+                    )
+                    for h in h2h_raw:
+                        h2h_matches.append(h)
 
-                if home_team.lower() in home_name or home_name in home_team.lower():
-                    home_matches.append(match_dict)
-                elif home_team.lower() in away_name or away_name in home_team.lower():
-                    home_matches.append(match_dict)
+            # Standings from cache/DB
+            try:
+                from src.db.services import StandingService
 
-                if away_team.lower() in home_name or home_name in away_team.lower():
-                    away_matches.append(match_dict)
-                elif away_team.lower() in away_name or away_name in away_team.lower():
-                    away_matches.append(match_dict)
-
-                # Check for H2H
-                if (home_team.lower() in home_name or home_name in home_team.lower()) and (
-                    away_team.lower() in away_name or away_name in away_team.lower()
-                ):
-                    h2h_matches.append(match_dict)
-                elif (away_team.lower() in home_name or home_name in away_team.lower()) and (
-                    home_team.lower() in away_name or away_name in home_team.lower()
-                ):
-                    h2h_matches.append(match_dict)
+                db_standings = await StandingService.get_standings(competition)
+                if db_standings:
+                    standings_data = db_standings
+            except Exception as e:
+                logger.debug("Could not fetch standings from DB: %s", e)
 
             logger.info(
-                f"Found {len(home_matches)} home, {len(away_matches)} away, {len(h2h_matches)} H2H"
+                "Found %d home, %d away, %d H2H",
+                len(home_matches),
+                len(away_matches),
+                len(h2h_matches),
             )
 
         except Exception as e:
-            logger.warning(f"Could not fetch matches: {e}")
+            logger.warning("Could not fetch matches from DB: %s", e)
 
         # Get full enrichment
         enrichment = await enrichment_service.enrich_match_data(
@@ -286,88 +294,51 @@ async def get_h2h(
     away_team: str = Query(..., description="Away team name"),
     competition: str = Query("PL", description="Competition code"),
 ) -> dict[str, Any]:
-    """Get head-to-head history between two teams."""
+    """Get head-to-head history between two teams (from DB)."""
     try:
-        football_client = get_football_data_client()
-        from datetime import date
+        from src.db.repositories import get_uow
+        from src.db.services import MatchService
 
-        # Get matches from last 2 years
-        today = date.today()
-        date_from = today - timedelta(days=730)
+        h2h_data: list[dict[str, Any]] = []
 
-        all_matches = await football_client.get_matches(
-            competition=competition,
-            date_from=date_from,
-            date_to=today,
-            status="FINISHED",
-        )
+        async with get_uow() as uow:
+            home_team_obj = await uow.teams.get_by_name(home_team)
+            away_team_obj = await uow.teams.get_by_name(away_team)
 
-        # Filter H2H matches
-        h2h_matches = []
-        for match in all_matches:
-            home_name = match.homeTeam.name.lower()
-            away_name = match.awayTeam.name.lower()
+            if home_team_obj and away_team_obj:
+                h2h_data = await MatchService.get_head_to_head_from_db(
+                    home_team_obj.id, away_team_obj.id, limit=20
+                )
 
-            is_h2h = False
-            if (home_team.lower() in home_name or home_name in home_team.lower()) and (
-                away_team.lower() in away_name or away_name in away_team.lower()
-            ):
-                is_h2h = True
-            elif (away_team.lower() in home_name or home_name in away_team.lower()) and (
-                home_team.lower() in away_name or away_name in home_team.lower()
-            ):
-                is_h2h = True
-
-            if is_h2h:
-                h2h_matches.append(match.model_dump())
-
-        # Analyze
         enrichment_service = get_data_enrichment()
-        return enrichment_service._analyze_h2h(h2h_matches, home_team, away_team)
-
+        return enrichment_service._analyze_h2h(h2h_data, home_team, away_team)
     except Exception as e:
-        logger.error(f"H2H error: {e}")
+        logger.error("H2H error: %s", e)
         return {"error": str(e), "total_matches": 0}
 
 
 @router.get("/form/{team_name}", responses=PREMIUM_RESPONSES)
-async def get_team_form(
+async def get_team_form_enrichment(
     team_name: str,
     user: PremiumUser,
     competition: str = Query("PL", description="Competition code"),
 ) -> dict[str, Any]:
-    """Get recent form for a team."""
+    """Get recent form for a team (from DB)."""
     try:
-        football_client = get_football_data_client()
-        from datetime import date
+        from src.db.repositories import get_uow
 
-        today = date.today()
-        date_from = today - timedelta(days=60)
+        team_matches: list[dict[str, Any]] = []
 
-        all_matches = await football_client.get_matches(
-            competition=competition,
-            date_from=date_from,
-            date_to=today,
-            status="FINISHED",
-        )
+        async with get_uow() as uow:
+            team_obj = await uow.teams.get_by_name(team_name)
+            if team_obj:
+                db_matches = await uow.matches.get_team_recent_matches(team_obj.id, limit=10)
+                team_matches = [_match_to_api_dict(m) for m in db_matches]
 
-        # Filter matches for the team
-        team_matches = []
-        for match in all_matches:
-            home_name = match.homeTeam.name.lower()
-            away_name = match.awayTeam.name.lower()
-
-            if team_name.lower() in home_name or home_name in team_name.lower():
-                team_matches.append(match.model_dump())
-            elif team_name.lower() in away_name or away_name in team_name.lower():
-                team_matches.append(match.model_dump())
-
-        # Calculate form
         enrichment_service = get_data_enrichment()
         return enrichment_service.form_calculator.calculate_form(team_matches, team_name)
-
     except Exception as e:
-        logger.error(f"Form error: {e}")
+        logger.error("Form error: %s", e)
         return {"error": str(e)}
 
 
