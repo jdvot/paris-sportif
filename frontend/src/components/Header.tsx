@@ -10,6 +10,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { AuthButton } from "./AuthButton";
 import { Logo } from "./Logo";
+import { SearchBar } from "./SearchBar";
 import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
 
 const navItemsConfig = [
@@ -82,8 +83,9 @@ export function Header() {
             })}
           </nav>
 
-          {/* Status Badge, Theme Toggle, Language & Auth */}
+          {/* Search, Status Badge, Theme Toggle, Language & Auth */}
           <div className="flex items-center gap-2 sm:gap-3">
+            <SearchBar />
             <ThemeToggle />
             <LanguageSwitcher />
             <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-gray-100 dark:bg-dark-800 rounded-full flex-shrink-0">

@@ -34,6 +34,7 @@ from src.api.routes import (
     predictions,
     prompts,
     rag,
+    search,
     stripe,
     sync,
     testimonials,
@@ -683,6 +684,11 @@ app.include_router(
     testimonials.router,
     prefix=f"{settings.api_v1_prefix}/testimonials",
     tags=["Testimonials"],
+)
+app.include_router(
+    search.router,
+    prefix=f"{settings.api_v1_prefix}/search",
+    tags=["Search"],
 )
 
 

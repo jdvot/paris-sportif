@@ -5,6 +5,7 @@ import { UpcomingMatches } from "@/components/UpcomingMatches";
 import { NewsFeed } from "@/components/NewsFeed";
 import { LiveScoresSection } from "@/components/LiveScoresSection";
 import { MyClubSection } from "@/components/MyClubSection";
+import { TrustpilotWidget } from "@/components/TrustpilotWidget";
 import { Newspaper } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
@@ -27,6 +28,9 @@ export default function Home() {
         <p className="text-gray-600 dark:text-dark-300 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto px-4">
           {t("hero.subheadline")}
         </p>
+        <div className="mt-4 flex justify-center">
+          <TrustpilotWidget />
+        </div>
       </section>
 
       {/* Live Scores Section */}

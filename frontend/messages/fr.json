@@ -1006,6 +1006,12 @@
     "empty": "Aucun avis pour le moment",
     "stars": "{count} etoiles"
   },
+  "trustpilot": {
+    "title": "Approuve par les parieurs",
+    "ratedOn": "Note sur",
+    "reviewUs": "Laissez un avis sur Trustpilot",
+    "verifiedCompany": "Entreprise verifiee"
+  },
   "admin": {
     "title": "Administration",
     "accessDenied": "Acces refuse",
@@ -1128,6 +1134,14 @@
     "expectedGoalsTitle": "Buts attendus (xG)",
     "xgHome": "xG Domicile",
     "xgAway": "xG Exterieur"
+  },
+  "searchBar": {
+    "placeholder": "Rechercher equipes, matchs...",
+    "clear": "Effacer la recherche",
+    "searching": "Recherche en cours...",
+    "noResults": "Aucun resultat trouve",
+    "teams": "Equipes",
+    "matches": "Matchs"
   },
   "search": {
     "title": "Recherche Semantique",

@@ -1006,6 +1006,12 @@
     "empty": "No reviews yet",
     "stars": "{count} stars"
   },
+  "trustpilot": {
+    "title": "Trusted by bettors",
+    "ratedOn": "Rated on",
+    "reviewUs": "Review us on Trustpilot",
+    "verifiedCompany": "Verified company"
+  },
   "admin": {
     "title": "Administration",
     "accessDenied": "Access denied",
@@ -1128,6 +1134,14 @@
     "expectedGoalsTitle": "Expected Goals (xG)",
     "xgHome": "xG Home",
     "xgAway": "xG Away"
+  },
+  "searchBar": {
+    "placeholder": "Search teams, matches...",
+    "clear": "Clear search",
+    "searching": "Searching...",
+    "noResults": "No results found",
+    "teams": "Teams",
+    "matches": "Matches"
   },
   "search": {
     "title": "Semantic Search",
