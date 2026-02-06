@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from src.auth import AUTH_RESPONSES, AuthenticatedUser
@@ -109,11 +109,15 @@ async def add_favorite(user: AuthenticatedUser, favorite: FavoriteCreate) -> Fav
 
 
 @router.get("/favorites", response_model=FavoriteListResponse, responses=AUTH_RESPONSES)
-async def list_favorites(user: AuthenticatedUser) -> FavoriteListResponse:
+async def list_favorites(
+    user: AuthenticatedUser,
+    offset: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(default=50, le=100, description="Max items to return"),
+) -> FavoriteListResponse:
     """List user's favorite picks with match details."""
     user_id = user.get("sub", "")
 
-    favorites = await FavoriteService.list_favorites(user_id)
+    favorites = await FavoriteService.list_favorites(user_id, limit=limit, offset=offset)
     return FavoriteListResponse(
         favorites=[FavoriteResponse(**f) for f in favorites],
         total=len(favorites),

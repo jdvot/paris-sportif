@@ -273,10 +273,14 @@ class FavoriteService:
     """Service for user favorites operations."""
 
     @staticmethod
-    async def list_favorites(user_id: str) -> list[dict[str, Any]]:
+    async def list_favorites(
+        user_id: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
         """List user's favorites with match details."""
         async with get_uow() as uow:
-            favorites = await uow.user_favorites.get_by_user(user_id)
+            favorites = await uow.user_favorites.get_by_user(user_id, limit=limit, offset=offset)
 
             result = []
             for fav in favorites:

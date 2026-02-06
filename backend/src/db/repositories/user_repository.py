@@ -120,12 +120,19 @@ class UserFavoriteRepository(BaseRepository[UserFavorite]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(UserFavorite, session)
 
-    async def get_by_user(self, user_id: str) -> list[UserFavorite]:
-        """Get all favorites for a user."""
+    async def get_by_user(
+        self,
+        user_id: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[UserFavorite]:
+        """Get favorites for a user with pagination."""
         stmt = (
             select(UserFavorite)
             .where(UserFavorite.user_id == user_id)
             .order_by(UserFavorite.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
