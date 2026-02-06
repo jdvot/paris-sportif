@@ -320,7 +320,7 @@ class DataPrefillService:
         from src.db.services.prediction_service import PredictionService
 
         async with get_async_session() as session:
-            # Get upcoming matches without predictions
+            # Get upcoming matches without predictions OR with stale predictions
             result = await session.execute(
                 text(
                     """
@@ -334,14 +334,18 @@ class DataPrefillService:
                 WHERE m.status IN ('SCHEDULED', 'TIMED')
                     AND m.match_date > NOW()
                     AND m.match_date < NOW() + INTERVAL '14 days'
-                    AND p.id IS NULL
+                    AND (
+                        p.id IS NULL
+                        OR p.value_score IS NULL
+                        OR p.key_factors IS NULL
+                    )
                 ORDER BY m.match_date
             """
                 )
             )
             upcoming = result.fetchall()
 
-            logger.info(f"Found {len(upcoming)} upcoming matches without predictions")
+            logger.info(f"Found {len(upcoming)} upcoming matches needing predictions")
 
             generated = 0
             for match in upcoming:
@@ -395,34 +399,62 @@ class DataPrefillService:
                     key_factors: list[str] = []
                     risk_factors: list[str] = []
 
-                    # ELO-based insight
-                    if abs(elo_diff) > 100:
+                    # ELO-based insight (always add ELO comparison)
+                    if abs(elo_diff) > 50:
                         stronger = match.home_team if elo_diff > 0 else match.away_team
                         explanation_parts.append(
-                            f"{stronger} has a significant ELO advantage "
+                            f"{stronger} has an ELO advantage "
                             f"({home_elo:.0f} vs {away_elo:.0f})"
                         )
-                        key_factors.append(f"ELO advantage: {abs(elo_diff):.0f} points")
+                        key_factors.append(
+                            f"ELO: {match.home_team} {home_elo:.0f} "
+                            f"vs {match.away_team} {away_elo:.0f}"
+                        )
+                    else:
+                        key_factors.append(
+                            f"Similar ELO ratings ({home_elo:.0f} vs {away_elo:.0f})"
+                        )
 
-                    # Form insight
+                    # Home advantage
+                    key_factors.append(f"Home advantage for {match.home_team}")
+
+                    # Form insight (lower thresholds)
                     home_form = float(home.form_score or 0.5)
                     away_form = float(away.form_score or 0.5)
-                    if home_form > 0.65:
-                        key_factors.append(f"{match.home_team} in strong form ({home_form:.0%})")
-                    elif home_form < 0.35:
+                    if home_form > 0.55:
+                        key_factors.append(f"{match.home_team} in good form ({home_form:.0%})")
+                    elif home_form < 0.4:
                         risk_factors.append(f"{match.home_team} in poor form ({home_form:.0%})")
-                    if away_form > 0.65:
-                        key_factors.append(f"{match.away_team} in strong form ({away_form:.0%})")
-                    elif away_form < 0.35:
+                    if away_form > 0.55:
+                        key_factors.append(f"{match.away_team} in good form ({away_form:.0%})")
+                    elif away_form < 0.4:
                         risk_factors.append(f"{match.away_team} in poor form ({away_form:.0%})")
+
+                    # Goal averages
+                    home_attack = float(home.avg_goals_scored_home or 1.3)
+                    away_attack = float(away.avg_goals_scored_away or 1.0)
+                    if home_attack > 1.8:
+                        key_factors.append(
+                            f"{match.home_team} strong attack ({home_attack:.1f} goals/game)"
+                        )
+                    if away_attack > 1.5:
+                        key_factors.append(
+                            f"{match.away_team} strong away attack "
+                            f"({away_attack:.1f} goals/game)"
+                        )
 
                     # Rest days / congestion
                     home_rest = float(home.rest_days or 3)
                     away_rest = float(away.rest_days or 3)
-                    if home_rest <= 2 or away_rest <= 2:
+                    if home_rest <= 3 or away_rest <= 3:
                         tired = match.home_team if home_rest < away_rest else match.away_team
                         min_rest = min(home_rest, away_rest)
-                        risk_factors.append(f"{tired} has limited rest ({min_rest:.0f} days)")
+                        risk_factors.append(f"{tired} limited rest ({min_rest:.0f} days)")
+                    home_cong = float(home.fixture_congestion or 0)
+                    away_cong = float(away.fixture_congestion or 0)
+                    if home_cong > 0.6 or away_cong > 0.6:
+                        busy = match.home_team if home_cong > away_cong else match.away_team
+                        risk_factors.append(f"{busy} fixture congestion")
 
                     # Probability-based explanation
                     max_prob = max(pred.home_win_prob, pred.draw_prob, pred.away_win_prob)
@@ -443,6 +475,11 @@ class DataPrefillService:
 
                     explanation = ". ".join(explanation_parts) + "." if explanation_parts else ""
 
+                    # Calculate value_score from confidence
+                    confidence_val = float(pred.confidence)
+                    base_value = max_prob * 0.5 + confidence_val * 0.5
+                    value_score = round(base_value + (confidence_val * 0.03), 4)
+
                     # Save prediction
                     await PredictionService.save_prediction_from_api(
                         {
@@ -456,6 +493,7 @@ class DataPrefillService:
                             "draw_prob": pred.draw_prob,
                             "away_win_prob": pred.away_win_prob,
                             "confidence": pred.confidence,
+                            "value_score": value_score,
                             "recommendation": pred.recommended_bet,
                             "explanation": explanation,
                             "key_factors": key_factors,

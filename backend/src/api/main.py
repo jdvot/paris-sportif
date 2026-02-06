@@ -357,10 +357,12 @@ async def _startup_full_prefill() -> None:
             )
             await log_sync_operation("historical_sync", "running", 0, triggered_by="startup")
             await _fetch_historical_season()
+            await log_sync_operation("historical_sync", "success", 0, triggered_by="startup")
         else:
             logger.info(f"[Startup] {match_count} matches in DB, running normal sync...")
             await log_sync_operation("auto_sync", "running", 0, triggered_by="startup")
             await auto_sync_and_verify()
+            await log_sync_operation("auto_sync", "success", 0, triggered_by="startup")
 
         # Now run full data prefill (team data, ELO, predictions, cache, news)
         logger.info("[Startup] Running data prefill...")
