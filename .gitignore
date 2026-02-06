@@ -76,3 +76,10 @@ secrets/
 /frontend/playwright-report/
 /frontend/blob-report/
 /frontend/playwright/.cache/
+
+# Mobile (Expo)
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/ios/
+mobile/android/
