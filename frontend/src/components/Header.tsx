@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Goal, BarChart3, Calendar, Trophy, Wallet, Target } from "lucide-react";
+import { Goal, BarChart3, Calendar, Trophy, Wallet, Target, CircleDot, Dribbble } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
@@ -20,6 +20,8 @@ const navItemsConfig = [
   { href: "/calibration", labelKey: "calibration", icon: Target },
   { href: "/matches", labelKey: "matches", icon: Calendar },
   { href: "/standings", labelKey: "standings", icon: Trophy },
+  { href: "/tennis", labelKey: "tennis", icon: CircleDot },
+  { href: "/basketball", labelKey: "basketball", icon: Dribbble },
 ];
 
 export function Header() {

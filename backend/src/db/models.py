@@ -681,3 +681,225 @@ class UserPreferences(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+
+# ============================================================================
+# Tennis Models
+# ============================================================================
+
+
+class TennisPlayer(Base):
+    """Tennis player model."""
+
+    __tablename__ = "tennis_players"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    external_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    country: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    photo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Rankings
+    atp_ranking: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    wta_ranking: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    circuit: Mapped[str] = mapped_column(String(10), default="ATP")  # ATP, WTA
+
+    # ELO ratings by surface
+    elo_hard: Mapped[Decimal] = mapped_column(Numeric(6, 1), default=1500.0)
+    elo_clay: Mapped[Decimal] = mapped_column(Numeric(6, 1), default=1500.0)
+    elo_grass: Mapped[Decimal] = mapped_column(Numeric(6, 1), default=1500.0)
+    elo_indoor: Mapped[Decimal] = mapped_column(Numeric(6, 1), default=1500.0)
+
+    # Stats cache
+    win_rate_ytd: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    matches_played_ytd: Mapped[int] = mapped_column(Integer, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class TennisTournament(Base):
+    """Tennis tournament model."""
+
+    __tablename__ = "tennis_tournaments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    external_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    category: Mapped[str] = mapped_column(
+        String(30), nullable=False
+    )  # grand_slam, masters_1000, atp_500, atp_250, wta_1000, wta_500
+    surface: Mapped[str] = mapped_column(String(20), nullable=False)  # hard, clay, grass, indoor
+    country: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    circuit: Mapped[str] = mapped_column(String(10), default="ATP")  # ATP, WTA
+
+    start_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    end_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+
+class TennisMatch(Base):
+    """Tennis match model."""
+
+    __tablename__ = "tennis_matches"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    external_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+
+    player1_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("tennis_players.id"), nullable=False
+    )
+    player2_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("tennis_players.id"), nullable=False
+    )
+    tournament_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("tennis_tournaments.id"), nullable=False
+    )
+
+    round: Mapped[str | None] = mapped_column(
+        String(30), nullable=True
+    )  # R128, R64, R32, R16, QF, SF, F
+    match_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    surface: Mapped[str] = mapped_column(String(20), nullable=False)  # hard, clay, grass, indoor
+
+    status: Mapped[str] = mapped_column(String(20), default="scheduled")
+
+    # Score
+    winner_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    score: Mapped[str | None] = mapped_column(String(50), nullable=True)  # "6-3 7-5" format
+    sets_player1: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sets_player2: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Odds
+    odds_player1: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    odds_player2: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+
+    # Prediction (inline for simplicity)
+    pred_player1_prob: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    pred_player2_prob: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    pred_confidence: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    pred_explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+    # Relationships
+    player1: Mapped["TennisPlayer"] = relationship("TennisPlayer", foreign_keys=[player1_id])
+    player2: Mapped["TennisPlayer"] = relationship("TennisPlayer", foreign_keys=[player2_id])
+    tournament: Mapped["TennisTournament"] = relationship("TennisTournament")
+
+    __table_args__ = (
+        Index("ix_tennis_matches_date_status", "match_date", "status"),
+        Index("ix_tennis_matches_tournament", "tournament_id", "match_date"),
+    )
+
+
+# ============================================================================
+# Basketball Models
+# ============================================================================
+
+
+class BasketballTeam(Base):
+    """Basketball team model."""
+
+    __tablename__ = "basketball_teams"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    external_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    short_name: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    logo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    league: Mapped[str] = mapped_column(String(20), default="NBA")  # NBA, EUROLEAGUE
+    conference: Mapped[str | None] = mapped_column(String(20), nullable=True)  # East, West (NBA)
+    division: Mapped[str | None] = mapped_column(String(30), nullable=True)
+
+    # Ratings
+    elo_rating: Mapped[Decimal] = mapped_column(Numeric(6, 1), default=1500.0)
+    offensive_rating: Mapped[Decimal | None] = mapped_column(Numeric(5, 1), nullable=True)
+    defensive_rating: Mapped[Decimal | None] = mapped_column(Numeric(5, 1), nullable=True)
+    pace: Mapped[Decimal | None] = mapped_column(Numeric(5, 1), nullable=True)
+
+    # Season stats cache
+    wins: Mapped[int] = mapped_column(Integer, default=0)
+    losses: Mapped[int] = mapped_column(Integer, default=0)
+    win_rate_ytd: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    avg_points_scored: Mapped[Decimal | None] = mapped_column(Numeric(5, 1), nullable=True)
+    avg_points_allowed: Mapped[Decimal | None] = mapped_column(Numeric(5, 1), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class BasketballMatch(Base):
+    """Basketball match/game model."""
+
+    __tablename__ = "basketball_matches"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    external_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+
+    home_team_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("basketball_teams.id"), nullable=False
+    )
+    away_team_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("basketball_teams.id"), nullable=False
+    )
+    league: Mapped[str] = mapped_column(String(20), nullable=False)  # NBA, EUROLEAGUE
+    season: Mapped[str | None] = mapped_column(String(20), nullable=True)  # 2025-26
+
+    match_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(20), default="scheduled")
+
+    # Scores
+    home_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    away_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    home_q1: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    away_q1: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    home_q2: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    away_q2: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    home_q3: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    away_q3: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    home_q4: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    away_q4: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    home_ot: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    away_ot: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Odds
+    odds_home: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    odds_away: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    spread: Mapped[Decimal | None] = mapped_column(Numeric(5, 1), nullable=True)  # Point spread
+    over_under: Mapped[Decimal | None] = mapped_column(
+        Numeric(5, 1), nullable=True
+    )  # Total points line
+
+    # Back-to-back flags
+    is_back_to_back_home: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_back_to_back_away: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Prediction (inline)
+    pred_home_prob: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    pred_away_prob: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    pred_confidence: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    pred_explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+    # Relationships
+    home_team: Mapped["BasketballTeam"] = relationship(
+        "BasketballTeam", foreign_keys=[home_team_id]
+    )
+    away_team: Mapped["BasketballTeam"] = relationship(
+        "BasketballTeam", foreign_keys=[away_team_id]
+    )
+
+    __table_args__ = (
+        Index("ix_basketball_matches_date_status", "match_date", "status"),
+        Index("ix_basketball_matches_league", "league", "match_date"),
+    )

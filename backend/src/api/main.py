@@ -22,6 +22,7 @@ from starlette.responses import Response
 
 from src.api.routes import (
     admin,
+    basketball,
     bets,
     dashboard,
     debug,
@@ -37,6 +38,7 @@ from src.api.routes import (
     search,
     stripe,
     sync,
+    tennis,
     testimonials,
     users,
     vector,
@@ -689,6 +691,16 @@ app.include_router(
     search.router,
     prefix=f"{settings.api_v1_prefix}/search",
     tags=["Search"],
+)
+app.include_router(
+    tennis.router,
+    prefix=f"{settings.api_v1_prefix}/tennis",
+    tags=["Tennis"],
+)
+app.include_router(
+    basketball.router,
+    prefix=f"{settings.api_v1_prefix}/basketball",
+    tags=["Basketball"],
 )
 
 

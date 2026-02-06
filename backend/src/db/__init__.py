@@ -17,6 +17,8 @@ Usage:
 from src.db.database import async_session_factory, get_db, get_db_context, get_session, init_db
 from src.db.models import (
     Base,
+    BasketballMatch,
+    BasketballTeam,
     CachedData,
     Competition,
     Match,
@@ -29,6 +31,9 @@ from src.db.models import (
     Standing,
     SyncLog,
     Team,
+    TennisMatch,
+    TennisPlayer,
+    TennisTournament,
     Testimonial,
     UserBankroll,
     UserBet,
@@ -58,6 +63,8 @@ __all__ = [
     # Base
     "Base",
     # Models
+    "BasketballMatch",
+    "BasketballTeam",
     "CachedData",
     "Competition",
     "Match",
@@ -70,6 +77,9 @@ __all__ = [
     "Standing",
     "SyncLog",
     "Team",
+    "TennisMatch",
+    "TennisPlayer",
+    "TennisTournament",
     "Testimonial",
     "UserBankroll",
     "UserBet",
