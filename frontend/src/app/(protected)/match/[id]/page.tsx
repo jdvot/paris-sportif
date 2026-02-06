@@ -46,13 +46,36 @@ import { fr, enUS } from "date-fns/locale";
 import dynamic from "next/dynamic";
 import type { BookmakerOdds } from "@/components/BookmakerOddsComparison";
 
+// Shared loading skeleton for lazy-loaded chart/heavy components
+const ChartSkeleton = () => (
+  <div className="animate-pulse bg-slate-200 dark:bg-slate-700/50 rounded-xl h-[300px] w-full" />
+);
+
 // Lazy-load heavy components to reduce initial bundle size
-const PredictionCharts = dynamic(() => import("@/components/PredictionCharts").then(m => ({ default: m.PredictionCharts })), { ssr: false });
-const MultiMarkets = dynamic(() => import("@/components/MultiMarkets").then(m => ({ default: m.MultiMarkets })), { ssr: false });
-const BookmakerOddsComparison = dynamic(() => import("@/components/BookmakerOddsComparison").then(m => ({ default: m.BookmakerOddsComparison })), { ssr: false });
-const NewsFeed = dynamic(() => import("@/components/NewsFeed").then(m => ({ default: m.NewsFeed })), { ssr: false });
-const KellySuggestion = dynamic(() => import("@/components/KellySuggestion").then(m => ({ default: m.KellySuggestion })), { ssr: false });
-const MatchContextSummary = dynamic(() => import("@/components/MatchContextSummary").then(m => ({ default: m.MatchContextSummary })), { ssr: false });
+const PredictionCharts = dynamic(
+  () => import("@/components/PredictionCharts").then(m => ({ default: m.PredictionCharts })),
+  { ssr: false, loading: ChartSkeleton }
+);
+const MultiMarkets = dynamic(
+  () => import("@/components/MultiMarkets").then(m => ({ default: m.MultiMarkets })),
+  { ssr: false }
+);
+const BookmakerOddsComparison = dynamic(
+  () => import("@/components/BookmakerOddsComparison").then(m => ({ default: m.BookmakerOddsComparison })),
+  { ssr: false }
+);
+const NewsFeed = dynamic(
+  () => import("@/components/NewsFeed").then(m => ({ default: m.NewsFeed })),
+  { ssr: false }
+);
+const KellySuggestion = dynamic(
+  () => import("@/components/KellySuggestion").then(m => ({ default: m.KellySuggestion })),
+  { ssr: false }
+);
+const MatchContextSummary = dynamic(
+  () => import("@/components/MatchContextSummary").then(m => ({ default: m.MatchContextSummary })),
+  { ssr: false }
+);
 
 // Helper to get team name from TeamInfo | string
 const getTeamName = (team: MatchResponse["home_team"] | string): string => {

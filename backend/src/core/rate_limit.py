@@ -1,10 +1,13 @@
 """Rate limiting configuration for API protection."""
 
+import logging
 import os
 import re
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+
+logger = logging.getLogger(__name__)
 
 
 def parse_redis_url(raw_url: str) -> str:
@@ -34,7 +37,18 @@ def parse_redis_url(raw_url: str) -> str:
 # Get Redis URL from environment for production, fallback to memory for dev
 RAW_REDIS_URL = os.getenv("REDIS_URL", "")
 REDIS_URL = parse_redis_url(RAW_REDIS_URL)
+APP_ENV = os.getenv("APP_ENV", "development")
 STORAGE_URI = REDIS_URL if REDIS_URL else "memory://"
+
+# In production, warn critically if Redis is not configured.
+# We don't block startup because Upstash may have brief outages,
+# but rate limiting without Redis means each worker has its own counter.
+if APP_ENV == "production" and STORAGE_URI == "memory://":
+    logger.critical(
+        "REDIS_URL is not set in production! "
+        "Rate limiting will use in-memory storage (per-worker, not shared). "
+        "Set REDIS_URL to an Upstash or Redis instance for proper rate limiting."
+    )
 
 # Create limiter instance with IP-based rate limiting
 limiter = Limiter(

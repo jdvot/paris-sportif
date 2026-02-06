@@ -29,7 +29,13 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-const DashboardChart = dynamic(() => import("@/components/DashboardChart").then(m => ({ default: m.DashboardChart })), { ssr: false });
+const DashboardChartSkeleton = () => (
+  <div className="animate-pulse bg-muted/50 rounded-lg h-full w-full" />
+);
+const DashboardChart = dynamic(
+  () => import("@/components/DashboardChart").then(m => ({ default: m.DashboardChart })),
+  { ssr: false, loading: DashboardChartSkeleton }
+);
 import { useGetPredictionStats } from "@/lib/api/endpoints/predictions/predictions";
 import type { PredictionStatsResponse } from "@/lib/api/models";
 import { getCompetitionName } from "@/lib/constants";
