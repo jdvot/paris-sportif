@@ -903,6 +903,24 @@ async def _generate_prediction_from_api_match(
             away_rest = fatigue_data.away_team.rest_days_score
             away_cong = fatigue_data.away_team.fixture_congestion_score
 
+        # Hybrid form: adjust raw form_score with RAG sentiment context (±10%)
+        home_form_input = team_stats["home_form"]
+        away_form_input = team_stats["away_form"]
+        if rag_context:
+            _form_adj_map = {"positive": 0.10, "neutral": 0.0, "negative": -0.10}
+            home_ctx = rag_context.get("home_context", {})
+            away_ctx = rag_context.get("away_context", {})
+            h_adj = _form_adj_map.get(str(home_ctx.get("sentiment", "neutral")).lower(), 0.0)
+            a_adj = _form_adj_map.get(str(away_ctx.get("sentiment", "neutral")).lower(), 0.0)
+            if h_adj != 0.0 or a_adj != 0.0:
+                home_form_input = max(0.0, min(100.0, round(home_form_input * (1 + h_adj), 1)))
+                away_form_input = max(0.0, min(100.0, round(away_form_input * (1 + a_adj), 1)))
+                logger.info(
+                    f"Hybrid form {home_team} vs {away_team}: "
+                    f"home={team_stats['home_form']:.1f}→{home_form_input:.1f} ({h_adj:+.0%}), "
+                    f"away={team_stats['away_form']:.1f}→{away_form_input:.1f} ({a_adj:+.0%})"
+                )
+
         ensemble_result = advanced_ensemble_predictor.predict(
             home_attack=team_stats["home_attack"],
             home_defense=team_stats["home_defense"],
@@ -912,8 +930,8 @@ async def _generate_prediction_from_api_match(
             away_elo=team_stats["away_elo"],
             home_team_id=team_stats["home_team_id"],
             away_team_id=team_stats["away_team_id"],
-            home_form_score=team_stats["home_form"],
-            away_form_score=team_stats["away_form"],
+            home_form_score=home_form_input,
+            away_form_score=away_form_input,
             # Pass fatigue data for ML models with extended features
             home_rest_days=home_rest,
             home_congestion=home_cong,
