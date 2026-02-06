@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from datetime import datetime
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,7 +70,7 @@ class SyncLogRepository(BaseRepository[SyncLog]):
             .limit(1)
         )
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(SyncLog | None, result.scalar_one_or_none())
 
     async def get_recent_syncs(
         self,
@@ -83,7 +84,7 @@ class SyncLogRepository(BaseRepository[SyncLog]):
             stmt = stmt.where(SyncLog.sync_type == sync_type)
         stmt = stmt.order_by(SyncLog.started_at.desc()).limit(limit)
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return cast(Sequence[SyncLog], result.scalars().all())
 
     async def get_running_syncs(self) -> Sequence[SyncLog]:
         """Get currently running sync operations."""
@@ -91,7 +92,7 @@ class SyncLogRepository(BaseRepository[SyncLog]):
             select(SyncLog).where(SyncLog.status == "running").order_by(SyncLog.started_at.desc())
         )
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return cast(Sequence[SyncLog], result.scalars().all())
 
     async def is_sync_running(self, sync_type: str) -> bool:
         """Check if a sync of the given type is currently running."""
@@ -103,7 +104,7 @@ class SyncLogRepository(BaseRepository[SyncLog]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none() is not None
 
-    async def get_sync_stats(self, sync_type: str, *, days: int = 7) -> dict:
+    async def get_sync_stats(self, sync_type: str, *, days: int = 7) -> dict[str, Any]:
         """Get sync statistics for a type over recent days."""
         from datetime import timedelta
 

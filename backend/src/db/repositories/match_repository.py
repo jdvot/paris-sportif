@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from datetime import date, datetime
+from typing import Any, cast
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +34,7 @@ class MatchRepository(BaseRepository[Match]):
             .where(Match.external_id.like(f"%_{api_match_id}"))
         )
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(Match | None, result.scalar_one_or_none())
 
     async def get_with_teams(self, match_id: int) -> Match | None:
         """Get match with home and away teams loaded."""
@@ -43,7 +44,7 @@ class MatchRepository(BaseRepository[Match]):
             .where(Match.id == match_id)
         )
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(Match | None, result.scalar_one_or_none())
 
     async def get_with_prediction(self, match_id: int) -> Match | None:
         """Get match with prediction loaded."""
@@ -57,7 +58,7 @@ class MatchRepository(BaseRepository[Match]):
             .where(Match.id == match_id)
         )
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(Match | None, result.scalar_one_or_none())
 
     async def get_by_date_range(
         self,
@@ -84,7 +85,7 @@ class MatchRepository(BaseRepository[Match]):
             stmt = stmt.where(Match.status == status)
         stmt = stmt.order_by(Match.match_date.asc())
         result = await self.session.execute(stmt)
-        return result.scalars().unique().all()
+        return cast(Sequence[Match], result.scalars().unique().all())
 
     async def get_scheduled(
         self,
@@ -107,7 +108,7 @@ class MatchRepository(BaseRepository[Match]):
             stmt = stmt.where(Match.competition_code == competition_code)
         stmt = stmt.order_by(Match.match_date.asc())
         result = await self.session.execute(stmt)
-        return result.scalars().unique().all()
+        return cast(Sequence[Match], result.scalars().unique().all())
 
     async def get_finished_unverified(self) -> Sequence[Match]:
         """Get finished matches that have predictions but not verified yet."""
@@ -131,7 +132,7 @@ class MatchRepository(BaseRepository[Match]):
             .options(joinedload(Match.prediction))
         )
         result = await self.session.execute(stmt)
-        return result.scalars().unique().all()
+        return cast(Sequence[Match], result.scalars().unique().all())
 
     async def get_by_competition(
         self,
@@ -146,7 +147,7 @@ class MatchRepository(BaseRepository[Match]):
             stmt = stmt.where(Match.status == status)
         stmt = stmt.order_by(Match.match_date.desc()).limit(limit)
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return cast(Sequence[Match], result.scalars().all())
 
     async def get_head_to_head(
         self,
@@ -168,7 +169,7 @@ class MatchRepository(BaseRepository[Match]):
             .limit(limit)
         )
         result = await self.session.execute(stmt)
-        return result.scalars().unique().all()
+        return cast(Sequence[Match], result.scalars().unique().all())
 
     async def get_team_recent_matches(
         self,
@@ -192,7 +193,7 @@ class MatchRepository(BaseRepository[Match]):
             stmt = stmt.where((Match.home_team_id == team_id) | (Match.away_team_id == team_id))
         stmt = stmt.order_by(Match.match_date.desc()).limit(limit)
         result = await self.session.execute(stmt)
-        return result.scalars().unique().all()
+        return cast(Sequence[Match], result.scalars().unique().all())
 
     async def update_result(
         self,
@@ -213,7 +214,7 @@ class MatchRepository(BaseRepository[Match]):
             status="FINISHED",
         )
 
-    async def bulk_upsert(self, matches_data: list[dict]) -> int:
+    async def bulk_upsert(self, matches_data: list[dict[str, Any]]) -> int:
         """Bulk upsert matches from API data."""
         count = 0
         for data in matches_data:

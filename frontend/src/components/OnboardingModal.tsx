@@ -105,7 +105,7 @@ export function OnboardingModal() {
     }
   };
 
-  const step = ONBOARDING_STEPS[currentStep];
+  const step = ONBOARDING_STEPS[currentStep]!;
   const isLastStep = currentStep === ONBOARDING_STEPS.length - 1;
 
   const handleOpenChange = (open: boolean) => {

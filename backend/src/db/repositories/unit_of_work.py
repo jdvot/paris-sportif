@@ -6,6 +6,7 @@ automatic transaction handling.
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from types import TracebackType
 from typing import Self
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -160,7 +161,12 @@ class UnitOfWork:
         """Enter the context manager."""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Exit the context manager, rolling back on exception."""
         if exc_type is not None:
             await self.rollback()

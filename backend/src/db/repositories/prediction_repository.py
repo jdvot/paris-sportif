@@ -2,6 +2,8 @@
 
 from collections.abc import Sequence
 from datetime import date, datetime, timedelta
+from typing import Any
+from typing import cast as typing_cast
 
 from sqlalchemy import Integer, and_, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +34,7 @@ class PredictionRepository(BaseRepository[Prediction]):
             .where(Prediction.id == prediction_id)
         )
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return typing_cast(Prediction | None, result.scalar_one_or_none())
 
     async def get_daily_picks(
         self,
@@ -61,7 +63,7 @@ class PredictionRepository(BaseRepository[Prediction]):
             .limit(limit)
         )
         result = await self.session.execute(stmt)
-        return result.scalars().unique().all()
+        return typing_cast(Sequence[Prediction], result.scalars().unique().all())
 
     async def get_by_date_range(
         self,
@@ -82,7 +84,7 @@ class PredictionRepository(BaseRepository[Prediction]):
             .order_by(Prediction.confidence.desc())
         )
         result = await self.session.execute(stmt)
-        return result.scalars().unique().all()
+        return typing_cast(Sequence[Prediction], result.scalars().unique().all())
 
     async def get_unverified(self, limit: int = 100) -> Sequence[Prediction]:
         """Get predictions that haven't been verified yet."""
@@ -94,9 +96,9 @@ class PredictionRepository(BaseRepository[Prediction]):
             .limit(limit)
         )
         result = await self.session.execute(stmt)
-        return result.scalars().unique().all()
+        return typing_cast(Sequence[Prediction], result.scalars().unique().all())
 
-    async def get_statistics(self, days: int = 30) -> dict:
+    async def get_statistics(self, days: int = 30) -> dict[str, Any]:
         """Calculate prediction performance statistics."""
         cutoff = datetime.now() - timedelta(days=days)
 
@@ -128,7 +130,7 @@ class PredictionRepository(BaseRepository[Prediction]):
             "roi_simulated": round(roi, 1),
         }
 
-    async def get_daily_breakdown(self, days: int = 30) -> list[dict]:
+    async def get_daily_breakdown(self, days: int = 30) -> list[dict[str, Any]]:
         """Get daily breakdown of prediction statistics.
 
         Returns stats grouped by day for charting purposes.
@@ -188,7 +190,7 @@ class PredictionRepository(BaseRepository[Prediction]):
             .order_by(Prediction.created_at.desc())
         )
         result = await self.session.execute(stmt)
-        return result.scalars().unique().all()
+        return typing_cast(Sequence[Prediction], result.scalars().unique().all())
 
     async def mark_as_daily_pick(
         self,

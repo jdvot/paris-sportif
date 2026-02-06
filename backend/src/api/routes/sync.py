@@ -171,7 +171,7 @@ async def _sync_form_from_standings() -> int:
             )
             result = db.execute(query)
             db.commit()
-            updated = result.rowcount
+            updated = int(result.rowcount)
             logger.info(f"Synced form data for {updated} teams from standings")
             return updated
     except Exception as e:
@@ -233,7 +233,7 @@ async def _update_missing_team_countries() -> int:
             )
             result = db.execute(query)
             db.commit()
-            updated = result.rowcount
+            updated = int(result.rowcount)
             logger.info(f"Updated country for {updated} teams")
             return updated
 
@@ -350,7 +350,7 @@ async def _recalculate_all_team_stats() -> int:
             result = db.execute(query)
             db.commit()
 
-            updated_count = result.rowcount
+            updated_count = int(result.rowcount)
             logger.info(f"Recalculated stats for {updated_count} teams")
             return updated_count
 

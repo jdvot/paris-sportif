@@ -28,7 +28,9 @@ function parseSessionFromCookies(): { access_token: string; expires_in: number; 
 
   try {
     const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-      const [name, value] = cookie.trim().split('=');
+      const parts = cookie.trim().split('=');
+      const name = parts[0];
+      const value = parts[1] ?? "";
       if (name) acc[name] = value;
       return acc;
     }, {} as Record<string, string>);
@@ -42,7 +44,7 @@ function parseSessionFromCookies(): { access_token: string; expires_in: number; 
       const singleMatch = name.match(/^sb-[^-]+-auth-token$/);
 
       if (chunkMatch) {
-        authTokenChunks.push({ index: parseInt(chunkMatch[1], 10), value });
+        authTokenChunks.push({ index: parseInt(chunkMatch[1]!, 10), value });
       } else if (singleMatch && !authTokenChunks.length) {
         // Single cookie (not chunked)
         authTokenChunks.push({ index: 0, value });
@@ -111,8 +113,8 @@ function clearSupabaseCookies() {
 
   // Clear all sb- prefixed cookies (Supabase cookies)
   cookies.forEach(cookie => {
-    const cookieName = cookie.split('=')[0].trim();
-    if (cookieName.startsWith('sb-')) {
+    const cookieName = cookie.split('=')[0]?.trim();
+    if (cookieName?.startsWith('sb-')) {
       // Clear for all possible paths and domains
       document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
       document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}`;

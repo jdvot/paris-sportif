@@ -99,7 +99,7 @@ async def get_vector_stats(user: AdminUser) -> VectorStoreStats:
     try:
         from src.vector.search import SemanticSearch
 
-        search = SemanticSearch()
+        search = SemanticSearch()  # type: ignore[no-untyped-call]
         stats = search.get_stats()
 
         return VectorStoreStats(
@@ -280,7 +280,7 @@ async def search_news(
     try:
         from src.vector.news_indexer import NewsIndexer
 
-        indexer = NewsIndexer()
+        indexer = NewsIndexer()  # type: ignore[no-untyped-call]
         results = indexer.search_news(
             query=query,
             team_name=team_name,
@@ -331,7 +331,7 @@ async def get_team_context(
     try:
         from src.vector.news_indexer import NewsIndexer
 
-        indexer = NewsIndexer()
+        indexer = NewsIndexer()  # type: ignore[no-untyped-call]
         context = indexer.get_team_context(team_name, limit=limit)
 
         return {

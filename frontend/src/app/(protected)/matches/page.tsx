@@ -336,7 +336,7 @@ export default function MatchesPage() {
                         {isTomorrow && t("filters.tomorrow")}
                         {!isToday && !isTomorrow && format(date, "EEEE", { locale: dateLocale })}
                         {" • "}
-                        {groupedMatches[dateKey].length} {t("matchCount", { count: groupedMatches[dateKey].length })}
+                        {groupedMatches[dateKey]!.length} {t("matchCount", { count: groupedMatches[dateKey]!.length })}
                       </p>
                     </div>
                   </div>
@@ -351,7 +351,7 @@ export default function MatchesPage() {
                 {/* Matches for this date */}
                 {isExpanded && (
                   <div className="divide-y divide-gray-200 dark:divide-slate-700">
-                    {groupedMatches[dateKey].map((match) => (
+                    {groupedMatches[dateKey]!.map((match) => (
                       <MatchCard key={match.id} match={match} dateLocale={dateLocale} />
                     ))}
                   </div>

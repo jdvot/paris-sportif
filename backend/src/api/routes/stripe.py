@@ -1,7 +1,7 @@
 """Stripe payment routes for subscription management."""
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, status
@@ -69,7 +69,7 @@ class CancelRequest(BaseModel):
 async def create_checkout_session(
     request: CreateCheckoutRequest,
     current_user: AuthenticatedUser,
-):
+) -> CheckoutResponse:
     """
     Create a Stripe Checkout session for subscription purchase.
 
@@ -111,7 +111,7 @@ async def create_checkout_session(
 async def create_portal_session(
     request: PortalRequest,
     current_user: AuthenticatedUser,
-):
+) -> PortalResponse:
     """
     Create a Stripe Customer Portal session for subscription management.
 
@@ -144,7 +144,7 @@ async def create_portal_session(
 @router.get("/subscription", response_model=SubscriptionResponse | None)
 async def get_subscription(
     current_user: AuthenticatedUser,
-):
+) -> SubscriptionResponse | None:
     """
     Get the current user's subscription details.
 
@@ -172,7 +172,7 @@ async def get_subscription(
 async def cancel_subscription(
     request: CancelRequest,
     current_user: AuthenticatedUser,
-):
+) -> dict[str, Any]:
     """
     Cancel the current user's subscription.
 
@@ -205,7 +205,7 @@ async def cancel_subscription(
 async def stripe_webhook(
     request: Request,
     stripe_signature: Annotated[str, Header(alias="Stripe-Signature")],
-):
+) -> dict[str, str]:
     """
     Handle Stripe webhook events.
 
@@ -381,14 +381,14 @@ async def get_user_id_from_customer(customer_id: str) -> str | None:
         response.raise_for_status()
         data = response.json()
         if data and len(data) > 0:
-            return data[0].get("id")
+            return cast(str | None, data[0].get("id"))
     except Exception as e:
         logger.debug(f"Failed to get user_id from customer: {e}")
 
     return None
 
 
-async def handle_checkout_completed(data: dict):
+async def handle_checkout_completed(data: dict[str, Any]) -> None:
     """Handle checkout.session.completed event."""
     user_id = data.get("client_reference_id")
     customer_id = data.get("customer")
@@ -419,7 +419,7 @@ async def handle_checkout_completed(data: dict):
     logger.info(f"User {user_id} upgraded to {role}")
 
 
-async def handle_subscription_created(data: dict):
+async def handle_subscription_created(data: dict[str, Any]) -> None:
     """Handle customer.subscription.created event."""
     subscription_id = data.get("id")
     data.get("customer")
@@ -429,7 +429,7 @@ async def handle_subscription_created(data: dict):
     logger.info(f"Subscription created: {subscription_id}, status={status}, plan={plan}")
 
 
-async def handle_subscription_updated(data: dict):
+async def handle_subscription_updated(data: dict[str, Any]) -> None:
     """Handle customer.subscription.updated event."""
     subscription_id = data.get("id")
     sub_status = data.get("status")
@@ -468,7 +468,7 @@ async def handle_subscription_updated(data: dict):
     logger.info(f"User {user_id} role updated to {role} (subscription status: {sub_status})")
 
 
-async def handle_subscription_deleted(data: dict):
+async def handle_subscription_deleted(data: dict[str, Any]) -> None:
     """Handle customer.subscription.deleted event."""
     subscription_id = data.get("id")
     user_id = data.get("metadata", {}).get("user_id")
@@ -491,7 +491,7 @@ async def handle_subscription_deleted(data: dict):
     logger.info(f"User {user_id} downgraded to free (subscription deleted)")
 
 
-async def handle_invoice_paid(data: dict):
+async def handle_invoice_paid(data: dict[str, Any]) -> None:
     """Handle invoice.paid event."""
     invoice_id = data.get("id")
     customer_id = data.get("customer")
@@ -500,7 +500,7 @@ async def handle_invoice_paid(data: dict):
     logger.info(f"Invoice paid: {invoice_id}, customer={customer_id}, amount={amount_paid}€")
 
 
-async def handle_payment_failed(data: dict):
+async def handle_payment_failed(data: dict[str, Any]) -> None:
     """Handle invoice.payment_failed event."""
     invoice_id = data.get("id")
     customer_id = data.get("customer")

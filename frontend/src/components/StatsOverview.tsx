@@ -285,7 +285,7 @@ export function StatsOverview() {
                   labelStyle={{ color: "#e2e8f0" }}
                 />
                 <Bar dataKey="accuracy" fill="#4ade80" radius={ROUNDED_TOP}>
-                  {competitionStats.map((entry, index) => (
+                  {competitionStats.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>

@@ -21,7 +21,7 @@ export default getRequestConfig(async () => {
   if (acceptLanguage) {
     const preferredLocale = acceptLanguage
       .split(",")
-      .map((lang) => lang.split(";")[0].trim().substring(0, 2))
+      .map((lang) => lang.split(";")[0]!.trim().substring(0, 2))
       .find((lang) => locales.includes(lang as Locale)) as Locale | undefined;
 
     if (preferredLocale) {

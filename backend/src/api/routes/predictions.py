@@ -13,7 +13,7 @@ import json
 import logging
 import random
 from datetime import datetime, timedelta
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from groq import Groq
@@ -81,7 +81,7 @@ async def _get_prediction_from_redis(match_id: int) -> dict[str, Any] | None:
         cache_key = f"prediction:{match_id}"
         cached = await cache_get(cache_key)
         if cached:
-            return json.loads(cached)
+            return cast(dict[str, Any], json.loads(cached))
     except Exception as e:
         logger.debug(f"Redis cache miss for match {match_id}: {e}")
     return None
@@ -499,7 +499,7 @@ def _generate_fallback_explanation(
     home_form = team_stats.get("home_form")
     away_form = team_stats.get("away_form")
 
-    lang = language if language in ("fr", "en", "nl") else "fr"  # type: ignore[assignment]
+    lang = language if language in ("fr", "en", "nl") else "fr"
     is_fr = lang == "fr"
 
     # Only add ELO factor if we have REAL data (not default 1500)
@@ -838,7 +838,7 @@ async def _generate_prediction_from_api_match(
     away_team = api_match.awayTeam.name
     competition = api_match.competition.code
     match_date = datetime.fromisoformat(api_match.utcDate.replace("Z", "+00:00"))
-    lang = _detect_language(request) if request else "fr"  # type: ignore[assignment]
+    lang = _detect_language(request) if request else "fr"
 
     # Try RAG enrichment for better context
     rag_context = None
@@ -983,7 +983,7 @@ async def _generate_prediction_from_api_match(
     )
 
     # Add fatigue factor if significant advantage exists
-    lang = _detect_language(request) if request else "fr"  # type: ignore[assignment]
+    lang = _detect_language(request) if request else "fr"
     if fatigue_data:
         if fatigue_data.fatigue_advantage > 0.15:
             key_factors.append(get_label("physical_advantage", lang))
@@ -1275,7 +1275,7 @@ async def _generate_prediction_from_api_match(
                     no_odds=mm_prediction.btts.no_odds,
                     recommended=mm_prediction.btts.recommended,
                 ),
-                double_chance=DoubleChanceResponse(  # type: ignore[call-arg]
+                double_chance=DoubleChanceResponse(
                     home_or_draw=mm_prediction.double_chance.home_or_draw_prob,
                     away_or_draw=mm_prediction.double_chance.away_or_draw_prob,
                     home_or_away=mm_prediction.double_chance.home_or_away_prob,
@@ -1443,7 +1443,7 @@ Sois concis (max 150 mots). Pas de titre."""
     responses=AUTH_RESPONSES,
     operation_id="getDailyPicks",
 )
-@limiter.limit(RATE_LIMITS["predictions"])
+@limiter.limit(RATE_LIMITS["predictions"])  # type: ignore[misc]
 async def get_daily_picks(
     request: Request,
     user: AuthenticatedUser,
@@ -1794,7 +1794,7 @@ async def get_prediction_debug(
     responses=AUTH_RESPONSES,
     operation_id="getPredictionStats",
 )
-@limiter.limit(RATE_LIMITS["predictions"])
+@limiter.limit(RATE_LIMITS["predictions"])  # type: ignore[misc]
 async def get_prediction_stats(
     request: Request,
     user: AuthenticatedUser,
@@ -1868,7 +1868,7 @@ async def get_prediction_stats(
     responses=AUTH_RESPONSES,
     operation_id="getDailyStats",
 )
-@limiter.limit(RATE_LIMITS["predictions"])
+@limiter.limit(RATE_LIMITS["predictions"])  # type: ignore[misc]
 async def get_daily_stats(
     request: Request,
     user: AuthenticatedUser,
@@ -1962,8 +1962,8 @@ def _generate_fallback_prediction(
     value_score = round(random.uniform(0.05, 0.12), 3)
 
     # Select key factors (language-aware)
-    kf_templates = get_key_factors_templates(lang)  # type: ignore[arg-type]
-    rf_templates = get_risk_factors_templates(lang)  # type: ignore[arg-type]
+    kf_templates = get_key_factors_templates(lang)
+    rf_templates = get_risk_factors_templates(lang)
     if recommended_bet == "home_win":
         key_factors = random.sample(kf_templates["home_dominant"], 3)
     elif recommended_bet == "away_win":
@@ -2044,7 +2044,7 @@ def _generate_fallback_prediction(
                     no_odds=mm_prediction.btts.no_odds,
                     recommended=mm_prediction.btts.recommended,
                 ),
-                double_chance=DoubleChanceResponse(  # type: ignore[call-arg]
+                double_chance=DoubleChanceResponse(
                     home_or_draw=mm_prediction.double_chance.home_or_draw_prob,
                     away_or_draw=mm_prediction.double_chance.away_or_draw_prob,
                     home_or_away=mm_prediction.double_chance.home_or_away_prob,
@@ -2110,7 +2110,7 @@ def _generate_fallback_prediction(
     responses=AUTH_RESPONSES,
     operation_id="getPrediction",
 )
-@limiter.limit(RATE_LIMITS["predictions"])
+@limiter.limit(RATE_LIMITS["predictions"])  # type: ignore[misc]
 async def get_prediction(
     request: Request,
     match_id: int,
@@ -2438,7 +2438,7 @@ class VerifyPredictionResponse(BaseModel):
     operation_id="verifyPrediction",
     response_model=VerifyPredictionResponse,
 )
-@limiter.limit(RATE_LIMITS["predictions"])
+@limiter.limit(RATE_LIMITS["predictions"])  # type: ignore[misc]
 async def verify_prediction_endpoint(
     request: Request,
     match_id: int,
@@ -2478,7 +2478,7 @@ async def verify_prediction_endpoint(
 
 
 @router.post("/{match_id}/refresh", responses=AUTH_RESPONSES, operation_id="refreshPrediction")
-@limiter.limit(RATE_LIMITS["predictions"])
+@limiter.limit(RATE_LIMITS["predictions"])  # type: ignore[misc]
 async def refresh_prediction(
     request: Request, match_id: int, user: AuthenticatedUser
 ) -> dict[str, str]:
@@ -2706,7 +2706,7 @@ async def get_calibration(
         )
 
 
-def _calculate_buckets(predictions: list[dict]) -> list[CalibrationBucket]:
+def _calculate_buckets(predictions: list[dict[str, Any]]) -> list[CalibrationBucket]:
     """Calculate calibration buckets for a set of predictions."""
     bucket_ranges = [
         (0.50, 0.55, "50-55%"),

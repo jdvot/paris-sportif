@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from datetime import datetime
+from typing import Any, cast
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +29,7 @@ class StandingRepository(BaseRepository[Standing]):
             stmt = stmt.where(Standing.season == season)
         stmt = stmt.order_by(Standing.position.asc())
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return cast(Sequence[Standing], result.scalars().all())
 
     async def get_team_standing(
         self,
@@ -42,7 +43,7 @@ class StandingRepository(BaseRepository[Standing]):
         # Order by most recent sync
         stmt = stmt.order_by(Standing.synced_at.desc()).limit(1)
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(Standing | None, result.scalar_one_or_none())
 
     async def get_by_team_name(
         self,
@@ -55,7 +56,7 @@ class StandingRepository(BaseRepository[Standing]):
             stmt = stmt.where(Standing.competition_code == competition_code)
         stmt = stmt.order_by(Standing.synced_at.desc()).limit(1)
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(Standing | None, result.scalar_one_or_none())
 
     async def get_top_n(
         self,
@@ -70,7 +71,7 @@ class StandingRepository(BaseRepository[Standing]):
             .limit(n)
         )
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return cast(Sequence[Standing], result.scalars().all())
 
     async def get_relegation_zone(
         self,
@@ -85,12 +86,12 @@ class StandingRepository(BaseRepository[Standing]):
             .limit(relegation_spots)
         )
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return cast(Sequence[Standing], result.scalars().all())
 
     async def replace_competition_standings(
         self,
         competition_code: str,
-        standings_data: list[dict],
+        standings_data: list[dict[str, Any]],
         *,
         season: str | None = None,
     ) -> int:
@@ -133,7 +134,7 @@ class StandingRepository(BaseRepository[Standing]):
         self,
         competition_code: str,
         team_id: int,
-        **data,
+        **data: Any,
     ) -> Standing:
         """Insert or update a standing entry."""
         existing = await self.get_team_standing(team_id, competition_code)

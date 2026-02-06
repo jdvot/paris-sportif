@@ -1,6 +1,7 @@
 """Push notification routes."""
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -45,8 +46,8 @@ class UnsubscribeRequest(BaseModel):
 @router.post("/subscribe", status_code=status.HTTP_201_CREATED)
 async def subscribe_push(
     subscription: SubscriptionRequest,
-    user: dict | None = Depends(get_optional_user),
-):
+    user: dict[str, Any] | None = Depends(get_optional_user),
+) -> dict[str, Any]:
     """
     Subscribe to push notifications.
 
@@ -73,7 +74,7 @@ async def subscribe_push(
 
 
 @router.post("/unsubscribe")
-async def unsubscribe_push(request: UnsubscribeRequest):
+async def unsubscribe_push(request: UnsubscribeRequest) -> dict[str, Any]:
     """
     Unsubscribe from push notifications.
     """
@@ -94,7 +95,7 @@ async def unsubscribe_push(request: UnsubscribeRequest):
 async def update_preferences(
     preferences: SubscriptionPreferences,
     endpoint: str,
-):
+) -> dict[str, str]:
     """
     Update notification preferences for a subscription.
     """
@@ -115,7 +116,7 @@ async def update_preferences(
 
 
 @router.get("/status")
-async def get_subscription_status(endpoint: str):
+async def get_subscription_status(endpoint: str) -> dict[str, Any]:
     """
     Check if an endpoint is subscribed.
     """

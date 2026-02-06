@@ -390,7 +390,7 @@ export function useAchievements() {
 
       // Time-based achievements
       if (history.length > 0) {
-        const lastBetHour = new Date(history[0].date).getHours();
+        const lastBetHour = new Date(history[0]!.date).getHours();
         if (lastBetHour < 8) unlock("early_bird");
         if (lastBetHour >= 0 && lastBetHour < 5) unlock("night_owl");
       }

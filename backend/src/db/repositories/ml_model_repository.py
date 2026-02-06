@@ -3,6 +3,7 @@
 import json
 from collections.abc import Sequence
 from datetime import datetime
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,9 +29,9 @@ class MLModelRepository(BaseRepository[MLModel]):
             stmt = stmt.where(MLModel.model_type == model_type)
         stmt = stmt.order_by(MLModel.trained_at.desc()).limit(1)
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(MLModel | None, result.scalar_one_or_none())
 
-    async def get_all_metadata(self) -> Sequence[dict]:
+    async def get_all_metadata(self) -> Sequence[dict[str, Any]]:
         """Get all models metadata (without binary data)."""
         stmt = select(
             MLModel.id,
@@ -117,7 +118,7 @@ class MLModelRepository(BaseRepository[MLModel]):
         )
         return model
 
-    async def load_model(self, model_name: str) -> dict | None:
+    async def load_model(self, model_name: str) -> dict[str, Any] | None:
         """Load a model with its binary data.
 
         Replaces: src.data.database.get_ml_model()
@@ -167,4 +168,4 @@ class MLModelRepository(BaseRepository[MLModel]):
             .limit(1)
         )
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(MLModel | None, result.scalar_one_or_none())

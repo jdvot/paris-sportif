@@ -6,6 +6,7 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
+from typing import Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -41,7 +42,10 @@ from src.core.config import settings
 from src.core.exceptions import ParisportifError
 from src.core.rate_limit import limiter
 from src.core.sentry import init_sentry
-from src.data.sources.football_data import COMPETITIONS, get_football_data_client
+from src.data.sources.football_data import (  # type: ignore[attr-defined]
+    COMPETITIONS,
+    get_football_data_client,
+)
 from src.db.services.match_service import MatchService
 from src.db.services.prediction_service import PredictionService
 
@@ -54,7 +58,7 @@ logger = logging.getLogger(__name__)
 scheduler: AsyncIOScheduler | None = None
 
 
-async def auto_sync_and_verify():
+async def auto_sync_and_verify() -> None:
     """
     Automatic job to sync matches, standings, and verify predictions.
     Runs every 6 hours to keep stats up to date.
@@ -299,7 +303,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Shutting down...")
 
 
-async def _startup_full_prefill():
+async def _startup_full_prefill() -> None:
     """Run complete prefill pipeline at startup. No delay - starts immediately."""
     logger.info("[Startup] Starting full prefill pipeline...")
 
@@ -340,7 +344,7 @@ async def _startup_full_prefill():
         logger.error(f"[Startup] Error in startup prefill: {e}", exc_info=True)
 
 
-async def _fetch_historical_season():
+async def _fetch_historical_season() -> None:
     """Fetch all matches from the start of the season."""
     import asyncio as aio
     from datetime import date
@@ -405,7 +409,7 @@ async def _fetch_historical_season():
     logger.info(f"[Scheduler] Historical sync complete: {total_synced} matches")
 
 
-async def _run_daily_cache():
+async def _run_daily_cache() -> None:
     """Run daily cache calculation."""
     logger.info("[Scheduler] Running daily cache calculation...")
     try:
@@ -420,14 +424,14 @@ async def _run_daily_cache():
         logger.error(f"[Scheduler] Cache calculation failed: {e}")
 
 
-async def _delayed_initial_cache():
+async def _delayed_initial_cache() -> None:
     """Run initial cache calculation after app startup."""
     await asyncio.sleep(60)  # Wait 60 seconds for app and sync to complete
     logger.info("[Scheduler] Running initial cache calculation...")
     await _run_daily_cache()
 
 
-async def _run_weekly_ml_training():
+async def _run_weekly_ml_training() -> None:
     """Run weekly ML model training on HuggingFace."""
     import httpx
     from sqlalchemy import text
@@ -439,7 +443,7 @@ async def _run_weekly_ml_training():
     logger.info("[Scheduler] Running weekly ML training on HuggingFace...")
 
     # Fetch training data
-    training_matches: list[dict] = []
+    training_matches: list[dict[str, Any]] = []
 
     try:
         with get_db_context() as db:

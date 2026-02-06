@@ -94,7 +94,7 @@ export function AuthButton() {
           ) : (
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary-500 to-emerald-500 flex items-center justify-center">
               <span className="text-gray-900 dark:text-white text-sm font-medium">
-                {displayName[0].toUpperCase()}
+                {displayName[0]?.toUpperCase()}
               </span>
             </div>
           )}

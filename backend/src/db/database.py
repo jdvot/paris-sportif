@@ -6,6 +6,7 @@ proper transaction handling. Also provides sync access for background tasks.
 
 from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager, contextmanager
+from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -36,11 +37,11 @@ _is_sqlite = _database_url.startswith("sqlite")
 
 # Determine pool class based on environment
 # Use NullPool for serverless/testing/SQLite, QueuePool (default) for production PostgreSQL
-_pool_class = NullPool if (settings.app_env == "test" or _is_sqlite) else None
+_pool_class = NullPool if (settings.app_env == "test" or _is_sqlite) else None  # type: ignore[comparison-overlap]
 
 # Create async engine with optimized settings
 # SQLite doesn't support pool_size/max_overflow, so we skip them
-_engine_kwargs: dict = {
+_engine_kwargs: dict[str, Any] = {
     "echo": settings.debug,
     "poolclass": _pool_class,
 }

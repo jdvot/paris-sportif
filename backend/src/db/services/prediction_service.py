@@ -619,7 +619,10 @@ class PredictionService:
         Called by scheduler every day at 9:00 UTC.
         Returns list of generated picks.
         """
-        from src.data.sources.football_data import COMPETITIONS, get_football_data_client
+        from src.data.sources.football_data import (  # type: ignore[attr-defined]
+            COMPETITIONS,
+            get_football_data_client,
+        )
 
         logger.info("Generating daily picks...")
 
@@ -636,7 +639,7 @@ class PredictionService:
                     competition=comp_code,
                     date_from=today,
                     date_to=tomorrow,
-                    status="SCHEDULED",  # type: ignore[arg-type]
+                    status="SCHEDULED",
                 )
 
                 for match in matches:

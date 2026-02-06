@@ -245,7 +245,7 @@ export function PerformanceHistory() {
               />
               <Legend wrapperStyle={{ paddingTop: "20px" }} />
               <Bar dataKey="predictions" fill="#4ade80" name={t("predictions")} radius={ROUNDED_TOP}>
-                {competitionData.map((entry, index) => (
+                {competitionData.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Bar>

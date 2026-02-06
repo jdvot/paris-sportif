@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from decimal import Decimal
+from typing import Any, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +25,7 @@ class TeamRepository(BaseRepository[Team]):
         """Get team by name (case-insensitive search)."""
         stmt = select(Team).where(func.lower(Team.name) == func.lower(name))
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(Team | None, result.scalar_one_or_none())
 
     async def search_by_name(self, query: str, *, limit: int = 10) -> Sequence[Team]:
         """Search teams by partial name match."""
@@ -35,7 +36,7 @@ class TeamRepository(BaseRepository[Team]):
             .limit(limit)
         )
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return cast(Sequence[Team], result.scalars().all())
 
     async def get_by_name_fuzzy(self, name: str) -> Team | None:
         """Get team by fuzzy name match (handles variations like FC, 1., etc.)."""
@@ -131,9 +132,11 @@ class TeamRepository(BaseRepository[Team]):
         """Get teams with highest ELO ratings."""
         stmt = select(Team).order_by(Team.elo_rating.desc()).limit(limit)
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return cast(Sequence[Team], result.scalars().all())
 
-    async def calculate_team_stats(self, team_id: int, *, last_n_matches: int = 10) -> dict:
+    async def calculate_team_stats(
+        self, team_id: int, *, last_n_matches: int = 10
+    ) -> dict[str, Any]:
         """Calculate team statistics from recent matches."""
         # Get home matches
         home_stmt = (
@@ -174,7 +177,7 @@ class TeamRepository(BaseRepository[Team]):
             "away_avg_conceded": float(away_stats.avg_conceded or 0),
         }
 
-    async def bulk_upsert(self, teams_data: list[dict]) -> int:
+    async def bulk_upsert(self, teams_data: list[dict[str, Any]]) -> int:
         """Bulk upsert teams from API data."""
         count = 0
         for data in teams_data:

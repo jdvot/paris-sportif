@@ -124,10 +124,43 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
 
 ## Code Style
 
-- Python: Black (line-length=100), isort, mypy strict
-- TypeScript: ESLint, Prettier
+- Python: Black (line-length=100), isort, mypy strict, ruff
+- TypeScript: ESLint, Prettier, strict mode + noUncheckedIndexedAccess
 - Commits: Conventional commits (feat:, fix:, docs:)
 - Dark mode: Use `dark:` Tailwind classes with `slate-*` colors for consistency
+
+### Strict Typing (MANDATORY)
+
+**All Python code MUST pass `mypy --strict`.** This is enforced via `strict = true` in `pyproject.toml`.
+
+Rules:
+- All functions must have full type annotations (parameters + return type)
+- No `Any` returns without explicit `cast()`
+- All generic types must be parameterized (`dict[str, Any]`, not bare `dict`)
+- Use `cast()` from `typing` for SQLAlchemy results (`scalar_one_or_none()`, `scalars().all()`, `rowcount`)
+- External untyped libraries: use `# type: ignore[misc]` on decorator lines or `# type: ignore[no-untyped-call]` on call sites
+- Modules with `ignore_errors = true` in pyproject.toml: `prediction_engine`, `ml`, `vector`, `data`, `services`, `notifications`
+- API routes have specific disabled error codes: `index`, `attr-defined`, `arg-type`, `operator`, `union-attr`, `call-arg`
+
+**All TypeScript code MUST pass `tsc --noEmit`** with these strict options in `tsconfig.json`:
+- `strict: true` (enables strictNullChecks, noImplicitAny, etc.)
+- `noUncheckedIndexedAccess: true` (array/object index returns `T | undefined`)
+- `noUnusedLocals: true`, `noUnusedParameters: true`
+- `noFallthroughCasesInSwitch: true`, `forceConsistentCasingInFileNames: true`
+
+Rules:
+- Array index access returns `T | undefined` - use `!` (guaranteed) or `?? default` (safe fallback)
+- Unused parameters: prefix with `_` (e.g., `_entry`)
+- No implicit `any` types
+
+All 5 linters must pass with 0 errors before any commit:
+```bash
+cd backend && uv run ruff check src/        # Linting
+cd backend && uv run black --check src/      # Formatting
+cd backend && uv run mypy src/core/ src/auth/ src/db/ src/api/main.py src/api/routes/ src/llm/client.py  # Strict typing
+cd frontend && npx tsc --noEmit              # TypeScript
+cd frontend && npx next lint                 # ESLint
+```
 
 ## Recherche de Documentation
 

@@ -25,10 +25,10 @@ T = TypeVar("T")
 P = ParamSpec("P")
 
 # Connection pool for efficient Redis connections
-_pool: ConnectionPool | None = None  # type: ignore[type-arg]
+_pool: ConnectionPool | None = None
 
 
-def get_redis_pool() -> ConnectionPool:  # type: ignore[type-arg]
+def get_redis_pool() -> ConnectionPool:
     """Get or create the Redis connection pool."""
     global _pool
     if _pool is None:
@@ -40,7 +40,7 @@ def get_redis_pool() -> ConnectionPool:  # type: ignore[type-arg]
     return _pool
 
 
-async def get_redis_client() -> aioredis.Redis:  # type: ignore[type-arg]
+async def get_redis_client() -> aioredis.Redis:
     """Get an async Redis client from the connection pool."""
     pool = get_redis_pool()
     return aioredis.Redis(connection_pool=pool)

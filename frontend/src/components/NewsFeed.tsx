@@ -61,7 +61,7 @@ const TYPE_CONFIG: Record<string, { icon: typeof Newspaper; color: string; label
 
 function ArticleCard({ article, locale, t }: { article: NewsArticle; locale: string; t: (key: string) => string }) {
   const dateLocale = locale === "fr" ? fr : enUS;
-  const config = TYPE_CONFIG[article.article_type] || TYPE_CONFIG.general;
+  const config = (TYPE_CONFIG[article.article_type] ?? TYPE_CONFIG.general)!;
   const Icon = config.icon;
 
   const timeAgo = article.published_at

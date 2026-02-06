@@ -85,20 +85,8 @@ line_length = 100
 
 [tool.mypy]
 python_version = "3.11"
-# Semi-strict mode - catch real bugs without being overly pedantic
-strict = false
+strict = true
 ignore_missing_imports = true
-# Enable important checks
-check_untyped_defs = true
-warn_redundant_casts = true
-warn_unused_configs = true
-# Disable checks that conflict with ML/data science patterns
-disallow_any_generics = false
-disallow_untyped_defs = false
-disallow_untyped_calls = false
-disallow_incomplete_defs = false
-warn_return_any = false
-warn_unused_ignores = false
 
 [[tool.mypy.overrides]]
 module = [

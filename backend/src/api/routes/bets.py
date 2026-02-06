@@ -203,7 +203,7 @@ async def update_bet(
 async def delete_bet(
     user: AuthenticatedUser,
     bet_id: int,
-):
+) -> None:
     """Delete a pending bet."""
     user_id = user.get("sub", "")
 

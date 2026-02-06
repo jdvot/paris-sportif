@@ -7,7 +7,7 @@ Returns HTTP errors (429, 503) when data is unavailable rather than mock data.
 import json
 import logging
 from datetime import UTC, date, datetime, timedelta
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -209,7 +209,7 @@ class CompetitionsListResponse(BaseModel):
 # Cache for team data to avoid repeated DB calls (TTL: 10 min, max 200 entries)
 _TEAM_CACHE_TTL = 600  # 10 minutes
 _TEAM_CACHE_MAX = 200
-_team_cache: dict[str, tuple[dict, float]] = {}  # name -> (data, timestamp)
+_team_cache: dict[str, tuple[dict[str, Any], float]] = {}  # name -> (data, timestamp)
 
 
 def _clean_team_cache() -> None:
@@ -228,7 +228,7 @@ def _clean_team_cache() -> None:
             del _team_cache[k]
 
 
-async def _get_team_from_db(team_name: str) -> dict | None:
+async def _get_team_from_db(team_name: str) -> dict[str, Any] | None:
     """Fetch real team data from database by name."""
     import time
 
@@ -370,7 +370,7 @@ def _convert_api_match(api_match: MatchData) -> MatchResponse:
     responses=AUTH_RESPONSES,
     operation_id="getMatches",
 )
-@limiter.limit(RATE_LIMITS["matches"])
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def get_matches(
     request: Request,
     user: AuthenticatedUser,
@@ -460,7 +460,7 @@ async def get_matches(
 
 
 @router.get("/upcoming", responses=AUTH_RESPONSES, operation_id="getUpcomingMatches")
-@limiter.limit(RATE_LIMITS["matches"])
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def get_upcoming_matches(
     request: Request,
     user: AuthenticatedUser,
@@ -583,7 +583,7 @@ class LiveScoresResponse(BaseModel):
     responses=AUTH_RESPONSES,
     operation_id="getLiveScores",
 )
-@limiter.limit(RATE_LIMITS["matches"])
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def get_live_scores(
     request: Request,
     user: AuthenticatedUser,
@@ -768,7 +768,7 @@ async def get_competitions(
     responses=AUTH_RESPONSES,
     operation_id="getMatch",
 )
-@limiter.limit(RATE_LIMITS["matches"])
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def get_match(request: Request, match_id: int, user: AuthenticatedUser) -> MatchResponse:
     """Get details for a specific match from database (requires authentication)."""
     # Use database directly - no external API call
@@ -821,7 +821,7 @@ async def get_match(request: Request, match_id: int, user: AuthenticatedUser) ->
     responses=AUTH_RESPONSES,
     operation_id="getHeadToHead",
 )
-@limiter.limit(RATE_LIMITS["matches"])
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def get_head_to_head(
     request: Request,
     match_id: int,
@@ -892,7 +892,7 @@ async def get_head_to_head(
     responses=AUTH_RESPONSES,
     operation_id="getTeamForm",
 )
-@limiter.limit(RATE_LIMITS["matches"])
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def get_team_form(
     request: Request,
     team_id: int,
@@ -1018,7 +1018,7 @@ async def get_team_form(
     responses=AUTH_RESPONSES,
     operation_id="getStandings",
 )
-@limiter.limit(RATE_LIMITS["matches"])
+@limiter.limit(RATE_LIMITS["matches"])  # type: ignore[misc]
 async def get_standings(
     request: Request,
     competition_code: str,

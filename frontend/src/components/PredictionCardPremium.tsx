@@ -55,11 +55,11 @@ export function PredictionCardPremium({
 
   // Short bet label for mobile
   const shortBetLabels: Record<string, string> = {
-    home: prediction.home_team.split(" ")[0],
-    home_win: prediction.home_team.split(" ")[0],
+    home: prediction.home_team.split(" ")[0] ?? "",
+    home_win: prediction.home_team.split(" ")[0] ?? "",
     draw: t("drawShort"),
-    away: prediction.away_team.split(" ")[0],
-    away_win: prediction.away_team.split(" ")[0],
+    away: prediction.away_team.split(" ")[0] ?? "",
+    away_win: prediction.away_team.split(" ")[0] ?? "",
   };
   const shortBetLabel = shortBetLabels[prediction.recommended_bet] || prediction.recommended_bet;
 
@@ -354,7 +354,7 @@ function ProbBarEnhanced({
   const getShortLabel = (name: string) => {
     if (name.length <= 4) return name;
     if (name.length <= 8) return name;
-    const firstWord = name.split(" ")[0];
+    const firstWord = name.split(" ")[0] ?? "";
     if (firstWord.length <= 8) return firstWord;
     return name.slice(0, 7) + "…";
   };

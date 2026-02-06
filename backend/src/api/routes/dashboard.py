@@ -2,6 +2,7 @@
 
 import csv
 import io
+from typing import Any
 
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
@@ -85,7 +86,7 @@ async def get_user_stats(
 async def export_user_data(
     format: str = Query("csv", pattern="^(csv|json)$"),
     user: AuthenticatedUser | None = None,
-):
+) -> dict[str, Any] | StreamingResponse:
     """Export user betting data.
 
     Supports CSV and JSON formats.

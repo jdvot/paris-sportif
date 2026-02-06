@@ -70,7 +70,9 @@ export function useAuth() {
 
       try {
         const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-          const [name, value] = cookie.trim().split('=');
+          const parts = cookie.trim().split('=');
+          const name = parts[0];
+          const value = parts[1] ?? "";
           if (name) acc[name] = value;
           return acc;
         }, {} as Record<string, string>);
@@ -83,7 +85,7 @@ export function useAuth() {
           const singleMatch = name.match(/^sb-[^-]+-auth-token$/);
 
           if (chunkMatch) {
-            authTokenChunks.push({ index: parseInt(chunkMatch[1], 10), value });
+            authTokenChunks.push({ index: parseInt(chunkMatch[1]!, 10), value });
           } else if (singleMatch && !authTokenChunks.length) {
             authTokenChunks.push({ index: 0, value });
           }
@@ -280,8 +282,8 @@ export function useAuth() {
       // Even if signOut fails, clear cookies manually
       if (typeof document !== 'undefined') {
         document.cookie.split(';').forEach(cookie => {
-          const name = cookie.split('=')[0].trim();
-          if (name.startsWith('sb-')) {
+          const name = cookie.split('=')[0]?.trim();
+          if (name?.startsWith('sb-')) {
             document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
           }
         });

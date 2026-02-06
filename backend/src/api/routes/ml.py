@@ -351,7 +351,7 @@ async def train_on_huggingface(user: AdminUser) -> HFTrainingResponse:
     logger.info("Triggering training on HuggingFace Spaces...")
 
     # Step 1: Fetch training data from database
-    training_matches: list[dict] = []
+    training_matches: list[dict[str, Any]] = []
 
     try:
         with get_db_context() as db:

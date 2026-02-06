@@ -400,7 +400,7 @@ def detect_language_from_header(accept_language: str) -> Language:
     header_lower = accept_language.lower()
     for lang_code in ("en", "nl", "fr"):
         if lang_code in header_lower:
-            return lang_code  # type: ignore[return-value]
+            return lang_code
     return "fr"
 
 

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -86,7 +86,7 @@ class UserBetRepository(BaseRepository[UserBet]):
             .returning(UserBet)
         )
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(UserBet | None, result.scalar_one_or_none())
 
     async def delete_pending(self, bet_id: int, user_id: str) -> bool:
         """Delete a pending bet. Returns True if deleted."""
@@ -111,7 +111,7 @@ class UserBankrollSettingsRepository(BaseRepository[UserBankroll]):
         # For now, let's use UserPreferences which has bankroll field
         stmt = select(UserBankroll).where(UserBankroll.user_id == user_id).limit(1)
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(UserBankroll | None, result.scalar_one_or_none())
 
 
 class UserFavoriteRepository(BaseRepository[UserFavorite]):
@@ -137,7 +137,7 @@ class UserFavoriteRepository(BaseRepository[UserFavorite]):
             UserFavorite.match_id == match_id,
         )
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(UserFavorite | None, result.scalar_one_or_none())
 
     async def delete_by_user_and_match(self, user_id: str, match_id: int) -> bool:
         """Delete a favorite. Returns True if deleted."""
@@ -158,7 +158,7 @@ class UserPreferencesRepository(BaseRepository[UserPreferences]):
         """Get preferences for a user."""
         stmt = select(UserPreferences).where(UserPreferences.user_id == user_id)
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(UserPreferences | None, result.scalar_one_or_none())
 
     async def upsert_by_user(self, user_id: str, **kwargs: Any) -> UserPreferences:
         """Create or update user preferences by user_id."""
@@ -187,7 +187,7 @@ class UserStatsRepository(BaseRepository[UserStats]):
         """Get stats for a user."""
         stmt = select(UserStats).where(UserStats.user_id == user_id)
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(UserStats | None, result.scalar_one_or_none())
 
     async def upsert_by_user(self, user_id: str, **kwargs: Any) -> UserStats:
         """Create or update user stats by user_id."""
@@ -215,7 +215,7 @@ class PushSubscriptionRepository(BaseRepository[PushSubscription]):
         """Get subscription by endpoint."""
         stmt = select(PushSubscription).where(PushSubscription.endpoint == endpoint)
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(PushSubscription | None, result.scalar_one_or_none())
 
     async def get_active_by_endpoint(self, endpoint: str) -> PushSubscription | None:
         """Get active subscription by endpoint."""
@@ -224,7 +224,7 @@ class PushSubscriptionRepository(BaseRepository[PushSubscription]):
             PushSubscription.is_active == True,  # noqa: E712
         )
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return cast(PushSubscription | None, result.scalar_one_or_none())
 
     async def get_active_subscriptions(
         self,
