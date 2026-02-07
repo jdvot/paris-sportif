@@ -816,7 +816,9 @@
       "safetyNotes": "Safety Notes:",
       "safetyNote1": "Kelly is capped at 25% of bankroll to limit risk",
       "safetyNote2": "For beginners, use half (Half-Kelly) for more stability",
-      "safetyNote3": "Never use more than Kelly due to probability estimation errors"
+      "safetyNote3": "Never use more than Kelly due to probability estimation errors",
+      "positiveEV": "Positive expected value detected. Bet recommended per Kelly.",
+      "negativeEV": "Negative expected value. Bet not recommended."
     }
   },
   "plans": {

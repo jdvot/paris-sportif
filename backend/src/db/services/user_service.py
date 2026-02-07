@@ -229,17 +229,7 @@ class BetService:
 
         current_bankroll = initial_bankroll + (total_returned - total_staked)
 
-        if current_bankroll <= 0:
-            return {
-                "suggested_stake": 0,
-                "suggested_stake_pct": 0,
-                "kelly_fraction": 0,
-                "edge": 0,
-                "bankroll": current_bankroll,
-                "confidence_adjusted": False,
-            }
-
-        # Kelly calculation
+        # Kelly calculation — always compute fraction/edge even without bankroll
         p = confidence / 100  # Win probability
         q = 1 - p  # Loss probability
         b = odds - 1  # Net odds
@@ -253,11 +243,16 @@ class BetService:
         # Use half-Kelly for more conservative betting
         half_kelly = kelly_fraction / 2
 
-        suggested_stake = current_bankroll * half_kelly
-        suggested_stake_pct = half_kelly * 100
-
         # Calculate edge (expected value per unit staked)
         edge = (p * odds) - 1
+
+        # Stake amounts depend on bankroll
+        if current_bankroll > 0:
+            suggested_stake = current_bankroll * half_kelly
+            suggested_stake_pct = half_kelly * 100
+        else:
+            suggested_stake = 0
+            suggested_stake_pct = half_kelly * 100  # Show % even without bankroll
 
         return {
             "suggested_stake": round(suggested_stake, 2),

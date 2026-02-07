@@ -816,7 +816,9 @@
       "safetyNotes": "Notes de Securite:",
       "safetyNote1": "Le Kelly est plafonne a 25% du bankroll pour limiter les risques",
       "safetyNote2": "Pour les debutants, utilisez la moitie (Half-Kelly) pour plus de stabilite",
-      "safetyNote3": "Ne jamais utiliser plus de Kelly a cause des erreurs de probabilite"
+      "safetyNote3": "Ne jamais utiliser plus de Kelly a cause des erreurs de probabilite",
+      "positiveEV": "Esperance positive detectee. Pari recommande selon Kelly.",
+      "negativeEV": "Esperance negative. Mise deconseillee."
     }
   },
   "plans": {

@@ -122,7 +122,7 @@ export function KellySuggestion({
           </div>
           {kelly.bankroll > 0 && (
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-dark-400">Mise suggérée</span>
+              <span className="text-gray-600 dark:text-dark-400">{t("optimalStake")}</span>
               <span className="font-bold text-primary-600 dark:text-primary-400">
                 {kelly.suggested_stake.toFixed(2)}€
               </span>
@@ -135,13 +135,13 @@ export function KellySuggestion({
       {hasPositiveEV && (
         <div className="mt-3 flex items-start gap-2 text-xs text-emerald-600 dark:text-emerald-400">
           <TrendingUp className="w-3 h-3 flex-shrink-0 mt-0.5" />
-          <span>Espérance positive détectée. Pari recommandé selon Kelly.</span>
+          <span>{t("positiveEV")}</span>
         </div>
       )}
       {!hasPositiveEV && (
         <div className="mt-3 flex items-start gap-2 text-xs text-gray-500 dark:text-dark-400">
           <Info className="w-3 h-3 flex-shrink-0 mt-0.5" />
-          <span>Espérance négative. Mise déconseillée.</span>
+          <span>{t("negativeEV")}</span>
         </div>
       )}
     </div>
