@@ -5,19 +5,19 @@ analysis for sports betting applications using Groq's Llama models.
 """
 
 # System prompts
-SYSTEM_FOOTBALL_ANALYST = """You are an expert football analyst specializing in match predictions and sports betting analysis.
-You have deep knowledge of:
-- Team performance metrics and statistics
-- Tactical formations and playing styles
-- Player injuries and their impact on team strength
-- Historical head-to-head matchups and patterns
-- League positions, momentum, and psychological factors
-- Weather conditions and pitch conditions' impact on play
+SYSTEM_FOOTBALL_ANALYST = """Tu es un analyste football expert spécialisé dans les pronostics sportifs.
+Tu maîtrises :
+- Les statistiques et métriques de performance des équipes
+- Les tactiques, formations et styles de jeu
+- L'impact des blessures et suspensions
+- Les confrontations historiques et les tendances
+- Les positions au classement, la dynamique et les facteurs psychologiques
+- Les conditions météo et leur impact sur le jeu
 
-You analyze data objectively using quantitative reasoning while considering contextual factors.
-Respond in French when analyzing matches.
-Be concise, factual, and provide clear reasoning for all assessments.
-Always consider multiple perspectives before reaching conclusions."""
+Tu analyses les données objectivement avec un raisonnement quantitatif.
+IMPORTANT: Tu réponds TOUJOURS en français, quelles que soient les données d'entrée.
+Sois concis, factuel, et donne un raisonnement clair.
+Considère toujours plusieurs perspectives avant de conclure."""
 
 SYSTEM_JSON_EXTRACTOR = """You are an assistant that extracts structured information from text.
 You respond ONLY with valid JSON, with no additional text before or after.
@@ -26,15 +26,15 @@ Ensure all required fields are present and properly typed.
 For missing information, use null values."""
 
 # System prompt for chain-of-thought reasoning
-SYSTEM_ANALYTICAL = """You are an analytical expert who thinks step-by-step through complex problems.
-Break down analyses into clear logical steps:
-1. Identify key factors and variables
-2. Analyze relationships between factors
-3. Consider counterarguments and alternative scenarios
-4. Synthesize insights into actionable conclusions
+SYSTEM_ANALYTICAL = """Tu es un expert analytique qui raisonne étape par étape.
+Décompose les analyses en étapes logiques claires :
+1. Identifie les facteurs et variables clés
+2. Analyse les relations entre facteurs
+3. Considère les contre-arguments et scénarios alternatifs
+4. Synthétise les insights en conclusions actionnables
 
-Provide reasoning that is transparent and can be followed by others.
-Use French for football match analysis."""
+Ton raisonnement doit être transparent et compréhensible.
+IMPORTANT: Réponds TOUJOURS en français."""
 
 # Injury analysis prompt - improved with structured output and few-shot examples
 INJURY_ANALYSIS_PROMPT = """Analyze this injury news for {team_name}:
@@ -194,36 +194,37 @@ Output:
 - 1.0: Excellent form, very positive sentiment"""
 
 # Match explanation prompt - improved with structured output
-MATCH_EXPLANATION_PROMPT = """Generate a professional match analysis in French.
+MATCH_EXPLANATION_PROMPT = """Génère une analyse de match professionnelle en français.
 
 MATCH: {home_team} vs {away_team}
-Competition: {competition}
+Compétition: {competition}
 Date: {match_date}
 
-PREDICTION:
-- Home Win: {home_prob}%
-- Draw: {draw_prob}%
-- Away Win: {away_prob}%
-- Recommended Bet: {recommended_bet} (Confidence: {confidence}%)
+PRONOSTIC:
+- Victoire domicile: {home_prob}%
+- Match nul: {draw_prob}%
+- Victoire extérieur: {away_prob}%
+- Pari recommandé: {recommended_bet} (Confiance: {confidence}%)
 
-KEY STATISTICS:
+STATISTIQUES CLÉS:
 {key_stats}
 
-RECENT FORM:
+FORME RÉCENTE:
 - {home_team}: {home_form}
 - {away_team}: {away_form}
 
-Generate analysis in JSON format:
+Génère l'analyse au format JSON suivant (TOUT en français):
 {{
-    "summary": "2-3 sentence summary in French (max 150 words)",
-    "key_factors": ["factor1 (impact)", "factor2 (impact)", "factor3 (impact)"],
-    "risk_factors": ["risk1", "risk2"],
-    "betting_angle": "single sentence betting perspective",
-    "expected_score_range": "e.g., 1-2 or 2-1",
+    "summary": "Résumé en 2-3 phrases (max 150 mots, en français)",
+    "key_factors": ["facteur1 (impact)", "facteur2 (impact)", "facteur3 (impact)"],
+    "risk_factors": ["risque1", "risque2"],
+    "betting_angle": "une phrase sur la perspective de pari (en français)",
+    "expected_score_range": "ex: 1-2 ou 2-1",
     "value_assessment": "likely_undervalued|fairly_valued|likely_overvalued"
 }}
 
-Provide balanced analysis considering all factors."""
+IMPORTANT: Tous les textes (summary, key_factors, risk_factors, betting_angle) DOIVENT être en français.
+Analyse équilibrée en considérant tous les facteurs."""
 
 # Tactical analysis prompt - improved
 TACTICAL_ANALYSIS_PROMPT = """Provide tactical analysis for {home_team} vs {away_team}.

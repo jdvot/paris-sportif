@@ -31,6 +31,10 @@ class NewsArticle:
     competition: str | None = None
     article_type: str = "general"  # general, injury, transfer, form, preview
     language: str = "en"
+    # NER-enriched fields (populated by EntityExtractionService)
+    player_names: list[str] | None = None
+    competition_code: str | None = None
+    mentioned_teams: list[str] | None = None
 
 
 class NewsIndexer:
@@ -178,6 +182,9 @@ class NewsIndexer:
                 "article_type": article.article_type,
                 "language": article.language,
                 "published_at": article.published_at.isoformat() if article.published_at else None,
+                "player_names": article.player_names,
+                "competition_code": article.competition_code,
+                "mentioned_teams": article.mentioned_teams,
             }
 
             # Upsert to Qdrant
@@ -235,6 +242,9 @@ class NewsIndexer:
                     "published_at": (
                         article.published_at.isoformat() if article.published_at else None
                     ),
+                    "player_names": article.player_names,
+                    "competition_code": article.competition_code,
+                    "mentioned_teams": article.mentioned_teams,
                 }
             )
 

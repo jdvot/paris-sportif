@@ -29,6 +29,8 @@ class PromptType(str, Enum):
     WEATHER_IMPACT = "weather_impact"
     MOTIVATION_FACTORS = "motivation_factors"
     HEAD_TO_HEAD = "head_to_head"
+    ENTITY_EXTRACTION_BATCH = "entity_extraction_batch"
+    ENTITY_EXTRACTION_DEEP = "entity_extraction_deep"
 
 
 @dataclass

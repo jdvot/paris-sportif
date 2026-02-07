@@ -602,6 +602,22 @@ class RAGEnrichment:
                 injury_info = InjuryParser.parse_headline(headline, team_name)
 
                 if injury_info and injury_info.confidence >= MIN_INJURY_CONFIDENCE:
+                    # Deep NER for better player name extraction
+                    try:
+                        from src.llm.entity_extraction import get_entity_extraction_service
+
+                        ner_service = get_entity_extraction_service()
+                        entities = await ner_service.deep_extract(
+                            title=headline,
+                            content="",
+                            known_teams=[team_name],
+                        )
+                        injured_players = [p for p in entities.players if p.context == "injury"]
+                        if injured_players and injured_players[0].confidence > 0.7:
+                            injury_info.player_name = injured_players[0].name
+                    except Exception as e:
+                        logger.debug(f"NER deep extract skipped for injury: {e}")
+
                     injury_dict: dict[str, Any] = {
                         "player": injury_info.player_name or "Unknown player",
                         "type": injury_info.injury_type or "injury",

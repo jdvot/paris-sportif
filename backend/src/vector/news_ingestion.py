@@ -414,6 +414,55 @@ class NewsIngestionService:
 
         return "general"
 
+    async def _enrich_articles_with_ner(
+        self,
+        articles: list[NewsArticle],
+    ) -> list[NewsArticle]:
+        """Enrich articles with LLM-based entity extraction.
+
+        Uses batch_extract (8B model) for fast NER on ingested articles.
+        Updates article_type, player_names, competition_code, mentioned_teams.
+        """
+        if not articles:
+            return articles
+
+        try:
+            from src.llm.entity_extraction import get_entity_extraction_service
+
+            ner_service = get_entity_extraction_service()
+
+            # Prepare articles for NER
+            ner_input = [{"title": a.title, "content": a.content or ""} for a in articles]
+
+            entities_list = await ner_service.batch_extract(ner_input)
+
+            # Enrich each article with NER results
+            for article, entities in zip(articles, entities_list):
+                # Override article_type if NER is more specific
+                if entities.article_type != "general":
+                    article.article_type = entities.article_type
+
+                # Add player names
+                if entities.players:
+                    article.player_names = [p.name for p in entities.players]
+
+                # Add competition code
+                if entities.competitions:
+                    top_comp = max(entities.competitions, key=lambda c: c.confidence)
+                    if top_comp.canonical_code:
+                        article.competition_code = top_comp.canonical_code
+
+                # Add mentioned teams
+                if entities.teams:
+                    article.mentioned_teams = [t.name for t in entities.teams]
+
+            logger.info(f"NER enriched {len(articles)} articles")
+
+        except Exception as e:
+            logger.warning(f"NER enrichment failed (articles unchanged): {e}")
+
+        return articles
+
     async def ingest_team_news(
         self,
         team_name: str,
@@ -423,6 +472,7 @@ class NewsIngestionService:
         logger.info(f"Ingesting news for {team_name}")
 
         articles = await self.fetch_team_news_from_api(team_name, max_articles)
+        articles = await self._enrich_articles_with_ner(articles)
         indexed = self.indexer.index_articles(articles)
 
         return {
