@@ -79,7 +79,9 @@
     "confidence": "Confiance",
     "odds": "Cotes",
     "surface": "Surface",
-    "tournament": "Tournoi"
+    "tournament": "Tournoi",
+    "playerComparison": "Comparaison des joueurs",
+    "winRate": "Taux de victoire"
   },
   "basketball": {
     "title": "Predictions Basketball",
@@ -95,7 +97,12 @@
     "backToBack": "Back-to-back",
     "quarter": "Q",
     "overtime": "Prolongation",
-    "odds": "Cotes"
+    "odds": "Cotes",
+    "teamComparison": "Comparaison des equipes",
+    "offRating": "Attaque",
+    "defRating": "Defense",
+    "pace": "Rythme",
+    "winRate": "Taux de victoire"
   },
   "home": {
     "title": "WinRate AI",

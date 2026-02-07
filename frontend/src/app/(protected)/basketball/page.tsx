@@ -7,6 +7,7 @@ import { fr, enUS } from "date-fns/locale";
 import { useTranslations, useLocale } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { customInstance } from "@/lib/api/custom-instance";
+import Link from "next/link";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -307,7 +308,8 @@ function BasketballMatchCard({
   }, [match, t]);
 
   return (
-    <Card className="border-gray-200 dark:border-slate-700 hover:border-primary-500/50 dark:hover:border-primary-500/50 transition-colors">
+    <Link href={`/basketball/${match.id}`}>
+    <Card className="border-gray-200 dark:border-slate-700 hover:border-primary-500/50 dark:hover:border-primary-500/50 transition-colors cursor-pointer">
       <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
@@ -508,5 +510,6 @@ function BasketballMatchCard({
         )}
       </CardContent>
     </Card>
+    </Link>
   );
 }

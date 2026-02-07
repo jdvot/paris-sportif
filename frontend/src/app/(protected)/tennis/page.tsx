@@ -7,6 +7,7 @@ import { fr, enUS } from "date-fns/locale";
 import { useTranslations, useLocale } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { customInstance } from "@/lib/api/custom-instance";
+import Link from "next/link";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -322,150 +323,152 @@ function TennisMatchCard({
   const surfaceColor = SURFACE_COLORS[surfaceKey] || SURFACE_COLORS.hard;
 
   return (
-    <Card className="border-gray-200 dark:border-slate-700 hover:border-primary-500/50 dark:hover:border-primary-500/50 transition-colors">
-      <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              {match.tournament.circuit}
-            </Badge>
-            <span className="text-sm text-gray-600 dark:text-slate-400">
-              {match.tournament.name}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge className={`border ${surfaceColor} text-xs`} variant="outline">
-              {t(surfaceKey as "hard" | "clay" | "grass" | "indoor")}
-            </Badge>
-            {match.status === "live" && (
-              <Badge className="bg-red-500 text-white animate-pulse text-xs">
-                LIVE
+    <Link href={`/tennis/${match.id}`}>
+      <Card className="border-gray-200 dark:border-slate-700 hover:border-primary-500/50 dark:hover:border-primary-500/50 transition-colors cursor-pointer">
+        <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">
+                {match.tournament.circuit}
               </Badge>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
-        {/* Players */}
-        <div className="flex items-center justify-center gap-3 sm:gap-6 py-3 sm:py-4">
-          <div className="flex-1 text-right">
-            <p className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white">
-              {match.player1.name}
-            </p>
-            {match.player1.atp_ranking && (
-              <p className="text-xs text-gray-500 dark:text-slate-400">
-                #{match.player1.atp_ranking}
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-col items-center flex-shrink-0">
-            {match.score ? (
-              <span className="text-sm sm:text-base font-bold text-primary-500">
-                {match.score}
+              <span className="text-sm text-gray-600 dark:text-slate-400">
+                {match.tournament.name}
               </span>
-            ) : (
-              <span className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 font-medium">
-                {t("vs")}
-              </span>
-            )}
-          </div>
-
-          <div className="flex-1 text-left">
-            <p className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white">
-              {match.player2.name}
-            </p>
-            {match.player2.atp_ranking && (
-              <p className="text-xs text-gray-500 dark:text-slate-400">
-                #{match.player2.atp_ranking}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Match info */}
-        <div className="flex items-center justify-between text-xs sm:text-sm border-t border-gray-100 dark:border-slate-700/50 pt-3 mt-1">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-slate-400">
-            <Calendar className="w-3.5 h-3.5" />
-            <span>
-              {format(matchDate, "dd MMM yyyy, HH:mm", { locale: dateLocale })}
-            </span>
-          </div>
-          <span className="text-gray-500 dark:text-slate-400">
-            {t("round")}: {match.round}
-          </span>
-        </div>
-
-        {/* Odds */}
-        {(match.odds_player1 != null || match.odds_player2 != null) && (
-          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700/50">
-            <div className="flex items-center justify-center gap-4">
-              <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-1.5">
-                <span className="text-xs text-gray-500 dark:text-slate-400">
-                  {match.player1.name.split(" ").pop()}
-                </span>
-                <span className="text-xs font-semibold text-gray-900 dark:text-white">
-                  {match.odds_player1?.toFixed(2) ?? "-"}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-1.5">
-                <span className="text-xs text-gray-500 dark:text-slate-400">
-                  {match.player2.name.split(" ").pop()}
-                </span>
-                <span className="text-xs font-semibold text-gray-900 dark:text-white">
-                  {match.odds_player2?.toFixed(2) ?? "-"}
-                </span>
-              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className={`border ${surfaceColor} text-xs`} variant="outline">
+                {t(surfaceKey as "hard" | "clay" | "grass" | "indoor")}
+              </Badge>
+              {match.status === "live" && (
+                <Badge className="bg-red-500 text-white animate-pulse text-xs">
+                  LIVE
+                </Badge>
+              )}
             </div>
           </div>
-        )}
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+          {/* Players */}
+          <div className="flex items-center justify-center gap-3 sm:gap-6 py-3 sm:py-4">
+            <div className="flex-1 text-right">
+              <p className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white">
+                {match.player1.name}
+              </p>
+              {match.player1.atp_ranking && (
+                <p className="text-xs text-gray-500 dark:text-slate-400">
+                  #{match.player1.atp_ranking}
+                </p>
+              )}
+            </div>
 
-        {/* Prediction */}
-        {match.pred_player1_prob != null && match.pred_player2_prob != null && (
-          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700/50">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-gray-600 dark:text-slate-400 uppercase tracking-wide">
-                {t("prediction")}
-              </span>
-              {match.pred_confidence != null && (
-                <span className={`text-xs font-semibold ${getConfidenceColor(match.pred_confidence * 100)}`}>
-                  {t("confidence")}: {(match.pred_confidence * 100).toFixed(0)}%
+            <div className="flex flex-col items-center flex-shrink-0">
+              {match.score ? (
+                <span className="text-sm sm:text-base font-bold text-primary-500">
+                  {match.score}
+                </span>
+              ) : (
+                <span className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 font-medium">
+                  {t("vs")}
                 </span>
               )}
             </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600 dark:text-slate-400 w-24 sm:w-32 truncate">
-                  {match.player1.name}
-                </span>
-                <div className="flex-1 bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                  <div
-                    className="bg-primary-500 h-2 rounded-full transition-all"
-                    style={{ width: `${match.pred_player1_prob * 100}%` }}
-                  />
-                </div>
-                <span className="text-xs font-semibold text-gray-900 dark:text-white w-12 text-right">
-                  {(match.pred_player1_prob * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600 dark:text-slate-400 w-24 sm:w-32 truncate">
-                  {match.player2.name}
-                </span>
-                <div className="flex-1 bg-gray-200 dark:bg-slate-700 rounded-full h-2">
-                  <div
-                    className="bg-blue-500 h-2 rounded-full transition-all"
-                    style={{ width: `${match.pred_player2_prob * 100}%` }}
-                  />
-                </div>
-                <span className="text-xs font-semibold text-gray-900 dark:text-white w-12 text-right">
-                  {(match.pred_player2_prob * 100).toFixed(1)}%
-                </span>
-              </div>
+
+            <div className="flex-1 text-left">
+              <p className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white">
+                {match.player2.name}
+              </p>
+              {match.player2.atp_ranking && (
+                <p className="text-xs text-gray-500 dark:text-slate-400">
+                  #{match.player2.atp_ranking}
+                </p>
+              )}
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {/* Match info */}
+          <div className="flex items-center justify-between text-xs sm:text-sm border-t border-gray-100 dark:border-slate-700/50 pt-3 mt-1">
+            <div className="flex items-center gap-2 text-gray-500 dark:text-slate-400">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>
+                {format(matchDate, "dd MMM yyyy, HH:mm", { locale: dateLocale })}
+              </span>
+            </div>
+            <span className="text-gray-500 dark:text-slate-400">
+              {t("round")}: {match.round}
+            </span>
+          </div>
+
+          {/* Odds */}
+          {(match.odds_player1 != null || match.odds_player2 != null) && (
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700/50">
+              <div className="flex items-center justify-center gap-4">
+                <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-1.5">
+                  <span className="text-xs text-gray-500 dark:text-slate-400">
+                    {match.player1.name.split(" ").pop()}
+                  </span>
+                  <span className="text-xs font-semibold text-gray-900 dark:text-white">
+                    {match.odds_player1?.toFixed(2) ?? "-"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-1.5">
+                  <span className="text-xs text-gray-500 dark:text-slate-400">
+                    {match.player2.name.split(" ").pop()}
+                  </span>
+                  <span className="text-xs font-semibold text-gray-900 dark:text-white">
+                    {match.odds_player2?.toFixed(2) ?? "-"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Prediction */}
+          {match.pred_player1_prob != null && match.pred_player2_prob != null && (
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700/50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-gray-600 dark:text-slate-400 uppercase tracking-wide">
+                  {t("prediction")}
+                </span>
+                {match.pred_confidence != null && (
+                  <span className={`text-xs font-semibold ${getConfidenceColor(match.pred_confidence * 100)}`}>
+                    {t("confidence")}: {(match.pred_confidence * 100).toFixed(0)}%
+                  </span>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-600 dark:text-slate-400 w-24 sm:w-32 truncate">
+                    {match.player1.name}
+                  </span>
+                  <div className="flex-1 bg-gray-200 dark:bg-slate-700 rounded-full h-2">
+                    <div
+                      className="bg-primary-500 h-2 rounded-full transition-all"
+                      style={{ width: `${match.pred_player1_prob * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-900 dark:text-white w-12 text-right">
+                    {(match.pred_player1_prob * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-600 dark:text-slate-400 w-24 sm:w-32 truncate">
+                    {match.player2.name}
+                  </span>
+                  <div className="flex-1 bg-gray-200 dark:bg-slate-700 rounded-full h-2">
+                    <div
+                      className="bg-blue-500 h-2 rounded-full transition-all"
+                      style={{ width: `${match.pred_player2_prob * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-900 dark:text-white w-12 text-right">
+                    {(match.pred_player2_prob * 100).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
