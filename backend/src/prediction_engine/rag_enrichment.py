@@ -203,6 +203,14 @@ class InjuryParser:
         r"departure",  # Transfer
     ]
 
+    # Google News RSS appends " - Source Name" to headlines
+    _SOURCE_SUFFIX_RE = re.compile(r"\s+-\s+[A-ZÀ-Ü][\w\s.'']+$")
+
+    @classmethod
+    def _clean_headline(cls, headline: str) -> str:
+        """Strip Google News RSS source suffix (e.g. ' - L'Équipe')."""
+        return cls._SOURCE_SUFFIX_RE.sub("", headline).strip()
+
     @classmethod
     def parse_headline(cls, headline: str, team_name: str) -> InjuryInfo | None:
         """
@@ -210,6 +218,7 @@ class InjuryParser:
 
         Returns None if not injury-related or if it's a false positive.
         """
+        headline = cls._clean_headline(headline)
         headline_lower = headline.lower()
 
         # Check for false positives FIRST
@@ -259,29 +268,70 @@ class InjuryParser:
             confidence=min(confidence, 1.0),
         )
 
+    # Unicode-aware name fragment: supports accents, hyphens, apostrophes
+    # e.g. "Mbappé", "N'Golo", "Müller", "Álvarez", "O'Brien", "Jean-Pierre"
+    # The (?:'[A-Z...])? handles apostrophe+uppercase (N'Golo, O'Brien)
+    _NAME_FRAG = r"[A-ZÀ-ÖØ-Þ](?:'[A-ZÀ-ÖØ-Þ])?[a-zà-öø-ÿ]+"
+    # Optional lowercase prefix (de, van, di, el, da, von, dos, etc.)
+    _PREFIX = r"(?:d[eiau]|de[lr]|van|von|dos|el|al|le|la|bin|ben)\s+"
+    # Full name: 1-3 fragments, optional prefix, optional hyphen-compound
+    _NAME = (
+        rf"(?:{_PREFIX})?"
+        rf"(?:{_NAME_FRAG}(?:-{_NAME_FRAG})?)"  # first part (possibly hyphenated)
+        rf"(?:\s+(?:{_PREFIX})?{_NAME_FRAG}(?:-{_NAME_FRAG})?){{0,2}}"  # up to 2 more
+    )
+
     @classmethod
     def _extract_player_name(cls, headline: str, team_name: str) -> str | None:
-        """Extract player name from headline using patterns."""
-        # Pattern: "Player Name injured/ruled out/etc"
-        # Look for capitalized words before injury keywords
+        """Extract player name from headline using Unicode-aware patterns.
+
+        Supports accented names (Mbappé, Müller, Álvarez), hyphenated names
+        (Jean-Pierre, N'Golo), lowercase prefixes (de Bruyne, van Dijk),
+        and common Google News headline formats.
+        """
+        n = cls._NAME
+
         patterns = [
-            # "Mohamed Salah ruled out"
-            r"([A-Z][a-zé]+(?:\s+[A-Z][a-zé]+){1,2})\s+(?:ruled out|injured|sidelined|doubtful|set to miss)",
-            # "injury blow for Mohamed Salah"
-            r"(?:injury|blow|setback)\s+(?:for|to)\s+([A-Z][a-zé]+(?:\s+[A-Z][a-zé]+){1,2})",
-            # "Mohamed Salah's injury"
-            r"([A-Z][a-zé]+(?:\s+[A-Z][a-zé]+)?)'s\s+(?:injury|fitness|hamstring|knee)",
-            # French: "Blessure de Mohamed Salah"
-            r"[Bb]lessure\s+(?:de|pour)\s+([A-Z][a-zé]+(?:\s+[A-Z][a-zé]+){1,2})",
+            # === English patterns ===
+            # "Salah ruled out / injured / sidelined / doubtful / set to miss / a doubt"
+            rf"({n})\s+(?:ruled out|injured|sidelined|doubtful|set to miss|a doubt|limps off"
+            rf"|faces|suffers|picks up|out (?:for|with)|misses|unavailable)",
+            # "injury blow for Salah" / "setback to Salah"
+            rf"(?:injury|blow|setback|concern|doubt|update on|update:)"
+            rf"\s+(?:for|to|over|on)\s+({n})",
+            # "Salah's hamstring / injury / fitness"
+            rf"({n})(?:'s|'s)\s+(?:injury|fitness|hamstring|knee|ankle|shoulder|"
+            rf"groin|thigh|calf|back|muscle|quad|achilles|absence|ban|suspension)",
+            # "without Salah" / "lose Salah"
+            rf"(?:without|lose|loses|miss|missing)\s+({n})",
+            # "Salah (Liverpool) ruled out"
+            rf"({n})\s*\([^)]+\)\s*(?:ruled out|injured|sidelined|doubtful|out)",
+            # === French patterns ===
+            # "Blessure de Salah" / "Blessure pour Mbappé"
+            rf"[Bb]lessure\s+(?:de|pour|d')\s*({n})",
+            # "Salah blessé / forfait / incertain / indisponible / opéré / absent"
+            rf"({n})\s+(?:blessé|forfait|incertain|indisponible|opéré|absent|suspendu"
+            rf"|touché|sorti|écarté)",
+            # "sans Salah" / "privé de Salah" / "se passe de Salah"
+            rf"(?:sans|privé d[e']|se passe d[e'])\s*({n})",
+            # === Colon / list patterns (Google News) ===
+            # "Team: Salah ruled out" or "Injuries: Salah, Gomes"
+            rf"(?:^|:\s*)({n})\s+(?:[Rr]uled out|[Ii]njured|[Bb]lessé|[Ff]orfait|[Oo]ut|[Aa]bsent)",
+            # "Absent: Salah" / "Forfait: Mbappé"
+            rf"(?:[Aa]bsent|[Ff]orfait|[Ii]ndisponible|[Oo]ut)\s*:\s*({n})",
         ]
 
         for pattern in patterns:
             match = re.search(pattern, headline)
             if match:
-                name = match.group(1)
-                # Exclude team name from being detected as player
-                if team_name.lower() not in name.lower():
-                    return name
+                name = match.group(1).strip()
+                # Reject if name matches team name
+                if team_name.lower() in name.lower():
+                    continue
+                # Reject single-char or too-short names
+                if len(name) < 3:
+                    continue
+                return name
 
         return None
 
@@ -614,6 +664,17 @@ class RAGEnrichment:
                     }
                     injuries.append(injury_dict)
 
+            # LLM fallback: extract player names for injuries still marked "Unknown"
+            unknown_injuries = [i for i in injuries if i["player"] == "Unknown player"]
+            if unknown_injuries:
+                resolved = await self._llm_extract_player_names(unknown_injuries, team_name)
+                # Merge resolved names back
+                for inj in injuries:
+                    headline_key = inj["headline"][:80]
+                    if inj["player"] == "Unknown player" and headline_key in resolved:
+                        inj["player"] = resolved[headline_key]
+                        inj["confidence"] = min(inj["confidence"] + 0.1, 1.0)
+
             # Sort by confidence and limit
             injuries.sort(key=lambda x: x.get("confidence", 0), reverse=True)
             injuries = injuries[:MAX_INJURIES_TO_KEEP]
@@ -627,6 +688,60 @@ class RAGEnrichment:
             logger.error(f"Error fetching injuries for {team_name}: {e}")
 
         return injuries
+
+    async def _llm_extract_player_names(
+        self,
+        unknown_injuries: list[dict[str, Any]],
+        team_name: str,
+    ) -> dict[str, str]:
+        """Use LLM to extract player names from headlines where regex failed.
+
+        Batches all unknown-player headlines into a single LLM call.
+        Returns a mapping of headline_key (first 80 chars) → player name.
+        """
+        if not unknown_injuries:
+            return {}
+
+        headlines_text = "\n".join(
+            f"{i + 1}. {inj['headline']}" for i, inj in enumerate(unknown_injuries)
+        )
+
+        prompt = (
+            f"Extract the injured/suspended player name from each headline about {team_name}.\n"
+            f"Return ONLY a JSON object mapping the headline number to the player's full name.\n"
+            f"If you cannot determine the player name, use null.\n\n"
+            f"Headlines:\n{headlines_text}\n\n"
+            f'Example response: {{"1": "Kylian Mbappé", "2": null, "3": "Angel Gomes"}}'
+        )
+
+        try:
+            llm = get_llm_client()
+            raw = await llm.complete(prompt=prompt, max_tokens=150, temperature=0.0)
+            if not raw:
+                return {}
+
+            # Parse JSON from LLM response (may be wrapped in ```json...```)
+            import json
+
+            cleaned = raw.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            parsed: dict[str, str | None] = json.loads(cleaned)
+
+            resolved: dict[str, str] = {}
+            for idx_str, name in parsed.items():
+                idx = int(idx_str) - 1
+                if 0 <= idx < len(unknown_injuries) and name:
+                    headline_key = unknown_injuries[idx]["headline"][:80]
+                    resolved[headline_key] = str(name)
+
+            if resolved:
+                logger.info(f"LLM resolved {len(resolved)} player names for {team_name}")
+            return resolved
+
+        except Exception as e:
+            logger.debug(f"LLM player name extraction failed for {team_name}: {e}")
+            return {}
 
     async def _fetch_team_form(self, team_name: str) -> dict[str, Any]:
         """Fetch recent form/results for a team."""
