@@ -9,6 +9,7 @@ services:
     region: oregon  # US West - Change to 'frankfurt' for EU
     plan: standard  # 1 CPU, 2GB RAM
     buildCommand: "cd backend && pip install uv && uv sync"
+    preDeployCommand: "cd backend && uv run alembic upgrade head"
     startCommand: "cd backend && uv run gunicorn src.api.main:app -c gunicorn.conf.py"
     healthCheckPath: /health/ready
     autoDeploy: true
