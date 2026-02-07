@@ -14,7 +14,7 @@ from src.core.http_client import get_http_client
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://tennis-api-atp-wta-itf.p.rapidapi.com"
+BASE_URL = "https://tennis-devs.p.rapidapi.com"
 
 # Simple in-memory cache with TTL
 _cache: dict[str, tuple[float, Any]] = {}
@@ -71,7 +71,7 @@ async def _request(endpoint: str, params: dict[str, str] | None = None) -> list[
     url = f"{BASE_URL}{endpoint}"
     headers = {
         "x-rapidapi-key": settings.sportdevs_api_key,
-        "x-rapidapi-host": "tennis-api-atp-wta-itf.p.rapidapi.com",
+        "x-rapidapi-host": "tennis-devs.p.rapidapi.com",
     }
 
     try:

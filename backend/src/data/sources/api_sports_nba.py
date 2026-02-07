@@ -119,17 +119,13 @@ async def get_standings(league: str, season: str) -> list[dict[str, Any]]:
     return result
 
 
-async def get_teams(league: str = "standard", season: str = "2025") -> list[dict[str, Any]]:
+async def get_teams() -> list[dict[str, Any]]:
     """Get NBA teams.
 
-    Args:
-        league: League type
-        season: Season year
-
     Returns:
-        List of team dicts
+        List of team dicts (all leagues, unfiltered by season).
     """
-    data = await _request("/teams", params={"league": league, "season": season})
+    data = await _request("/teams")
     result: list[dict[str, Any]] = data.get("response", [])
     logger.info(f"NBA API: {len(result)} teams")
     return result

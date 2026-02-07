@@ -7,7 +7,7 @@ generates predictions, and stores everything in the database.
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import text
@@ -223,7 +223,27 @@ async def _sync_matches() -> int:
 
                 surface = _normalize_surface(tournament_data.get("surface", "hard"))
                 round_name = match.get("round", "")
-                match_datetime = match.get("startTimestamp") or f"{date_str}T00:00:00Z"
+                raw_datetime = match.get("startTimestamp") or f"{date_str}T00:00:00Z"
+
+                if isinstance(raw_datetime, (int, float)):
+                    match_datetime = datetime.fromtimestamp(raw_datetime, tz=UTC)
+                elif isinstance(raw_datetime, str):
+                    try:
+                        match_datetime = datetime.fromisoformat(raw_datetime.replace("Z", "+00:00"))
+                    except ValueError:
+                        match_datetime = datetime(
+                            match_date.year,
+                            match_date.month,
+                            match_date.day,
+                            tzinfo=UTC,
+                        )
+                else:
+                    match_datetime = datetime(
+                        match_date.year,
+                        match_date.month,
+                        match_date.day,
+                        tzinfo=UTC,
+                    )
 
                 # Map status
                 raw_status = match.get("status")

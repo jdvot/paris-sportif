@@ -7,7 +7,7 @@ generates predictions, and stores everything in the database.
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import text
@@ -219,7 +219,17 @@ async def _sync_games() -> int:
                 away_scores: dict[str, Any] = scores_data.get("visitors", {})
 
                 date_info: dict[str, Any] = game.get("date", {})
-                match_date = date_info.get("start", f"{date_str}T00:00:00Z")
+                match_date_str = date_info.get("start", f"{date_str}T00:00:00Z")
+
+                try:
+                    match_date = datetime.fromisoformat(match_date_str.replace("Z", "+00:00"))
+                except (ValueError, AttributeError):
+                    match_date = datetime(
+                        game_date.year,
+                        game_date.month,
+                        game_date.day,
+                        tzinfo=UTC,
+                    )
 
                 season_info: dict[str, Any] = game.get("season", {})
                 season = str(season_info) if isinstance(season_info, int) else "2025-26"
