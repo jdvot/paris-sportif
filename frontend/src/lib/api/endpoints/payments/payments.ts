@@ -26,11 +26,13 @@ import type {
 
 import type {
   CancelRequest,
+  CancelSubscriptionApiV1StripeCancelSubscriptionPost200,
   CheckoutResponse,
   CreateCheckoutRequest,
   HTTPValidationError,
   PortalRequest,
   PortalResponse,
+  StripeWebhookApiV1StripeWebhookPost200,
   SubscriptionResponse
 } from '../../models';
 
@@ -48,36 +50,36 @@ Requires authentication. Creates a checkout session for the specified plan
 with a 7-day free trial.
  * @summary Create Checkout Session
  */
-export type createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostResponse200 = {
+export type createCheckoutSessionApiV1StripeCreateCheckoutSessionPostResponse200 = {
   data: CheckoutResponse
   status: 200
 }
 
-export type createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostResponse422 = {
+export type createCheckoutSessionApiV1StripeCreateCheckoutSessionPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
     
-export type createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostResponseSuccess = (createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostResponse200) & {
+export type createCheckoutSessionApiV1StripeCreateCheckoutSessionPostResponseSuccess = (createCheckoutSessionApiV1StripeCreateCheckoutSessionPostResponse200) & {
   headers: Headers;
 };
-export type createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostResponseError = (createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostResponse422) & {
+export type createCheckoutSessionApiV1StripeCreateCheckoutSessionPostResponseError = (createCheckoutSessionApiV1StripeCreateCheckoutSessionPostResponse422) & {
   headers: Headers;
 };
 
-export type createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostResponse = (createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostResponseSuccess | createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostResponseError)
+export type createCheckoutSessionApiV1StripeCreateCheckoutSessionPostResponse = (createCheckoutSessionApiV1StripeCreateCheckoutSessionPostResponseSuccess | createCheckoutSessionApiV1StripeCreateCheckoutSessionPostResponseError)
 
-export const getCreateCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostUrl = () => {
+export const getCreateCheckoutSessionApiV1StripeCreateCheckoutSessionPostUrl = () => {
 
 
   
 
-  return `/api/v1/stripe/stripe/create-checkout-session`
+  return `/api/v1/stripe/create-checkout-session`
 }
 
-export const createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPost = async (createCheckoutRequest: CreateCheckoutRequest, options?: RequestInit): Promise<createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostResponse> => {
+export const createCheckoutSessionApiV1StripeCreateCheckoutSessionPost = async (createCheckoutRequest: CreateCheckoutRequest, options?: RequestInit): Promise<createCheckoutSessionApiV1StripeCreateCheckoutSessionPostResponse> => {
   
-  return customInstance<createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostResponse>(getCreateCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostUrl(),
+  return customInstance<createCheckoutSessionApiV1StripeCreateCheckoutSessionPostResponse>(getCreateCheckoutSessionApiV1StripeCreateCheckoutSessionPostUrl(),
   {      
     ...options,
     method: 'POST',
@@ -90,11 +92,11 @@ export const createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPost = a
 
 
 
-export const getCreateCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPost>>, TError,{data: CreateCheckoutRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPost>>, TError,{data: CreateCheckoutRequest}, TContext> => {
+export const getCreateCheckoutSessionApiV1StripeCreateCheckoutSessionPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCheckoutSessionApiV1StripeCreateCheckoutSessionPost>>, TError,{data: CreateCheckoutRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCheckoutSessionApiV1StripeCreateCheckoutSessionPost>>, TError,{data: CreateCheckoutRequest}, TContext> => {
 
-const mutationKey = ['createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPost'];
+const mutationKey = ['createCheckoutSessionApiV1StripeCreateCheckoutSessionPost'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -104,10 +106,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPost>>, {data: CreateCheckoutRequest}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCheckoutSessionApiV1StripeCreateCheckoutSessionPost>>, {data: CreateCheckoutRequest}> = (props) => {
           const {data} = props ?? {};
 
-          return  createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPost(data,requestOptions)
+          return  createCheckoutSessionApiV1StripeCreateCheckoutSessionPost(data,requestOptions)
         }
 
 
@@ -117,22 +119,22 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type CreateCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostMutationResult = NonNullable<Awaited<ReturnType<typeof createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPost>>>
-    export type CreateCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostMutationBody = CreateCheckoutRequest
-    export type CreateCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostMutationError = HTTPValidationError
+    export type CreateCheckoutSessionApiV1StripeCreateCheckoutSessionPostMutationResult = NonNullable<Awaited<ReturnType<typeof createCheckoutSessionApiV1StripeCreateCheckoutSessionPost>>>
+    export type CreateCheckoutSessionApiV1StripeCreateCheckoutSessionPostMutationBody = CreateCheckoutRequest
+    export type CreateCheckoutSessionApiV1StripeCreateCheckoutSessionPostMutationError = HTTPValidationError
 
     /**
  * @summary Create Checkout Session
  */
-export const useCreateCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPost = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPost>>, TError,{data: CreateCheckoutRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+export const useCreateCheckoutSessionApiV1StripeCreateCheckoutSessionPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCheckoutSessionApiV1StripeCreateCheckoutSessionPost>>, TError,{data: CreateCheckoutRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof createCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPost>>,
+        Awaited<ReturnType<typeof createCheckoutSessionApiV1StripeCreateCheckoutSessionPost>>,
         TError,
         {data: CreateCheckoutRequest},
         TContext
       > => {
-      return useMutation(getCreateCheckoutSessionApiV1StripeStripeCreateCheckoutSessionPostMutationOptions(options), queryClient);
+      return useMutation(getCreateCheckoutSessionApiV1StripeCreateCheckoutSessionPostMutationOptions(options), queryClient);
     }
     /**
  * Create a Stripe Customer Portal session for subscription management.
@@ -141,36 +143,36 @@ Allows users to manage their subscription, update payment methods,
 view invoices, and cancel.
  * @summary Create Portal Session
  */
-export type createPortalSessionApiV1StripeStripeCreatePortalSessionPostResponse200 = {
+export type createPortalSessionApiV1StripeCreatePortalSessionPostResponse200 = {
   data: PortalResponse
   status: 200
 }
 
-export type createPortalSessionApiV1StripeStripeCreatePortalSessionPostResponse422 = {
+export type createPortalSessionApiV1StripeCreatePortalSessionPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
     
-export type createPortalSessionApiV1StripeStripeCreatePortalSessionPostResponseSuccess = (createPortalSessionApiV1StripeStripeCreatePortalSessionPostResponse200) & {
+export type createPortalSessionApiV1StripeCreatePortalSessionPostResponseSuccess = (createPortalSessionApiV1StripeCreatePortalSessionPostResponse200) & {
   headers: Headers;
 };
-export type createPortalSessionApiV1StripeStripeCreatePortalSessionPostResponseError = (createPortalSessionApiV1StripeStripeCreatePortalSessionPostResponse422) & {
+export type createPortalSessionApiV1StripeCreatePortalSessionPostResponseError = (createPortalSessionApiV1StripeCreatePortalSessionPostResponse422) & {
   headers: Headers;
 };
 
-export type createPortalSessionApiV1StripeStripeCreatePortalSessionPostResponse = (createPortalSessionApiV1StripeStripeCreatePortalSessionPostResponseSuccess | createPortalSessionApiV1StripeStripeCreatePortalSessionPostResponseError)
+export type createPortalSessionApiV1StripeCreatePortalSessionPostResponse = (createPortalSessionApiV1StripeCreatePortalSessionPostResponseSuccess | createPortalSessionApiV1StripeCreatePortalSessionPostResponseError)
 
-export const getCreatePortalSessionApiV1StripeStripeCreatePortalSessionPostUrl = () => {
+export const getCreatePortalSessionApiV1StripeCreatePortalSessionPostUrl = () => {
 
 
   
 
-  return `/api/v1/stripe/stripe/create-portal-session`
+  return `/api/v1/stripe/create-portal-session`
 }
 
-export const createPortalSessionApiV1StripeStripeCreatePortalSessionPost = async (portalRequest: PortalRequest, options?: RequestInit): Promise<createPortalSessionApiV1StripeStripeCreatePortalSessionPostResponse> => {
+export const createPortalSessionApiV1StripeCreatePortalSessionPost = async (portalRequest: PortalRequest, options?: RequestInit): Promise<createPortalSessionApiV1StripeCreatePortalSessionPostResponse> => {
   
-  return customInstance<createPortalSessionApiV1StripeStripeCreatePortalSessionPostResponse>(getCreatePortalSessionApiV1StripeStripeCreatePortalSessionPostUrl(),
+  return customInstance<createPortalSessionApiV1StripeCreatePortalSessionPostResponse>(getCreatePortalSessionApiV1StripeCreatePortalSessionPostUrl(),
   {      
     ...options,
     method: 'POST',
@@ -183,11 +185,11 @@ export const createPortalSessionApiV1StripeStripeCreatePortalSessionPost = async
 
 
 
-export const getCreatePortalSessionApiV1StripeStripeCreatePortalSessionPostMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPortalSessionApiV1StripeStripeCreatePortalSessionPost>>, TError,{data: PortalRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof createPortalSessionApiV1StripeStripeCreatePortalSessionPost>>, TError,{data: PortalRequest}, TContext> => {
+export const getCreatePortalSessionApiV1StripeCreatePortalSessionPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPortalSessionApiV1StripeCreatePortalSessionPost>>, TError,{data: PortalRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPortalSessionApiV1StripeCreatePortalSessionPost>>, TError,{data: PortalRequest}, TContext> => {
 
-const mutationKey = ['createPortalSessionApiV1StripeStripeCreatePortalSessionPost'];
+const mutationKey = ['createPortalSessionApiV1StripeCreatePortalSessionPost'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -197,10 +199,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPortalSessionApiV1StripeStripeCreatePortalSessionPost>>, {data: PortalRequest}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPortalSessionApiV1StripeCreatePortalSessionPost>>, {data: PortalRequest}> = (props) => {
           const {data} = props ?? {};
 
-          return  createPortalSessionApiV1StripeStripeCreatePortalSessionPost(data,requestOptions)
+          return  createPortalSessionApiV1StripeCreatePortalSessionPost(data,requestOptions)
         }
 
 
@@ -210,22 +212,22 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type CreatePortalSessionApiV1StripeStripeCreatePortalSessionPostMutationResult = NonNullable<Awaited<ReturnType<typeof createPortalSessionApiV1StripeStripeCreatePortalSessionPost>>>
-    export type CreatePortalSessionApiV1StripeStripeCreatePortalSessionPostMutationBody = PortalRequest
-    export type CreatePortalSessionApiV1StripeStripeCreatePortalSessionPostMutationError = HTTPValidationError
+    export type CreatePortalSessionApiV1StripeCreatePortalSessionPostMutationResult = NonNullable<Awaited<ReturnType<typeof createPortalSessionApiV1StripeCreatePortalSessionPost>>>
+    export type CreatePortalSessionApiV1StripeCreatePortalSessionPostMutationBody = PortalRequest
+    export type CreatePortalSessionApiV1StripeCreatePortalSessionPostMutationError = HTTPValidationError
 
     /**
  * @summary Create Portal Session
  */
-export const useCreatePortalSessionApiV1StripeStripeCreatePortalSessionPost = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPortalSessionApiV1StripeStripeCreatePortalSessionPost>>, TError,{data: PortalRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+export const useCreatePortalSessionApiV1StripeCreatePortalSessionPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPortalSessionApiV1StripeCreatePortalSessionPost>>, TError,{data: PortalRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof createPortalSessionApiV1StripeStripeCreatePortalSessionPost>>,
+        Awaited<ReturnType<typeof createPortalSessionApiV1StripeCreatePortalSessionPost>>,
         TError,
         {data: PortalRequest},
         TContext
       > => {
-      return useMutation(getCreatePortalSessionApiV1StripeStripeCreatePortalSessionPostMutationOptions(options), queryClient);
+      return useMutation(getCreatePortalSessionApiV1StripeCreatePortalSessionPostMutationOptions(options), queryClient);
     }
     /**
  * Get the current user's subscription details.
@@ -233,29 +235,29 @@ export const useCreatePortalSessionApiV1StripeStripeCreatePortalSessionPost = <T
 Returns None if no active subscription exists.
  * @summary Get Subscription
  */
-export type getSubscriptionApiV1StripeStripeSubscriptionGetResponse200 = {
+export type getSubscriptionApiV1StripeSubscriptionGetResponse200 = {
   data: SubscriptionResponse | null
   status: 200
 }
     
-export type getSubscriptionApiV1StripeStripeSubscriptionGetResponseSuccess = (getSubscriptionApiV1StripeStripeSubscriptionGetResponse200) & {
+export type getSubscriptionApiV1StripeSubscriptionGetResponseSuccess = (getSubscriptionApiV1StripeSubscriptionGetResponse200) & {
   headers: Headers;
 };
 ;
 
-export type getSubscriptionApiV1StripeStripeSubscriptionGetResponse = (getSubscriptionApiV1StripeStripeSubscriptionGetResponseSuccess)
+export type getSubscriptionApiV1StripeSubscriptionGetResponse = (getSubscriptionApiV1StripeSubscriptionGetResponseSuccess)
 
-export const getGetSubscriptionApiV1StripeStripeSubscriptionGetUrl = () => {
+export const getGetSubscriptionApiV1StripeSubscriptionGetUrl = () => {
 
 
   
 
-  return `/api/v1/stripe/stripe/subscription`
+  return `/api/v1/stripe/subscription`
 }
 
-export const getSubscriptionApiV1StripeStripeSubscriptionGet = async ( options?: RequestInit): Promise<getSubscriptionApiV1StripeStripeSubscriptionGetResponse> => {
+export const getSubscriptionApiV1StripeSubscriptionGet = async ( options?: RequestInit): Promise<getSubscriptionApiV1StripeSubscriptionGetResponse> => {
   
-  return customInstance<getSubscriptionApiV1StripeStripeSubscriptionGetResponse>(getGetSubscriptionApiV1StripeStripeSubscriptionGetUrl(),
+  return customInstance<getSubscriptionApiV1StripeSubscriptionGetResponse>(getGetSubscriptionApiV1StripeSubscriptionGetUrl(),
   {      
     ...options,
     method: 'GET'
@@ -268,69 +270,69 @@ export const getSubscriptionApiV1StripeStripeSubscriptionGet = async ( options?:
 
 
 
-export const getGetSubscriptionApiV1StripeStripeSubscriptionGetQueryKey = () => {
+export const getGetSubscriptionApiV1StripeSubscriptionGetQueryKey = () => {
     return [
-    `/api/v1/stripe/stripe/subscription`
+    `/api/v1/stripe/subscription`
     ] as const;
     }
 
     
-export const getGetSubscriptionApiV1StripeStripeSubscriptionGetQueryOptions = <TData = Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getGetSubscriptionApiV1StripeSubscriptionGetQueryOptions = <TData = Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetSubscriptionApiV1StripeStripeSubscriptionGetQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetSubscriptionApiV1StripeSubscriptionGetQueryKey();
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>> = ({ signal }) => getSubscriptionApiV1StripeStripeSubscriptionGet({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>> = ({ signal }) => getSubscriptionApiV1StripeSubscriptionGet({ signal, ...requestOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type GetSubscriptionApiV1StripeStripeSubscriptionGetQueryResult = NonNullable<Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>>
-export type GetSubscriptionApiV1StripeStripeSubscriptionGetQueryError = unknown
+export type GetSubscriptionApiV1StripeSubscriptionGetQueryResult = NonNullable<Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>>
+export type GetSubscriptionApiV1StripeSubscriptionGetQueryError = unknown
 
 
-export function useGetSubscriptionApiV1StripeStripeSubscriptionGet<TData = Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>, TError, TData>> & Pick<
+export function useGetSubscriptionApiV1StripeSubscriptionGet<TData = Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>,
+          Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>,
           TError,
-          Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>
+          Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetSubscriptionApiV1StripeStripeSubscriptionGet<TData = Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>, TError, TData>> & Pick<
+export function useGetSubscriptionApiV1StripeSubscriptionGet<TData = Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>,
+          Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>,
           TError,
-          Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>
+          Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetSubscriptionApiV1StripeStripeSubscriptionGet<TData = Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useGetSubscriptionApiV1StripeSubscriptionGet<TData = Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Get Subscription
  */
 
-export function useGetSubscriptionApiV1StripeStripeSubscriptionGet<TData = Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionApiV1StripeStripeSubscriptionGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useGetSubscriptionApiV1StripeSubscriptionGet<TData = Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubscriptionApiV1StripeSubscriptionGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetSubscriptionApiV1StripeStripeSubscriptionGetQueryOptions(options)
+  const queryOptions = getGetSubscriptionApiV1StripeSubscriptionGetQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -347,36 +349,36 @@ By default, cancels at the end of the billing period.
 Set immediate=True to cancel immediately.
  * @summary Cancel Subscription
  */
-export type cancelSubscriptionApiV1StripeStripeCancelSubscriptionPostResponse200 = {
-  data: unknown
+export type cancelSubscriptionApiV1StripeCancelSubscriptionPostResponse200 = {
+  data: CancelSubscriptionApiV1StripeCancelSubscriptionPost200
   status: 200
 }
 
-export type cancelSubscriptionApiV1StripeStripeCancelSubscriptionPostResponse422 = {
+export type cancelSubscriptionApiV1StripeCancelSubscriptionPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
     
-export type cancelSubscriptionApiV1StripeStripeCancelSubscriptionPostResponseSuccess = (cancelSubscriptionApiV1StripeStripeCancelSubscriptionPostResponse200) & {
+export type cancelSubscriptionApiV1StripeCancelSubscriptionPostResponseSuccess = (cancelSubscriptionApiV1StripeCancelSubscriptionPostResponse200) & {
   headers: Headers;
 };
-export type cancelSubscriptionApiV1StripeStripeCancelSubscriptionPostResponseError = (cancelSubscriptionApiV1StripeStripeCancelSubscriptionPostResponse422) & {
+export type cancelSubscriptionApiV1StripeCancelSubscriptionPostResponseError = (cancelSubscriptionApiV1StripeCancelSubscriptionPostResponse422) & {
   headers: Headers;
 };
 
-export type cancelSubscriptionApiV1StripeStripeCancelSubscriptionPostResponse = (cancelSubscriptionApiV1StripeStripeCancelSubscriptionPostResponseSuccess | cancelSubscriptionApiV1StripeStripeCancelSubscriptionPostResponseError)
+export type cancelSubscriptionApiV1StripeCancelSubscriptionPostResponse = (cancelSubscriptionApiV1StripeCancelSubscriptionPostResponseSuccess | cancelSubscriptionApiV1StripeCancelSubscriptionPostResponseError)
 
-export const getCancelSubscriptionApiV1StripeStripeCancelSubscriptionPostUrl = () => {
+export const getCancelSubscriptionApiV1StripeCancelSubscriptionPostUrl = () => {
 
 
   
 
-  return `/api/v1/stripe/stripe/cancel-subscription`
+  return `/api/v1/stripe/cancel-subscription`
 }
 
-export const cancelSubscriptionApiV1StripeStripeCancelSubscriptionPost = async (cancelRequest: CancelRequest, options?: RequestInit): Promise<cancelSubscriptionApiV1StripeStripeCancelSubscriptionPostResponse> => {
+export const cancelSubscriptionApiV1StripeCancelSubscriptionPost = async (cancelRequest: CancelRequest, options?: RequestInit): Promise<cancelSubscriptionApiV1StripeCancelSubscriptionPostResponse> => {
   
-  return customInstance<cancelSubscriptionApiV1StripeStripeCancelSubscriptionPostResponse>(getCancelSubscriptionApiV1StripeStripeCancelSubscriptionPostUrl(),
+  return customInstance<cancelSubscriptionApiV1StripeCancelSubscriptionPostResponse>(getCancelSubscriptionApiV1StripeCancelSubscriptionPostUrl(),
   {      
     ...options,
     method: 'POST',
@@ -389,11 +391,11 @@ export const cancelSubscriptionApiV1StripeStripeCancelSubscriptionPost = async (
 
 
 
-export const getCancelSubscriptionApiV1StripeStripeCancelSubscriptionPostMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelSubscriptionApiV1StripeStripeCancelSubscriptionPost>>, TError,{data: CancelRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof cancelSubscriptionApiV1StripeStripeCancelSubscriptionPost>>, TError,{data: CancelRequest}, TContext> => {
+export const getCancelSubscriptionApiV1StripeCancelSubscriptionPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelSubscriptionApiV1StripeCancelSubscriptionPost>>, TError,{data: CancelRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelSubscriptionApiV1StripeCancelSubscriptionPost>>, TError,{data: CancelRequest}, TContext> => {
 
-const mutationKey = ['cancelSubscriptionApiV1StripeStripeCancelSubscriptionPost'];
+const mutationKey = ['cancelSubscriptionApiV1StripeCancelSubscriptionPost'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -403,10 +405,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelSubscriptionApiV1StripeStripeCancelSubscriptionPost>>, {data: CancelRequest}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelSubscriptionApiV1StripeCancelSubscriptionPost>>, {data: CancelRequest}> = (props) => {
           const {data} = props ?? {};
 
-          return  cancelSubscriptionApiV1StripeStripeCancelSubscriptionPost(data,requestOptions)
+          return  cancelSubscriptionApiV1StripeCancelSubscriptionPost(data,requestOptions)
         }
 
 
@@ -416,22 +418,22 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type CancelSubscriptionApiV1StripeStripeCancelSubscriptionPostMutationResult = NonNullable<Awaited<ReturnType<typeof cancelSubscriptionApiV1StripeStripeCancelSubscriptionPost>>>
-    export type CancelSubscriptionApiV1StripeStripeCancelSubscriptionPostMutationBody = CancelRequest
-    export type CancelSubscriptionApiV1StripeStripeCancelSubscriptionPostMutationError = HTTPValidationError
+    export type CancelSubscriptionApiV1StripeCancelSubscriptionPostMutationResult = NonNullable<Awaited<ReturnType<typeof cancelSubscriptionApiV1StripeCancelSubscriptionPost>>>
+    export type CancelSubscriptionApiV1StripeCancelSubscriptionPostMutationBody = CancelRequest
+    export type CancelSubscriptionApiV1StripeCancelSubscriptionPostMutationError = HTTPValidationError
 
     /**
  * @summary Cancel Subscription
  */
-export const useCancelSubscriptionApiV1StripeStripeCancelSubscriptionPost = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelSubscriptionApiV1StripeStripeCancelSubscriptionPost>>, TError,{data: CancelRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+export const useCancelSubscriptionApiV1StripeCancelSubscriptionPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelSubscriptionApiV1StripeCancelSubscriptionPost>>, TError,{data: CancelRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof cancelSubscriptionApiV1StripeStripeCancelSubscriptionPost>>,
+        Awaited<ReturnType<typeof cancelSubscriptionApiV1StripeCancelSubscriptionPost>>,
         TError,
         {data: CancelRequest},
         TContext
       > => {
-      return useMutation(getCancelSubscriptionApiV1StripeStripeCancelSubscriptionPostMutationOptions(options), queryClient);
+      return useMutation(getCancelSubscriptionApiV1StripeCancelSubscriptionPostMutationOptions(options), queryClient);
     }
     /**
  * Handle Stripe webhook events.
@@ -445,36 +447,36 @@ Events handled:
 - invoice.payment_failed: Payment failed
  * @summary Stripe Webhook
  */
-export type stripeWebhookApiV1StripeStripeWebhookPostResponse200 = {
-  data: unknown
+export type stripeWebhookApiV1StripeWebhookPostResponse200 = {
+  data: StripeWebhookApiV1StripeWebhookPost200
   status: 200
 }
 
-export type stripeWebhookApiV1StripeStripeWebhookPostResponse422 = {
+export type stripeWebhookApiV1StripeWebhookPostResponse422 = {
   data: HTTPValidationError
   status: 422
 }
     
-export type stripeWebhookApiV1StripeStripeWebhookPostResponseSuccess = (stripeWebhookApiV1StripeStripeWebhookPostResponse200) & {
+export type stripeWebhookApiV1StripeWebhookPostResponseSuccess = (stripeWebhookApiV1StripeWebhookPostResponse200) & {
   headers: Headers;
 };
-export type stripeWebhookApiV1StripeStripeWebhookPostResponseError = (stripeWebhookApiV1StripeStripeWebhookPostResponse422) & {
+export type stripeWebhookApiV1StripeWebhookPostResponseError = (stripeWebhookApiV1StripeWebhookPostResponse422) & {
   headers: Headers;
 };
 
-export type stripeWebhookApiV1StripeStripeWebhookPostResponse = (stripeWebhookApiV1StripeStripeWebhookPostResponseSuccess | stripeWebhookApiV1StripeStripeWebhookPostResponseError)
+export type stripeWebhookApiV1StripeWebhookPostResponse = (stripeWebhookApiV1StripeWebhookPostResponseSuccess | stripeWebhookApiV1StripeWebhookPostResponseError)
 
-export const getStripeWebhookApiV1StripeStripeWebhookPostUrl = () => {
+export const getStripeWebhookApiV1StripeWebhookPostUrl = () => {
 
 
   
 
-  return `/api/v1/stripe/stripe/webhook`
+  return `/api/v1/stripe/webhook`
 }
 
-export const stripeWebhookApiV1StripeStripeWebhookPost = async ( options?: RequestInit): Promise<stripeWebhookApiV1StripeStripeWebhookPostResponse> => {
+export const stripeWebhookApiV1StripeWebhookPost = async ( options?: RequestInit): Promise<stripeWebhookApiV1StripeWebhookPostResponse> => {
   
-  return customInstance<stripeWebhookApiV1StripeStripeWebhookPostResponse>(getStripeWebhookApiV1StripeStripeWebhookPostUrl(),
+  return customInstance<stripeWebhookApiV1StripeWebhookPostResponse>(getStripeWebhookApiV1StripeWebhookPostUrl(),
   {      
     ...options,
     method: 'POST'
@@ -486,11 +488,11 @@ export const stripeWebhookApiV1StripeStripeWebhookPost = async ( options?: Reque
 
 
 
-export const getStripeWebhookApiV1StripeStripeWebhookPostMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stripeWebhookApiV1StripeStripeWebhookPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof stripeWebhookApiV1StripeStripeWebhookPost>>, TError,void, TContext> => {
+export const getStripeWebhookApiV1StripeWebhookPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stripeWebhookApiV1StripeWebhookPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof stripeWebhookApiV1StripeWebhookPost>>, TError,void, TContext> => {
 
-const mutationKey = ['stripeWebhookApiV1StripeStripeWebhookPost'];
+const mutationKey = ['stripeWebhookApiV1StripeWebhookPost'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -500,10 +502,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof stripeWebhookApiV1StripeStripeWebhookPost>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof stripeWebhookApiV1StripeWebhookPost>>, void> = () => {
           
 
-          return  stripeWebhookApiV1StripeStripeWebhookPost(requestOptions)
+          return  stripeWebhookApiV1StripeWebhookPost(requestOptions)
         }
 
 
@@ -513,21 +515,21 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type StripeWebhookApiV1StripeStripeWebhookPostMutationResult = NonNullable<Awaited<ReturnType<typeof stripeWebhookApiV1StripeStripeWebhookPost>>>
+    export type StripeWebhookApiV1StripeWebhookPostMutationResult = NonNullable<Awaited<ReturnType<typeof stripeWebhookApiV1StripeWebhookPost>>>
     
-    export type StripeWebhookApiV1StripeStripeWebhookPostMutationError = HTTPValidationError
+    export type StripeWebhookApiV1StripeWebhookPostMutationError = HTTPValidationError
 
     /**
  * @summary Stripe Webhook
  */
-export const useStripeWebhookApiV1StripeStripeWebhookPost = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stripeWebhookApiV1StripeStripeWebhookPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
+export const useStripeWebhookApiV1StripeWebhookPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stripeWebhookApiV1StripeWebhookPost>>, TError,void, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof stripeWebhookApiV1StripeStripeWebhookPost>>,
+        Awaited<ReturnType<typeof stripeWebhookApiV1StripeWebhookPost>>,
         TError,
         void,
         TContext
       > => {
-      return useMutation(getStripeWebhookApiV1StripeStripeWebhookPostMutationOptions(options), queryClient);
+      return useMutation(getStripeWebhookApiV1StripeWebhookPostMutationOptions(options), queryClient);
     }
     

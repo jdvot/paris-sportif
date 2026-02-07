@@ -6,4 +6,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ReadinessCheckHealthReadyGet200 = {[key: string]: string | boolean};
+export type ReadinessCheckHealthReadyGet200 = { [key: string]: unknown };

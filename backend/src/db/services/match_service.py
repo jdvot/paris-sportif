@@ -238,6 +238,9 @@ class MatchService:
                     "status": m.status,
                     "home_score": m.home_score,
                     "away_score": m.away_score,
+                    "odds_home": float(m.odds_home) if m.odds_home else None,
+                    "odds_draw": float(m.odds_draw) if m.odds_draw else None,
+                    "odds_away": float(m.odds_away) if m.odds_away else None,
                 }
                 for m in matches
             ]
@@ -297,6 +300,9 @@ class MatchService:
                     "status": m.status,
                     "home_score": m.home_score,
                     "away_score": m.away_score,
+                    "odds_home": float(m.odds_home) if m.odds_home else None,
+                    "odds_draw": float(m.odds_draw) if m.odds_draw else None,
+                    "odds_away": float(m.odds_away) if m.odds_away else None,
                 }
                 for m in matches
             ]

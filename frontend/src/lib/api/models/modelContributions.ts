@@ -11,8 +11,8 @@ import type { PredictionProbabilities } from './predictionProbabilities';
  * Individual model contributions to the prediction.
  */
 export interface ModelContributions {
-  poisson: PredictionProbabilities;
-  xgboost: PredictionProbabilities;
-  xg_model: PredictionProbabilities;
-  elo: PredictionProbabilities;
+  poisson?: PredictionProbabilities | null;
+  xgboost?: PredictionProbabilities | null;
+  xg_model?: PredictionProbabilities | null;
+  elo?: PredictionProbabilities | null;
 }

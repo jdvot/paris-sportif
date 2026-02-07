@@ -12,53 +12,56 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { isAuthError } from "@/lib/utils";
 
-// TypeScript interfaces for Basketball API responses
+// TypeScript interfaces matching backend BasketballMatchResponse
 interface BasketballTeam {
   id: number;
   name: string;
-  logo_url?: string;
-}
-
-interface QuarterScores {
-  q1_home?: number;
-  q1_away?: number;
-  q2_home?: number;
-  q2_away?: number;
-  q3_home?: number;
-  q3_away?: number;
-  q4_home?: number;
-  q4_away?: number;
-  ot_home?: number;
-  ot_away?: number;
-}
-
-interface BasketballPrediction {
-  home_win_prob: number;
-  away_win_prob: number;
-  confidence: number;
-  spread?: number;
-  over_under?: number;
-  recommended_bet?: string;
+  short_name?: string | null;
+  country?: string | null;
+  logo_url?: string | null;
+  league: string;
+  elo_rating: number;
+  offensive_rating?: number | null;
+  defensive_rating?: number | null;
+  pace?: number | null;
+  win_rate_ytd?: number | null;
 }
 
 interface BasketballMatch {
   id: number;
   home_team: BasketballTeam;
   away_team: BasketballTeam;
-  league: "NBA" | "Euroleague";
+  league: string;
   match_date: string;
-  status: "scheduled" | "live" | "finished";
-  home_score?: number;
-  away_score?: number;
-  quarter_scores?: QuarterScores;
-  home_back_to_back?: boolean;
-  away_back_to_back?: boolean;
-  prediction?: BasketballPrediction;
+  status: string;
+  // Scores
+  home_score?: number | null;
+  away_score?: number | null;
+  home_q1?: number | null;
+  away_q1?: number | null;
+  home_q2?: number | null;
+  away_q2?: number | null;
+  home_q3?: number | null;
+  away_q3?: number | null;
+  home_q4?: number | null;
+  away_q4?: number | null;
+  // Odds
+  odds_home?: number | null;
+  odds_away?: number | null;
+  spread?: number | null;
+  over_under?: number | null;
+  // Prediction (flat fields)
+  pred_home_prob?: number | null;
+  pred_away_prob?: number | null;
+  pred_confidence?: number | null;
+  pred_explanation?: string | null;
+  is_back_to_back_home: boolean;
+  is_back_to_back_away: boolean;
 }
 
 interface BasketballMatchesResponse {
   matches: BasketballMatch[];
-  total: number;
+  count: number;
 }
 
 type League = "all" | "NBA" | "Euroleague";
@@ -287,24 +290,21 @@ function BasketballMatchCard({
 }) {
   const matchDate = new Date(match.match_date);
   const leagueColor = LEAGUE_COLORS[match.league] || LEAGUE_COLORS.NBA;
-  const hasBackToBack = match.home_back_to_back || match.away_back_to_back;
+  const hasBackToBack = match.is_back_to_back_home || match.is_back_to_back_away;
   const isFinished = match.status === "finished";
   const isLive = match.status === "live";
 
-  // Build quarter score display
+  // Build quarter score display from flat fields
   const quarterScoreColumns = useMemo(() => {
-    if (!match.quarter_scores) return null;
-    const qs = match.quarter_scores;
-    const quarters: { label: string; home: number | undefined; away: number | undefined }[] = [];
+    const quarters: { label: string; home: number | undefined | null; away: number | undefined | null }[] = [];
 
-    if (qs.q1_home !== undefined) quarters.push({ label: `${t("quarter")}1`, home: qs.q1_home, away: qs.q1_away });
-    if (qs.q2_home !== undefined) quarters.push({ label: `${t("quarter")}2`, home: qs.q2_home, away: qs.q2_away });
-    if (qs.q3_home !== undefined) quarters.push({ label: `${t("quarter")}3`, home: qs.q3_home, away: qs.q3_away });
-    if (qs.q4_home !== undefined) quarters.push({ label: `${t("quarter")}4`, home: qs.q4_home, away: qs.q4_away });
-    if (qs.ot_home !== undefined) quarters.push({ label: t("overtime"), home: qs.ot_home, away: qs.ot_away });
+    if (match.home_q1 != null) quarters.push({ label: `${t("quarter")}1`, home: match.home_q1, away: match.away_q1 });
+    if (match.home_q2 != null) quarters.push({ label: `${t("quarter")}2`, home: match.home_q2, away: match.away_q2 });
+    if (match.home_q3 != null) quarters.push({ label: `${t("quarter")}3`, home: match.home_q3, away: match.away_q3 });
+    if (match.home_q4 != null) quarters.push({ label: `${t("quarter")}4`, home: match.home_q4, away: match.away_q4 });
 
     return quarters.length > 0 ? quarters : null;
-  }, [match.quarter_scores, t]);
+  }, [match, t]);
 
   return (
     <Card className="border-gray-200 dark:border-slate-700 hover:border-primary-500/50 dark:hover:border-primary-500/50 transition-colors">
@@ -348,7 +348,7 @@ function BasketballMatchCard({
               <p className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white truncate">
                 {match.home_team.name}
               </p>
-              {match.home_back_to_back && (
+              {match.is_back_to_back_home && (
                 <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] px-1.5 py-0" variant="secondary">
                   B2B
                 </Badge>
@@ -367,7 +367,7 @@ function BasketballMatchCard({
               <p className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white truncate">
                 {match.away_team.name}
               </p>
-              {match.away_back_to_back && (
+              {match.is_back_to_back_away && (
                 <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] px-1.5 py-0" variant="secondary">
                   B2B
                 </Badge>
@@ -415,16 +415,42 @@ function BasketballMatchCard({
           </div>
         )}
 
+        {/* Odds */}
+        {(match.odds_home != null || match.odds_away != null) && (
+          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700/50">
+            <div className="flex items-center justify-center gap-4">
+              <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-1.5">
+                <span className="text-xs text-gray-500 dark:text-slate-400">
+                  {match.home_team.short_name ?? match.home_team.name.slice(0, 3)}
+                </span>
+                <span className="text-xs font-semibold text-gray-900 dark:text-white">
+                  {match.odds_home?.toFixed(2) ?? "-"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-1.5">
+                <span className="text-xs text-gray-500 dark:text-slate-400">
+                  {match.away_team.short_name ?? match.away_team.name.slice(0, 3)}
+                </span>
+                <span className="text-xs font-semibold text-gray-900 dark:text-white">
+                  {match.odds_away?.toFixed(2) ?? "-"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Prediction */}
-        {match.prediction && (
+        {match.pred_home_prob != null && match.pred_away_prob != null && (
           <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700/50">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-gray-600 dark:text-slate-400 uppercase tracking-wide">
                 {t("prediction")}
               </span>
-              <span className={`text-xs font-semibold ${getConfidenceColor(match.prediction.confidence)}`}>
-                {t("confidence")}: {match.prediction.confidence}%
-              </span>
+              {match.pred_confidence != null && (
+                <span className={`text-xs font-semibold ${getConfidenceColor(match.pred_confidence * 100)}`}>
+                  {t("confidence")}: {(match.pred_confidence * 100).toFixed(0)}%
+                </span>
+              )}
             </div>
 
             {/* Probability bars */}
@@ -436,11 +462,11 @@ function BasketballMatchCard({
                 <div className="flex-1 bg-gray-200 dark:bg-slate-700 rounded-full h-2">
                   <div
                     className="bg-primary-500 h-2 rounded-full transition-all"
-                    style={{ width: `${match.prediction.home_win_prob}%` }}
+                    style={{ width: `${match.pred_home_prob * 100}%` }}
                   />
                 </div>
                 <span className="text-xs font-semibold text-gray-900 dark:text-white w-12 text-right">
-                  {match.prediction.home_win_prob.toFixed(1)}%
+                  {(match.pred_home_prob * 100).toFixed(1)}%
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -450,30 +476,30 @@ function BasketballMatchCard({
                 <div className="flex-1 bg-gray-200 dark:bg-slate-700 rounded-full h-2">
                   <div
                     className="bg-blue-500 h-2 rounded-full transition-all"
-                    style={{ width: `${match.prediction.away_win_prob}%` }}
+                    style={{ width: `${match.pred_away_prob * 100}%` }}
                   />
                 </div>
                 <span className="text-xs font-semibold text-gray-900 dark:text-white w-12 text-right">
-                  {match.prediction.away_win_prob.toFixed(1)}%
+                  {(match.pred_away_prob * 100).toFixed(1)}%
                 </span>
               </div>
             </div>
 
             {/* Spread and Over/Under */}
             <div className="flex items-center gap-3 flex-wrap">
-              {match.prediction.spread !== undefined && (
+              {match.spread != null && (
                 <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-1.5">
                   <span className="text-xs text-gray-500 dark:text-slate-400">{t("spread")}:</span>
                   <span className="text-xs font-semibold text-gray-900 dark:text-white">
-                    {match.prediction.spread > 0 ? "+" : ""}{match.prediction.spread.toFixed(1)}
+                    {match.spread > 0 ? "+" : ""}{match.spread.toFixed(1)}
                   </span>
                 </div>
               )}
-              {match.prediction.over_under !== undefined && (
+              {match.over_under != null && (
                 <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-1.5">
                   <span className="text-xs text-gray-500 dark:text-slate-400">{t("overUnder")}:</span>
                   <span className="text-xs font-semibold text-gray-900 dark:text-white">
-                    {match.prediction.over_under.toFixed(1)}
+                    {match.over_under.toFixed(1)}
                   </span>
                 </div>
               )}

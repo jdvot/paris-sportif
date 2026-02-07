@@ -62,6 +62,8 @@ from src.data.sources.football_data import (  # type: ignore[attr-defined]
 from src.db.services.match_service import MatchService, StandingService
 from src.db.services.prediction_service import PredictionService
 from src.services.data_prefill_service import DataPrefillService
+from src.services.nba_sync_service import sync_nba_games
+from src.services.tennis_sync_service import sync_tennis_matches
 
 # Initialize Sentry for error monitoring
 init_sentry()
@@ -309,8 +311,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         replace_existing=True,
     )
 
+    # Tennis sync - every 12 hours
+    scheduler.add_job(
+        sync_tennis_matches,
+        trigger=IntervalTrigger(hours=12),
+        id="tennis_sync",
+        name="Sync tennis matches and predictions",
+        replace_existing=True,
+    )
+
+    # NBA sync - every 6 hours
+    scheduler.add_job(
+        sync_nba_games,
+        trigger=IntervalTrigger(hours=6),
+        id="nba_sync",
+        name="Sync NBA games and predictions",
+        replace_existing=True,
+    )
+
     scheduler.start()
-    logger.info("[Scheduler] Started - auto sync every 6 hours, cache refresh at 6am UTC")
+    logger.info(
+        "[Scheduler] Started - football sync 6h, NBA sync 6h, tennis sync 12h, cache 6am UTC"
+    )
 
     # Run startup prefill in background (delayed 30s to let server accept traffic first)
     asyncio.create_task(_delayed_startup_prefill())
@@ -363,6 +385,19 @@ async def _startup_full_prefill() -> None:
             await log_sync_operation("auto_sync", "running", 0, triggered_by="startup")
             await auto_sync_and_verify()
             await log_sync_operation("auto_sync", "success", 0, triggered_by="startup")
+
+        # Sync NBA and Tennis data
+        logger.info("[Startup] Syncing NBA data...")
+        try:
+            await sync_nba_games()
+        except Exception as e:
+            logger.warning(f"[Startup] NBA sync failed: {e}")
+
+        logger.info("[Startup] Syncing Tennis data...")
+        try:
+            await sync_tennis_matches()
+        except Exception as e:
+            logger.warning(f"[Startup] Tennis sync failed: {e}")
 
         # Now run full data prefill (team data, ELO, predictions, cache, news)
         logger.info("[Startup] Running data prefill...")

@@ -30,6 +30,7 @@ import type {
   FavoriteResponse,
   HTTPErrorResponse,
   HTTPValidationError,
+  ListFavoritesApiV1UserFavoritesGetParams,
   PreferencesResponse,
   PreferencesUpdate,
   RemoveFavoriteApiV1UserFavoritesMatchIdDelete200
@@ -39,124 +40,6 @@ import { customInstance } from '../../custom-instance';
 
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
-
-
-
-/**
- * List user's favorite picks with match details.
- * @summary List Favorites
- */
-export type listFavoritesApiV1UserFavoritesGetResponse200 = {
-  data: FavoriteListResponse
-  status: 200
-}
-
-export type listFavoritesApiV1UserFavoritesGetResponse401 = {
-  data: HTTPErrorResponse
-  status: 401
-}
-    
-export type listFavoritesApiV1UserFavoritesGetResponseSuccess = (listFavoritesApiV1UserFavoritesGetResponse200) & {
-  headers: Headers;
-};
-export type listFavoritesApiV1UserFavoritesGetResponseError = (listFavoritesApiV1UserFavoritesGetResponse401) & {
-  headers: Headers;
-};
-
-export type listFavoritesApiV1UserFavoritesGetResponse = (listFavoritesApiV1UserFavoritesGetResponseSuccess | listFavoritesApiV1UserFavoritesGetResponseError)
-
-export const getListFavoritesApiV1UserFavoritesGetUrl = () => {
-
-
-  
-
-  return `/api/v1/user/favorites`
-}
-
-export const listFavoritesApiV1UserFavoritesGet = async ( options?: RequestInit): Promise<listFavoritesApiV1UserFavoritesGetResponse> => {
-  
-  return customInstance<listFavoritesApiV1UserFavoritesGetResponse>(getListFavoritesApiV1UserFavoritesGetUrl(),
-  {      
-    ...options,
-    method: 'GET'
-    
-    
-  }
-);}
-
-
-
-
-
-export const getListFavoritesApiV1UserFavoritesGetQueryKey = () => {
-    return [
-    `/api/v1/user/favorites`
-    ] as const;
-    }
-
-    
-export const getListFavoritesApiV1UserFavoritesGetQueryOptions = <TData = Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError = HTTPErrorResponse>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getListFavoritesApiV1UserFavoritesGetQueryKey();
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>> = ({ signal }) => listFavoritesApiV1UserFavoritesGet({ signal, ...requestOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
-}
-
-export type ListFavoritesApiV1UserFavoritesGetQueryResult = NonNullable<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>>
-export type ListFavoritesApiV1UserFavoritesGetQueryError = HTTPErrorResponse
-
-
-export function useListFavoritesApiV1UserFavoritesGet<TData = Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError = HTTPErrorResponse>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>,
-          TError,
-          Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useListFavoritesApiV1UserFavoritesGet<TData = Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError = HTTPErrorResponse>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>,
-          TError,
-          Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useListFavoritesApiV1UserFavoritesGet<TData = Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError = HTTPErrorResponse>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-/**
- * @summary List Favorites
- */
-
-export function useListFavoritesApiV1UserFavoritesGet<TData = Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError = HTTPErrorResponse>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient 
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-
-  const queryOptions = getListFavoritesApiV1UserFavoritesGetQueryOptions(options)
-
-  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
 
 
 
@@ -256,6 +139,136 @@ export const useAddFavoriteApiV1UserFavoritesPost = <TError = HTTPErrorResponse 
       return useMutation(getAddFavoriteApiV1UserFavoritesPostMutationOptions(options), queryClient);
     }
     /**
+ * List user's favorite picks with match details.
+ * @summary List Favorites
+ */
+export type listFavoritesApiV1UserFavoritesGetResponse200 = {
+  data: FavoriteListResponse
+  status: 200
+}
+
+export type listFavoritesApiV1UserFavoritesGetResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type listFavoritesApiV1UserFavoritesGetResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type listFavoritesApiV1UserFavoritesGetResponseSuccess = (listFavoritesApiV1UserFavoritesGetResponse200) & {
+  headers: Headers;
+};
+export type listFavoritesApiV1UserFavoritesGetResponseError = (listFavoritesApiV1UserFavoritesGetResponse401 | listFavoritesApiV1UserFavoritesGetResponse422) & {
+  headers: Headers;
+};
+
+export type listFavoritesApiV1UserFavoritesGetResponse = (listFavoritesApiV1UserFavoritesGetResponseSuccess | listFavoritesApiV1UserFavoritesGetResponseError)
+
+export const getListFavoritesApiV1UserFavoritesGetUrl = (params?: ListFavoritesApiV1UserFavoritesGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/user/favorites?${stringifiedParams}` : `/api/v1/user/favorites`
+}
+
+export const listFavoritesApiV1UserFavoritesGet = async (params?: ListFavoritesApiV1UserFavoritesGetParams, options?: RequestInit): Promise<listFavoritesApiV1UserFavoritesGetResponse> => {
+  
+  return customInstance<listFavoritesApiV1UserFavoritesGetResponse>(getListFavoritesApiV1UserFavoritesGetUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+);}
+
+
+
+
+
+export const getListFavoritesApiV1UserFavoritesGetQueryKey = (params?: ListFavoritesApiV1UserFavoritesGetParams,) => {
+    return [
+    `/api/v1/user/favorites`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+    
+export const getListFavoritesApiV1UserFavoritesGetQueryOptions = <TData = Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError = HTTPErrorResponse | HTTPValidationError>(params?: ListFavoritesApiV1UserFavoritesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFavoritesApiV1UserFavoritesGetQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>> = ({ signal }) => listFavoritesApiV1UserFavoritesGet(params, { signal, ...requestOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListFavoritesApiV1UserFavoritesGetQueryResult = NonNullable<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>>
+export type ListFavoritesApiV1UserFavoritesGetQueryError = HTTPErrorResponse | HTTPValidationError
+
+
+export function useListFavoritesApiV1UserFavoritesGet<TData = Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params: undefined |  ListFavoritesApiV1UserFavoritesGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>,
+          TError,
+          Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListFavoritesApiV1UserFavoritesGet<TData = Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: ListFavoritesApiV1UserFavoritesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>,
+          TError,
+          Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListFavoritesApiV1UserFavoritesGet<TData = Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: ListFavoritesApiV1UserFavoritesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Favorites
+ */
+
+export function useListFavoritesApiV1UserFavoritesGet<TData = Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+ params?: ListFavoritesApiV1UserFavoritesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listFavoritesApiV1UserFavoritesGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListFavoritesApiV1UserFavoritesGetQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+/**
  * Remove a pick from favorites.
  * @summary Remove Favorite
  */

@@ -13,7 +13,7 @@ export type GetTeamFormParams = {
  */
 matches_count?: number;
 /**
- * Team name for API fallback
+ * Team name hint
  */
 team_name?: string | null;
 };

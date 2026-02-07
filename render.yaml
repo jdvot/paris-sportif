@@ -58,6 +58,10 @@ services:
         sync: false
       - key: ODDS_API_KEY
         sync: false
+      - key: API_SPORTS_API_KEY
+        sync: false
+      - key: SPORTDEVS_API_KEY
+        sync: false
       
       # Supabase Auth
       - key: SUPABASE_URL

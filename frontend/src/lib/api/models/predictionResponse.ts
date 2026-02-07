@@ -13,7 +13,7 @@ import type { PredictionProbabilities } from './predictionProbabilities';
 import type { PredictionResponseNewsSources } from './predictionResponseNewsSources';
 import type { PredictionResponseRecommendedBet } from './predictionResponseRecommendedBet';
 import type { SrcApiRoutesPredictionsDataSourceInfo } from './srcApiRoutesPredictionsDataSourceInfo';
-import type { WeatherInfo } from './weatherInfo';
+import type { SrcApiRoutesPredictionsWeatherInfo } from './srcApiRoutesPredictionsWeatherInfo';
 
 /**
  * Full prediction response for a match.
@@ -39,7 +39,7 @@ export interface PredictionResponse {
   model_contributions?: ModelContributions | null;
   llm_adjustments?: LLMAdjustments | null;
   fatigue_info?: FatigueInfo | null;
-  weather?: WeatherInfo | null;
+  weather?: SrcApiRoutesPredictionsWeatherInfo | null;
   multi_markets?: MultiMarketsResponse | null;
   /** LLM-generated match context analysis */
   match_context_summary?: string | null;

@@ -23,12 +23,18 @@ logger = logging.getLogger(__name__)
 
 # Map our competition codes to The Odds API sport keys
 ODDS_API_SPORT_MAP: dict[str, str] = {
+    # Football
     "PL": "soccer_epl",
     "PD": "soccer_spain_la_liga",
     "BL1": "soccer_germany_bundesliga",
     "SA": "soccer_italy_serie_a",
     "FL1": "soccer_france_ligue_one",
     "CL": "soccer_uefa_champs_league",
+    # Basketball
+    "NBA": "basketball_nba",
+    # Tennis
+    "ATP": "tennis_atp_french_open",
+    "WTA": "tennis_wta_french_open",
 }
 
 BASE_URL = "https://api.the-odds-api.com/v4"
@@ -151,6 +157,88 @@ def _extract_h2h_odds(game: dict[str, Any]) -> dict[str, Any] | None:
                 }
 
     return None
+
+
+def _extract_h2h_binary_odds(game: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract binary (no draw) h2h odds from the best bookmaker.
+
+    Used for NBA and Tennis where draws don't exist.
+    Returns {"home": float, "away": float, "bookmaker": str} or None.
+    """
+    bookmakers = game.get("bookmakers", [])
+    if not bookmakers:
+        return None
+
+    preferred = ["Pinnacle", "Bet365", "Unibet", "1xBet", "Betfair"]
+    selected_bm = None
+
+    for pref_name in preferred:
+        for bm in bookmakers:
+            if bm.get("title", "").lower() == pref_name.lower():
+                selected_bm = bm
+                break
+        if selected_bm:
+            break
+
+    if selected_bm is None:
+        selected_bm = bookmakers[0]
+
+    for market in selected_bm.get("markets", []):
+        if market.get("key") == "h2h":
+            outcomes = {o["name"]: o["price"] for o in market.get("outcomes", [])}
+            home_name = game.get("home_team", "")
+            away_name = game.get("away_team", "")
+
+            home_odds = outcomes.get(home_name)
+            away_odds = outcomes.get(away_name)
+
+            if home_odds and away_odds:
+                return {
+                    "home": float(home_odds),
+                    "away": float(away_odds),
+                    "bookmaker": selected_bm.get("title", "Unknown"),
+                }
+
+    return None
+
+
+async def get_binary_match_odds(
+    home_name: str,
+    away_name: str,
+    sport_code: str,
+) -> dict[str, Any] | None:
+    """Get binary (no draw) h2h odds for NBA or Tennis matches.
+
+    Args:
+        home_name: Home team/player name.
+        away_name: Away team/player name.
+        sport_code: Sport code ("NBA", "ATP", "WTA").
+
+    Returns:
+        Dict with "home" and "away" decimal odds, or None.
+    """
+    if not settings.odds_api_key:
+        return None
+
+    if sport_code not in ODDS_API_SPORT_MAP:
+        return None
+
+    odds_data = await _fetch_competition_odds(sport_code)
+    if not odds_data:
+        return None
+
+    game = _find_matching_game(odds_data, home_name, away_name)
+    if not game:
+        return None
+
+    result = _extract_h2h_binary_odds(game)
+    if result:
+        logger.info(
+            f"Odds for {home_name} vs {away_name}: "
+            f"H={result['home']:.2f} A={result['away']:.2f} "
+            f"({result['bookmaker']})"
+        )
+    return result
 
 
 async def _fetch_competition_odds(competition_code: str) -> list[dict[str, Any]]:

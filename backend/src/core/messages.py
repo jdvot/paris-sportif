@@ -356,6 +356,10 @@ API_MESSAGES: dict[str, dict[Language, str]] = {
         "fr": "{team}: sentiment {sentiment} dans les news",
         "en": "{team}: {sentiment} sentiment in news",
     },
+    "prediction_not_ready": {
+        "fr": "Prédiction pas encore disponible, elle sera calculée prochainement",
+        "en": "Prediction not yet available, it will be computed shortly",
+    },
 }
 
 

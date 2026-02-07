@@ -10,11 +10,12 @@ It handles:
 - Sync logs: track all operations
 """
 
+import asyncio
 import hashlib
 import json
 import logging
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import text
@@ -67,6 +68,285 @@ async def log_sync_operation(
         await session.commit()
         row = result.fetchone()
         return row[0] if row else 0
+
+
+async def generate_match_news_summary(
+    home_team: str,
+    away_team: str,
+    home_win_prob: float,
+    draw_prob: float,
+    away_win_prob: float,
+) -> tuple[str, list[dict[str, str]]]:
+    """Generate an LLM news summary from recent news_items in DB.
+
+    Queries news_items matching team names (last 7 days, max 20 articles),
+    then calls Groq LLM to produce a French-language context summary.
+
+    Returns:
+        Tuple of (summary_text, news_sources_list). Returns ("", []) on failure.
+    """
+    try:
+        from src.llm.client import get_llm_client
+
+        # 1. Fetch recent news for both teams
+        cutoff = datetime.now() - timedelta(days=7)
+        async with get_async_session() as session:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT title, source, url, published_at
+                    FROM news_items
+                    WHERE (title ILIKE :home_pattern OR title ILIKE :away_pattern)
+                      AND published_at > :cutoff
+                    ORDER BY published_at DESC
+                    LIMIT 20
+                    """
+                ),
+                {
+                    "home_pattern": f"%{home_team}%",
+                    "away_pattern": f"%{away_team}%",
+                    "cutoff": cutoff,
+                },
+            )
+            news_rows = result.fetchall()
+
+        if not news_rows:
+            return ("", [])
+
+        # 2. Build headlines list and sources
+        headlines: list[str] = []
+        sources: list[dict[str, str]] = []
+        seen_sources: set[str] = set()
+        for row in news_rows:
+            headlines.append(f"- {row.title[:100]}")
+            src = row.source or "Unknown"
+            if src not in seen_sources:
+                seen_sources.add(src)
+                sources.append(
+                    {
+                        "source": src,
+                        "title": row.title[:80],
+                        "url": row.url or "",
+                    }
+                )
+
+        headlines_str = "\n".join(headlines[:20])
+
+        # 3. Call LLM
+        prompt = f"""\
+Tu es un analyste football expert. Résume le contexte d'actualité \
+pour le match {home_team} vs {away_team}.
+
+PROBABILITÉS DU MODÈLE STATISTIQUE:
+- Victoire {home_team}: {home_win_prob:.0%}
+- Match nul: {draw_prob:.0%}
+- Victoire {away_team}: {away_win_prob:.0%}
+
+ACTUALITÉS RÉCENTES (derniers 7 jours):
+{headlines_str}
+
+CONSIGNES:
+1. Résume en 8-10 lignes max les éléments d'actualité pertinents pour ce match
+2. Donne ton avis d'expert sur l'impact de ces actualités sur le pronostic
+3. Identifie les facteurs d'influence clés basés sur l'actu (blessures, forme, mercato, etc.)
+4. IMPORTANT: Réponds UNIQUEMENT en français, même si les titres sont en anglais
+5. Pas de titre, pas de bullet points, juste du texte fluide
+6. Sois factuel et concis (max 200 mots)"""
+
+        llm = get_llm_client()
+        summary = await llm.complete(
+            prompt=prompt,
+            max_tokens=400,
+            temperature=0.3,
+        )
+        summary = summary.strip() if summary else ""
+
+        if not summary:
+            return ("", [])
+
+        logger.info(
+            f"Generated news summary for {home_team} vs {away_team} ({len(news_rows)} news)"
+        )
+        return (summary, sources[:5])
+
+    except Exception as e:
+        logger.warning(f"Failed to generate news summary for {home_team} vs {away_team}: {e}")
+        return ("", [])
+
+
+async def _get_team_injury_news(team_name: str) -> list[dict[str, str]]:
+    """Get recent injury news for a team from DB. No LLM call needed."""
+    async with get_async_session() as session:
+        result = await session.execute(
+            text(
+                """
+                SELECT title, source, published_at
+                FROM news_items
+                WHERE is_injury_news = TRUE
+                  AND title ILIKE :pattern
+                  AND published_at > NOW() - INTERVAL '14 days'
+                ORDER BY published_at DESC
+                LIMIT 5
+                """
+            ),
+            {"pattern": f"%{team_name}%"},
+        )
+        rows = result.fetchall()
+        return [
+            {
+                "title": r.title[:150],
+                "source": r.source or "",
+                "date": r.published_at.isoformat() if hasattr(r.published_at, "isoformat") else "",
+            }
+            for r in rows
+        ]
+
+
+def _calculate_match_importance(
+    competition: str, home_elo: float, away_elo: float
+) -> dict[str, Any]:
+    """Calculate match importance from competition and team strength. No LLM call."""
+    comp_importance: dict[str, float] = {
+        "CL": 1.0,
+        "EL": 0.8,
+        "ECL": 0.6,
+        "PL": 0.9,
+        "PD": 0.85,
+        "BL1": 0.8,
+        "SA": 0.8,
+        "FL1": 0.75,
+    }
+    importance = comp_importance.get(competition, 0.5)
+    elo_diff = abs(home_elo - away_elo)
+    closeness = max(0.0, 1.0 - elo_diff / 500.0)
+    is_top_matchup = home_elo > 1700 and away_elo > 1700
+
+    return {
+        "competition_importance": importance,
+        "closeness": round(closeness, 2),
+        "is_top_matchup": is_top_matchup,
+        "overall_importance": round(importance * 0.6 + closeness * 0.4, 2),
+    }
+
+
+def _serialize_model_details(
+    pred: Any,
+    home_stats: Any,
+    away_stats: Any,
+    multi_markets_data: Any,
+    weather_data: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Serialize ensemble prediction + enrichments into model_details JSON."""
+    from dataclasses import asdict
+
+    details: dict[str, Any] = {
+        "model_contributions": [
+            {
+                "name": mc.name,
+                "home_prob": mc.home_prob,
+                "draw_prob": mc.draw_prob,
+                "away_prob": mc.away_prob,
+                "weight": mc.weight,
+                "confidence": mc.confidence,
+            }
+            for mc in (pred.model_contributions or [])
+        ],
+        "model_agreement": pred.model_agreement,
+        "uncertainty": pred.uncertainty,
+        "expected_home_goals": pred.expected_home_goals,
+        "expected_away_goals": pred.expected_away_goals,
+    }
+
+    if multi_markets_data:
+        details["multi_markets"] = asdict(multi_markets_data)
+
+    details["fatigue"] = {
+        "home": {
+            "rest_days": float(home_stats.rest_days or 3),
+            "congestion": float(home_stats.fixture_congestion or 0),
+        },
+        "away": {
+            "rest_days": float(away_stats.rest_days or 3),
+            "congestion": float(away_stats.fixture_congestion or 0),
+        },
+    }
+
+    if weather_data and weather_data.get("available"):
+        details["weather"] = weather_data
+
+    return details
+
+
+async def _generate_llm_analysis(
+    home_team: str,
+    away_team: str,
+    competition: str,
+    match_date_str: str,
+    pred: Any,
+    home_elo: float,
+    away_elo: float,
+    home_form: float,
+    away_form: float,
+    home_attack: float,
+    away_attack: float,
+) -> tuple[str | None, list[str] | None, list[str] | None]:
+    """Generate LLM analysis via Groq. Returns None on failure (no fallback)."""
+    try:
+        from src.llm.client import get_llm_client
+        from src.llm.prompts import MATCH_EXPLANATION_PROMPT, SYSTEM_FOOTBALL_ANALYST
+
+        key_stats = (
+            f"ELO: {home_team} {home_elo:.0f} vs {away_team} {away_elo:.0f}\n"
+            f"Expected goals: {pred.expected_home_goals:.1f} - {pred.expected_away_goals:.1f}\n"
+            f"Home attack: {home_attack:.2f} g/m | Away attack: {away_attack:.2f} g/m\n"
+            f"Model agreement: {pred.model_agreement:.0%} | Uncertainty: {pred.uncertainty:.0%}"
+        )
+
+        bet_map = {
+            "home": f"Victoire {home_team}",
+            "draw": "Match nul",
+            "away": f"Victoire {away_team}",
+        }
+
+        prompt = MATCH_EXPLANATION_PROMPT.format(
+            home_team=home_team,
+            away_team=away_team,
+            competition=competition,
+            match_date=match_date_str,
+            home_prob=f"{pred.home_win_prob * 100:.1f}",
+            draw_prob=f"{pred.draw_prob * 100:.1f}",
+            away_prob=f"{pred.away_win_prob * 100:.1f}",
+            recommended_bet=bet_map.get(pred.recommended_bet, pred.recommended_bet),
+            confidence=f"{pred.confidence * 100:.0f}",
+            key_stats=key_stats,
+            home_form=f"{home_form:.0%}",
+            away_form=f"{away_form:.0%}",
+        )
+
+        llm = get_llm_client()
+        analysis = await llm.analyze_json(
+            prompt=prompt,
+            system_prompt=SYSTEM_FOOTBALL_ANALYST,
+            temperature=0.4,
+        )
+
+        if analysis and isinstance(analysis, dict):
+            explanation = str(analysis.get("summary", ""))
+            key_factors = analysis.get("key_factors", [])
+            risk_factors = analysis.get("risk_factors", [])
+
+            betting_angle = analysis.get("betting_angle", "")
+            if betting_angle and explanation:
+                explanation = f"{explanation} {betting_angle}"
+
+            if isinstance(key_factors, list) and isinstance(risk_factors, list):
+                return explanation, key_factors, risk_factors
+
+    except Exception as e:
+        logger.warning(f"LLM analysis failed for {home_team} vs {away_team}: {e}")
+
+    # No fallback — return None (only real LLM data or nothing)
+    return None, None, None
 
 
 class DataPrefillService:
@@ -316,11 +596,25 @@ class DataPrefillService:
 
     @staticmethod
     async def prefill_predictions_for_upcoming() -> int:
-        """Pre-generate predictions for all upcoming matches."""
+        """Pre-generate predictions with full AI enrichment for upcoming matches.
+
+        Pipeline per match:
+        1. Run 6-model ensemble predictor
+        2. Calculate multi-markets (O/U 1.5/2.5/3.5, BTTS, DC, correct score)
+        3. Fetch match-day weather from Open-Meteo
+        4. Generate LLM analysis via Groq (None if LLM unavailable)
+        5. Generate news context summary via LLM
+        6. Persist everything (model_details JSON, explanation, factors)
+        7. After all matches: mark top 5 daily picks
+        """
+        from src.data.data_enrichment import WeatherClient
         from src.db.services.prediction_service import PredictionService
+        from src.prediction_engine.ensemble_advanced import advanced_ensemble_predictor
+        from src.prediction_engine.multi_markets import get_multi_markets_prediction
+
+        weather_client = WeatherClient()
 
         async with get_async_session() as session:
-            # Get upcoming matches without predictions OR with stale predictions
             result = await session.execute(
                 text(
                     """
@@ -333,12 +627,13 @@ class DataPrefillService:
                 LEFT JOIN predictions p ON m.id = p.match_id
                 WHERE m.status IN ('SCHEDULED', 'TIMED')
                     AND m.match_date > NOW()
-                    AND m.match_date < NOW() + INTERVAL '14 days'
+                    AND m.match_date < NOW() + INTERVAL '30 days'
                     AND (
                         p.id IS NULL
                         OR p.value_score IS NULL
                         OR p.key_factors IS NULL
-                        OR p.explanation LIKE 'Prédiction pré-calculée%'
+                        OR p.model_details IS NULL
+                        OR p.explanation LIKE 'Prédiction pré-calculée%%'
                     )
                 ORDER BY m.match_date
             """
@@ -349,18 +644,18 @@ class DataPrefillService:
             logger.info(f"Found {len(upcoming)} upcoming matches needing predictions")
 
             generated = 0
+            prediction_scores: list[dict[str, Any]] = []
+
             for match in upcoming:
                 try:
-                    # Generate prediction using ensemble
-                    from src.prediction_engine.ensemble_advanced import advanced_ensemble_predictor
-
-                    # Get team stats
+                    # 1. Get team stats from DB
                     team_result = await session.execute(
                         text(
                             """
-                        SELECT t.id, t.elo_rating, t.avg_goals_scored_home, t.avg_goals_scored_away,
-                               t.avg_goals_conceded_home, t.avg_goals_conceded_away, t.form_score,
-                               t.rest_days, t.fixture_congestion
+                        SELECT t.id, t.elo_rating, t.avg_goals_scored_home,
+                               t.avg_goals_scored_away,
+                               t.avg_goals_conceded_home, t.avg_goals_conceded_away,
+                               t.form_score, t.rest_days, t.fixture_congestion
                         FROM teams t WHERE t.id IN (:home_id, :away_id)
                     """
                         ),
@@ -374,7 +669,7 @@ class DataPrefillService:
                     if not home or not away:
                         continue
 
-                    # Run ensemble prediction
+                    # 2. Run 6-model ensemble prediction
                     pred = advanced_ensemble_predictor.predict(
                         home_attack=float(home.avg_goals_scored_home or 1.3),
                         home_defense=float(home.avg_goals_conceded_home or 1.3),
@@ -392,96 +687,97 @@ class DataPrefillService:
                         away_congestion=float(away.fixture_congestion or 0.5),
                     )
 
-                    # Build explanation from real stats
+                    # 3. Calculate multi-markets (O/U, BTTS, DC, correct score)
+                    multi_markets = get_multi_markets_prediction(
+                        expected_home_goals=pred.expected_home_goals or 1.3,
+                        expected_away_goals=pred.expected_away_goals or 1.0,
+                        home_win_prob=pred.home_win_prob,
+                        draw_prob=pred.draw_prob,
+                        away_win_prob=pred.away_win_prob,
+                    )
+
+                    # 4. Fetch weather from Open-Meteo (free, no key needed)
+                    weather_data: dict[str, Any] | None = None
+                    try:
+                        weather_data = await weather_client.get_match_weather(
+                            match.home_team, match.match_date
+                        )
+                    except Exception as we:
+                        logger.debug(f"Weather fetch failed for {match.home_team}: {we}")
+
+                    # 5. Serialize model_details (contributions + multi-markets + weather + fatigue)
+                    model_details = _serialize_model_details(
+                        pred, home, away, multi_markets, weather_data
+                    )
+
+                    # 5b. Add injury news and match importance (no LLM, DB/algorithmic)
                     home_elo = float(home.elo_rating or 1500)
                     away_elo = float(away.elo_rating or 1500)
-                    elo_diff = home_elo - away_elo
-                    explanation_parts: list[str] = []
-                    key_factors: list[str] = []
-                    risk_factors: list[str] = []
+                    try:
+                        home_injuries = await _get_team_injury_news(match.home_team)
+                        away_injuries = await _get_team_injury_news(match.away_team)
+                        if home_injuries or away_injuries:
+                            model_details["injuries"] = {
+                                "home": home_injuries,
+                                "away": away_injuries,
+                            }
+                    except Exception as ie:
+                        logger.debug(f"Injury news fetch failed: {ie}")
 
-                    # ELO-based insight (always add ELO comparison)
-                    if abs(elo_diff) > 50:
-                        stronger = match.home_team if elo_diff > 0 else match.away_team
-                        explanation_parts.append(
-                            f"{stronger} has an ELO advantage "
-                            f"({home_elo:.0f} vs {away_elo:.0f})"
-                        )
-                        key_factors.append(
-                            f"ELO: {match.home_team} {home_elo:.0f} "
-                            f"vs {match.away_team} {away_elo:.0f}"
-                        )
-                    else:
-                        key_factors.append(
-                            f"Similar ELO ratings ({home_elo:.0f} vs {away_elo:.0f})"
-                        )
+                    model_details["importance"] = _calculate_match_importance(
+                        match.competition_code or "", home_elo, away_elo
+                    )
 
-                    # Home advantage
-                    key_factors.append(f"Home advantage for {match.home_team}")
-
-                    # Form insight (lower thresholds)
+                    # 6. LLM analysis via Groq (None if unavailable, no fallback)
                     home_form = float(home.form_score or 0.5)
                     away_form = float(away.form_score or 0.5)
-                    if home_form > 0.55:
-                        key_factors.append(f"{match.home_team} in good form ({home_form:.0%})")
-                    elif home_form < 0.4:
-                        risk_factors.append(f"{match.home_team} in poor form ({home_form:.0%})")
-                    if away_form > 0.55:
-                        key_factors.append(f"{match.away_team} in good form ({away_form:.0%})")
-                    elif away_form < 0.4:
-                        risk_factors.append(f"{match.away_team} in poor form ({away_form:.0%})")
-
-                    # Goal averages
                     home_attack = float(home.avg_goals_scored_home or 1.3)
                     away_attack = float(away.avg_goals_scored_away or 1.0)
-                    if home_attack > 1.8:
-                        key_factors.append(
-                            f"{match.home_team} strong attack ({home_attack:.1f} goals/game)"
-                        )
-                    if away_attack > 1.5:
-                        key_factors.append(
-                            f"{match.away_team} strong away attack "
-                            f"({away_attack:.1f} goals/game)"
-                        )
 
-                    # Rest days / congestion
-                    home_rest = float(home.rest_days or 3)
-                    away_rest = float(away.rest_days or 3)
-                    if home_rest <= 3 or away_rest <= 3:
-                        tired = match.home_team if home_rest < away_rest else match.away_team
-                        min_rest = min(home_rest, away_rest)
-                        risk_factors.append(f"{tired} limited rest ({min_rest:.0f} days)")
-                    home_cong = float(home.fixture_congestion or 0)
-                    away_cong = float(away.fixture_congestion or 0)
-                    if home_cong > 0.6 or away_cong > 0.6:
-                        busy = match.home_team if home_cong > away_cong else match.away_team
-                        risk_factors.append(f"{busy} fixture congestion")
+                    match_date_str = (
+                        match.match_date.strftime("%Y-%m-%d %H:%M")
+                        if hasattr(match.match_date, "strftime")
+                        else str(match.match_date)
+                    )
 
-                    # Probability-based explanation
-                    max_prob = max(pred.home_win_prob, pred.draw_prob, pred.away_win_prob)
-                    if pred.home_win_prob == max_prob:
-                        explanation_parts.append(
-                            f"Models favor {match.home_team} "
-                            f"({pred.home_win_prob:.0%} win probability)"
-                        )
-                    elif pred.away_win_prob == max_prob:
-                        explanation_parts.append(
-                            f"Models favor {match.away_team} "
-                            f"({pred.away_win_prob:.0%} win probability)"
-                        )
-                    else:
-                        explanation_parts.append(
-                            f"Closely contested match " f"(draw probability: {pred.draw_prob:.0%})"
-                        )
+                    explanation, key_factors, risk_factors = await _generate_llm_analysis(
+                        home_team=match.home_team,
+                        away_team=match.away_team,
+                        competition=match.competition_code or "",
+                        match_date_str=match_date_str,
+                        pred=pred,
+                        home_elo=home_elo,
+                        away_elo=away_elo,
+                        home_form=home_form,
+                        away_form=away_form,
+                        home_attack=home_attack,
+                        away_attack=away_attack,
+                    )
+                    # Rate limit: Groq 30 req/min
+                    await asyncio.sleep(2)
 
-                    explanation = ". ".join(explanation_parts) + "." if explanation_parts else ""
-
-                    # Calculate value_score from confidence
+                    # 7. Calculate value_score
                     confidence_val = float(pred.confidence)
+                    max_prob = max(pred.home_win_prob, pred.draw_prob, pred.away_win_prob)
                     base_value = max_prob * 0.5 + confidence_val * 0.5
                     value_score = round(base_value + (confidence_val * 0.03), 4)
 
-                    # Save prediction
+                    # 8. News context summary via LLM
+                    match_context_summary = ""
+                    news_sources: list[dict[str, str]] = []
+                    try:
+                        match_context_summary, news_sources = await generate_match_news_summary(
+                            home_team=match.home_team,
+                            away_team=match.away_team,
+                            home_win_prob=pred.home_win_prob,
+                            draw_prob=pred.draw_prob,
+                            away_win_prob=pred.away_win_prob,
+                        )
+                        await asyncio.sleep(2)
+                    except Exception as ne:
+                        logger.warning(f"News summary failed for match {match.id}: {ne}")
+
+                    # 9. Save prediction with full enrichment
                     await PredictionService.save_prediction_from_api(
                         {
                             "match_id": match.id,
@@ -499,6 +795,17 @@ class DataPrefillService:
                             "explanation": explanation,
                             "key_factors": key_factors,
                             "risk_factors": risk_factors,
+                            "model_details": model_details,
+                            "match_context_summary": match_context_summary or None,
+                            "news_sources": news_sources or None,
+                        }
+                    )
+
+                    prediction_scores.append(
+                        {
+                            "match_id": match.id,
+                            "value_score": value_score,
+                            "confidence": confidence_val,
                         }
                     )
                     generated += 1
@@ -506,8 +813,300 @@ class DataPrefillService:
                 except Exception as e:
                     logger.warning(f"Failed to generate prediction for match {match.id}: {e}")
 
-            logger.info(f"Pre-generated {generated} predictions")
-            return generated
+        # 10. Mark daily picks (top 5 by combined score)
+        if prediction_scores:
+            await DataPrefillService._mark_daily_picks(prediction_scores)
+
+        logger.info(f"Pre-generated {generated} predictions with full AI enrichment")
+        return generated
+
+    @staticmethod
+    async def _mark_daily_picks(prediction_scores: list[dict[str, Any]]) -> int:
+        """Mark top 5 predictions as daily picks by value_score x confidence."""
+        from datetime import date as date_type
+
+        async with get_async_session() as session:
+            today = date_type.today()
+            # Reset existing daily picks for upcoming matches
+            await session.execute(
+                text(
+                    """
+                    UPDATE predictions SET
+                        is_daily_pick = FALSE, pick_rank = NULL, pick_score = NULL
+                    WHERE is_daily_pick = TRUE
+                      AND match_id IN (
+                          SELECT m.id FROM matches m
+                          WHERE m.match_date::date >= :today
+                      )
+                """
+                ),
+                {"today": today},
+            )
+
+            # Sort by combined score
+            scored = sorted(
+                prediction_scores,
+                key=lambda p: p["value_score"] * p["confidence"],
+                reverse=True,
+            )
+
+            marked = 0
+            for rank, pick in enumerate(scored[:5], start=1):
+                combined = round(pick["value_score"] * pick["confidence"], 4)
+                await session.execute(
+                    text(
+                        """
+                        UPDATE predictions SET
+                            is_daily_pick = TRUE, pick_rank = :rank, pick_score = :score,
+                            updated_at = NOW()
+                        WHERE match_id = :mid
+                    """
+                    ),
+                    {"rank": rank, "mid": pick["match_id"], "score": combined},
+                )
+                marked += 1
+
+            await session.commit()
+            logger.info(f"Marked {marked} daily picks")
+            return marked
+
+    @staticmethod
+    async def generate_daily_summary() -> str:
+        """Generate an editorial daily picks summary via LLM. Returns '' if LLM unavailable."""
+        try:
+            from src.llm.client import get_llm_client
+            from src.llm.prompts import DAILY_PICKS_SUMMARY_PROMPT, SYSTEM_FOOTBALL_ANALYST
+
+            async with get_async_session() as session:
+                result = await session.execute(
+                    text(
+                        """
+                        SELECT p.confidence, p.predicted_outcome, p.explanation,
+                               p.pick_rank, p.pick_score, p.value_score,
+                               m.competition_code, m.match_date,
+                               ht.name as home_team, at.name as away_team
+                        FROM predictions p
+                        JOIN matches m ON p.match_id = m.id
+                        JOIN teams ht ON m.home_team_id = ht.id
+                        JOIN teams at ON m.away_team_id = at.id
+                        WHERE p.is_daily_pick = TRUE
+                          AND m.match_date::date >= CURRENT_DATE
+                        ORDER BY p.pick_rank
+                        LIMIT 5
+                    """
+                    )
+                )
+                picks = result.fetchall()
+
+            if not picks:
+                return ""
+
+            picks_text_parts: list[str] = []
+            for p in picks:
+                bet_map = {
+                    "home": f"Victoire {p.home_team}",
+                    "draw": "Nul",
+                    "away": f"Victoire {p.away_team}",
+                }
+                bet = bet_map.get(p.predicted_outcome, p.predicted_outcome)
+                picks_text_parts.append(
+                    f"#{p.pick_rank}: {p.home_team} vs {p.away_team} "
+                    f"({p.competition_code})\n"
+                    f"  Pronostic: {bet} | Confiance: {float(p.confidence):.0%} | "
+                    f"Value: {float(p.value_score or 0):.2f}\n"
+                    f"  {p.explanation[:150] if p.explanation else 'Analyse non disponible'}"
+                )
+
+            picks_data = "\n\n".join(picks_text_parts)
+            prompt = DAILY_PICKS_SUMMARY_PROMPT.format(picks_data=picks_data)
+
+            llm = get_llm_client()
+            analysis = await llm.analyze_json(
+                prompt=prompt,
+                system_prompt=SYSTEM_FOOTBALL_ANALYST,
+                temperature=0.5,
+            )
+
+            if analysis and isinstance(analysis, dict):
+                summary = str(analysis.get("daily_summary", ""))
+                logger.info(f"Generated daily summary: {len(summary)} chars")
+
+                # Cache in Redis
+                try:
+                    from src.core.cache import cache_set
+
+                    await cache_set(
+                        "daily_picks_summary",
+                        json.dumps(analysis, ensure_ascii=False),
+                        ttl=86400,
+                    )
+                except Exception as ce:
+                    logger.warning(f"Failed to cache daily summary: {ce}")
+
+                return summary
+
+        except Exception as e:
+            logger.warning(f"Daily summary generation failed: {e}")
+
+        return ""
+
+    @staticmethod
+    async def run_post_match_analysis() -> int:
+        """Compare predictions with actual results for recently finished matches.
+
+        Updates model_details with post-match data (was_correct, margin, etc.).
+        No LLM call — purely algorithmic retrospective.
+        """
+        count = 0
+        async with get_async_session() as session:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT p.id as pred_id, p.match_id, p.predicted_outcome,
+                           p.home_prob, p.draw_prob, p.away_prob,
+                           p.confidence, p.model_details,
+                           m.home_score, m.away_score,
+                           ht.name as home_team, at.name as away_team,
+                           m.competition_code
+                    FROM predictions p
+                    JOIN matches m ON p.match_id = m.id
+                    JOIN teams ht ON m.home_team_id = ht.id
+                    JOIN teams at ON m.away_team_id = at.id
+                    WHERE m.status IN ('FINISHED', 'finished')
+                      AND m.home_score IS NOT NULL
+                      AND m.match_date > NOW() - INTERVAL '7 days'
+                      AND (
+                          p.model_details IS NULL
+                          OR p.model_details NOT LIKE '%%post_match%%'
+                      )
+                    ORDER BY m.match_date DESC
+                    LIMIT 50
+                    """
+                )
+            )
+            rows = result.fetchall()
+
+            if not rows:
+                return 0
+
+            for row in rows:
+                try:
+                    actual = (
+                        "home"
+                        if row.home_score > row.away_score
+                        else "away" if row.home_score < row.away_score else "draw"
+                    )
+                    was_correct = actual == row.predicted_outcome
+
+                    # Probability assigned to actual outcome
+                    prob_map = {
+                        "home": float(row.home_prob),
+                        "draw": float(row.draw_prob),
+                        "away": float(row.away_prob),
+                    }
+                    assigned_prob = prob_map.get(actual, 0.33)
+
+                    # Brier score for this prediction (lower is better)
+                    brier = (1 - assigned_prob) ** 2
+
+                    post_match = {
+                        "actual_outcome": actual,
+                        "actual_score": f"{row.home_score}-{row.away_score}",
+                        "was_correct": was_correct,
+                        "assigned_probability": round(assigned_prob, 4),
+                        "brier_score": round(brier, 4),
+                        "confidence_was": float(row.confidence),
+                    }
+
+                    # Merge into existing model_details
+                    existing_details: dict[str, Any] = {}
+                    if row.model_details:
+                        try:
+                            existing_details = json.loads(row.model_details)
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+
+                    existing_details["post_match"] = post_match
+
+                    await session.execute(
+                        text(
+                            """
+                            UPDATE predictions SET
+                                model_details = :details,
+                                updated_at = NOW()
+                            WHERE id = :pid
+                            """
+                        ),
+                        {
+                            "details": json.dumps(existing_details, default=str),
+                            "pid": row.pred_id,
+                        },
+                    )
+                    count += 1
+
+                except Exception as e:
+                    logger.warning(f"Post-match analysis failed for pred {row.pred_id}: {e}")
+
+            await session.commit()
+
+        logger.info(f"Post-match analysis completed for {count} predictions")
+        return count
+
+    @staticmethod
+    async def fill_match_odds() -> int:
+        """Fetch bookmaker odds for upcoming football matches."""
+        from src.data.odds_client import get_match_odds
+
+        count = 0
+        async with get_async_session() as session:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT m.id, ht.name as home_team, at.name as away_team,
+                           m.competition_code
+                    FROM matches m
+                    JOIN teams ht ON m.home_team_id = ht.id
+                    JOIN teams at ON m.away_team_id = at.id
+                    WHERE m.status IN ('SCHEDULED', 'TIMED')
+                      AND m.match_date > NOW()
+                      AND m.match_date < NOW() + INTERVAL '30 days'
+                      AND m.odds_home IS NULL
+                """
+                )
+            )
+            rows = result.fetchall()
+            logger.info(f"Found {len(rows)} matches needing odds")
+
+            for row in rows:
+                try:
+                    odds = await get_match_odds(row.home_team, row.away_team, row.competition_code)
+                    if not odds:
+                        continue
+
+                    await session.execute(
+                        text(
+                            """
+                            UPDATE matches SET
+                                odds_home = :oh, odds_draw = :od, odds_away = :oa,
+                                updated_at = NOW()
+                            WHERE id = :mid
+                        """
+                        ),
+                        {
+                            "oh": odds["home"],
+                            "od": odds["draw"],
+                            "oa": odds["away"],
+                            "mid": row.id,
+                        },
+                    )
+                    count += 1
+                except Exception as e:
+                    logger.warning(f"Failed to fetch odds for match {row.id}: {e}")
+
+            await session.commit()
+
+        logger.info(f"Updated odds for {count} football matches")
+        return count
 
     @staticmethod
     async def warm_redis_cache() -> int:
@@ -531,7 +1130,7 @@ class DataPrefillService:
                 JOIN matches m ON p.match_id = m.id
                 JOIN teams ht ON m.home_team_id = ht.id
                 JOIN teams at ON m.away_team_id = at.id
-                WHERE m.match_date > NOW() AND m.match_date < NOW() + INTERVAL '14 days'
+                WHERE m.match_date > NOW() AND m.match_date < NOW() + INTERVAL '30 days'
             """
                 )
             )
@@ -671,6 +1270,7 @@ class DataPrefillService:
             "team_data": {},
             "elo_ratings": 0,
             "predictions": 0,
+            "match_odds": 0,
             "redis_cache": 0,
             "news_items": 0,
         }
@@ -709,7 +1309,18 @@ class DataPrefillService:
             errors.append(f"predictions: {str(e)}")
             await log_sync_operation("predictions", "failed", 0, str(e), triggered_by)
 
-        # 4. Warm Redis cache
+        # 4. Fetch bookmaker odds for upcoming matches
+        try:
+            results["match_odds"] = await DataPrefillService.fill_match_odds()
+            await log_sync_operation(
+                "match_odds", "success", results["match_odds"], triggered_by=triggered_by
+            )
+        except Exception as e:
+            logger.error(f"Match odds fetch failed: {e}")
+            errors.append(f"match_odds: {str(e)}")
+            await log_sync_operation("match_odds", "failed", 0, str(e), triggered_by)
+
+        # 5. Warm Redis cache
         try:
             results["redis_cache"] = await DataPrefillService.warm_redis_cache()
             await log_sync_operation(
@@ -720,7 +1331,7 @@ class DataPrefillService:
             errors.append(f"redis_cache: {str(e)}")
             await log_sync_operation("redis_cache", "failed", 0, str(e), triggered_by)
 
-        # 5. Fill news items from RSS
+        # 6. Fill news items from RSS
         try:
             results["news_items"] = await DataPrefillService.fill_news_items()
             await log_sync_operation(
@@ -730,6 +1341,25 @@ class DataPrefillService:
             logger.error(f"News items fetch failed: {e}")
             errors.append(f"news_items: {str(e)}")
             await log_sync_operation("news_items", "failed", 0, str(e), triggered_by)
+
+        # 7. Post-match retrospective analysis
+        try:
+            results["post_match_analysis"] = await DataPrefillService.run_post_match_analysis()
+            await log_sync_operation(
+                "post_match", "success", results["post_match_analysis"], triggered_by=triggered_by
+            )
+        except Exception as e:
+            logger.error(f"Post-match analysis failed: {e}")
+            errors.append(f"post_match: {str(e)}")
+
+        # 8. Generate daily picks editorial summary via LLM
+        try:
+            summary = await DataPrefillService.generate_daily_summary()
+            if summary:
+                results["daily_summary"] = summary[:200]
+        except Exception as e:
+            logger.error(f"Daily summary generation failed: {e}")
+            errors.append(f"daily_summary: {str(e)}")
 
         duration = (datetime.now() - start).total_seconds()
         results["duration_seconds"] = duration
@@ -741,8 +1371,10 @@ class DataPrefillService:
             sum(results["team_data"].values())
             + results["elo_ratings"]
             + results["predictions"]
+            + results["match_odds"]
             + results["redis_cache"]
             + results["news_items"]
+            + results.get("post_match_analysis", 0)
         )
         await log_sync_operation(
             "full_prefill",

@@ -23,4 +23,7 @@ export interface MatchResponse {
   home_score?: number | null;
   away_score?: number | null;
   matchday?: number | null;
+  odds_home?: number | null;
+  odds_draw?: number | null;
+  odds_away?: number | null;
 }

@@ -101,6 +101,9 @@ class MatchResponse(BaseModel):
     home_score: int | None = None
     away_score: int | None = None
     matchday: int | None = None
+    odds_home: float | None = None
+    odds_draw: float | None = None
+    odds_away: float | None = None
 
 
 class MatchListResponse(BaseModel):
@@ -442,6 +445,9 @@ async def get_matches(
             home_score=m.get("home_score"),
             away_score=m.get("away_score"),
             matchday=m.get("matchday"),
+            odds_home=m.get("odds_home"),
+            odds_draw=m.get("odds_draw"),
+            odds_away=m.get("odds_away"),
         )
         for m in db_matches
     ]
@@ -499,7 +505,7 @@ async def get_upcoming_matches(
 
     matches = [
         MatchResponse(
-            id=int(m["external_id"].split("_")[-1]) if "_" in m.get("external_id", "") else m["id"],
+            id=m["id"],
             external_id=m["external_id"],
             home_team=TeamInfo(
                 id=m["home_team"]["id"],
@@ -528,6 +534,9 @@ async def get_upcoming_matches(
             ),
             status=_normalize_status(m.get("status")),
             matchday=m.get("matchday"),
+            odds_home=m.get("odds_home"),
+            odds_draw=m.get("odds_draw"),
+            odds_away=m.get("odds_away"),
         )
         for m in db_matches
     ]
@@ -826,6 +835,9 @@ async def get_match(request: Request, match_id: int, user: AuthenticatedUser) ->
         matchday=match_data.get("matchday"),
         home_score=match_data.get("home_score"),
         away_score=match_data.get("away_score"),
+        odds_home=match_data.get("odds_home"),
+        odds_draw=match_data.get("odds_draw"),
+        odds_away=match_data.get("odds_away"),
     )
 
 

@@ -145,6 +145,9 @@ export function useHealthCheckHealthGet<TData = Awaited<ReturnType<typeof health
 
 /**
  * Readiness check including dependencies.
+
+Returns "ready" if all critical services are up, "degraded" if
+non-critical services (like Redis) are unavailable.
  * @summary Readiness Check
  */
 export type readinessCheckHealthReadyGetResponse200 = {

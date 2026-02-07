@@ -34,10 +34,14 @@ import type {
   GetDataStatusApiV1AdminDataStatusGet200,
   HTTPErrorResponse,
   HTTPValidationError,
+  HistoricalSyncResponse,
   ListUsersApiV1AdminUsersGetParams,
   NotificationRequest,
   PrefillResponse,
   SendDailyPicksNotificationApiV1AdminNotificationsDailyPicksPost200,
+  SyncHistoricalDataApiV1AdminSyncHistoricalPostParams,
+  TestimonialCreateRequest,
+  TestimonialCreateResponse,
   TriggerDataQualityAlertApiV1AdminDataQualityAlertPost200,
   TriggerDataQualityAlertApiV1AdminDataQualityAlertPostParams,
   UpdateUserRoleApiV1AdminUsersUserIdRolePost200,
@@ -1521,5 +1525,226 @@ export const useVerifyAllPredictionsApiV1AdminVerifyPredictionsPost = <TError = 
         TContext
       > => {
       return useMutation(getVerifyAllPredictionsApiV1AdminVerifyPredictionsPostMutationOptions(options), queryClient);
+    }
+    /**
+ * Create a new testimonial (admin only).
+
+The testimonial is auto-approved when created by an admin.
+ * @summary Create Testimonial
+ */
+export type createTestimonialApiV1AdminTestimonialsPostResponse200 = {
+  data: TestimonialCreateResponse
+  status: 200
+}
+
+export type createTestimonialApiV1AdminTestimonialsPostResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type createTestimonialApiV1AdminTestimonialsPostResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
+
+export type createTestimonialApiV1AdminTestimonialsPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type createTestimonialApiV1AdminTestimonialsPostResponseSuccess = (createTestimonialApiV1AdminTestimonialsPostResponse200) & {
+  headers: Headers;
+};
+export type createTestimonialApiV1AdminTestimonialsPostResponseError = (createTestimonialApiV1AdminTestimonialsPostResponse401 | createTestimonialApiV1AdminTestimonialsPostResponse403 | createTestimonialApiV1AdminTestimonialsPostResponse422) & {
+  headers: Headers;
+};
+
+export type createTestimonialApiV1AdminTestimonialsPostResponse = (createTestimonialApiV1AdminTestimonialsPostResponseSuccess | createTestimonialApiV1AdminTestimonialsPostResponseError)
+
+export const getCreateTestimonialApiV1AdminTestimonialsPostUrl = () => {
+
+
+  
+
+  return `/api/v1/admin/testimonials`
+}
+
+export const createTestimonialApiV1AdminTestimonialsPost = async (testimonialCreateRequest: TestimonialCreateRequest, options?: RequestInit): Promise<createTestimonialApiV1AdminTestimonialsPostResponse> => {
+  
+  return customInstance<createTestimonialApiV1AdminTestimonialsPostResponse>(getCreateTestimonialApiV1AdminTestimonialsPostUrl(),
+  {      
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      testimonialCreateRequest,)
+  }
+);}
+
+
+
+
+export const getCreateTestimonialApiV1AdminTestimonialsPostMutationOptions = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTestimonialApiV1AdminTestimonialsPost>>, TError,{data: TestimonialCreateRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTestimonialApiV1AdminTestimonialsPost>>, TError,{data: TestimonialCreateRequest}, TContext> => {
+
+const mutationKey = ['createTestimonialApiV1AdminTestimonialsPost'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTestimonialApiV1AdminTestimonialsPost>>, {data: TestimonialCreateRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTestimonialApiV1AdminTestimonialsPost(data,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTestimonialApiV1AdminTestimonialsPostMutationResult = NonNullable<Awaited<ReturnType<typeof createTestimonialApiV1AdminTestimonialsPost>>>
+    export type CreateTestimonialApiV1AdminTestimonialsPostMutationBody = TestimonialCreateRequest
+    export type CreateTestimonialApiV1AdminTestimonialsPostMutationError = HTTPErrorResponse | HTTPValidationError
+
+    /**
+ * @summary Create Testimonial
+ */
+export const useCreateTestimonialApiV1AdminTestimonialsPost = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTestimonialApiV1AdminTestimonialsPost>>, TError,{data: TestimonialCreateRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createTestimonialApiV1AdminTestimonialsPost>>,
+        TError,
+        {data: TestimonialCreateRequest},
+        TContext
+      > => {
+      return useMutation(getCreateTestimonialApiV1AdminTestimonialsPostMutationOptions(options), queryClient);
+    }
+    /**
+ * Sync historical match data for multiple past seasons.
+
+Fetches FINISHED matches for each past season from football-data.org
+to build a larger training dataset for ML models.
+
+The football-data.org API `season` parameter takes the start year
+(e.g. 2023 for the 2023-2024 season).
+
+WARNING: This is a long-running operation due to API rate limits
+(10 req/min). Each season requires one API call per competition.
+Expect ~7 seconds between calls.
+
+Args:
+    seasons: Number of past seasons to fetch (default: 3, max: 5)
+ * @summary Sync Historical Data
+ */
+export type syncHistoricalDataApiV1AdminSyncHistoricalPostResponse200 = {
+  data: HistoricalSyncResponse
+  status: 200
+}
+
+export type syncHistoricalDataApiV1AdminSyncHistoricalPostResponse401 = {
+  data: HTTPErrorResponse
+  status: 401
+}
+
+export type syncHistoricalDataApiV1AdminSyncHistoricalPostResponse403 = {
+  data: HTTPErrorResponse
+  status: 403
+}
+
+export type syncHistoricalDataApiV1AdminSyncHistoricalPostResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+    
+export type syncHistoricalDataApiV1AdminSyncHistoricalPostResponseSuccess = (syncHistoricalDataApiV1AdminSyncHistoricalPostResponse200) & {
+  headers: Headers;
+};
+export type syncHistoricalDataApiV1AdminSyncHistoricalPostResponseError = (syncHistoricalDataApiV1AdminSyncHistoricalPostResponse401 | syncHistoricalDataApiV1AdminSyncHistoricalPostResponse403 | syncHistoricalDataApiV1AdminSyncHistoricalPostResponse422) & {
+  headers: Headers;
+};
+
+export type syncHistoricalDataApiV1AdminSyncHistoricalPostResponse = (syncHistoricalDataApiV1AdminSyncHistoricalPostResponseSuccess | syncHistoricalDataApiV1AdminSyncHistoricalPostResponseError)
+
+export const getSyncHistoricalDataApiV1AdminSyncHistoricalPostUrl = (params?: SyncHistoricalDataApiV1AdminSyncHistoricalPostParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/admin/sync/historical?${stringifiedParams}` : `/api/v1/admin/sync/historical`
+}
+
+export const syncHistoricalDataApiV1AdminSyncHistoricalPost = async (params?: SyncHistoricalDataApiV1AdminSyncHistoricalPostParams, options?: RequestInit): Promise<syncHistoricalDataApiV1AdminSyncHistoricalPostResponse> => {
+  
+  return customInstance<syncHistoricalDataApiV1AdminSyncHistoricalPostResponse>(getSyncHistoricalDataApiV1AdminSyncHistoricalPostUrl(params),
+  {      
+    ...options,
+    method: 'POST'
+    
+    
+  }
+);}
+
+
+
+
+export const getSyncHistoricalDataApiV1AdminSyncHistoricalPostMutationOptions = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncHistoricalDataApiV1AdminSyncHistoricalPost>>, TError,{params?: SyncHistoricalDataApiV1AdminSyncHistoricalPostParams}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncHistoricalDataApiV1AdminSyncHistoricalPost>>, TError,{params?: SyncHistoricalDataApiV1AdminSyncHistoricalPostParams}, TContext> => {
+
+const mutationKey = ['syncHistoricalDataApiV1AdminSyncHistoricalPost'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncHistoricalDataApiV1AdminSyncHistoricalPost>>, {params?: SyncHistoricalDataApiV1AdminSyncHistoricalPostParams}> = (props) => {
+          const {params} = props ?? {};
+
+          return  syncHistoricalDataApiV1AdminSyncHistoricalPost(params,requestOptions)
+        }
+
+
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncHistoricalDataApiV1AdminSyncHistoricalPostMutationResult = NonNullable<Awaited<ReturnType<typeof syncHistoricalDataApiV1AdminSyncHistoricalPost>>>
+    
+    export type SyncHistoricalDataApiV1AdminSyncHistoricalPostMutationError = HTTPErrorResponse | HTTPValidationError
+
+    /**
+ * @summary Sync Historical Data
+ */
+export const useSyncHistoricalDataApiV1AdminSyncHistoricalPost = <TError = HTTPErrorResponse | HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncHistoricalDataApiV1AdminSyncHistoricalPost>>, TError,{params?: SyncHistoricalDataApiV1AdminSyncHistoricalPostParams}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof syncHistoricalDataApiV1AdminSyncHistoricalPost>>,
+        TError,
+        {params?: SyncHistoricalDataApiV1AdminSyncHistoricalPostParams},
+        TContext
+      > => {
+      return useMutation(getSyncHistoricalDataApiV1AdminSyncHistoricalPostMutationOptions(options), queryClient);
     }
     

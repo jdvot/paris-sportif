@@ -30,8 +30,8 @@ import type {
   GetMatchOddsApiV1EnrichmentOddsGetParams,
   GetMatchWeatherApiV1EnrichmentWeatherGet200,
   GetMatchWeatherApiV1EnrichmentWeatherGetParams,
-  GetTeamFormApiV1EnrichmentFormTeamNameGet200,
-  GetTeamFormApiV1EnrichmentFormTeamNameGetParams,
+  GetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet200,
+  GetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetParams,
   HTTPErrorResponse,
   HTTPValidationError
 } from '../../models';
@@ -455,7 +455,7 @@ export function useGetMatchWeatherApiV1EnrichmentWeatherGet<TData = Awaited<Retu
 
 
 /**
- * Get head-to-head history between two teams.
+ * Get head-to-head history between two teams (from DB).
  * @summary Get H2H
  */
 export type getH2hApiV1EnrichmentH2hGetResponse200 = {
@@ -590,40 +590,40 @@ export function useGetH2hApiV1EnrichmentH2hGet<TData = Awaited<ReturnType<typeof
 
 
 /**
- * Get recent form for a team.
- * @summary Get Team Form
+ * Get recent form for a team (from DB).
+ * @summary Get Team Form Enrichment
  */
-export type getTeamFormApiV1EnrichmentFormTeamNameGetResponse200 = {
-  data: GetTeamFormApiV1EnrichmentFormTeamNameGet200
+export type getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponse200 = {
+  data: GetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet200
   status: 200
 }
 
-export type getTeamFormApiV1EnrichmentFormTeamNameGetResponse401 = {
+export type getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponse401 = {
   data: HTTPErrorResponse
   status: 401
 }
 
-export type getTeamFormApiV1EnrichmentFormTeamNameGetResponse403 = {
+export type getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponse403 = {
   data: HTTPErrorResponse
   status: 403
 }
 
-export type getTeamFormApiV1EnrichmentFormTeamNameGetResponse422 = {
+export type getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponse422 = {
   data: HTTPValidationError
   status: 422
 }
     
-export type getTeamFormApiV1EnrichmentFormTeamNameGetResponseSuccess = (getTeamFormApiV1EnrichmentFormTeamNameGetResponse200) & {
+export type getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponseSuccess = (getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponse200) & {
   headers: Headers;
 };
-export type getTeamFormApiV1EnrichmentFormTeamNameGetResponseError = (getTeamFormApiV1EnrichmentFormTeamNameGetResponse401 | getTeamFormApiV1EnrichmentFormTeamNameGetResponse403 | getTeamFormApiV1EnrichmentFormTeamNameGetResponse422) & {
+export type getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponseError = (getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponse401 | getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponse403 | getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponse422) & {
   headers: Headers;
 };
 
-export type getTeamFormApiV1EnrichmentFormTeamNameGetResponse = (getTeamFormApiV1EnrichmentFormTeamNameGetResponseSuccess | getTeamFormApiV1EnrichmentFormTeamNameGetResponseError)
+export type getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponse = (getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponseSuccess | getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponseError)
 
-export const getGetTeamFormApiV1EnrichmentFormTeamNameGetUrl = (teamName: string,
-    params?: GetTeamFormApiV1EnrichmentFormTeamNameGetParams,) => {
+export const getGetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetUrl = (teamName: string,
+    params?: GetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -638,10 +638,10 @@ export const getGetTeamFormApiV1EnrichmentFormTeamNameGetUrl = (teamName: string
   return stringifiedParams.length > 0 ? `/api/v1/enrichment/form/${teamName}?${stringifiedParams}` : `/api/v1/enrichment/form/${teamName}`
 }
 
-export const getTeamFormApiV1EnrichmentFormTeamNameGet = async (teamName: string,
-    params?: GetTeamFormApiV1EnrichmentFormTeamNameGetParams, options?: RequestInit): Promise<getTeamFormApiV1EnrichmentFormTeamNameGetResponse> => {
+export const getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet = async (teamName: string,
+    params?: GetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetParams, options?: RequestInit): Promise<getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponse> => {
   
-  return customInstance<getTeamFormApiV1EnrichmentFormTeamNameGetResponse>(getGetTeamFormApiV1EnrichmentFormTeamNameGetUrl(teamName,params),
+  return customInstance<getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetResponse>(getGetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetUrl(teamName,params),
   {      
     ...options,
     method: 'GET'
@@ -654,75 +654,75 @@ export const getTeamFormApiV1EnrichmentFormTeamNameGet = async (teamName: string
 
 
 
-export const getGetTeamFormApiV1EnrichmentFormTeamNameGetQueryKey = (teamName: string,
-    params?: GetTeamFormApiV1EnrichmentFormTeamNameGetParams,) => {
+export const getGetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetQueryKey = (teamName: string,
+    params?: GetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetParams,) => {
     return [
     `/api/v1/enrichment/form/${teamName}`, ...(params ? [params] : [])
     ] as const;
     }
 
     
-export const getGetTeamFormApiV1EnrichmentFormTeamNameGetQueryOptions = <TData = Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>, TError = HTTPErrorResponse | HTTPValidationError>(teamName: string,
-    params?: GetTeamFormApiV1EnrichmentFormTeamNameGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getGetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetQueryOptions = <TData = Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>, TError = HTTPErrorResponse | HTTPValidationError>(teamName: string,
+    params?: GetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetTeamFormApiV1EnrichmentFormTeamNameGetQueryKey(teamName,params);
+  const queryKey =  queryOptions?.queryKey ?? getGetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetQueryKey(teamName,params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>> = ({ signal }) => getTeamFormApiV1EnrichmentFormTeamNameGet(teamName,params, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>> = ({ signal }) => getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet(teamName,params, { signal, ...requestOptions });
 
       
 
       
 
-   return  { queryKey, queryFn, enabled: !!(teamName), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, enabled: !!(teamName), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type GetTeamFormApiV1EnrichmentFormTeamNameGetQueryResult = NonNullable<Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>>
-export type GetTeamFormApiV1EnrichmentFormTeamNameGetQueryError = HTTPErrorResponse | HTTPValidationError
+export type GetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetQueryResult = NonNullable<Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>>
+export type GetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetQueryError = HTTPErrorResponse | HTTPValidationError
 
 
-export function useGetTeamFormApiV1EnrichmentFormTeamNameGet<TData = Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+export function useGetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet<TData = Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
  teamName: string,
-    params: undefined |  GetTeamFormApiV1EnrichmentFormTeamNameGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>, TError, TData>> & Pick<
+    params: undefined |  GetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>,
+          Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>,
           TError,
-          Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>
+          Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetTeamFormApiV1EnrichmentFormTeamNameGet<TData = Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+export function useGetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet<TData = Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
  teamName: string,
-    params?: GetTeamFormApiV1EnrichmentFormTeamNameGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>, TError, TData>> & Pick<
+    params?: GetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>,
+          Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>,
           TError,
-          Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>
+          Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetTeamFormApiV1EnrichmentFormTeamNameGet<TData = Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+export function useGetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet<TData = Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
  teamName: string,
-    params?: GetTeamFormApiV1EnrichmentFormTeamNameGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+    params?: GetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Get Team Form
+ * @summary Get Team Form Enrichment
  */
 
-export function useGetTeamFormApiV1EnrichmentFormTeamNameGet<TData = Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
+export function useGetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet<TData = Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>, TError = HTTPErrorResponse | HTTPValidationError>(
  teamName: string,
-    params?: GetTeamFormApiV1EnrichmentFormTeamNameGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamFormApiV1EnrichmentFormTeamNameGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+    params?: GetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamFormEnrichmentApiV1EnrichmentFormTeamNameGet>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetTeamFormApiV1EnrichmentFormTeamNameGetQueryOptions(teamName,params,options)
+  const queryOptions = getGetTeamFormEnrichmentApiV1EnrichmentFormTeamNameGetQueryOptions(teamName,params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

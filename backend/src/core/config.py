@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     # External APIs
     football_data_api_key: str = ""
     odds_api_key: str = ""  # The Odds API - https://the-odds-api.com (500 req/month free)
+    api_sports_api_key: str = ""  # api-sports.io (NBA) - 100 req/day free
+    sportdevs_api_key: str = ""  # sportdevs.com (Tennis) - 300 req/day free
     groq_api_key: str = ""  # Free LLM - https://console.groq.com/
     anthropic_api_key: str = ""  # Optional paid alternative
 

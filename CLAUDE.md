@@ -171,6 +171,22 @@ cd frontend && npx next lint                 # ESLint
 3. Privilégier les sources officielles et les exemples GitHub récents
 4. Vérifier la compatibilité des versions (Next.js 15, @supabase/ssr, etc.)
 
+## Principe fondamental : JAMAIS de fallback
+
+**RÈGLE ABSOLUE** : Aucun fallback, aucune donnée fabricée, aucun template programmatique.
+
+- Si le LLM (Groq) est down → `explanation = None`, pas de faux texte généré
+- Si une API externe est down → erreur renvoyée au frontend, pas de données inventées
+- Si une prédiction n'est pas en DB → 404, pas de génération à la volée
+- Si des données manquent → champ `null`, jamais de valeur par défaut déguisée en vraie donnée
+- Toutes les données affichées au frontend DOIVENT venir de la DB, pré-calculées par les crons
+
+**Exemples interdits** :
+- Générer une explication programmatique ("Models favor X") quand le LLM est indisponible
+- Retourner des ModelContributions fabricées quand le modèle n'a pas tourné
+- Inventer des key_factors/risk_factors à partir de templates
+- Créer des odds estimées quand le bookmaker API n'a pas répondu
+
 ## Data Flow
 
 1. **football-data.org** → Backend fetches matches/stats

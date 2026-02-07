@@ -25,11 +25,15 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  GetSubscriptionStatusApiV1NotificationsStatusGet200,
   GetSubscriptionStatusApiV1NotificationsStatusGetParams,
   HTTPValidationError,
+  SubscribePushApiV1NotificationsSubscribePost201,
   SubscriptionPreferences,
   SubscriptionRequest,
+  UnsubscribePushApiV1NotificationsUnsubscribePost200,
   UnsubscribeRequest,
+  UpdatePreferencesApiV1NotificationsPreferencesPut200,
   UpdatePreferencesApiV1NotificationsPreferencesPutParams
 } from '../../models';
 
@@ -47,7 +51,7 @@ Stores the push subscription for sending notifications later.
  * @summary Subscribe Push
  */
 export type subscribePushApiV1NotificationsSubscribePostResponse201 = {
-  data: unknown
+  data: SubscribePushApiV1NotificationsSubscribePost201
   status: 201
 }
 
@@ -137,7 +141,7 @@ export const useSubscribePushApiV1NotificationsSubscribePost = <TError = HTTPVal
  * @summary Unsubscribe Push
  */
 export type unsubscribePushApiV1NotificationsUnsubscribePostResponse200 = {
-  data: unknown
+  data: UnsubscribePushApiV1NotificationsUnsubscribePost200
   status: 200
 }
 
@@ -227,7 +231,7 @@ export const useUnsubscribePushApiV1NotificationsUnsubscribePost = <TError = HTT
  * @summary Update Preferences
  */
 export type updatePreferencesApiV1NotificationsPreferencesPutResponse200 = {
-  data: unknown
+  data: UpdatePreferencesApiV1NotificationsPreferencesPut200
   status: 200
 }
 
@@ -325,7 +329,7 @@ export const useUpdatePreferencesApiV1NotificationsPreferencesPut = <TError = HT
  * @summary Get Subscription Status
  */
 export type getSubscriptionStatusApiV1NotificationsStatusGetResponse200 = {
-  data: unknown
+  data: GetSubscriptionStatusApiV1NotificationsStatusGet200
   status: 200
 }
 

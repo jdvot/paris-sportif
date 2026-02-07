@@ -317,12 +317,16 @@ export default function MatchDetailPage() {
       )}
 
       {/* Enrichment Data: Odds, xG, Standings */}
-      {enrichment && (
+      {(enrichment || match?.odds_home != null) && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Odds Section with Bookmaker Comparison */}
-          {enrichment.odds && (
+          {(enrichment?.odds || match?.odds_home != null) && (
             <OddsSection
-              odds={enrichment.odds}
+              odds={enrichment?.odds ?? {
+                home_win: match?.odds_home ?? undefined,
+                draw: match?.odds_draw ?? undefined,
+                away_win: match?.odds_away ?? undefined,
+              }}
               homeTeam={homeTeamName}
               awayTeam={awayTeamName}
               matchId={matchId || undefined}
@@ -331,19 +335,19 @@ export default function MatchDetailPage() {
           )}
 
           {/* xG Estimates Section */}
-          {(enrichment.home_xg_estimate || enrichment.away_xg_estimate) && (
+          {(enrichment?.home_xg_estimate || enrichment?.away_xg_estimate) && (
             <XGEstimatesSection
-              homeXg={enrichment.home_xg_estimate}
-              awayXg={enrichment.away_xg_estimate}
+              homeXg={enrichment?.home_xg_estimate}
+              awayXg={enrichment?.away_xg_estimate}
               homeTeam={homeTeamName}
               awayTeam={awayTeamName}
             />
           )}
 
           {/* Standings Context */}
-          {enrichment.standings && (
+          {enrichment?.standings && (
             <StandingsSection
-              standings={enrichment.standings}
+              standings={enrichment?.standings}
               homeTeam={homeTeamName}
               awayTeam={awayTeamName}
             />

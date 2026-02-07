@@ -19,38 +19,55 @@ import {
 } from "@/components/ui/select";
 import { isAuthError } from "@/lib/utils";
 
-// TypeScript interfaces for Tennis API responses
+// TypeScript interfaces matching backend TennisMatchResponse
 interface TennisPlayer {
   id: number;
   name: string;
-  ranking?: number;
-  country?: string;
+  country?: string | null;
+  photo_url?: string | null;
+  circuit: string;
+  atp_ranking?: number | null;
+  wta_ranking?: number | null;
+  elo_hard: number;
+  elo_clay: number;
+  elo_grass: number;
+  elo_indoor: number;
+  win_rate_ytd?: number | null;
 }
 
-interface TennisPrediction {
-  player1_win_prob: number;
-  player2_win_prob: number;
-  confidence: number;
-  recommended_bet?: string;
+interface TennisTournament {
+  id: number;
+  name: string;
+  category: string;
+  surface: string;
+  country?: string | null;
+  circuit: string;
 }
 
 interface TennisMatch {
   id: number;
   player1: TennisPlayer;
   player2: TennisPlayer;
-  tournament: string;
-  round: string;
-  surface: string;
-  circuit: "ATP" | "WTA";
+  tournament: TennisTournament;
+  round?: string | null;
   match_date: string;
-  status: "scheduled" | "live" | "finished";
-  score?: string;
-  prediction?: TennisPrediction;
+  surface: string;
+  status: string;
+  winner_id?: number | null;
+  score?: string | null;
+  sets_player1?: number | null;
+  sets_player2?: number | null;
+  odds_player1?: number | null;
+  odds_player2?: number | null;
+  pred_player1_prob?: number | null;
+  pred_player2_prob?: number | null;
+  pred_confidence?: number | null;
+  pred_explanation?: string | null;
 }
 
 interface TennisMatchesResponse {
   matches: TennisMatch[];
-  total: number;
+  count: number;
 }
 
 type Circuit = "all" | "ATP" | "WTA";
@@ -95,7 +112,7 @@ export default function TennisPage() {
   const filteredMatches = useMemo(() => {
     let result = matches;
     if (circuit !== "all") {
-      result = result.filter((m) => m.circuit === circuit);
+      result = result.filter((m) => m.tournament.circuit === circuit);
     }
     if (surface !== "all") {
       result = result.filter((m) => m.surface.toLowerCase() === surface);
@@ -310,10 +327,10 @@ function TennisMatchCard({
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs">
-              {match.circuit}
+              {match.tournament.circuit}
             </Badge>
             <span className="text-sm text-gray-600 dark:text-slate-400">
-              {match.tournament}
+              {match.tournament.name}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -335,9 +352,9 @@ function TennisMatchCard({
             <p className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white">
               {match.player1.name}
             </p>
-            {match.player1.ranking && (
+            {match.player1.atp_ranking && (
               <p className="text-xs text-gray-500 dark:text-slate-400">
-                #{match.player1.ranking}
+                #{match.player1.atp_ranking}
               </p>
             )}
           </div>
@@ -358,9 +375,9 @@ function TennisMatchCard({
             <p className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white">
               {match.player2.name}
             </p>
-            {match.player2.ranking && (
+            {match.player2.atp_ranking && (
               <p className="text-xs text-gray-500 dark:text-slate-400">
-                #{match.player2.ranking}
+                #{match.player2.atp_ranking}
               </p>
             )}
           </div>
@@ -379,16 +396,42 @@ function TennisMatchCard({
           </span>
         </div>
 
+        {/* Odds */}
+        {(match.odds_player1 != null || match.odds_player2 != null) && (
+          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700/50">
+            <div className="flex items-center justify-center gap-4">
+              <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-1.5">
+                <span className="text-xs text-gray-500 dark:text-slate-400">
+                  {match.player1.name.split(" ").pop()}
+                </span>
+                <span className="text-xs font-semibold text-gray-900 dark:text-white">
+                  {match.odds_player1?.toFixed(2) ?? "-"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg px-3 py-1.5">
+                <span className="text-xs text-gray-500 dark:text-slate-400">
+                  {match.player2.name.split(" ").pop()}
+                </span>
+                <span className="text-xs font-semibold text-gray-900 dark:text-white">
+                  {match.odds_player2?.toFixed(2) ?? "-"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Prediction */}
-        {match.prediction && (
+        {match.pred_player1_prob != null && match.pred_player2_prob != null && (
           <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700/50">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-gray-600 dark:text-slate-400 uppercase tracking-wide">
                 {t("prediction")}
               </span>
-              <span className={`text-xs font-semibold ${getConfidenceColor(match.prediction.confidence)}`}>
-                {t("confidence")}: {match.prediction.confidence}%
-              </span>
+              {match.pred_confidence != null && (
+                <span className={`text-xs font-semibold ${getConfidenceColor(match.pred_confidence * 100)}`}>
+                  {t("confidence")}: {(match.pred_confidence * 100).toFixed(0)}%
+                </span>
+              )}
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
@@ -398,11 +441,11 @@ function TennisMatchCard({
                 <div className="flex-1 bg-gray-200 dark:bg-slate-700 rounded-full h-2">
                   <div
                     className="bg-primary-500 h-2 rounded-full transition-all"
-                    style={{ width: `${match.prediction.player1_win_prob}%` }}
+                    style={{ width: `${match.pred_player1_prob * 100}%` }}
                   />
                 </div>
                 <span className="text-xs font-semibold text-gray-900 dark:text-white w-12 text-right">
-                  {match.prediction.player1_win_prob.toFixed(1)}%
+                  {(match.pred_player1_prob * 100).toFixed(1)}%
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -412,11 +455,11 @@ function TennisMatchCard({
                 <div className="flex-1 bg-gray-200 dark:bg-slate-700 rounded-full h-2">
                   <div
                     className="bg-blue-500 h-2 rounded-full transition-all"
-                    style={{ width: `${match.prediction.player2_win_prob}%` }}
+                    style={{ width: `${match.pred_player2_prob * 100}%` }}
                   />
                 </div>
                 <span className="text-xs font-semibold text-gray-900 dark:text-white w-12 text-right">
-                  {match.prediction.player2_win_prob.toFixed(1)}%
+                  {(match.pred_player2_prob * 100).toFixed(1)}%
                 </span>
               </div>
             </div>

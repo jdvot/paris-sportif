@@ -267,7 +267,8 @@ export const useUpdateProfileApiV1UsersMePatch = <TError = HTTPErrorResponse | H
     /**
  * Get current user's usage statistics.
 
-Returns statistics about the user's activity on the platform.
+Returns statistics about the user's activity on the platform,
+computed from real database data.
  * @summary Get User Stats
  */
 export type getUserStatsApiV1UsersMeStatsGetResponse200 = {
