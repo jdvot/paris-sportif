@@ -44,7 +44,11 @@ interface SearchApiResponse {
 // Component
 // ---------------------------------------------------------------------------
 
-export function SearchBar() {
+interface SearchBarProps {
+  variant?: "desktop" | "mobile";
+}
+
+export function SearchBar({ variant = "desktop" }: SearchBarProps) {
   const router = useRouter();
   const t = useTranslations("searchBar");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -197,7 +201,7 @@ export function SearchBar() {
   // Render
   // -----------------------------------------------------------------------
   return (
-    <div ref={containerRef} className="relative hidden md:block">
+    <div ref={containerRef} className={cn("relative", variant === "desktop" && "hidden md:block")}>
       {/* Search input */}
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-dark-400 pointer-events-none" />
@@ -219,7 +223,8 @@ export function SearchBar() {
           aria-autocomplete="list"
           role="combobox"
           className={cn(
-            "w-44 lg:w-56 pl-8 pr-8 py-1.5 text-sm rounded-lg",
+            "pl-8 pr-8 py-1.5 text-sm rounded-lg",
+            variant === "desktop" ? "w-44 lg:w-56" : "w-full",
             "bg-gray-100 dark:bg-dark-800 border border-transparent",
             "text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-dark-400",
             "focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500",

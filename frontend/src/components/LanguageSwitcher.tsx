@@ -52,13 +52,13 @@ export function LanguageSwitcher() {
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full z-50 mt-2 min-w-32 rounded-md border border-slate-700 bg-slate-900 py-1 shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-2 min-w-32 rounded-md border border-gray-200 dark:border-dark-700 bg-white dark:bg-dark-800 py-1 shadow-lg">
           {locales.map((loc) => (
             <button
               key={loc}
               onClick={() => handleLocaleChange(loc)}
-              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-800 ${
-                locale === loc ? "bg-slate-800 text-white" : "text-slate-300"
+              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-dark-700 ${
+                locale === loc ? "bg-gray-100 dark:bg-dark-700 text-gray-900 dark:text-white" : "text-gray-700 dark:text-dark-300"
               }`}
             >
               <span>{localeFlags[loc]}</span>

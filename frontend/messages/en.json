@@ -55,7 +55,11 @@
     "signup": "Sign Up",
     "logout": "Logout",
     "tennis": "Tennis",
-    "basketball": "Basketball"
+    "basketball": "Basketball",
+    "upgrade": "Upgrade to Premium",
+    "admin": "Administration",
+    "more": "More",
+    "sports": "Sports"
   },
   "tennis": {
     "title": "Tennis Predictions",
@@ -504,7 +508,9 @@
     "contact": "Contact",
     "terms": "Terms",
     "privacy": "Privacy",
-    "copyright": "All rights reserved"
+    "copyright": "All rights reserved",
+    "pricing": "Pricing",
+    "disclaimer": "Betting involves risk. Please gamble responsibly."
   },
   "errors": {
     "404": {

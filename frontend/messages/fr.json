@@ -55,7 +55,11 @@
     "signup": "Inscription",
     "logout": "Deconnexion",
     "tennis": "Tennis",
-    "basketball": "Basketball"
+    "basketball": "Basketball",
+    "upgrade": "Passer Premium",
+    "admin": "Administration",
+    "more": "Plus",
+    "sports": "Sports"
   },
   "tennis": {
     "title": "Predictions Tennis",
@@ -504,7 +508,9 @@
     "contact": "Contact",
     "terms": "Conditions",
     "privacy": "Confidentialite",
-    "copyright": "Tous droits reserves"
+    "copyright": "Tous droits reserves",
+    "pricing": "Tarifs",
+    "disclaimer": "Les paris comportent des risques. Jouez responsablement."
   },
   "errors": {
     "404": {

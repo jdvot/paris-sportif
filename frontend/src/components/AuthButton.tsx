@@ -12,10 +12,12 @@ import {
   Shield,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 export function AuthButton() {
   const { user, profile, role, loading, signOut, isAuthenticated, isPremium, isAdmin } = useAuth();
+  const t = useTranslations("nav");
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -52,7 +54,7 @@ export function AuthButton() {
         className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-primary-500 to-emerald-500 hover:from-primary-600 hover:to-emerald-600 text-gray-900 dark:text-white text-sm font-medium rounded-lg transition-all"
       >
         <User className="w-4 h-4" />
-        <span className="hidden sm:inline">Connexion</span>
+        <span className="hidden sm:inline">{t("login")}</span>
       </Link>
     );
   }
@@ -62,25 +64,14 @@ export function AuthButton() {
   const avatarUrl = profile?.avatar_url;
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Logout Button - Always Visible */}
+    <div className="relative" ref={dropdownRef}>
       <button
-        onClick={handleSignOut}
-        className="p-2 rounded-lg text-gray-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-        title="Déconnexion"
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg transition-colors",
+          "bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 border border-gray-300 dark:border-slate-600"
+        )}
       >
-        <LogOut className="w-5 h-5" />
-      </button>
-
-      {/* User Menu Dropdown */}
-      <div className="relative" ref={dropdownRef}>
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={cn(
-            "flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg transition-colors",
-            "bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 border border-gray-300 dark:border-slate-600"
-          )}
-        >
         {/* Avatar */}
         <div className="relative">
           {avatarUrl ? (
@@ -123,9 +114,9 @@ export function AuthButton() {
         />
       </button>
 
-        {/* Dropdown Menu */}
-        {isOpen && (
-          <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl shadow-xl overflow-hidden z-50">
+      {/* Dropdown Menu */}
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl shadow-xl overflow-hidden z-50">
           {/* User Info */}
           <div className="px-4 py-3 border-b border-gray-300 dark:border-slate-600">
             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{displayName}</p>
@@ -151,20 +142,20 @@ export function AuthButton() {
             <Link
               href="/profile"
               onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:bg-slate-700 transition-colors"
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
             >
               <User className="w-4 h-4" />
-              Mon profil
+              {t("profile")}
             </Link>
 
             {!isPremium && (
               <Link
                 href="/upgrade"
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-yellow-400 hover:bg-gray-200 dark:bg-slate-700 transition-colors"
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-yellow-400 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
               >
                 <Crown className="w-4 h-4" />
-                Passer Premium
+                {t("upgrade")}
               </Link>
             )}
 
@@ -172,20 +163,20 @@ export function AuthButton() {
               <Link
                 href="/admin"
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-gray-200 dark:bg-slate-700 transition-colors"
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
               >
                 <Shield className="w-4 h-4" />
-                Administration
+                {t("admin")}
               </Link>
             )}
 
             <Link
               href="/settings"
               onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:bg-slate-700 transition-colors"
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
             >
               <Settings className="w-4 h-4" />
-              Parametres
+              {t("settings")}
             </Link>
           </div>
 
@@ -193,15 +184,14 @@ export function AuthButton() {
           <div className="border-t border-gray-300 dark:border-slate-600 py-1">
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-gray-200 dark:bg-slate-700 transition-colors"
+              className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
             >
               <LogOut className="w-4 h-4" />
-              Deconnexion
+              {t("logout")}
             </button>
           </div>
         </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
