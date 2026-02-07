@@ -28,30 +28,22 @@ async def _get_session():  # type: ignore[no-untyped-def]
 
 
 async def sync_tennis_matches() -> None:
-    """Full tennis sync pipeline: rankings → tournaments → matches → predictions."""
+    """Full tennis sync pipeline: rankings → matches (with tournaments) → predictions."""
     logger.info("[Tennis Sync] Starting tennis sync...")
 
     try:
         await log_sync_operation("tennis_sync", "running", 0, triggered_by="scheduler")
 
         players_synced = await _sync_players()
-        tournaments_synced = await _sync_tournaments()
         matches_synced = await _sync_matches()
         odds_synced = await _sync_odds()
         predictions_generated = await _generate_predictions()
 
-        total = (
-            players_synced
-            + tournaments_synced
-            + matches_synced
-            + odds_synced
-            + predictions_generated
-        )
+        total = players_synced + matches_synced + odds_synced + predictions_generated
 
         await log_sync_operation("tennis_sync", "success", total, triggered_by="scheduler")
         logger.info(
             f"[Tennis Sync] Complete: {players_synced} players, "
-            f"{tournaments_synced} tournaments, "
             f"{matches_synced} matches, {odds_synced} odds, "
             f"{predictions_generated} predictions"
         )
@@ -69,20 +61,19 @@ async def _sync_players() -> int:
 
     count = 0
     for tour in ("atp", "wta"):
-        rankings = await get_rankings(tour, page=1)
+        rankings = await get_rankings(tour)
         if not rankings:
             continue
 
         async with _get_session() as session:
             for entry in rankings:
-                # TennisApi ranking: {team: {id, name, ...}, ranking, points, ...}
-                team = entry.get("team") or entry.get("rowName") or {}
-                if isinstance(team, dict):
-                    ext_id = str(team.get("id", ""))
-                    name = team.get("name", "") or team.get("shortName", "")
-                else:
+                # TennisApi ranking entry: {team: {id, name, country, ...}, ranking, points, ...}
+                team = entry.get("team")
+                if not isinstance(team, dict):
                     continue
 
+                ext_id = str(team.get("id", ""))
+                name = team.get("name", "") or team.get("shortName", "")
                 if not ext_id or not name:
                     continue
 
@@ -126,184 +117,128 @@ async def _sync_players() -> int:
     return count
 
 
-async def _sync_tournaments() -> int:
-    """Fetch and upsert tennis tournaments from monthly calendar."""
-    from src.data.sources.sportdevs_tennis import get_tournaments
-
-    tournaments = await get_tournaments()
-    if not tournaments:
-        return 0
-
-    count = 0
-    async with _get_session() as session:
-        for t in tournaments:
-            ext_id = str(t.get("id", ""))
-            name = t.get("name", "")
-            if not ext_id or not name:
-                continue
-
-            category_data = t.get("category", {})
-            circuit = "ATP"
-            if isinstance(category_data, dict):
-                cat_name = category_data.get("name", "").lower()
-                if "wta" in cat_name:
-                    circuit = "WTA"
-
-            surface = _normalize_surface(t.get("groundType"))
-            country_data = t.get("country", {})
-            country = ""
-            if isinstance(country_data, dict):
-                country = country_data.get("name", "")
-            elif isinstance(country_data, str):
-                country = country_data
-
-            await session.execute(
-                text(
-                    """
-                    INSERT INTO tennis_tournaments (
-                        external_id, name, category, surface, country, circuit
-                    )
-                    VALUES (:ext_id, :name, :category, :surface, :country, :circuit)
-                    ON CONFLICT (external_id) DO UPDATE SET
-                        name = EXCLUDED.name,
-                        surface = COALESCE(EXCLUDED.surface, tennis_tournaments.surface),
-                        country = EXCLUDED.country,
-                        circuit = EXCLUDED.circuit
-                """
-                ),
-                {
-                    "ext_id": ext_id,
-                    "name": name[:100],
-                    "category": "tournament",
-                    "surface": surface,
-                    "country": country[:50] if country else None,
-                    "circuit": circuit,
-                },
-            )
-            count += 1
-
-        await session.commit()
-
-    logger.info(f"[Tennis Sync] Upserted {count} tournaments")
-    return count
-
-
 async def _sync_matches() -> int:
-    """Fetch tennis matches for today + next 3 days (budget: ~4 requests)."""
-    from src.data.sources.sportdevs_tennis import get_daily_matches
+    """Fetch tennis events for today + next 3 days (budget: ~4 requests).
+
+    Tournaments are extracted from each event and upserted on the fly.
+    """
+    from src.data.sources.sportdevs_tennis import get_daily_events
 
     today = date.today()
     count = 0
 
-    # Only fetch 4 days to stay within 50 req/day budget
     for day_offset in range(4):
         target = today + timedelta(days=day_offset)
 
-        categories = await get_daily_matches(target.day, target.month, target.year)
-        if not categories:
+        events = await get_daily_events(target.day, target.month, target.year)
+        if not events:
             continue
 
         async with _get_session() as session:
-            for category in categories:
-                # Resolve tournament
-                tournament_data = category.get("category", {}) or {}
-                tournament_ext_id = str(tournament_data.get("id", ""))
-                tournament_name = tournament_data.get("name", "Unknown")
+            for event in events:
+                ext_id = str(event.get("id", ""))
+                if not ext_id:
+                    continue
+
+                # Home/Away players (in tennis, "teams" are individual players)
+                home_team = event.get("homeTeam") or {}
+                away_team = event.get("awayTeam") or {}
+                home_ext = str(home_team.get("id", ""))
+                away_ext = str(away_team.get("id", ""))
+                home_name = home_team.get("name", "") or home_team.get("shortName", "")
+                away_name = away_team.get("name", "") or away_team.get("shortName", "")
+
+                if not home_ext or not away_ext:
+                    continue
+
+                p1_id = await _ensure_player(session, home_ext, home_name or "TBD")
+                p2_id = await _ensure_player(session, away_ext, away_name or "TBD")
+                if not p1_id or not p2_id:
+                    continue
+
+                # Tournament from event.tournament.uniqueTournament
+                tournament_data = event.get("tournament") or {}
+                unique_tournament = tournament_data.get("uniqueTournament") or {}
+                tournament_ext_id = str(unique_tournament.get("id", ""))
+                tournament_name = unique_tournament.get("name", "") or tournament_data.get(
+                    "name", "Unknown"
+                )
+                category_data = tournament_data.get("category") or {}
+                cat_name = ""
+                if isinstance(category_data, dict):
+                    cat_name = category_data.get("name", "").lower()
 
                 tournament_id = await _ensure_tournament(
-                    session, tournament_ext_id, tournament_name
+                    session, tournament_ext_id, tournament_name, cat_name
                 )
 
-                events = category.get("events", [])
-                for event in events:
-                    ext_id = str(event.get("id", ""))
-                    if not ext_id:
-                        continue
+                # Parse datetime from startTimestamp (unix)
+                start_ts = event.get("startTimestamp")
+                if start_ts and isinstance(start_ts, (int, float)):
+                    match_datetime = datetime.fromtimestamp(start_ts, tz=UTC)
+                else:
+                    match_datetime = datetime(target.year, target.month, target.day, tzinfo=UTC)
 
-                    # Home/Away players
-                    home_team = event.get("homeTeam", {}) or {}
-                    away_team = event.get("awayTeam", {}) or {}
-                    home_ext = str(home_team.get("id", ""))
-                    away_ext = str(away_team.get("id", ""))
-                    home_name = home_team.get("name", "") or home_team.get("shortName", "")
-                    away_name = away_team.get("name", "") or away_team.get("shortName", "")
+                # Status: {code: 100, description: "Ended", type: "finished"}
+                status_data = event.get("status") or {}
+                status_type = str(status_data.get("type", "notstarted")).lower()
+                status = _map_tennis_status(status_type)
 
-                    if not home_ext or not away_ext:
-                        continue
+                # Score: homeScore.current = sets won, period1/period2 = games per set
+                home_score = event.get("homeScore") or {}
+                away_score = event.get("awayScore") or {}
+                sets_p1 = _safe_int(home_score.get("current"))
+                sets_p2 = _safe_int(away_score.get("current"))
 
-                    p1_id = await _ensure_player(session, home_ext, home_name or "TBD")
-                    p2_id = await _ensure_player(session, away_ext, away_name or "TBD")
-                    if not p1_id or not p2_id:
-                        continue
+                # Surface from groundType if available
+                surface = _normalize_surface(event.get("groundType"))
 
-                    # Parse datetime from startTimestamp (unix)
-                    start_ts = event.get("startTimestamp")
-                    if start_ts and isinstance(start_ts, (int, float)):
-                        match_datetime = datetime.fromtimestamp(start_ts, tz=UTC)
-                    else:
-                        match_datetime = datetime(target.year, target.month, target.day, tzinfo=UTC)
+                # Round info
+                round_name = ""
+                round_info = event.get("roundInfo")
+                if isinstance(round_info, dict):
+                    round_name = round_info.get("name", "")
 
-                    # Status
-                    status_data = event.get("status", {}) or {}
-                    status_type = str(status_data.get("type", "notstarted")).lower()
-                    status = _map_tennis_status(status_type)
+                winner_id_val = None
+                if status == "finished" and sets_p1 is not None and sets_p2 is not None:
+                    winner_id_val = p1_id if sets_p1 > sets_p2 else p2_id
 
-                    # Score
-                    home_score = event.get("homeScore", {}) or {}
-                    away_score = event.get("awayScore", {}) or {}
-                    sets_p1 = _safe_int(home_score.get("current"))
-                    sets_p2 = _safe_int(away_score.get("current"))
-
-                    # Surface from tournament or event
-                    surface = _normalize_surface(
-                        event.get("groundType") or tournament_data.get("groundType")
-                    )
-
-                    round_name = ""
-                    round_info = event.get("roundInfo", {})
-                    if isinstance(round_info, dict):
-                        round_name = round_info.get("name", "")
-
-                    winner_id_val = None
-                    if status == "finished" and sets_p1 is not None and sets_p2 is not None:
-                        winner_id_val = p1_id if sets_p1 > sets_p2 else p2_id
-
-                    await session.execute(
-                        text(
-                            """
-                            INSERT INTO tennis_matches (
-                                external_id, player1_id, player2_id, tournament_id,
-                                round, match_date, surface, status,
-                                winner_id, sets_player1, sets_player2
-                            )
-                            VALUES (
-                                :ext_id, :p1_id, :p2_id, :t_id,
-                                :round, :match_date, :surface, :status,
-                                :winner_id, :sets_p1, :sets_p2
-                            )
-                            ON CONFLICT (external_id) DO UPDATE SET
-                                status = EXCLUDED.status,
-                                winner_id = EXCLUDED.winner_id,
-                                sets_player1 = EXCLUDED.sets_player1,
-                                sets_player2 = EXCLUDED.sets_player2,
-                                updated_at = NOW()
+                await session.execute(
+                    text(
                         """
-                        ),
-                        {
-                            "ext_id": ext_id,
-                            "p1_id": p1_id,
-                            "p2_id": p2_id,
-                            "t_id": tournament_id,
-                            "round": (round_name[:30] if round_name else None),
-                            "match_date": match_datetime,
-                            "surface": surface,
-                            "status": status,
-                            "winner_id": winner_id_val,
-                            "sets_p1": sets_p1,
-                            "sets_p2": sets_p2,
-                        },
-                    )
-                    count += 1
+                        INSERT INTO tennis_matches (
+                            external_id, player1_id, player2_id, tournament_id,
+                            round, match_date, surface, status,
+                            winner_id, sets_player1, sets_player2
+                        )
+                        VALUES (
+                            :ext_id, :p1_id, :p2_id, :t_id,
+                            :round, :match_date, :surface, :status,
+                            :winner_id, :sets_p1, :sets_p2
+                        )
+                        ON CONFLICT (external_id) DO UPDATE SET
+                            status = EXCLUDED.status,
+                            winner_id = EXCLUDED.winner_id,
+                            sets_player1 = EXCLUDED.sets_player1,
+                            sets_player2 = EXCLUDED.sets_player2,
+                            updated_at = NOW()
+                    """
+                    ),
+                    {
+                        "ext_id": ext_id,
+                        "p1_id": p1_id,
+                        "p2_id": p2_id,
+                        "t_id": tournament_id,
+                        "round": (round_name[:30] if round_name else None),
+                        "match_date": match_datetime,
+                        "surface": surface,
+                        "status": status,
+                        "winner_id": winner_id_val,
+                        "sets_p1": sets_p1,
+                        "sets_p2": sets_p2,
+                    },
+                )
+                count += 1
 
             await session.commit()
 
@@ -340,7 +275,9 @@ async def _ensure_player(session: Any, ext_id: str, name: str) -> int | None:
     return row[0] if row else None  # type: ignore[no-any-return]
 
 
-async def _ensure_tournament(session: Any, ext_id: str, name: str) -> int | None:
+async def _ensure_tournament(
+    session: Any, ext_id: str, name: str, category_name: str = ""
+) -> int | None:
     """Get or create a tournament by external ID. Returns internal ID."""
     if not ext_id:
         return None
@@ -353,24 +290,28 @@ async def _ensure_tournament(session: Any, ext_id: str, name: str) -> int | None
     if row:
         return row[0]  # type: ignore[no-any-return]
 
-    # Create minimal tournament record
+    # Detect circuit from category name
+    circuit = "ATP"
+    if "wta" in category_name:
+        circuit = "WTA"
+
     result = await session.execute(
         text(
             """
-            INSERT INTO tennis_tournaments (external_id, name, category, surface)
-            VALUES (:ext_id, :name, 'tournament', 'hard')
+            INSERT INTO tennis_tournaments (external_id, name, category, surface, circuit)
+            VALUES (:ext_id, :name, 'tournament', 'hard', :circuit)
             ON CONFLICT (external_id) DO UPDATE SET name = EXCLUDED.name
             RETURNING id
         """
         ),
-        {"ext_id": ext_id, "name": name[:100]},
+        {"ext_id": ext_id, "name": name[:100], "circuit": circuit},
     )
     row = result.fetchone()
     return row[0] if row else None  # type: ignore[no-any-return]
 
 
 def _map_tennis_status(api_status: str) -> str:
-    """Map TennisApi status to our internal status."""
+    """Map TennisApi status.type to our internal status."""
     status_map: dict[str, str] = {
         "notstarted": "scheduled",
         "scheduled": "scheduled",

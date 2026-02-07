@@ -5,11 +5,9 @@ API: https://rapidapi.com/fluis.lacasse/api/tennisapi1
 Host: tennisapi1.p.rapidapi.com
 
 Endpoints used:
-  GET /api/tennis/calendar/month/{year}/{month}  → Calendar with events
-  GET /api/tennis/tournament/{id}/events/...     → Tournament events
-  GET /api/tennis/ranking/{type}/{page}          → ATP/WTA rankings
-  GET /api/tennis/event/{id}                     → Event details
-  GET /api/tennis/daily-categories/{day}/{month}/{year} → Daily schedule
+  GET /api/tennis/events/{day}/{month}/{year}  → Daily events (flat list)
+  GET /api/tennis/rankings/{type}              → ATP/WTA rankings (all entries)
+  GET /api/tennis/event/{id}                   → Single event details
 """
 
 import asyncio
@@ -99,8 +97,8 @@ async def _request(endpoint: str) -> dict[str, Any]:
         return {}
 
 
-async def get_daily_matches(day: int, month: int, year: int) -> list[dict[str, Any]]:
-    """Get daily tennis schedule/categories with events.
+async def get_daily_events(day: int, month: int, year: int) -> list[dict[str, Any]]:
+    """Get daily tennis events (flat list).
 
     Args:
         day: Day of month (1-31)
@@ -108,28 +106,26 @@ async def get_daily_matches(day: int, month: int, year: int) -> list[dict[str, A
         year: Year (e.g., 2026)
 
     Returns:
-        List of category dicts containing events.
+        List of event dicts with tournament, homeTeam, awayTeam, status, scores.
     """
-    data = await _request(f"/api/tennis/daily-categories/{day}/{month}/{year}")
-    categories: list[dict[str, Any]] = data.get("categories", [])
-    total_events = sum(len(c.get("events", [])) for c in categories)
-    logger.info(f"Tennis API: {total_events} events for {year}-{month:02d}-{day:02d}")
-    return categories
+    data = await _request(f"/api/tennis/events/{day}/{month}/{year}")
+    events: list[dict[str, Any]] = data.get("events", [])
+    logger.info(f"Tennis API: {len(events)} events for {year}-{month:02d}-{day:02d}")
+    return events
 
 
-async def get_rankings(ranking_type: str = "atp", page: int = 1) -> list[dict[str, Any]]:
-    """Get tennis rankings.
+async def get_rankings(ranking_type: str = "atp") -> list[dict[str, Any]]:
+    """Get tennis rankings (all entries, no pagination).
 
     Args:
         ranking_type: "atp" or "wta"
-        page: Page number (1-indexed)
 
     Returns:
-        List of ranking entry dicts.
+        List of ranking entry dicts with team, ranking, points.
     """
-    data = await _request(f"/api/tennis/ranking/{ranking_type}/{page}")
+    data = await _request(f"/api/tennis/rankings/{ranking_type}")
     rankings: list[dict[str, Any]] = data.get("rankings", [])
-    logger.info(f"Tennis API: {len(rankings)} {ranking_type.upper()} rankings (page {page})")
+    logger.info(f"Tennis API: {len(rankings)} {ranking_type.upper()} rankings")
     return rankings
 
 
@@ -144,18 +140,3 @@ async def get_event_details(event_id: int) -> dict[str, Any]:
     """
     data = await _request(f"/api/tennis/event/{event_id}")
     return data.get("event", {})
-
-
-async def get_tournaments() -> list[dict[str, Any]]:
-    """Get current month's tournaments from the calendar.
-
-    Returns:
-        List of tournament/category dicts from the monthly calendar.
-    """
-    from datetime import date
-
-    today = date.today()
-    data = await _request(f"/api/tennis/calendar/month/{today.year}/{today.month}")
-    tournaments: list[dict[str, Any]] = data.get("tournaments", data.get("categories", []))
-    logger.info(f"Tennis API: {len(tournaments)} tournaments for {today.year}-{today.month:02d}")
-    return tournaments
