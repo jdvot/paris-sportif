@@ -330,3 +330,127 @@ Provide assessment in JSON:
 }}
 
 Positive values indicate strong motivation and psychological advantage."""
+
+# ============================================================
+# TENNIS PROMPTS
+# ============================================================
+
+SYSTEM_TENNIS_ANALYST = """Tu es un analyste tennis expert spécialisé dans les pronostics sportifs.
+Tu maîtrises :
+- Les classements ATP/WTA et les statistiques de performance des joueurs
+- L'impact des surfaces (dur, terre battue, gazon, indoor) sur le jeu
+- Les confrontations directes (H2H) et les tendances
+- L'impact de la fatigue (calendrier chargé, back-to-back tournois)
+- Les blessures et la condition physique des joueurs
+- La psychologie du tennis (momentum, confiance, pression des grands tournois)
+
+Tu analyses les données objectivement avec un raisonnement quantitatif.
+IMPORTANT: Tu réponds TOUJOURS en français.
+Sois concis, factuel, et donne un raisonnement clair."""
+
+TENNIS_MATCH_EXPLANATION_PROMPT = """Génère une analyse de match tennis professionnelle en français.
+
+MATCH: {player1_name} vs {player2_name}
+Tournoi: {tournament_name}
+Surface: {surface}
+
+PRONOSTIC:
+- Victoire {player1_name}: {p1_prob}%
+- Victoire {player2_name}: {p2_prob}%
+- Confiance: {confidence}%
+
+DONNÉES:
+- ELO {surface}: {p1_elo:.0f} vs {p2_elo:.0f}
+- Classement: #{p1_ranking} vs #{p2_ranking}
+- Win rate YTD: {p1_wr:.0%} vs {p2_wr:.0%}
+
+CONSENSUS MODÈLES:
+- Accord entre modèles: {model_agreement:.0%}
+- Incertitude: {uncertainty:.0%}
+
+INSTRUCTIONS:
+- Écris 2-3 phrases d'analyse concise en français
+- Mentionne l'avantage surface si pertinent
+- Souligne la forme récente et le classement
+- Sois factuel et concis (max 100 mots)
+- Réponds uniquement avec l'analyse, sans titre ni formatage"""
+
+TENNIS_DAILY_PICKS_PROMPT = """Résume les picks tennis du jour en français.
+
+{picks_data}
+
+Génère un JSON:
+{{
+    "daily_summary": "2-3 phrases résumant les picks tennis du jour (en français)",
+    "best_pick": "meilleur pick avec justification",
+    "best_value": "pick avec meilleur rapport cotes/probabilité",
+    "total_confidence": "low|medium|high",
+    "risk_level": "low|moderate|high",
+    "advice": "une recommandation actionnable"
+}}
+
+Considère les surfaces, le classement, et la forme récente."""
+
+# ============================================================
+# BASKETBALL (NBA) PROMPTS
+# ============================================================
+
+SYSTEM_NBA_ANALYST = """Tu es un analyste NBA expert spécialisé dans les pronostics sportifs.
+Tu maîtrises :
+- Les statistiques avancées NBA (offensive/defensive rating, pace, net rating)
+- L'impact du back-to-back et de la fatigue dans les road trips
+- Les matchups tactiques (pace, style de jeu, forces/faiblesses)
+- Les classements de conférence et la dynamique de saison
+- L'impact des blessures sur les rotations
+- La psychologie NBA (motivation, tanking, playoff push)
+
+Tu analyses les données objectivement avec un raisonnement quantitatif.
+IMPORTANT: Tu réponds TOUJOURS en français.
+Sois concis, factuel, et donne un raisonnement clair."""
+
+NBA_MATCH_EXPLANATION_PROMPT = """Génère une analyse de match NBA professionnelle en français.
+
+MATCH: {home_team} vs {away_team}
+
+PRONOSTIC:
+- Victoire domicile: {home_prob}%
+- Victoire extérieur: {away_prob}%
+- Score attendu: {exp_home:.0f}-{exp_away:.0f}
+- Confiance: {confidence}%
+
+DONNÉES:
+- ELO: {home_elo:.0f} vs {away_elo:.0f} (avantage domicile +75)
+- Offensive Rating: {home_off} vs {away_off}
+- Defensive Rating: {home_def} vs {away_def}
+- Pace: {home_pace} vs {away_pace}
+- Win rate: {home_wr:.0%} vs {away_wr:.0%}
+- Back-to-back: domicile={b2b_home}, extérieur={b2b_away}
+
+CONSENSUS MODÈLES:
+- Accord entre modèles: {model_agreement:.0%}
+- Incertitude: {uncertainty:.0%}
+
+INSTRUCTIONS:
+- Écris 2-3 phrases d'analyse concise en français
+- Mentionne le matchup offensif/défensif
+- Signale les back-to-back si applicable
+- Donne le score attendu et le total de points
+- Sois factuel et concis (max 100 mots)
+- Réponds uniquement avec l'analyse, sans titre ni formatage"""
+
+NBA_DAILY_PICKS_PROMPT = """Résume les picks NBA du jour en français.
+
+{picks_data}
+
+Génère un JSON:
+{{
+    "daily_summary": "2-3 phrases résumant les picks NBA du jour (en français)",
+    "best_pick": "meilleur pick avec justification",
+    "best_value": "pick avec meilleur rapport cotes/probabilité",
+    "parlay_suggestion": "combiné recommandé si applicable",
+    "total_confidence": "low|medium|high",
+    "risk_level": "low|moderate|high",
+    "advice": "une recommandation actionnable"
+}}
+
+Considère les matchups, back-to-back, et la forme récente."""

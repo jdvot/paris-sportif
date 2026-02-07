@@ -76,6 +76,28 @@ async def generate_daily_picks_task() -> None:
         logger.error(f"Daily picks generation failed: {e}")
 
 
+async def sync_tennis_task() -> None:
+    """Daily tennis sync: players, matches, odds, predictions, picks."""
+    from src.services.tennis_sync_service import sync_tennis_matches
+
+    logger.info("Starting daily tennis sync...")
+    try:
+        await sync_tennis_matches()
+    except Exception as e:
+        logger.error(f"Tennis sync failed: {e}")
+
+
+async def sync_nba_task() -> None:
+    """Daily NBA sync: teams, standings, games, odds, predictions, picks."""
+    from src.services.nba_sync_service import sync_nba_games
+
+    logger.info("Starting daily NBA sync...")
+    try:
+        await sync_nba_games()
+    except Exception as e:
+        logger.error(f"NBA sync failed: {e}")
+
+
 async def sync_daily_scores_task() -> None:
     """Daily task: sync finished match scores."""
     from src.api.routes.sync import _recalculate_all_team_stats
@@ -161,11 +183,31 @@ def init_scheduler() -> AsyncIOScheduler | None:
         name="Daily picks generation",
     )
 
+    # Tennis sync: Every day at 08:00 UTC
+    scheduler.add_job(
+        sync_tennis_task,
+        CronTrigger(hour=8, minute=0),
+        id="tennis_sync",
+        replace_existing=True,
+        name="Tennis daily sync",
+    )
+
+    # NBA sync: Every day at 15:00 UTC (before US evening games)
+    scheduler.add_job(
+        sync_nba_task,
+        CronTrigger(hour=15, minute=0),
+        id="nba_sync",
+        replace_existing=True,
+        name="NBA daily sync",
+    )
+
     scheduler.start()
     logger.info("Background scheduler started")
     logger.info("  - Weekly sync: Sundays 20:00 UTC")
     logger.info("  - Daily sync: Every day 06:00 UTC")
     logger.info("  - Daily picks: Every day 09:00 UTC")
+    logger.info("  - Tennis sync: Every day 08:00 UTC")
+    logger.info("  - NBA sync: Every day 15:00 UTC")
 
     return scheduler
 
