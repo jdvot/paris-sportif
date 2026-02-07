@@ -987,6 +987,185 @@ def _calculate_buckets(predictions: list[dict[str, Any]]) -> list[CalibrationBuc
     return buckets
 
 
+async def _generate_prediction_on_demand(
+    match_id: int, include_model_details: bool = False
+) -> PredictionResponse | None:
+    """Generate a prediction on-demand using the ML ensemble models.
+
+    Runs the same 6-model ensemble as the prefill cron, but synchronously
+    for a single match. Saves the result to DB + Redis for future requests.
+
+    Returns None if the match doesn't exist or team data is missing.
+    """
+    from sqlalchemy import text as sa_text
+
+    from src.db import async_session_factory
+    from src.prediction_engine.ensemble_advanced import advanced_ensemble_predictor
+
+    async with async_session_factory() as session:
+        # Fetch match + team stats
+        result = await session.execute(
+            sa_text(
+                """
+                SELECT m.id, m.external_id, m.home_team_id, m.away_team_id,
+                       m.competition_code, m.match_date,
+                       ht.name as home_team, at.name as away_team
+                FROM matches m
+                JOIN teams ht ON m.home_team_id = ht.id
+                JOIN teams at ON m.away_team_id = at.id
+                WHERE m.id = :match_id
+            """
+            ),
+            {"match_id": match_id},
+        )
+        match = result.fetchone()
+
+        # Also try external API ID if not found
+        if not match:
+            result = await session.execute(
+                sa_text(
+                    """
+                    SELECT m.id, m.external_id, m.home_team_id, m.away_team_id,
+                           m.competition_code, m.match_date,
+                           ht.name as home_team, at.name as away_team
+                    FROM matches m
+                    JOIN teams ht ON m.home_team_id = ht.id
+                    JOIN teams at ON m.away_team_id = at.id
+                    WHERE m.external_id LIKE :ext_pattern
+                """
+                ),
+                {"ext_pattern": f"%_{match_id}"},
+            )
+            match = result.fetchone()
+
+        if not match:
+            return None
+
+        # Fetch team stats
+        team_result = await session.execute(
+            sa_text(
+                """
+                SELECT t.id, t.elo_rating, t.avg_goals_scored_home,
+                       t.avg_goals_scored_away,
+                       t.avg_goals_conceded_home, t.avg_goals_conceded_away,
+                       t.form_score, t.rest_days, t.fixture_congestion
+                FROM teams t WHERE t.id IN (:home_id, :away_id)
+            """
+            ),
+            {"home_id": match.home_team_id, "away_id": match.away_team_id},
+        )
+        teams = {t.id: t for t in team_result.fetchall()}
+
+        home = teams.get(match.home_team_id)
+        away = teams.get(match.away_team_id)
+
+        if not home or not away:
+            return None
+
+    # Run 6-model ensemble prediction
+    pred = advanced_ensemble_predictor.predict(
+        home_attack=float(home.avg_goals_scored_home or 1.3),
+        home_defense=float(home.avg_goals_conceded_home or 1.3),
+        away_attack=float(away.avg_goals_scored_away or 1.3),
+        away_defense=float(away.avg_goals_conceded_away or 1.3),
+        home_elo=float(home.elo_rating or 1500),
+        away_elo=float(away.elo_rating or 1500),
+        home_team_id=match.home_team_id,
+        away_team_id=match.away_team_id,
+        home_form_score=float(home.form_score or 0.5) * 100,
+        away_form_score=float(away.form_score or 0.5) * 100,
+        home_rest_days=float(home.rest_days or 0.5),
+        away_rest_days=float(away.rest_days or 0.5),
+        home_congestion=float(home.fixture_congestion or 0.5),
+        away_congestion=float(away.fixture_congestion or 0.5),
+    )
+
+    # Determine outcome and confidence
+    outcome_map: dict[str, Literal["home_win", "draw", "away_win"]] = {
+        "home": "home_win",
+        "draw": "draw",
+        "away": "away_win",
+    }
+    recommended: Literal["home_win", "draw", "away_win"] = outcome_map.get(
+        pred.recommended_bet, "draw"
+    )
+
+    max_prob = max(pred.home_win_prob, pred.draw_prob, pred.away_win_prob)
+    confidence_val = float(pred.confidence)
+    value_score = round(max_prob * 0.5 + confidence_val * 0.5 + confidence_val * 0.03, 4)
+
+    comp_code = match.competition_code or "UNKNOWN"
+    match_date_val = match.match_date if match.match_date else datetime.now()
+
+    response = PredictionResponse(
+        match_id=match.id,
+        home_team=match.home_team,
+        away_team=match.away_team,
+        competition=COMPETITION_NAMES.get(comp_code, comp_code),
+        match_date=match_date_val,
+        probabilities=PredictionProbabilities(
+            home_win=pred.home_win_prob,
+            draw=pred.draw_prob,
+            away_win=pred.away_win_prob,
+        ),
+        confidence=confidence_val,
+        recommended_bet=recommended,
+        value_score=value_score,
+        explanation=None,
+        key_factors=[],
+        risk_factors=[],
+        model_contributions=None,
+        llm_adjustments=None,
+        fatigue_info=None,
+        weather=None,
+        multi_markets=None,
+        match_context_summary=None,
+        news_sources=None,
+        created_at=datetime.now(),
+        data_source=DataSourceInfo(source="live_api"),
+    )
+
+    # Save to DB for future requests
+    try:
+        await PredictionService.save_prediction_from_api(
+            {
+                "match_id": match.id,
+                "match_external_id": match.external_id,
+                "home_team": match.home_team,
+                "away_team": match.away_team,
+                "competition_code": comp_code,
+                "match_date": (
+                    match_date_val.isoformat()
+                    if hasattr(match_date_val, "isoformat")
+                    else str(match_date_val)
+                ),
+                "home_win_prob": pred.home_win_prob,
+                "draw_prob": pred.draw_prob,
+                "away_win_prob": pred.away_win_prob,
+                "confidence": confidence_val,
+                "value_score": value_score,
+                "recommendation": pred.recommended_bet,
+                "explanation": None,
+                "key_factors": json.dumps([]),
+                "risk_factors": json.dumps([]),
+            }
+        )
+    except Exception as e:
+        logger.debug(f"Failed to save on-demand prediction to DB: {e}")
+
+    # Cache in Redis
+    try:
+        await _cache_prediction_to_redis(match.id, response.model_dump(mode="json"))
+    except Exception as e:
+        logger.debug(f"Failed to cache on-demand prediction in Redis: {e}")
+
+    logger.info(
+        f"Generated on-demand prediction for match {match.id} "
+        f"({match.home_team} vs {match.away_team})"
+    )
+    return response
+
+
 @router.get(
     "/{match_id}",
     response_model=PredictionResponse,
@@ -1213,7 +1392,15 @@ async def get_prediction(
     except Exception as e:
         logger.warning(f"DB cache lookup failed for match {match_id}: {e}")
 
-    # 3. No prediction in DB — return 404 (all predictions are pre-computed by cron)
+    # 3. No cache hit — generate on-demand using ML models
+    try:
+        generated = await _generate_prediction_on_demand(match_id, include_model_details)
+        if generated:
+            return generated
+    except Exception as e:
+        logger.warning(f"On-demand prediction generation failed for match {match_id}: {e}")
+
+    # 4. Could not generate — return 404
     lang = _detect_language(request)
     raise HTTPException(
         status_code=404,
