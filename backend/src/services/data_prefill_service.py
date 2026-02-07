@@ -595,7 +595,7 @@ class DataPrefillService:
             return updated
 
     @staticmethod
-    async def prefill_predictions_for_upcoming() -> int:
+    async def prefill_predictions_for_upcoming(days: int = 30) -> int:
         """Pre-generate predictions with full AI enrichment for upcoming matches.
 
         Pipeline per match:
@@ -606,6 +606,9 @@ class DataPrefillService:
         5. Generate news context summary via LLM
         6. Persist everything (model_details JSON, explanation, factors)
         7. After all matches: mark top 5 daily picks
+
+        Args:
+            days: Number of days ahead to look for matches (default 30, use 7 for hourly cron).
         """
         from src.data.data_enrichment import WeatherClient
         from src.db.services.prediction_service import PredictionService
@@ -613,6 +616,8 @@ class DataPrefillService:
         from src.prediction_engine.multi_markets import get_multi_markets_prediction
 
         weather_client = WeatherClient()
+
+        cutoff_date = datetime.now() + timedelta(days=days)
 
         async with get_async_session() as session:
             result = await session.execute(
@@ -627,7 +632,7 @@ class DataPrefillService:
                 LEFT JOIN predictions p ON m.id = p.match_id
                 WHERE m.status IN ('SCHEDULED', 'TIMED')
                     AND m.match_date > NOW()
-                    AND m.match_date < NOW() + INTERVAL '30 days'
+                    AND m.match_date < :cutoff
                     AND (
                         p.id IS NULL
                         OR p.value_score IS NULL
@@ -637,7 +642,8 @@ class DataPrefillService:
                     )
                 ORDER BY m.match_date
             """
-                )
+                ),
+                {"cutoff": cutoff_date},
             )
             upcoming = result.fetchall()
 

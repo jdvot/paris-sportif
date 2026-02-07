@@ -311,6 +311,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         replace_existing=True,
     )
 
+    # Hourly prediction prefill for this week's matches (full enrichment: RAG, LLM, weather, etc.)
+    scheduler.add_job(
+        _hourly_prediction_prefill,
+        trigger=IntervalTrigger(hours=1),
+        id="hourly_predictions",
+        name="Hourly prediction prefill (7-day window)",
+        replace_existing=True,
+    )
+
     # Tennis sync - every 12 hours
     scheduler.add_job(
         sync_tennis_matches,
@@ -331,7 +340,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     scheduler.start()
     logger.info(
-        "[Scheduler] Started - football sync 6h, NBA sync 6h, tennis sync 12h, cache 6am UTC"
+        "[Scheduler] Started - predictions 1h, football sync 6h, NBA 6h, tennis 12h, cache 6am UTC"
     )
 
     # Run startup prefill in background (delayed 30s to let server accept traffic first)
@@ -350,6 +359,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await close_http_client()
 
     logger.info("Shutting down...")
+
+
+async def _hourly_prediction_prefill() -> None:
+    """Hourly job: generate predictions with full enrichment for this week's matches.
+
+    Runs the complete pipeline (6-model ensemble, multi-markets, weather,
+    LLM analysis, RAG news summary, fatigue, injuries, match importance)
+    for any match in the next 7 days missing a complete prediction.
+    Skips matches that already have full data.
+    """
+    logger.info("[Scheduler] Starting hourly prediction prefill (7-day window)...")
+    try:
+        generated = await DataPrefillService.prefill_predictions_for_upcoming(days=7)
+        if generated > 0:
+            # Warm Redis cache for newly generated predictions
+            cached = await DataPrefillService.warm_redis_cache()
+            logger.info(
+                f"[Scheduler] Hourly prefill: {generated} predictions generated, {cached} cached"
+            )
+        else:
+            logger.info("[Scheduler] Hourly prefill: all predictions up to date")
+    except Exception as e:
+        logger.error(f"[Scheduler] Hourly prediction prefill failed: {e}")
 
 
 async def _delayed_startup_prefill() -> None:
