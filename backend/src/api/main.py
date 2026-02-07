@@ -74,129 +74,123 @@ logger = logging.getLogger(__name__)
 scheduler: AsyncIOScheduler | None = None
 
 
+async def _sync_finished_matches(client: Any, past_date: date, today: date) -> int:
+    """Sync finished matches from football-data.org for each competition."""
+    total = 0
+    for comp_code in COMPETITIONS.keys():
+        try:
+            matches = await client.get_matches(
+                competition=comp_code,
+                date_from=past_date,
+                date_to=today,
+                status="FINISHED",
+            )
+            total += await MatchService.save_matches([m.model_dump() for m in matches])
+            await asyncio.sleep(2)
+        except Exception as e:
+            logger.warning(f"[Scheduler] Error syncing finished {comp_code}: {e}")
+            await asyncio.sleep(10)
+    return total
+
+
+async def _sync_upcoming_matches(client: Any, today: date, future_date: date) -> int:
+    """Sync upcoming/scheduled matches for the next 7 days."""
+    total = 0
+    for comp_code in COMPETITIONS.keys():
+        try:
+            matches = await client.get_matches(
+                competition=comp_code,
+                date_from=today,
+                date_to=future_date,
+                status="SCHEDULED",
+            )
+            total += await MatchService.save_matches([m.model_dump() for m in matches])
+            await asyncio.sleep(2)
+        except Exception as e:
+            logger.warning(f"[Scheduler] Error syncing upcoming {comp_code}: {e}")
+            await asyncio.sleep(10)
+    return total
+
+
+async def _sync_league_standings(client: Any) -> int:
+    """Sync standings for all league competitions."""
+    total = 0
+    for comp_code in COMPETITIONS.keys():
+        try:
+            data = await client._request("GET", f"/competitions/{comp_code}/standings")
+            for standing_group in data.get("standings", []):
+                if standing_group.get("type") == "TOTAL":
+                    total += await StandingService.save_standings(
+                        comp_code, standing_group.get("table", [])
+                    )
+                    break
+            await asyncio.sleep(2)
+        except Exception as e:
+            logger.warning(f"[Scheduler] Error syncing standings for {comp_code}: {e}")
+    return total
+
+
+async def _post_sync_maintenance() -> dict[str, int]:
+    """Run post-sync maintenance: verify predictions, recalculate stats, ELO, etc."""
+    r: dict[str, int] = {}
+    r["verified"] = await PredictionService.verify_all_finished()
+
+    for label, coro in [
+        ("teams", _recalculate_all_team_stats()),
+        ("forms", _sync_form_from_standings()),
+        ("countries", _update_missing_team_countries()),
+    ]:
+        try:
+            r[label] = await coro
+        except Exception as e:
+            logger.warning(f"[Scheduler] Error in {label}: {e}")
+            r[label] = 0
+
+    try:
+        elo_ratings = await _calculate_proper_elo_ratings()
+        r["elo"] = await _update_team_elo_ratings(elo_ratings)
+    except Exception as e:
+        logger.warning(f"[Scheduler] Error calculating ELO: {e}")
+        r["elo"] = 0
+
+    try:
+        r["predictions"] = await DataPrefillService.prefill_predictions_for_upcoming()
+    except Exception as e:
+        logger.warning(f"[Scheduler] Error pre-generating predictions: {e}")
+        r["predictions"] = 0
+
+    try:
+        r["cached"] = await DataPrefillService.warm_redis_cache()
+    except Exception as e:
+        logger.warning(f"[Scheduler] Error warming cache: {e}")
+        r["cached"] = 0
+
+    return r
+
+
 async def auto_sync_and_verify() -> None:
     """
     Automatic job to sync matches, standings, and verify predictions.
     Runs every 6 hours to keep stats up to date.
     """
     logger.info("[Scheduler] Starting auto sync and verify job...")
-
     try:
         client = get_football_data_client()
         today = date.today()
-        past_date = today - timedelta(days=7)  # Look back 7 days
-        future_date = today + timedelta(days=7)  # Look ahead 7 days
+        past_date = today - timedelta(days=7)
+        future_date = today + timedelta(days=7)
 
-        total_synced = 0
-        upcoming_synced = 0
-
-        # Sync finished matches for each competition (past 7 days)
-        for comp_code in COMPETITIONS.keys():
-            try:
-                matches = await client.get_matches(
-                    competition=comp_code,
-                    date_from=past_date,
-                    date_to=today,
-                    status="FINISHED",
-                )
-                matches_dict = [m.model_dump() for m in matches]
-                synced = await MatchService.save_matches(matches_dict)
-                total_synced += synced
-
-                # Small delay between API calls to respect rate limits
-                await asyncio.sleep(2)
-
-            except Exception as e:
-                logger.warning(f"[Scheduler] Error syncing finished {comp_code}: {e}")
-                await asyncio.sleep(10)  # Wait longer on error
-
-        # Sync upcoming/scheduled matches (next 7 days)
-        for comp_code in COMPETITIONS.keys():
-            try:
-                matches = await client.get_matches(
-                    competition=comp_code,
-                    date_from=today,
-                    date_to=future_date,
-                    status="SCHEDULED",
-                )
-                matches_dict = [m.model_dump() for m in matches]
-                synced = await MatchService.save_matches(matches_dict)
-                upcoming_synced += synced
-
-                await asyncio.sleep(2)
-
-            except Exception as e:
-                logger.warning(f"[Scheduler] Error syncing upcoming {comp_code}: {e}")
-                await asyncio.sleep(10)
-
-        # Sync standings for league competitions (includes form data)
-        standings_synced = 0
-        league_competitions = list(COMPETITIONS.keys())
-        for comp_code in league_competitions:
-            try:
-                data = await client._request("GET", f"/competitions/{comp_code}/standings")
-                for standing_group in data.get("standings", []):
-                    if standing_group.get("type") == "TOTAL":
-                        standings_list = standing_group.get("table", [])
-                        synced = await StandingService.save_standings(comp_code, standings_list)
-                        standings_synced += synced
-                        break
-                await asyncio.sleep(2)
-            except Exception as e:
-                logger.warning(f"[Scheduler] Error syncing standings for {comp_code}: {e}")
-
-        # Verify predictions against actual results
-        verified_count = await PredictionService.verify_all_finished()
-
-        # Recalculate team stats from match history
-        teams_updated = 0
-        try:
-            teams_updated = await _recalculate_all_team_stats()
-        except Exception as e:
-            logger.warning(f"[Scheduler] Error recalculating team stats: {e}")
-
-        # Sync form data from standings to teams
-        form_synced = 0
-        try:
-            form_synced = await _sync_form_from_standings()
-        except Exception as e:
-            logger.warning(f"[Scheduler] Error syncing form data: {e}")
-
-        # Update missing team countries
-        countries_updated = 0
-        try:
-            countries_updated = await _update_missing_team_countries()
-        except Exception as e:
-            logger.warning(f"[Scheduler] Error updating team countries: {e}")
-
-        # Calculate proper ELO ratings
-        elo_updated = 0
-        try:
-            elo_ratings = await _calculate_proper_elo_ratings()
-            elo_updated = await _update_team_elo_ratings(elo_ratings)
-        except Exception as e:
-            logger.warning(f"[Scheduler] Error calculating ELO: {e}")
-
-        # Pre-generate predictions for upcoming matches
-        predictions_generated = 0
-        try:
-            predictions_generated = await DataPrefillService.prefill_predictions_for_upcoming()
-        except Exception as e:
-            logger.warning(f"[Scheduler] Error pre-generating predictions: {e}")
-
-        # Warm Redis cache
-        cache_warmed = 0
-        try:
-            cache_warmed = await DataPrefillService.warm_redis_cache()
-        except Exception as e:
-            logger.warning(f"[Scheduler] Error warming cache: {e}")
+        finished = await _sync_finished_matches(client, past_date, today)
+        upcoming = await _sync_upcoming_matches(client, today, future_date)
+        standings = await _sync_league_standings(client)
+        m = await _post_sync_maintenance()
 
         logger.info(
-            f"[Scheduler] Auto sync complete: {total_synced} finished, {upcoming_synced} upcoming, "
-            f"{standings_synced} standings, {verified_count} verified, {teams_updated} stats, {form_synced} forms, "
-            f"{countries_updated} countries, {elo_updated} ELO, {predictions_generated} predictions, {cache_warmed} cached"
+            f"[Scheduler] Auto sync complete: {finished} finished, {upcoming} upcoming, "
+            f"{standings} standings, {m.get('verified', 0)} verified, {m.get('teams', 0)} stats, "
+            f"{m.get('forms', 0)} forms, {m.get('countries', 0)} countries, {m.get('elo', 0)} ELO, "
+            f"{m.get('predictions', 0)} predictions, {m.get('cached', 0)} cached"
         )
-
     except Exception as e:
         logger.error(f"[Scheduler] Auto sync failed: {e}")
 
@@ -233,7 +227,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self'; "
-            "style-src 'self' 'unsafe-inline'; "
+            "style-src 'self'; "
             "img-src 'self' data: https:; "
             "font-src 'self'; "
             "connect-src 'self' https://*.supabase.co https://*.groq.com; "

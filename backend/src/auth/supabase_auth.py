@@ -16,6 +16,10 @@ from jose import JWTError, jwt
 
 logger = logging.getLogger(__name__)
 
+# Type alias for JWT payloads from Supabase.
+# Known fields: sub, aud, exp, iat, email, role, app_metadata, user_metadata.
+JWTPayload = dict[str, Any]
+
 # Security scheme - auto_error=False allows optional auth
 security = HTTPBearer(auto_error=False)
 
@@ -96,7 +100,7 @@ def _get_signing_key(token: str, jwks: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
 
-def _decode_token(token: str) -> dict[str, Any]:
+def _decode_token(token: str) -> JWTPayload:
     """
     Decode and verify a Supabase JWT token.
 
@@ -151,7 +155,7 @@ def _decode_token(token: str) -> dict[str, Any]:
 
 async def get_optional_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
-) -> dict[str, Any] | None:
+) -> JWTPayload | None:
     """
     Extract user from JWT token if present, return None otherwise.
 
@@ -177,7 +181,7 @@ async def get_optional_user(
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
-) -> dict[str, Any]:
+) -> JWTPayload:
     """
     Extract and validate user from JWT token.
 
@@ -206,7 +210,7 @@ async def get_current_user(
         )
 
 
-def _get_user_role(user: dict[str, Any]) -> str:
+def _get_user_role(user: JWTPayload) -> str:
     """Extract user role from JWT payload."""
     # Role can be in app_metadata or user_metadata
     app_metadata = user.get("app_metadata", {})
@@ -226,7 +230,7 @@ def _get_user_role(user: dict[str, Any]) -> str:
     return "free"
 
 
-def require_auth(user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+def require_auth(user: JWTPayload = Depends(get_current_user)) -> JWTPayload:
     """
     Dependency that requires authentication.
 
@@ -236,7 +240,7 @@ def require_auth(user: dict[str, Any] = Depends(get_current_user)) -> dict[str, 
     return user
 
 
-def require_premium(user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+def require_premium(user: JWTPayload = Depends(get_current_user)) -> JWTPayload:
     """
     Dependency that requires premium or admin role.
 
@@ -254,7 +258,7 @@ def require_premium(user: dict[str, Any] = Depends(get_current_user)) -> dict[st
     return user
 
 
-def require_admin(user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+def require_admin(user: JWTPayload = Depends(get_current_user)) -> JWTPayload:
     """
     Dependency that requires admin role.
 

@@ -510,7 +510,8 @@
     "privacy": "Privacy",
     "copyright": "All rights reserved",
     "pricing": "Pricing",
-    "disclaimer": "Betting involves risk. Please gamble responsibly."
+    "disclaimer": "Betting involves risk. Please gamble responsibly.",
+    "skipToContent": "Skip to main content"
   },
   "errors": {
     "404": {

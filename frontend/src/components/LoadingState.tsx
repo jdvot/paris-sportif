@@ -17,7 +17,7 @@ export function LoadingState({
   const displayMessage = message ?? t("loading");
   if (variant === "minimal") {
     return (
-      <div className="flex items-center justify-center gap-3 py-4">
+      <div role="status" aria-live="polite" className="flex items-center justify-center gap-3 py-4">
         <div className="relative">
           <div className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-slate-600" />
           <div className="absolute top-0 left-0 w-6 h-6 rounded-full border-2 border-transparent border-t-primary-500 animate-spin" />
@@ -29,7 +29,7 @@ export function LoadingState({
 
   if (variant === "stats") {
     return (
-      <div className="space-y-6 px-4 sm:px-0">
+      <div role="status" aria-live="polite" className="space-y-6 px-4 sm:px-0">
         {/* Header */}
         <div className="flex items-center justify-center gap-3 py-4">
           <div className="relative">
@@ -74,7 +74,7 @@ export function LoadingState({
 
   if (variant === "matches") {
     return (
-      <div className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden mx-4 sm:mx-0">
+      <div role="status" aria-live="polite" className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden mx-4 sm:mx-0">
         {/* Loading header */}
         <div className="flex items-center justify-center gap-3 py-3 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/30">
           <div className="relative">
@@ -114,7 +114,7 @@ export function LoadingState({
 
   // Default: picks variant
   return (
-    <div className="grid gap-3 sm:gap-4 px-4 sm:px-0">
+    <div role="status" aria-live="polite" className="grid gap-3 sm:gap-4 px-4 sm:px-0">
       {/* Loading header */}
       <div className="flex items-center justify-center gap-3 py-4">
         <div className="relative">

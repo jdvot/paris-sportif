@@ -11,6 +11,30 @@ import uuid
 
 import structlog
 
+_SENSITIVE_KEYS = frozenset(
+    {
+        "password",
+        "token",
+        "secret",
+        "api_key",
+        "authorization",
+        "cookie",
+        "credentials",
+        "credit_card",
+        "ssn",
+    }
+)
+
+
+def _redact_sensitive_data(
+    _logger: object, _method_name: str, event_dict: dict[str, object]
+) -> dict[str, object]:
+    """Redact sensitive fields from log events."""
+    for key in event_dict:
+        if any(s in key.lower() for s in _SENSITIVE_KEYS):
+            event_dict[key] = "[REDACTED]"
+    return event_dict
+
 
 def setup_logging(json_output: bool = True, log_level: str = "INFO") -> None:
     """Configure structured logging for the entire application.
@@ -29,6 +53,7 @@ def setup_logging(json_output: bool = True, log_level: str = "INFO") -> None:
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
+        _redact_sensitive_data,
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
     ]

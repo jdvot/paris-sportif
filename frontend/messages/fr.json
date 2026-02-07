@@ -510,7 +510,8 @@
     "privacy": "Confidentialite",
     "copyright": "Tous droits reserves",
     "pricing": "Tarifs",
-    "disclaimer": "Les paris comportent des risques. Jouez responsablement."
+    "disclaimer": "Les paris comportent des risques. Jouez responsablement.",
+    "skipToContent": "Aller au contenu principal"
   },
   "errors": {
     "404": {

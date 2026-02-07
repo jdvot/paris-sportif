@@ -40,6 +40,7 @@ import {
   Flame,
   Goal,
 } from "lucide-react";
+import { Breadcrumb } from "@/components/Breadcrumb";
 import { cn, isAuthError, isNotFoundError } from "@/lib/utils";
 import { format, parseISO, type Locale } from "date-fns";
 import { fr, enUS } from "date-fns/locale";
@@ -92,6 +93,7 @@ const getTeamInfo = (team: MatchResponse["home_team"] | string): TeamInfo | null
 export default function MatchDetailPage() {
   const params = useParams();
   const t = useTranslations("matchDetail");
+  const tNav = useTranslations("nav");
   const locale = useLocale();
   const dateLocale = locale === "fr" ? fr : enUS;
   const [matchId, setMatchId] = useState<number | null>(null);
@@ -210,6 +212,15 @@ export default function MatchDetailPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: tNav("home"), href: "/" },
+          { label: tNav("matches"), href: "/matches" },
+          { label: `${getTeamName(match.home_team)} vs ${getTeamName(match.away_team)}` },
+        ]}
+      />
+
       {/* Match Header */}
       <MatchHeader match={match} dateLocale={dateLocale} />
 

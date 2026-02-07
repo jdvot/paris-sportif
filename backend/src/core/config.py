@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     # Redis
     redis_url: str = "redis://localhost:6379"
+    redis_max_connections: int = 5
 
     # Qdrant (Vector DB for semantic search)
     qdrant_url: str = "http://localhost:6333"  # Or Qdrant Cloud URL

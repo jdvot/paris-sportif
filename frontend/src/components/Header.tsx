@@ -111,6 +111,7 @@ export function Header() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
+                  aria-label={t("sports")}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-2 rounded-lg transition-colors text-sm",
                     isSportsActive
@@ -175,7 +176,7 @@ export function Header() {
               href={item.href}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-1 flex-1",
+                "flex flex-col items-center gap-0.5 px-3 py-2 flex-1 min-h-[44px] min-w-[44px] justify-center",
                 isActive
                   ? "text-primary-600 dark:text-primary-400"
                   : "text-gray-500 dark:text-dark-400"
