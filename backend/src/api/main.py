@@ -314,19 +314,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         replace_existing=True,
     )
 
-    # Tennis sync - every 12 hours
+    # Tennis sync - every 3 hours
     scheduler.add_job(
         sync_tennis_matches,
-        trigger=IntervalTrigger(hours=12),
+        trigger=IntervalTrigger(hours=3),
         id="tennis_sync",
         name="Sync tennis matches and predictions",
         replace_existing=True,
     )
 
-    # NBA sync - every 6 hours
+    # NBA sync - every 3 hours
     scheduler.add_job(
         sync_nba_games,
-        trigger=IntervalTrigger(hours=6),
+        trigger=IntervalTrigger(hours=3),
         id="nba_sync",
         name="Sync NBA games and predictions",
         replace_existing=True,
@@ -334,7 +334,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     scheduler.start()
     logger.info(
-        "[Scheduler] Started - predictions 1h, football sync 6h, NBA 6h, tennis 12h, cache 6am UTC"
+        "[Scheduler] Started - predictions 1h, football 6h, tennis 3h, NBA 3h, cache 6am UTC"
     )
 
     # Run startup prefill in background (delayed 30s to let server accept traffic first)

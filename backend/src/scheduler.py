@@ -183,31 +183,14 @@ def init_scheduler() -> AsyncIOScheduler | None:
         name="Daily picks generation",
     )
 
-    # Tennis sync: Every day at 08:00 UTC
-    scheduler.add_job(
-        sync_tennis_task,
-        CronTrigger(hour=8, minute=0),
-        id="tennis_sync",
-        replace_existing=True,
-        name="Tennis daily sync",
-    )
-
-    # NBA sync: Every day at 15:00 UTC (before US evening games)
-    scheduler.add_job(
-        sync_nba_task,
-        CronTrigger(hour=15, minute=0),
-        id="nba_sync",
-        replace_existing=True,
-        name="NBA daily sync",
-    )
+    # NOTE: Tennis and NBA syncs are managed in main.py (IntervalTrigger every 3h)
+    # to avoid duplicate job IDs with the main scheduler.
 
     scheduler.start()
     logger.info("Background scheduler started")
     logger.info("  - Weekly sync: Sundays 20:00 UTC")
     logger.info("  - Daily sync: Every day 06:00 UTC")
     logger.info("  - Daily picks: Every day 09:00 UTC")
-    logger.info("  - Tennis sync: Every day 08:00 UTC")
-    logger.info("  - NBA sync: Every day 15:00 UTC")
 
     return scheduler
 

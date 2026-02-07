@@ -753,3 +753,55 @@ async def sync_historical_data(
         errors=all_errors,
         timestamp=datetime.now().isoformat(),
     )
+
+
+class SportSyncResponse(BaseModel):
+    """Response for sport-specific sync triggers."""
+
+    status: str
+    message: str
+    timestamp: str
+
+
+@router.post(
+    "/sync/tennis",
+    response_model=SportSyncResponse,
+    responses=ADMIN_RESPONSES,
+)
+async def sync_tennis(user: AdminUser) -> SportSyncResponse:  # type: ignore[arg-type]
+    """Trigger a manual tennis sync (players, matches, odds, predictions, daily picks)."""
+    from src.services.tennis_sync_service import sync_tennis_matches
+
+    logger.info(f"Admin {user.id} triggered manual tennis sync")
+    try:
+        await sync_tennis_matches()
+        return SportSyncResponse(
+            status="success",
+            message="Tennis sync completed successfully",
+            timestamp=datetime.now().isoformat(),
+        )
+    except Exception as e:
+        logger.error(f"Manual tennis sync failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Tennis sync failed") from e
+
+
+@router.post(
+    "/sync/nba",
+    response_model=SportSyncResponse,
+    responses=ADMIN_RESPONSES,
+)
+async def sync_nba(user: AdminUser) -> SportSyncResponse:  # type: ignore[arg-type]
+    """Trigger a manual NBA sync (teams, standings, games, odds, predictions, daily picks)."""
+    from src.services.nba_sync_service import sync_nba_games
+
+    logger.info(f"Admin {user.id} triggered manual NBA sync")
+    try:
+        await sync_nba_games()
+        return SportSyncResponse(
+            status="success",
+            message="NBA sync completed successfully",
+            timestamp=datetime.now().isoformat(),
+        )
+    except Exception as e:
+        logger.error(f"Manual NBA sync failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="NBA sync failed") from e
