@@ -40,7 +40,7 @@ import {
   Flame,
   Goal,
 } from "lucide-react";
-import { cn, isAuthError } from "@/lib/utils";
+import { cn, isAuthError, isNotFoundError } from "@/lib/utils";
 import { format, parseISO, type Locale } from "date-fns";
 import { fr, enUS } from "date-fns/locale";
 import dynamic from "next/dynamic";
@@ -226,7 +226,7 @@ export default function MatchDetailPage() {
             </div>
           )}
 
-          {!predictionLoading && predictionError && !isAuthError(predictionError) ? (
+          {!predictionLoading && predictionError && !isAuthError(predictionError) && !isNotFoundError(predictionError) ? (
             <div role="alert" className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-500/5 dark:to-orange-500/5 border border-red-200/50 dark:border-red-500/20 rounded-xl p-4 sm:p-5">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 p-2 bg-red-100 dark:bg-red-500/20 rounded-lg">
@@ -249,7 +249,7 @@ export default function MatchDetailPage() {
             </div>
           ) : null}
 
-          {!predictionLoading && !predictionError && !prediction && (
+          {!predictionLoading && ((!predictionError && !prediction) || isNotFoundError(predictionError)) && (
             <div role="alert" className="bg-gradient-to-r from-gray-50 to-slate-50 dark:from-slate-800/30 dark:to-slate-700/30 border border-gray-200/50 dark:border-slate-700/50 rounded-xl p-4 sm:p-5">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 p-2 bg-gray-100 dark:bg-slate-700 rounded-lg">

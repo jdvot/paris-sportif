@@ -70,6 +70,15 @@ export function isAuthError(error: unknown): boolean {
 }
 
 /**
+ * Check if an error is a 404 Not Found error
+ * Used to show "in preparation" instead of alarming error messages
+ */
+export function isNotFoundError(error: unknown): boolean {
+  const err = error as { status?: number };
+  return err?.status === 404;
+}
+
+/**
  * Safely reload the page, handling SSR and potential errors
  * Use this instead of directly calling window.location.reload()
  */
