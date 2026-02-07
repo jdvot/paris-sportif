@@ -1376,7 +1376,12 @@
     "noClubSelected": "No favorite club selected",
     "selectClub": "Choose my club",
     "form": "Form",
-    "position": "Position"
+    "position": "Position",
+    "points": "Points",
+    "league": "League",
+    "nextMatch": "Next match",
+    "home": "Home",
+    "away": "Away"
   },
   "dashboard": {
     "title": "Dashboard",

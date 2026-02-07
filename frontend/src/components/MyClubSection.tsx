@@ -179,7 +179,7 @@ export function MyClubSection({ className }: MyClubSectionProps) {
                   {/* Points */}
                   {summary.points !== null && (
                     <div className="p-3 bg-dark-800/50 rounded-lg">
-                      <p className="text-xs text-dark-400 mb-1">Points</p>
+                      <p className="text-xs text-dark-400 mb-1">{t("points")}</p>
                       <div className="flex items-center gap-2">
                         <Trophy className="w-4 h-4 text-yellow-400" />
                         <span className="text-xl font-bold text-white">
@@ -192,7 +192,7 @@ export function MyClubSection({ className }: MyClubSectionProps) {
                   {/* Competition */}
                   {summary.competition && (
                     <div className="p-3 bg-dark-800/50 rounded-lg">
-                      <p className="text-xs text-dark-400 mb-1">Ligue</p>
+                      <p className="text-xs text-dark-400 mb-1">{t("league")}</p>
                       <span className="text-sm font-medium text-white truncate block">
                         {summary.competition}
                       </span>
@@ -208,14 +208,14 @@ export function MyClubSection({ className }: MyClubSectionProps) {
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-primary-400" />
                       <span className="text-sm font-medium text-white">
-                        Prochain match
+                        {t("nextMatch")}
                       </span>
                     </div>
                     <Badge variant="outline" className="text-primary-400 border-primary-500/30">
                       {summary.next_match.is_home ? (
                         <MapPin className="w-3 h-3 mr-1" />
                       ) : null}
-                      {summary.next_match.is_home ? "Domicile" : "Extérieur"}
+                      {summary.next_match.is_home ? t("home") : t("away")}
                     </Badge>
                   </div>
                   <div className="mt-2">

@@ -57,6 +57,7 @@ export const customInstance = async <T>(
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        'Accept-Language': typeof document !== 'undefined' ? (document.documentElement.lang || 'fr') : 'fr',
         ...(token && { Authorization: `Bearer ${token}` }),
         ...options?.headers,
       },

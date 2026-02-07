@@ -1376,7 +1376,12 @@
     "noClubSelected": "Aucun club favori selectionne",
     "selectClub": "Choisir mon club",
     "form": "Forme",
-    "position": "Position"
+    "position": "Position",
+    "points": "Points",
+    "league": "Ligue",
+    "nextMatch": "Prochain match",
+    "home": "Domicile",
+    "away": "Exterieur"
   },
   "dashboard": {
     "title": "Tableau de bord",
